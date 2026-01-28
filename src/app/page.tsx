@@ -143,8 +143,9 @@ export default function Page() {
       <AppShell
         navbar={{ width: desktopOpened ? 260 : 60, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
         padding={0}
+        bg="gray.0"
       >
-        <AppShell.Navbar>
+        <AppShell.Navbar bg="transparent">
           <Sidebar 
             sessions={sessions} 
             activeSessionId={activeSessionId}
@@ -183,7 +184,7 @@ export default function Page() {
           />
         </AppShell.Navbar>
 
-        <AppShell.Main h="100dvh" bg="gray.0" pt={0} pb={0}>
+        <AppShell.Main h="100dvh" bg="white" pt={0} pb={0}>
           {activeSession ? (
             <ChatInterface 
               session={activeSession} 

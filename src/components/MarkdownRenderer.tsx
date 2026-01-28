@@ -8,20 +8,38 @@ import { Title, Text, Code, Paper, Blockquote, List, Box, Divider, Image } from 
 
 interface MarkdownRendererProps {
   content: string;
+  onLinkClick?: (href: string) => void;
 }
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick }) => {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeRaw, rehypeKatex]}
       components={{
-        h1: ({ children }) => <Title order={2} size={24} mt={32} mb={16} c="slate.9" fw={700}>{children}</Title>,
-        h2: ({ children }) => <Title order={3} size={20} mt={24} mb={12} c="slate.9" fw={600}>{children}</Title>,
-        h3: ({ children }) => <Title order={4} size={18} mt={20} mb={8} c="slate.9" fw={600}>{children}</Title>,
-        p: ({ children }) => <Text size="md" c="slate.8" mb="sm" style={{ lineHeight: 1.75 }}>{children}</Text>,
+        h1: ({ children }) => <Title order={2} size={32} mt={32} mb={16} c="slate.9" fw={700}>{children}</Title>,
+        h2: ({ children }) => <Title order={3} size={26} mt={24} mb={12} c="slate.9" fw={600}>{children}</Title>,
+        h3: ({ children }) => <Title order={4} size={22} mt={20} mb={8} c="slate.9" fw={600}>{children}</Title>,
+        p: ({ children }) => <Text size="xl" c="slate.8" mb="sm" style={{ lineHeight: 1.8, fontSize: '18px' }}>{children}</Text>,
         strong: ({ children }) => <Text span fw={600} c="slate.9">{children}</Text>,
         em: ({ children }) => <Text span fs="italic" c="slate.8">{children}</Text>,
+        a: ({ href, children }) => (
+            <Text 
+                component="a" 
+                href={href} 
+                c="indigo.6" 
+                fw={500} 
+                className="hover:underline cursor-pointer"
+                onClick={(e) => {
+                    if (onLinkClick && href) {
+                        e.preventDefault();
+                        onLinkClick(href);
+                    }
+                }}
+            >
+                {children}
+            </Text>
+        ),
         code: ({ className, children }: React.ComponentPropsWithoutRef<'code'>) => {
           const match = /language-(\w+)/.exec(className || '');
           const isInline = !match;
@@ -29,7 +47,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
             <Code c="slate.9" bg="gray.1" style={{ fontWeight: 500, fontSize: '0.9em', padding: '2px 4px' }}>{children}</Code>
           ) : (
              <Paper p="md" bg="slate.0" withBorder radius="md" my="md" style={{ overflow: 'auto' }}>
-              <Code block c="slate.9" bg="transparent" style={{ fontSize: '14px', lineHeight: '1.6' }}>{children}</Code>
+              <Code block c="slate.9" bg="transparent" style={{ fontSize: '16px', lineHeight: '1.6' }}>{children}</Code>
              </Paper>
           );
         },
@@ -40,7 +58,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
         ),
         ul: ({ children }) => <List spacing="xs" size="md" mb="md" center icon={<Box w={6} h={6} bg="slate.5" style={{ borderRadius: '50%', marginTop: '8px' }} />}>{children}</List>,
         ol: ({ children }) => <List type="ordered" spacing="xs" size="md" mb="md" center>{children}</List>,
-        li: ({ children }) => <List.Item style={{ fontSize: '16px', lineHeight: '28px', color: 'var(--mantine-color-slate-7)' }}>{children}</List.Item>,
+        li: ({ children }) => <List.Item style={{ fontSize: '18px', lineHeight: '30px', color: 'var(--mantine-color-slate-7)' }}>{children}</List.Item>,
         hr: () => <Divider my="xl" color="slate.2" />,
         img: ({ src, alt }) => (
            <Paper p="xs" withBorder radius="md" my="md">

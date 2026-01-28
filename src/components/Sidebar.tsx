@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ActionIcon, Avatar, Box, Button, Group, Menu, Modal, ScrollArea, Stack, Text, TextInput, ThemeIcon, Tooltip, UnstyledButton, rem } from '@mantine/core';
-import { Plus, GraduationCap, PanelLeft, PanelLeftOpen, LogOut, LogIn, Settings, Sparkles, Wand2, LifeBuoy, ChevronRight, Pin, PinOff, MoreHorizontal, Share, Users, PenLine, FolderOpen, Archive, Trash } from 'lucide-react';
+import { Plus, GraduationCap, PanelLeft, PanelLeftOpen, LogOut, LogIn, Settings, Sparkles, Wand2, LifeBuoy, Pin, PinOff, MoreHorizontal, Share, PenLine, Trash } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
 import { ChatSession } from '../types/index';
 import { createClient } from '@/lib/supabase/client';
@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
 
   if (!opened) {
     return (
-      <Stack h="100%" gap={0} bg="white" bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }} align="center" py="sm">
+      <Stack h="100%" bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }} align="center" py="sm">
         {/* Mini Header / Toggle */}
         <Tooltip label="Expand sidebar" position="right" withArrow>
             <ActionIcon 
@@ -180,7 +180,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
   }
 
   return (
-    <Stack h="100%" gap={0} bg="white" bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }}>
+    <Stack h="100%" gap={0} bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }}>
       
       {/* --- TOP SECTION --- */}
       <Box p="md">
@@ -215,8 +215,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
         >
             New Chat
         </Button>
-        {/* <Box px="md" mb="xs"> */}
-             <Button
+        <Button
                 fullWidth
                 variant="light" 
                 color="indigo"
@@ -226,7 +225,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
              >
                 Knowledge Base
              </Button>
-        {/* </Box> */}
       </Box>
 
       {/* --- MIDDLE SECTION (Grow) --- */}
@@ -258,7 +256,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
                       <Box style={{ flex: 1, overflow: 'hidden' }}>
                         <Group gap={6} align="center" wrap="nowrap">
                             {session.isPinned && <Pin size={12} className="text-indigo-500 fill-indigo-500" />}
-                            <Text fz={14} truncate c={isActive ? 'dark.9' : 'gray.7'} fw={isActive ? 600 : 450} lh="20px">
+                            <Text fz={15} truncate c={isActive ? 'dark.9' : 'gray.7'} fw={isActive ? 600 : 450} lh="20px">
                                 {session.title || session.course.code}
                             </Text>
                         </Group>
@@ -345,7 +343,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
                                 {(profile?.full_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
                             </Avatar>
                             <Box style={{ flex: 1, overflow: 'hidden' }}>
-                                <Text size="sm" fw={600} c="dark.9" truncate>{profile?.full_name || user.email?.split('@')[0]}</Text>
+                                <Text size="15px" fw={600} c="dark.9" truncate>{profile?.full_name || user.email?.split('@')[0]}</Text>
                                 {profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing' ? (
                                     <Text size="xs" c="indigo.6" fw={600}>Plus</Text>
                                 ) : (

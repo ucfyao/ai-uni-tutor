@@ -16,13 +16,100 @@ interface ChatInterfaceProps {
   onTogglePin: () => void;
 }
 
+import { extractCards, KnowledgeCard } from '@/lib/contentParser';
+import { KnowledgePanel } from './chat/KnowledgePanel';
+
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession, onRenameSession, onDeleteSession, onShareSession, onTogglePin }) => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
+  
+  // Knowledge Card Logic
+  const [knowledgeCards, setKnowledgeCards] = useState<KnowledgeCard[]>([]);
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [cardChats, setCardChats] = useState<Record<string, ChatMessage[]>>({});
+  const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
+  const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // User-Managed State
+  const [manualCards, setManualCards] = useState<KnowledgeCard[]>([]);
+  const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(new Set());
 
   const isNewChat = session.messages.length === 0;
+  const isLectureMode = session.mode === 'Lecture Helper';
+
+  // 1. Separate Main Chat vs. Knowledge Card Chat
+  const mainMessages = session.messages.filter(m => !m.cardId);
+
+  // 2. Hydrate Card Chats from Session History
+  useEffect(() => {
+    if (!isLectureMode) return;
+
+    const chats: Record<string, ChatMessage[]> = {};
+    session.messages.forEach(msg => {
+        if (msg.cardId) {
+            if (!chats[msg.cardId]) chats[msg.cardId] = [];
+            chats[msg.cardId].push(msg);
+        }
+    });
+    setCardChats(chats);
+  }, [session.messages, isLectureMode]);
+
+  useEffect(() => {
+    if (!isLectureMode) {
+        setKnowledgeCards([]);
+        return;
+    }
+
+    const allCards: KnowledgeCard[] = [];
+    // Only extract cards from MAIN chat to avoid recursion/duplication
+    mainMessages.forEach(msg => {
+        if (msg.role === 'assistant') {
+            const { cards } = extractCards(msg.content);
+            allCards.push(...cards);
+        }
+    });
+    
+    // Deduplicate cards by title
+    const uniqueAutoCards = Array.from(new Map(allCards.map(c => [c.title, c])).values());
+    
+    // Merge: Auto + Manual - Deleted
+    const combinedCards = [...uniqueAutoCards, ...manualCards]
+        .filter(card => !deletedCardIds.has(card.id));
+
+    // Deduplicate again (in case manual overrides auto) -> Prefer Manual? Or just unique by ID/Title?
+    // Let's assume unique by ID.
+    const uniqueFinalCards = Array.from(new Map(combinedCards.map(c => [c.id, c])).values());
+
+    setKnowledgeCards(uniqueFinalCards);
+  }, [session.messages, isLectureMode, manualCards, deletedCardIds]);
+
+  const handleDeleteCard = (cardId: string) => {
+    setDeletedCardIds(prev => {
+        const next = new Set(prev);
+        next.add(cardId);
+        return next;
+    });
+  };
+
+  const handleAddManualCard = (title: string, content: string) => {
+    const newCard: KnowledgeCard = {
+        id: `manual-${Date.now()}`,
+        title: title.trim(),
+        content: content.trim()
+    };
+    setManualCards(prev => [...prev, newCard]);
+    // Also remove from deleted if it was there (optional, but good UX)
+    setDeletedCardIds(prev => {
+        const next = new Set(prev);
+        // We can't easily know the ID if it was auto-generated differently, 
+        // but this manual add is fresh.
+        return next;
+    });
+    // Scroll to panel? or Open it?
+    setActiveCardId(newCard.id);
+  };
 
   const scrollToBottom = () => {
     if (viewport.current) {
@@ -33,6 +120,62 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
   useEffect(() => {
     scrollToBottom();
   }, [session.messages, isTyping]);
+
+
+  // --- INTERACTION HANDLERS ---
+
+  const handleHighlightClick = (cardId: string) => {
+    setActiveCardId(cardId);
+    
+    // Scroll to the card in the Knowledge Panel
+    const cardElement = cardRefs.current[cardId];
+    if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleCardAsk = async (card: KnowledgeCard, question: string) => {
+    // 1. Contextualize input for the AI, but keep display simple
+    const contextualInput = `Regarding the concept "${card.title}" in our lecture: ${question}`;
+    
+    // 2. Create User Message for LOCAL card chat
+    const userMsg: ChatMessage = { 
+        id: `u_${Date.now()}`, 
+        role: 'user', 
+        content: question, 
+        timestamp: Date.now(),
+        cardId: card.id // Link to card
+    };
+    
+    // Optimistic Update: Add to session (hydration will catch it)
+    const updatedSession = { ...session, messages: [...session.messages, userMsg] };
+    onUpdateSession(updatedSession);
+    
+    setLoadingCardId(card.id);
+
+    try {
+        // 3. Trigger API Call
+        // Construct history: Main Chat + This Exchange context
+        const contextHistory = mainMessages.concat({ role: 'user', content: contextualInput } as ChatMessage);
+        
+        const response = await generateChatResponse(session.course, session.mode, contextHistory, contextualInput);
+        
+        const aiMsg: ChatMessage = { 
+            id: `a_${Date.now()}`, 
+            role: 'assistant', 
+            content: response || "...", 
+            timestamp: Date.now(),
+            cardId: card.id // Link to card
+        };
+        
+        onUpdateSession({ ...updatedSession, messages: [...updatedSession.messages, aiMsg] });
+    } catch (e: any) {
+        console.error(e);
+        notifications.show({ title: 'Error', message: e.message, color: 'red' });
+    } finally {
+        setLoadingCardId(null);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
@@ -54,14 +197,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
             message: e.message || 'Failed to generate response.',
             color: 'red',
         });
-        // Remove the user message if failed? Or keep it? Keeping it lets them retry.
-        // But we should remove the 'typing' state which is done in finally.
     } finally {
         setIsTyping(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -70,7 +212,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
 
   // Shared Input Component
   const inputArea = (
-    <Container size="48rem" px={0} w="100%">
+    <Container size={isLectureMode ? "100%" : "48rem"} px={isLectureMode ? "md" : 0} w="100%">
       <Box 
         p="sm"
         style={{ 
@@ -101,7 +243,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
           minRows={1}
           maxRows={8}
           variant="unstyled"
-          placeholder="Message AI Tutor..."
+          placeholder={isLectureMode ? "Ask about a concept..." : "Message AI Tutor..."}
           size="md"
           value={input}
           onChange={(e) => setInput(e.currentTarget.value)}
@@ -349,42 +491,69 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
               </Container>
           </Stack>
       ) : (
-          /* STANDARD LAYOUT */
-          <>
-            <ScrollArea viewportRef={viewport} flex={1} scrollbarSize={8} type="auto">
-                <Box py={80}> 
-                <Container size="48rem" px={0}> 
-                    <Stack gap="xl">
-                    {session.messages.map((msg) => (
-                        <MessageBubble 
-                          key={msg.id} 
-                          message={msg} 
-                          isStreaming={msg.id === streamingMsgId}
-                          onStreamingComplete={() => setStreamingMsgId(null)}
-                          mode={session.mode}
-                        />
-                    ))}
-                    
-                    {isTyping && (
-                        <Group align="flex-start" gap="md" px="md">
-                        <Avatar size="sm" radius="sm" style={{ border: '1px solid var(--mantine-color-gray-2)' }} bg="transparent">
-                            <Bot size={18} className="text-indigo-600" />
-                        </Avatar>
-                        <Box mt={6}>
-                            <Loader size="xs" color="gray" type="dots" />
-                        </Box>
-                        </Group>
-                    )}
-                    </Stack>
-                </Container>
-                </Box>
-            </ScrollArea>
+          /* STANDARD LAYOUT - CONDITIONAL SPLIT */
+          <Group h="100%" gap={0} bg="transparent" align="stretch" style={{ flex: 1, overflow: 'hidden' }}>
+            
+            {/* LEFT COLUMN: CHAT */}
+            <Stack gap={0} h="100%" style={{ flex: 1, position: 'relative' }}>
+                <ScrollArea viewportRef={viewport} flex={1} scrollbarSize={8} type="auto">
+                    <Box pt={84} pb={150}> 
+                    <Container size={isLectureMode ? "100%" : "48rem"} px={isLectureMode ? "xl" : 0}> 
+                        <Stack gap="xl">
+                        {mainMessages.map((msg) => {
+                            // Clean content if assistant
+                            const displayText = msg.role === 'assistant' 
+                                ? extractCards(msg.content).cleanContent 
+                                : msg.content;
+                            
+                            return (
+                                <MessageBubble 
+                                key={msg.id} 
+                                message={{...msg, content: displayText}} 
+                                isStreaming={msg.id === streamingMsgId}
+                                onStreamingComplete={() => setStreamingMsgId(null)}
+                                mode={session.mode}
+                                knowledgeCards={knowledgeCards} // Pass cards for highlighting
+                                onHighlightClick={handleHighlightClick} // Pass click handler
+                                />
+                            );
+                        })}
+                        
+                        {isTyping && (
+                            <Group align="flex-start" gap="md" px="md">
+                            <Avatar size="sm" radius="sm" style={{ border: '1px solid var(--mantine-color-gray-2)' }} bg="transparent">
+                                <Bot size={18} className="text-indigo-600" />
+                            </Avatar>
+                            <Box mt={6}>
+                                <Loader size="xs" color="gray" type="dots" />
+                            </Box>
+                            </Group>
+                        )}
+                        </Stack>
+                    </Container>
+                    </Box>
+                </ScrollArea>
 
-            {/* Input Area - Floating & Centered */}
-            <Box p="md" bg="gradient(to top, white 0%, white 90%, transparent 100%)" pos="absolute" bottom={0} left={0} right={0}>
-                {inputArea}
-            </Box>
-          </>
+                {/* Input Area - Floating & Centered */}
+                <Box bg="white" pos="absolute" bottom={0} left={0} right={0} px={isLectureMode ? "xl" : 0} pb={isLectureMode ? "xl" : 0}>
+                    {inputArea}
+                </Box>
+            </Stack>
+
+            {/* RIGHT COLUMN: KNOWLEDGE PANEL */}
+            <KnowledgePanel 
+                cards={knowledgeCards} 
+                visible={isLectureMode} 
+                activeCardId={activeCardId}
+                onCardClick={(id) => setActiveCardId(id)}
+                onAsk={handleCardAsk}
+                onDelete={handleDeleteCard}
+                cardRefs={cardRefs}
+                cardChats={cardChats}
+                loadingCardId={loadingCardId}
+            />
+
+          </Group>
       )}
 
     </Stack>
@@ -392,3 +561,4 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
 };
 
 export default ChatInterface;
+

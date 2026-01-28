@@ -53,7 +53,12 @@ export async function generateChatResponse(
     Instructions:
     1. Always use Markdown for math formulas and code.
     2. In "Assignment Coach" mode, provide scaffolding and hints, never full answers.
-    3. In "Lecture Helper" mode, be concise and emphasize logical connections.
+    3. In "Lecture Helper" mode:
+       - Be concise and emphasize logical connections.
+       - You are a Tutor, not just an Answer Bot. Use guiding language (e.g., "Let's first look at...", "You can think of this as...").
+       - For every key term, math concept, or proper noun mentioned, generate a Knowledge Card using the format: <card title='TERM'>Brief explanation</card>.
+       - Place these cards at the end of the paragraph where the term is introduced.
+       - Do not show the cards as a list in the main text; just embed the tags.
     4. Maintain a supportive, professor-like persona.
   `;
 
@@ -131,6 +136,8 @@ export async function getChatSessions(): Promise<ChatSession[]> {
         return [];
     }
 
+    // ... (previous code)
+
     const sessions: ChatSession[] = [];
     for (const row of data) {
         // Optimization: For the sidebar list, we might not need all messages immediately, 
@@ -150,7 +157,8 @@ export async function getChatSessions(): Promise<ChatSession[]> {
                 id: msg.id,
                 role: msg.role,
                 content: msg.content,
-                timestamp: new Date(msg.created_at).getTime()
+                timestamp: new Date(msg.created_at).getTime(),
+                cardId: msg.card_id // Map DB column to type
             })) || [],
             lastUpdated: new Date(row.updated_at).getTime(),
             isPinned: row.is_pinned
@@ -196,7 +204,8 @@ export async function saveChatMessage(sessionId: string, message: ChatMessage) {
             session_id: sessionId,
             role: message.role,
             content: message.content,
-            created_at: new Date(message.timestamp).toISOString()
+            created_at: new Date(message.timestamp).toISOString(),
+            card_id: message.cardId || null // Save cardId
         });
 
     if (error) throw error;
@@ -296,7 +305,8 @@ export async function getSharedSession(sessionId: string): Promise<ChatSession |
             id: msg.id,
             role: msg.role,
             content: msg.content,
-            timestamp: new Date(msg.created_at).getTime()
+            timestamp: new Date(msg.created_at).getTime(),
+            cardId: msg.card_id // Map DB column
         })) || [],
         lastUpdated: new Date(sessionData.updated_at).getTime(),
         isPinned: sessionData.is_pinned,

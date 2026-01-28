@@ -20,6 +20,7 @@ export interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: number;
+    cardId?: string;
 }
 
 export interface ChatSession {
