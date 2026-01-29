@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Stack, Paper, Text, ScrollArea, Box, Group, Transition, Title, Collapse, TextInput, Button, ThemeIcon, ActionIcon, Loader, Avatar } from '@mantine/core';
-import { KnowledgeCard } from '@/lib/contentParser';
-import { Lightbulb, BookOpen, Send, Bot, Trash2 } from 'lucide-react';
+import { Stack, Paper, Text, ScrollArea, Box, Group, Transition, Title, Collapse, TextInput, Button, ThemeIcon, ActionIcon, Loader, Avatar, Modal } from '@mantine/core';
+import { KnowledgeCard, extractCards } from '@/lib/contentParser';
+import { Lightbulb, BookOpen, Send, Bot, Trash2, Check } from 'lucide-react';
 
 import { ChatMessage } from '@/types';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -30,6 +30,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
     loadingCardId
 }) => {
   const [inputs, setInputs] = useState<{ [key: string]: string }>({});
+  const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
 
   if (!visible) return null;
 
@@ -118,6 +119,12 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                                         {card.title}
                                     </Text>
                                     <Group gap={4} onClick={(e) => e.stopPropagation()}>
+                                        {isActive ? (
+                                            <ThemeIcon variant="light" color="indigo" size="sm"><BookOpen size={14} /></ThemeIcon>
+                                        ) : (
+                                            <Text size="xs" c="dimmed">View</Text>
+                                        )}
+
                                         <ActionIcon 
                                             variant="subtle" 
                                             color="gray" 
@@ -125,16 +132,11 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                                             className="opacity-0 group-hover:opacity-100 transition-opacity"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                onDelete(card.id);
+                                                setDeleteCardId(card.id);
                                             }}
                                         >
                                             <Trash2 size={14} />
                                         </ActionIcon>
-                                        {isActive ? (
-                                            <ThemeIcon variant="light" color="indigo" size="sm"><BookOpen size={14} /></ThemeIcon>
-                                        ) : (
-                                            <Text size="xs" c="dimmed">View</Text>
-                                        )}
                                     </Group>
                                 </Group>
 
@@ -162,7 +164,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                                                             <Text size="xs" c="dark.8">{msg.content}</Text>
                                                         ) : (
                                                             <Box style={{ fontSize: '12px' }}>
-                                                                <MarkdownRenderer content={msg.content} />
+                                                                <MarkdownRenderer content={extractCards(msg.content).cleanContent} compact />
                                                             </Box>
                                                         )}
                                                     </Box>
@@ -243,6 +245,30 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                 })}
             </Stack>
         </ScrollArea>
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        opened={!!deleteCardId} 
+        onClose={() => setDeleteCardId(null)}
+        title="Delete Knowledge Card"
+        centered
+        size="sm"
+      >
+        <Text size="sm" mb="lg">
+            Are you sure you want to delete this card? The conversation history inside it will also be removed.
+        </Text>
+        <Group justify="flex-end">
+            <Button variant="default" onClick={() => setDeleteCardId(null)}>Cancel</Button>
+            <Button 
+                color="red" 
+                onClick={() => {
+                    if (deleteCardId) onDelete(deleteCardId);
+                    setDeleteCardId(null);
+                }}
+            >
+                Delete
+            </Button>
+        </Group>
+      </Modal>
     </Box>
   );
 };

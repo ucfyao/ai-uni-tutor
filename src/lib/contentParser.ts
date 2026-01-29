@@ -7,7 +7,7 @@ export interface KnowledgeCard {
 
 export const extractCards = (text: string): { cleanContent: string; cards: KnowledgeCard[] } => {
     const cards: KnowledgeCard[] = [];
-    const cardRegex = /<card\s+([^>]*?)>([\s\S]*?)<\/card>/g;
+    const cardRegex = /<card\s+([^>]*?)>([\s\S]*?)<\/card>/gi;
 
     let cleanContent = text.replace(cardRegex, (match, attributes, content) => {
         const titleMatch = attributes.match(/title=['"]([^'"]+)['"]/);
