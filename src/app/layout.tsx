@@ -1,3 +1,4 @@
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { Notifications } from '@mantine/notifications';
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body>
         <MantineProvider theme={theme}>
             <Notifications position="top-right" zIndex={1000} />
+            <SpeedInsights />
             <Providers>
             <Shell>{children}</Shell>
             </Providers>
