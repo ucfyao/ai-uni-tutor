@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest"
   },
   "dependencies": {
     "@google/genai": "1.3.0",
@@ -47,6 +48,7 @@
     "@types/react": "19.2.9",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.1",
+    "dotenv": "^17.2.3",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.9",
     "eslint-config-prettier": "^10.1.8",
@@ -54,6 +56,9 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "prettier": "^3.8.1",
-    "typescript": "~5.8.2"
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite-tsconfig-paths": "^6.0.5",
+    "vitest": "^4.0.18"
   }
 }

@@ -14,7 +14,8 @@ function delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function generateChatResponse(
+// --- Internal Implementation ---
+async function _generateChatResponse(
     course: Course,
     mode: TutoringMode | null,
     history: ChatMessage[],
@@ -22,6 +23,39 @@ export async function generateChatResponse(
 ) {
     if (!process.env.GEMINI_API_KEY) {
         throw new Error("Missing GEMINI_API_KEY in environment variables");
+    }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    // Check Usage Limits
+    if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATELIMIT === 'true') {
+        const { checkLLMUsage } = await import('@/lib/redis');
+
+        // Get user subscription status
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('subscription_status')
+            .eq('id', user.id)
+            .single();
+
+        const isPro = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
+
+        const limit = isPro
+            ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100')
+            : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10');
+
+        const { success, remaining, count } = await checkLLMUsage(user.id, limit);
+
+        console.log(`[Quota Check] User: ${user.id} | Plan: ${isPro ? 'Pro' : 'Free'} | Limit: ${limit} | Usage: ${count} | Success: ${success}`);
+
+        if (!success) {
+            throw new Error(`Daily limit reached (${limit}/${limit}). Please upgrade to Pro for more.`);
+        }
     }
 
     // --- Validation Section ---
@@ -114,7 +148,43 @@ export async function generateChatResponse(
     }
 
     console.error("Gemini service failed after retries:", lastError);
-    throw new Error(`Gemini Error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+    throw lastError;
+}
+
+// --- Exported Wrapper with Error Masking ---
+export type ChatActionResponse =
+    | { success: true; data: string }
+    | { success: false; error: string; isLimitError?: boolean };
+
+export async function generateChatResponse(
+    course: Course,
+    mode: TutoringMode | null,
+    history: ChatMessage[],
+    userInput: string
+): Promise<ChatActionResponse> {
+    try {
+        return { success: true, data: await _generateChatResponse(course, mode, history, userInput) };
+    } catch (error: any) {
+        // Business Logic Errors: Propagate message
+        const message = error.message || String(error);
+
+        // Specific handling for Limit Reached to trigger UI Modal
+        if (message.includes("Daily limit reached")) {
+            return { success: false, error: message, isLimitError: true };
+        }
+
+        if (
+            message.includes("Validation Failed") ||
+            message.includes("Unauthorized") ||
+            message.includes("Missing GEMINI_API_KEY")
+        ) {
+            return { success: false, error: message };
+        }
+
+        // Technical/Third-Party Errors: Log and Mask
+        console.error("Internal/Third-Party Error in generateChatResponse:", error);
+        return { success: false, error: "An unexpected error occurred with the AI service. Please contact the administrator." };
+    }
 }
 
 // --- Persistence Actions ---

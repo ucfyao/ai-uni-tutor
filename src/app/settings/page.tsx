@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Container, Title, Text, Card, Button, Stack, Group, Badge, ThemeIcon, Skeleton, Paper, Divider, Box } from '@mantine/core';
+import { Container, Title, Text, Card, Button, Stack, Group, Badge, ThemeIcon, Skeleton, Paper, Divider, Box, Progress } from '@mantine/core';
 import { Check, Crown, CreditCard, ShieldCheck, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { notifications } from '@mantine/notifications';
 import { TextInput } from '@mantine/core';
+import { getAccessLimits, type AccessLimits, getDailyUsage } from '@/app/actions/limits';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
+  const [limits, setLimits] = useState<AccessLimits | null>(null);
+  const [usage, setUsage] = useState<number>(0);
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
@@ -29,6 +32,17 @@ export default function SettingsPage() {
             setFullName(data.full_name);
         }
       }
+      
+      // Fetch limits & usage
+      try {
+          const limitsData = await getAccessLimits();
+          setLimits(limitsData);
+          const usageData = await getDailyUsage();
+          setUsage(usageData);
+      } catch (e) {
+          console.error('Failed to fetch access limits', e);
+      }
+      
       setLoading(false);
     }
     getProfile();
@@ -208,6 +222,46 @@ export default function SettingsPage() {
                     </Paper>
                 )}
             </Box>
+        </Paper>
+
+        <Paper withBorder p="xl" radius="lg">
+            <Stack gap="md">
+                <Title order={3} fw={700}>Usage & Limits</Title>
+                <Text size="sm" c="dimmed">
+                    Current usage for your {isPro ? 'Plus' : 'Free'} plan.
+                </Text>
+                
+                <Stack>
+                    <Group justify="space-between" mb={5}>
+                        <Text fw={500}>Daily LLM Usage</Text>
+                        <Text size="sm" c={usage >= (isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10)) ? "red" : "dimmed"}>
+                            {usage} / {isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10)}
+                        </Text>
+                    </Group>
+                    <Progress 
+                        value={(usage / (isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10))) * 100} 
+                        color={usage >= (isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10)) ? "red" : "blue"}
+                        size="md"
+                        radius="xl"
+                        mb="sm"
+                    />
+                    
+                    <Divider />
+                    <Group justify="space-between">
+                        <Text fw={500}>File Upload Size</Text>
+                        <Badge variant="light" color="blue">
+                            {limits?.maxFileSizeMB || 5}MB per file
+                        </Badge>
+                    </Group>
+                    <Divider />
+                    <Group justify="space-between">
+                        <Text fw={500}>Document Storage</Text>
+                        <Badge variant="light" color={isPro ? "green" : "gray"}>
+                            {isPro ? "Unlimited" : "Limited (Shared)"}
+                        </Badge>
+                    </Group>
+                </Stack>
+            </Stack>
         </Paper>
 
         <Box>

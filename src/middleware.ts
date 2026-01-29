@@ -20,20 +20,10 @@ export async function middleware(request: NextRequest) {
         let key = ip
 
         if (user) {
-            // Check profile for subscription status
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('subscription_status')
-                .eq('id', user.id)
-                .single()
-
-            const isPro = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
-
-            if (isPro) {
-                limiter = proRatelimit
-            } else {
-                limiter = freeRatelimit
-            }
+            // Apply a generous rate limit for all logged-in users to prevent abuse/DDOS,
+            // but effectively "unlimited" for normal usage (100 req / 10s).
+            // Actual feature limits (LLM calls) are handled in server actions.
+            limiter = proRatelimit
             key = user.id
         }
 
