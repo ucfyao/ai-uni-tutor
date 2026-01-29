@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 async function testRateLimit() {
     const url = 'http://localhost:3000/api/chat'; // Assuming this endpoint is protected
-    const requestCount = 30; // 20 is the free limit, so 30 should trigger 429
+    const requestCount = 15; // Limit is set to 7 in env, so 15 should definitely trigger 429
     const interval = 100; // ms
 
     console.log(`Starting Rate Limit Test against ${url}...`);

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Loader, Container, SimpleGrid, Paper, ThemeIcon, rem, Menu, Tooltip } from '@mantine/core';
+import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Loader, Container, SimpleGrid, Paper, ThemeIcon, rem, Menu, Tooltip, Modal, Button } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Bot, Paperclip, ArrowUp, Share2, MoreHorizontal, Lightbulb, Code, Feather, ClipboardCheck, Globe, BrainCircuit, Pin, PinOff, PenLine, Share, Trash, Presentation, Compass, FileQuestion, ChevronRight } from 'lucide-react';
+import { Bot, Paperclip, ArrowUp, Share2, MoreHorizontal, Lightbulb, Code, Feather, ClipboardCheck, Globe, BrainCircuit, Pin, PinOff, PenLine, Share, Trash, Presentation, Compass, FileQuestion, ChevronRight, Sparkles } from 'lucide-react';
 import { ChatSession, ChatMessage } from '../types/index';
 import { generateChatResponse } from '@/app/actions/chat';
 import { MessageBubble } from './chat/MessageBubble';
@@ -20,6 +20,7 @@ import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { KnowledgePanel } from './chat/KnowledgePanel';
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession, onRenameSession, onDeleteSession, onShareSession, onTogglePin }) => {
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
@@ -158,20 +159,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
         // Construct history: Main Chat + This Exchange context
         const contextHistory = mainMessages.concat({ role: 'user', content: contextualInput } as ChatMessage);
         
-        const response = await generateChatResponse(session.course, session.mode, contextHistory, contextualInput);
+        const result = await generateChatResponse(session.course, session.mode, contextHistory, contextualInput);
         
+        if (!result.success) {
+             if (result.isLimitError) {
+                 setShowUpgradeModal(true);
+             } else {
+                 notifications.show({ title: 'Error', message: result.error, color: 'red' });
+             }
+             return;
+        }
+
         const aiMsg: ChatMessage = { 
             id: `a_${Date.now()}`, 
             role: 'assistant', 
-            content: response || "...", 
+            content: result.data || "...", 
             timestamp: Date.now(),
             cardId: card.id // Link to card
         };
         
         onUpdateSession({ ...updatedSession, messages: [...updatedSession.messages, aiMsg] });
     } catch (e: any) {
-        console.error(e);
-        notifications.show({ title: 'Error', message: e.message, color: 'red' });
+        console.error("Layout/Network Error:", e);
+        notifications.show({ title: 'Error', message: 'Failed to connect to server.', color: 'red' });
     } finally {
         setLoadingCardId(null);
     }
@@ -186,15 +196,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
     setIsTyping(true);
 
     try {
-        const response = await generateChatResponse(session.course, session.mode, updatedSession.messages, input);
-        const aiMsg: ChatMessage = { id: `a_${Date.now()}`, role: 'assistant', content: response || "...", timestamp: Date.now() };
+        const result = await generateChatResponse(session.course, session.mode, updatedSession.messages, input);
+        
+        if (!result.success) {
+            if (result.isLimitError) {
+                setShowUpgradeModal(true);
+            } else {
+                notifications.show({
+                    title: 'Action Failed',
+                    message: result.error || 'Failed to generate response.',
+                    color: 'red',
+                });
+            }
+            return;
+        }
+
+        const aiMsg: ChatMessage = { id: `a_${Date.now()}`, role: 'assistant', content: result.data || "...", timestamp: Date.now() };
         onUpdateSession({ ...updatedSession, messages: [...updatedSession.messages, aiMsg] });
         setStreamingMsgId(aiMsg.id);
     } catch (e: any) {
-        console.error(e);
+        console.error("Layout/Network Error:", e);
         notifications.show({
-            title: 'Action Failed',
-            message: e.message || 'Failed to generate response.',
+            title: 'Network Error',
+            message: 'Failed to connect to server.',
             color: 'red',
         });
     } finally {
@@ -555,6 +579,52 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
 
           </Group>
       )}
+
+      {/* Upgrade Modal */}
+      <Modal 
+        opened={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)}
+        title={
+            <Group gap="xs">
+                <Sparkles size={20} className="text-violet-600" />
+                <Text fw={700} c="violet.7" size="lg">Unlock Unlimited AI</Text>
+            </Group>
+        }
+        centered
+        radius="lg"
+        padding="xl"
+        zIndex={1001}
+      >
+        <Stack align="center" ta="center" gap="lg">
+            <Box p="md" bg="violet.0" style={{ borderRadius: '50%' }}>
+                <ThemeIcon size={48} radius="xl" variant="gradient" gradient={{ from: 'violet', to: 'indigo' }}>
+                    <Sparkles size={26} />
+                </ThemeIcon>
+            </Box>
+            
+            <Box>
+                <Text size="xl" fw={800} mb="xs">Daily Usage Limit Reached</Text>
+                <Text c="dimmed" lh={1.5}>
+                    You&apos;ve hit your daily message limit on the Free tier. 
+                    Upgrade to <span className="font-semibold text-violet-700">Pro</span> to remove limits and help us maintain the service.
+                </Text>
+            </Box>
+
+            <Group w="100%" justify="center">
+                <Button variant="default" onClick={() => setShowUpgradeModal(false)}>
+                    Maybe Later
+                </Button>
+                <Button 
+                    variant="gradient" 
+                    gradient={{ from: 'violet', to: 'indigo' }}
+                    onClick={() => window.location.href = '/pricing'}
+                    rightSection={<ArrowUp size={16} className="rotate-45" />}
+                >
+                    Upgrade Now
+                </Button>
+            </Group>
+        </Stack>
+      </Modal>
 
     </Stack>
   );

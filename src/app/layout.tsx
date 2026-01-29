@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
+import { Notifications } from '@mantine/notifications';
 import { Providers } from "@/components/Providers";
 import Shell from "./Shell";
 import "@mantine/core/styles.css";
+import '@mantine/notifications/styles.css';
 import 'katex/dist/katex.min.css';
 import { theme } from "@/theme";
 
@@ -28,6 +29,7 @@ export default function RootLayout({
       </head>
       <body>
         <MantineProvider theme={theme}>
+            <Notifications position="top-right" zIndex={1000} />
             <Providers>
             <Shell>{children}</Shell>
             </Providers>

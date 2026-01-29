@@ -94,8 +94,8 @@ export function FileUploader(props: Partial<DropzoneProps>) {
     <Stack>
       <Dropzone
         onDrop={handleDrop}
-        onReject={(files) => setError('File rejected. Please upload a valid PDF less than 5MB.')}
-        maxSize={5 * 1024 * 1024} // 5MB
+        onReject={(files) => setError(`File rejected. Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`)}
+        maxSize={(parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5')) * 1024 * 1024} // Configurable MB
         accept={PDF_MIME_TYPE}
         loading={loading}
         {...props}
