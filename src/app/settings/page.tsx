@@ -210,6 +210,38 @@ export default function SettingsPage() {
             </Box>
         </Paper>
 
+        <Paper withBorder p="xl" radius="lg">
+            <Stack gap="md">
+                <Title order={3} fw={700}>Usage & Limits</Title>
+                <Text size="sm" c="dimmed">
+                    Current limits associated with your {isPro ? 'Plus' : 'Free'} plan.
+                </Text>
+                
+                <Stack >
+                    <Group justify="space-between">
+                        <Text fw={500}>API Rate Limit</Text>
+                        <Badge variant="light" color={isPro ? "green" : "gray"}>
+                            {isPro ? "100 req / 10s" : "20 req / 10s"}
+                        </Badge>
+                    </Group>
+                    <Divider />
+                    <Group justify="space-between">
+                        <Text fw={500}>File Upload Size</Text>
+                        <Badge variant="light" color="blue">
+                            5MB per file
+                        </Badge>
+                    </Group>
+                    <Divider />
+                    <Group justify="space-between">
+                        <Text fw={500}>Document Storage</Text>
+                        <Badge variant="light" color={isPro ? "green" : "gray"}>
+                            {isPro ? "Unlimited" : "Limited (Shared)"}
+                        </Badge>
+                    </Group>
+                </Stack>
+            </Stack>
+        </Paper>
+
         <Box>
             <Title order={3} mb="md">Data & Privacy</Title>
             <Paper withBorder p="xl" radius="lg">
