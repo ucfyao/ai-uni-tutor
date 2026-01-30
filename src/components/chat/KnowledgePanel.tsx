@@ -106,7 +106,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             shadow={isActive ? 'md' : 'sm'}
                             withBorder
                             onClick={() => onCardClick(isActive ? null : card.id)}
-                            className={`group animate-in slide-in-from-right-4 fade-in duration-500 transition-all cursor-pointer hover:border-indigo-300 ${isActive ? 'ring-2 ring-indigo-50 border-indigo-200' : ''}`}
+                            className={`group animate-in slide-in-from-right-4 fade-in duration-100 transition-all cursor-pointer hover:border-indigo-300 ${isActive ? 'ring-2 ring-indigo-50 border-indigo-200' : ''}`}
                             style={{ 
                                 animationDelay: `${index * 100}ms`,
                                 borderColor: isActive ? 'var(--mantine-color-indigo-2)' : 'var(--mantine-color-gray-2)',
@@ -118,12 +118,10 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                                     <Text fw={700} size="sm" c={isActive ? "indigo.7" : "dark.8"} lh={1.3} style={{ flex: 1 }}>
                                         {card.title}
                                     </Text>
-                                    <Group gap={4} onClick={(e) => e.stopPropagation()}>
-                                        {isActive ? (
-                                            <ThemeIcon variant="light" color="indigo" size="sm"><BookOpen size={14} /></ThemeIcon>
-                                        ) : (
-                                            <Text size="xs" c="dimmed">View</Text>
-                                        )}
+                                    <Group gap={4}>
+                                        <ThemeIcon variant="light" color={isActive ? "indigo" : "gray"} size="sm">
+                                            <BookOpen size={14} />
+                                        </ThemeIcon>
 
                                         <ActionIcon 
                                             variant="subtle" 
