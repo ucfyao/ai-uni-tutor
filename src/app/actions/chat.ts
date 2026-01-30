@@ -189,6 +189,44 @@ export async function generateChatResponse(
 
 // --- Persistence Actions ---
 
+export async function getChatSession(sessionId: string): Promise<ChatSession | null> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data: sessionData, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (error || !sessionData) return null;
+
+    const { data: msgData } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+    return {
+        id: sessionData.id,
+        course: sessionData.course,
+        mode: sessionData.mode,
+        title: sessionData.title,
+        messages: msgData?.map((msg: any) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.created_at).getTime(),
+            cardId: msg.card_id
+        })) || [],
+        lastUpdated: new Date(sessionData.updated_at).getTime(),
+        isPinned: sessionData.is_pinned,
+        isShared: sessionData.is_shared
+    };
+}
+
 export async function getChatSessions(): Promise<ChatSession[]> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -205,6 +243,7 @@ export async function getChatSessions(): Promise<ChatSession[]> {
         console.error('Error fetching sessions:', error);
         return [];
     }
+
 
     // ... (previous code)
 

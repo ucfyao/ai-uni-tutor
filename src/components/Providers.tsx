@@ -4,6 +4,7 @@ import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { theme } from '@/theme';
+import { SessionProvider } from '@/context/SessionContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -18,7 +19,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={theme}>
-        {children}
+        <SessionProvider>
+            {children}
+        </SessionProvider>
       </MantineProvider>
     </QueryClientProvider>
   );
