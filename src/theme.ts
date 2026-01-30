@@ -7,6 +7,20 @@ const outfit = Outfit({ subsets: ['latin'] });
 
 export const theme = createTheme({
     fontFamily: outfit.style.fontFamily,
+    colors: {
+        slate: [
+            '#f8fafc',
+            '#f1f5f9',
+            '#e2e8f0',
+            '#cbd5e1',
+            '#94a3b8',
+            '#64748b',
+            '#475569',
+            '#334155',
+            '#1e293b',
+            '#0f172a',
+        ],
+    },
     headings: {
         fontFamily: outfit.style.fontFamily,
         sizes: {
@@ -39,6 +53,7 @@ export const theme = createTheme({
         Select: {
             defaultProps: {
                 radius: 'md',
+                // rightSection: <ChevronDown size={14} /> // Requires import, skipping for now
             },
         },
     },

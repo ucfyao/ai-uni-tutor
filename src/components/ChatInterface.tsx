@@ -38,14 +38,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
   const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(new Set());
 
   const isNewChat = session.messages.length === 0;
-  const isLectureMode = session.mode === 'Lecture Helper';
+  const isKnowledgeMode = session.mode === 'Lecture Helper' || session.mode === 'Assignment Coach';
 
   // 1. Separate Main Chat vs. Knowledge Card Chat
   const mainMessages = session.messages.filter(m => !m.cardId);
 
   // 2. Hydrate Card Chats from Session History
   useEffect(() => {
-    if (!isLectureMode) return;
+    if (!isKnowledgeMode) return;
 
     const chats: Record<string, ChatMessage[]> = {};
     session.messages.forEach(msg => {
@@ -55,10 +55,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
         }
     });
     setCardChats(chats);
-  }, [session.messages, isLectureMode]);
+  }, [session.messages, isKnowledgeMode]);
 
   useEffect(() => {
-    if (!isLectureMode) {
+    if (!isKnowledgeMode) {
         setKnowledgeCards([]);
         return;
     }
@@ -84,7 +84,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
     const uniqueFinalCards = Array.from(new Map(combinedCards.map(c => [c.id, c])).values());
 
     setKnowledgeCards(uniqueFinalCards);
-  }, [session.messages, isLectureMode, manualCards, deletedCardIds]);
+  }, [session.messages, isKnowledgeMode, manualCards, deletedCardIds]);
 
   const handleDeleteCard = (cardId: string) => {
     setDeletedCardIds(prev => {
@@ -236,7 +236,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
 
   // Shared Input Component
   const inputArea = (
-    <Container size={isLectureMode ? "100%" : "48rem"} px={isLectureMode ? "md" : 0} w="100%">
+    <Container size={isKnowledgeMode ? "100%" : "48rem"} px={isKnowledgeMode ? "md" : 0} w="100%">
       <Box 
         p="sm"
         style={{ 
@@ -267,7 +267,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
           minRows={1}
           maxRows={8}
           variant="unstyled"
-          placeholder={isLectureMode ? "Ask about a concept..." : "Message AI Tutor..."}
+          placeholder={isKnowledgeMode ? "Ask about a concept..." : "Message AI Tutor..."}
           size="md"
           value={input}
           onChange={(e) => setInput(e.currentTarget.value)}
@@ -522,7 +522,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
             <Stack gap={0} h="100%" style={{ flex: 1, position: 'relative' }}>
                 <ScrollArea viewportRef={viewport} flex={1} scrollbarSize={8} type="auto">
                     <Box pt={84} pb={150}> 
-                    <Container size={isLectureMode ? "100%" : "48rem"} px={isLectureMode ? "xl" : 0}> 
+                    <Container size={isKnowledgeMode ? "100%" : "48rem"} px={isKnowledgeMode ? "xl" : 0}> 
                         <Stack gap="xl">
                         {mainMessages.map((msg) => {
                             // Clean content if assistant
@@ -559,7 +559,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                 </ScrollArea>
 
                 {/* Input Area - Floating & Centered */}
-                <Box bg="white" pos="absolute" bottom={0} left={0} right={0} px={isLectureMode ? "xl" : 0} pb={isLectureMode ? "xl" : 0}>
+                <Box bg="white" pos="absolute" bottom={0} left={0} right={0} px={isKnowledgeMode ? "xl" : 0} pb={isKnowledgeMode ? "xl" : 0}>
                     {inputArea}
                 </Box>
             </Stack>
@@ -567,7 +567,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
             {/* RIGHT COLUMN: KNOWLEDGE PANEL */}
             <KnowledgePanel 
                 cards={knowledgeCards} 
-                visible={isLectureMode} 
+                visible={isKnowledgeMode} 
                 activeCardId={activeCardId}
                 onCardClick={(id) => setActiveCardId(id)}
                 onAsk={handleCardAsk}
