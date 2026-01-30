@@ -55,7 +55,26 @@ export function injectLinks(content: string, cards: KnowledgeCard[]): string {
             sortedCards.forEach(card => {
                 // Avoid replacing inside existing markdown links [text](url)
                 // Lookahead checks we are not inside []
-                const regex = new RegExp(`\\b(${escapeRegExp(card.title)})\\b(?![^\\[]*\\])`, 'gi');
+
+                const hasCJK = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(card.title);
+
+                // Regex patterns for matching
+                const mdMarker = "(?:\\*\\*|__)";
+                const escapedTitle = escapeRegExp(card.title);
+
+                let regex;
+
+                if (hasCJK) {
+                    // For CJK: Match either strictly wrapped (**Title**) OR plain (Title)
+                    // We avoid matching partials like **Title 
+                    regex = new RegExp(`(${mdMarker}${escapedTitle}${mdMarker}|${escapedTitle})(?![^\\[]*\\])`, 'gi');
+                } else {
+                    // For English: 
+                    // 1. Wrapped **Title** (Note: * is non-word, so \b check inside ** isn't needed usually, but markers are safer)
+                    // 2. Plain \bTitle\b
+                    regex = new RegExp(`(${mdMarker}${escapedTitle}${mdMarker}|\\b${escapedTitle}\\b)(?![^\\[]*\\])`, 'gi');
+                }
+
                 part = part.replace(regex, `[$1](#card-${card.id})`);
             });
             result += part;
