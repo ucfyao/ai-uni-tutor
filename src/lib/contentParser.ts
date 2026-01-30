@@ -24,3 +24,46 @@ export const extractCards = (text: string): { cleanContent: string; cards: Knowl
 
     return { cleanContent, cards };
 };
+
+function escapeRegExp(string: string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function injectLinks(content: string, cards: KnowledgeCard[]): string {
+    // Pre-clean: Remove backticks around math blocks which break rendering
+    // e.g. `$\theta$` -> $\theta$
+    content = content
+        .replace(/`(\$\$[\s\S]*?\$\$)`/g, '$1')
+        .replace(/`(\$[^`\n]+?\$)`/g, '$1');
+
+    if (!cards.length) return content;
+
+    const sortedCards = [...cards].sort((a, b) => b.title.length - a.title.length);
+
+    // Regex to match code blocks, inline code, and math to PROTECT them
+    const protectedPattern = /(```[\s\S]*?```|`[^`]*`|\$\$[\s\S]*?\$\$|\$[^$\n]*?\$)/g;
+
+    const parts = content.split(protectedPattern);
+
+    let result = '';
+
+    for (let i = 0; i < parts.length; i++) {
+        let part = parts[i];
+
+        // Even indices are text outside protected blocks
+        if (i % 2 === 0 && part) {
+            sortedCards.forEach(card => {
+                // Avoid replacing inside existing markdown links [text](url)
+                // Lookahead checks we are not inside []
+                const regex = new RegExp(`\\b(${escapeRegExp(card.title)})\\b(?![^\\[]*\\])`, 'gi');
+                part = part.replace(regex, `[$1](#card-${card.id})`);
+            });
+            result += part;
+        } else if (part) {
+            // Odd indices are protected blocks (or empty strings if undefined)
+            result += part;
+        }
+    }
+
+    return result;
+}

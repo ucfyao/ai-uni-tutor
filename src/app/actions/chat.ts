@@ -85,8 +85,11 @@ async function _generateChatResponse(
     Mode: ${mode}.
     
     Instructions:
-    1. Always use Markdown for math formulas and code.
-    2. In "Assignment Coach" mode, provide scaffolding and hints, never full answers.
+    1. Always use LaTeX for math formulas enclosed in $...$ or $$...$$. DO NOT wrap them in code blocks or backticks.
+    2. In "Assignment Coach" mode:
+       - Provide scaffolding and hints, never full answers.
+       - For every key concept, syntax, or method mentioned, generate a Knowledge Card using the format: <card title='TERM'>Brief explanation</card>.
+       - Place these cards at the end of the paragraph where the term is introduced.
     3. In "Lecture Helper" mode:
        - Be concise and emphasize logical connections.
        - You are a Tutor, not just an Answer Bot. Use guiding language (e.g., "Let's first look at...", "You can think of this as...").

@@ -4,7 +4,7 @@ import MarkdownRenderer from '../MarkdownRenderer';
 import { Typewriter } from '../ui/Typewriter';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import { Presentation, Compass, FileQuestion, Bot, Feather, Plus } from 'lucide-react'; // Add Plus
-import { KnowledgeCard } from '@/lib/contentParser';
+import { KnowledgeCard, injectLinks } from '@/lib/contentParser';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -74,14 +74,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const processedContent = React.useMemo(() => {
     if (isUser || !knowledgeCards.length || isStreaming) return message.content;
 
-    let content = message.content;
-    const sortedCards = [...knowledgeCards].sort((a, b) => b.title.length - a.title.length);
-
-    sortedCards.forEach(card => {
-        const regex = new RegExp(`\\b(${card.title})\\b(?![^[]*])`, 'gi');
-        content = content.replace(regex, `[$1](#card-${card.id})`);
-    });
-    return content;
+    return injectLinks(message.content, knowledgeCards);
   }, [message.content, knowledgeCards, isUser, isStreaming]);
 
   const handleLinkClick = (href: string) => {

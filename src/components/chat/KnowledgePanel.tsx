@@ -142,9 +142,9 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
 
                                 <Collapse in={isActive}>
                                     <Stack gap="md" mt="xs">
-                                        <Text size="sm" c="dark.6" lh={1.6}>
-                                            {card.content}
-                                        </Text>
+                                        <Box style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--mantine-color-dark-6)' }}>
+                                            <MarkdownRenderer content={card.content} compact />
+                                        </Box>
 
                                         {/* Local Chat History */}
                                         {(cardChats[card.id] && cardChats[card.id].length > 0) || loadingCardId === card.id ? (
