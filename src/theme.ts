@@ -24,37 +24,62 @@ export const theme = createTheme({
     headings: {
         fontFamily: outfit.style.fontFamily,
         sizes: {
-            h1: { fontSize: rem(36), fontWeight: '700' },
-            h2: { fontSize: rem(30), fontWeight: '600' },
-            h3: { fontSize: rem(24), fontWeight: '600' },
+            h1: { fontSize: rem(32), fontWeight: '700', lineHeight: '1.2' },
+            h2: { fontSize: rem(26), fontWeight: '600', lineHeight: '1.3' },
+            h3: { fontSize: rem(22), fontWeight: '600', lineHeight: '1.35' },
+            h4: { fontSize: rem(18), fontWeight: '600', lineHeight: '1.4' },
+            h5: { fontSize: rem(16), fontWeight: '600', lineHeight: '1.5' },
         },
     },
     primaryColor: 'indigo',
-    defaultRadius: 'md',
+    defaultRadius: 'lg',
     cursorType: 'pointer',
     components: {
         Button: {
             defaultProps: {
                 radius: 'xl',
+                h: 'auto',
+                py: 'xs',
             },
         },
         Card: {
             defaultProps: {
                 withBorder: true,
                 shadow: 'sm',
-                radius: 'md',
+                radius: 'lg',
+                p: 'md',
             },
         },
         TextInput: {
             defaultProps: {
-                radius: 'md',
+                radius: 'lg',
             },
+            styles: {
+                input: {
+                    borderWidth: '1px',
+                }
+            }
         },
         Select: {
             defaultProps: {
-                radius: 'md',
-                // rightSection: <ChevronDown size={14} /> // Requires import, skipping for now
+                radius: 'lg',
             },
+            styles: {
+                input: {
+                    borderWidth: '1px',
+                }
+            }
         },
+        Modal: {
+            defaultProps: {
+                radius: 'lg',
+            }
+        },
+        Menu: {
+            defaultProps: {
+                radius: 'lg',
+                shadow: 'md',
+            }
+        }
     },
 });

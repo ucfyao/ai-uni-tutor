@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkLLMUsage, redis } from './redis';
+import { checkLLMUsage } from './redis';
 
 describe('Redis Rate Limiting Integration', () => {
     it('should enforce daily limits correctly', async () => {

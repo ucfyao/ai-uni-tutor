@@ -14,16 +14,20 @@ export async function parsePDF(buffer: Buffer): Promise<{ fullText: string; page
     const pages: PDFPage[] = [];
 
     // Custom render function to extract page text and numbers
-    const render_page = (pageData: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const render_page = (pageData: { getTextContent: (opts: any) => Promise<any> }) => {
         const render_options = {
             normalizeWhitespace: false,
             disableCombineTextItems: false
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return pageData.getTextContent(render_options)
-            .then(function (textContent: any) {
-                let lastY, text = '';
-                for (let item of textContent.items) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .then(function (textContent: { items: any[] }) {
+                let lastY;
+                let text = '';
+                for (const item of textContent.items) {
                     // Sanitize text (remove null bytes)
                     const cleanStr = (item.str || "").replace(/\u0000/g, '');
 

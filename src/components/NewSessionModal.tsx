@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { Modal, Select, Button, Group, Stack, Text, UnstyledButton, Box, ThemeIcon, Center } from '@mantine/core';
-import { ArrowRight, BookOpen, Code, ClipboardCheck, X, GraduationCap, School, Layers, Building2, Book, ChevronDown } from 'lucide-react';
+import { ArrowRight, X, Building2, Book, ChevronDown } from 'lucide-react';
 import { Course, TutoringMode } from '../types/index';
-import { COURSES, MODES, UNIVERSITIES } from '../constants/index';
+import { COURSES, UNIVERSITIES } from '../constants/index';
 
 interface NewSessionModalProps {
   opened: boolean;

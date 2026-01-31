@@ -17,18 +17,19 @@ export async function POST(req: NextRequest) {
             signature,
             process.env.STRIPE_WEBHOOK_SECRET!
         )
-    } catch (error: any) {
+    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
         return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 })
     }
 
-    const session = event.data.object as Stripe.Checkout.Session
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = event.data.object as any;
 
     const supabase = await createClient()
 
     if (event.type === 'checkout.session.completed') {
         const subscription = (await stripe.subscriptions.retrieve(
             session.subscription as string
-        )) as any
+        )) as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
         if (!session?.metadata?.userId) {
             return new NextResponse('User ID is required', { status: 400 })
@@ -48,10 +49,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === 'invoice.payment_succeeded') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const invoice = event.data.object as any
         const subscription = (await stripe.subscriptions.retrieve(
             invoice.subscription as string
-        )) as any
+        )) as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
         await supabase
             .from('profiles')
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === 'customer.subscription.updated') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const subscription = event.data.object as any
 
         await supabase
@@ -80,6 +83,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === 'customer.subscription.deleted') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const subscription = event.data.object as any
 
         await supabase

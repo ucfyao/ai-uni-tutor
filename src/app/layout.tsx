@@ -7,6 +7,7 @@ import Shell from "./Shell";
 import "@mantine/core/styles.css";
 import '@mantine/notifications/styles.css';
 import 'katex/dist/katex.min.css';
+import "./globals.css";
 import { theme } from "@/theme";
 
 export const metadata: Metadata = {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+
 import { 
   Paper, 
   TextInput, 
@@ -15,11 +16,9 @@ import {
   Box, 
   Divider, 
   Alert,
-  ThemeIcon,
-  Stack,
-  rem
+  Stack
 } from '@mantine/core';
-import { GraduationCap, AlertCircle, Mail, Lock, Check } from 'lucide-react';
+import { AlertCircle, Mail, Lock, Check } from 'lucide-react';
 import { login, signup } from './actions';
 
 export default function LoginPage() {
@@ -61,9 +60,10 @@ export default function LoginPage() {
             setError(res.error);
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message || 'An unexpected error occurred');
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(msg);
     } finally {
       setLoading(false);
     }

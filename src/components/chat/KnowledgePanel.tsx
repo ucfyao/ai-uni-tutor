@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Stack, Paper, Text, ScrollArea, Box, Group, Transition, Title, Collapse, TextInput, Button, ThemeIcon, ActionIcon, Loader, Avatar, Modal } from '@mantine/core';
+import { Stack, Paper, Text, ScrollArea, Box, Group, Collapse, TextInput, Button, ThemeIcon, ActionIcon, Loader, Avatar, Modal } from '@mantine/core';
 import { KnowledgeCard, extractCards } from '@/lib/contentParser';
-import { Lightbulb, BookOpen, Send, Bot, Trash2, Check } from 'lucide-react';
+import { Lightbulb, BookOpen, Send, Bot, Trash2 } from 'lucide-react';
 
 import { ChatMessage } from '@/types';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -45,34 +45,33 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   return (
     <Box 
       h="100%" 
-      w="35%"
-      pt={60} // Clear global header
-      bg="#F9FAFB" 
-      className="border-l border-gray-200"
+      w={{ base: '100%', md: 360, lg: 400 }}
+      bg="gray.0" 
       style={{ 
+        borderLeft: '1px solid var(--mantine-color-gray-2)',
         flexShrink: 0,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        minWidth: 320
       }}
     >
-        {/* Header - Unified Style */}
-        <Box 
-            h={60} 
-            px="md" 
-            bg="rgba(255, 255, 255, 0.7)"
-            style={{ 
-                borderBottom: '1px solid #e5e7eb', 
-                display: 'flex', 
-                alignItems: 'center',
-                backdropFilter: 'blur(10px)',
-                zIndex: 10
-            }}
-        >
-            <Group gap="xs">
-                <ThemeIcon variant="light" color="indigo" size="sm" radius="sm">
-                    <BookOpen size={14} />
-                </ThemeIcon>
-                <Text fw={600} size="sm" c="dark.8">Knowledge Panel</Text>
+        {/* Header - Detached/Floating Style */}
+        <Box pt={1} px={1} pb={0} style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--mantine-color-gray-0)' }}>
+            <Group 
+                h={46} 
+                px="sm" 
+                justify="space-between"
+                bg="white"
+                style={{ 
+                    border: '1px solid var(--mantine-color-gray-2)',
+                }}
+            >
+                <Group gap="xs">
+                    <ThemeIcon variant="light" color="indigo" size="sm" radius="sm">
+                        <BookOpen size={14} />
+                    </ThemeIcon>
+                    <Text fw={600} size="sm" c="dark.8">Knowledge Panel</Text>
+                </Group>
             </Group>
         </Box>
         
@@ -83,9 +82,11 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                         mt="xl" 
                         p="xl" 
                         ta="center" 
-                        style={{ opacity: 0.6, border: '1px dashed var(--mantine-color-gray-3)', borderRadius: '12px' }}
+                        style={{ opacity: 0.8 }}
                     >
-                        <Lightbulb size={32} className="text-gray-400 mx-auto mb-3" />
+                        <Box bg="gray.1" w={64} h={64} mx="auto" mb="md" style={{ borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Lightbulb size={32} className="text-gray-400" />
+                        </Box>
                         <Text size="sm" c="dimmed" fw={500}>
                             Waiting for concepts...
                         </Text>
@@ -106,10 +107,10 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             shadow={isActive ? 'md' : 'sm'}
                             withBorder
                             onClick={() => onCardClick(isActive ? null : card.id)}
-                            className={`group animate-in slide-in-from-right-4 fade-in duration-100 transition-all cursor-pointer hover:border-indigo-300 ${isActive ? 'ring-2 ring-indigo-50 border-indigo-200' : ''}`}
+                            className={`group animate-in slide-in-from-right-4 fade-in duration-200 transition-all cursor-pointer hover:border-indigo-300 hover:shadow-md ${isActive ? 'ring-2 ring-indigo-50 border-indigo-200 shadow-md' : ''}`}
                             style={{ 
                                 animationDelay: `${index * 100}ms`,
-                                borderColor: isActive ? 'var(--mantine-color-indigo-2)' : 'var(--mantine-color-gray-2)',
+                                borderColor: isActive ? 'var(--mantine-color-indigo-4)' : 'var(--mantine-color-gray-2)',
                                 backgroundColor: isActive ? 'white' : 'var(--mantine-color-white)',
                             }}
                         >
@@ -127,7 +128,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                                             variant="subtle" 
                                             color="gray" 
                                             size="sm"
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="text-gray-300 hover:text-red-500 transition-colors"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setDeleteCardId(card.id);
@@ -200,9 +201,9 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                                                 <Group gap={6}>
                                                     <Text size="xs" fw={500} c="indigo.9">Ask about this topic</Text>
                                                 </Group>
-                                                <Group gap={0} align="flex-start">
+                                                <Group gap={0}>
                                                     <TextInput 
-                                                        placeholder="e.g. Example?"
+                                                        placeholder={`Ask about "${card.title}"...`}
                                                         size="xs"
                                                         radius="md"
                                                         value={inputs[card.id] || ''}
@@ -219,19 +220,21 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                                                             }
                                                         }}
                                                         style={{ flex: 1 }}
-                                                        styles={{ input: { borderTopRightRadius: 0, borderBottomRightRadius: 0 } }}
+                                                        rightSection={
+                                                            <ActionIcon 
+                                                                size="sm" 
+                                                                radius="sm" 
+                                                                variant="filled" 
+                                                                color="indigo"
+                                                                onClick={() => handleAsk(card)}
+                                                                disabled={loadingCardId === card.id || !inputs[card.id]?.trim()}
+                                                                style={{ marginRight: 4 }}
+                                                            >
+                                                                <Send size={12} />
+                                                            </ActionIcon>
+                                                        }
+                                                        rightSectionWidth={34}
                                                     />
-                                                    <Button 
-                                                        size="xs" 
-                                                        radius="md" 
-                                                        variant="filled" 
-                                                        color="indigo"
-                                                        onClick={() => handleAsk(card)}
-                                                        disabled={loadingCardId === card.id}
-                                                        style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, height: 30 }}
-                                                    >
-                                                        <Send size={14} />
-                                                    </Button>
                                                 </Group>
                                             </Stack>
                                         </Box>

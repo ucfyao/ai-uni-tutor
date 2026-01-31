@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Modal, Stack, Text, Switch, TextInput, Button, Group, Box, CopyButton, ActionIcon, Tooltip } from '@mantine/core';
+import { Modal, Stack, Text, Switch, TextInput, Group, Box, CopyButton, ActionIcon, Tooltip } from '@mantine/core';
 import { Copy, Check, Globe } from 'lucide-react';
 import { ChatSession } from '../types/index';
-import { toggleSessionPin } from '@/app/actions/chat'; // Assuming we export toggleSessionShare from actions too? No, it's separate.
 import { toggleSessionShare } from '@/app/actions/chat';
 
 interface ShareModalProps {

@@ -3,7 +3,6 @@
 import { Table, Group, Text, Badge, ActionIcon, Tooltip } from '@mantine/core';
 import { FileText, CheckCircle, Clock, AlertCircle, Trash2 } from 'lucide-react';
 import { deleteDocument } from '@/app/actions/documents';
-import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { notifications } from '@mantine/notifications';
@@ -17,6 +16,7 @@ interface Document {
   metadata: {
     school?: string;
     course?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   } | null;
 }
@@ -26,7 +26,6 @@ interface KnowledgeTableProps {
 }
 
 export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTableProps) {
-  const router = useRouter();
   const [documents, setDocuments] = useState<Document[]>(initialDocuments);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const supabase = createClient();
@@ -86,7 +85,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
         // We don't need to refresh here if we trust the optimistic update + realtime
         // But revalidatePath on server is good for next hard nav.
         // Also realtime DELETE event will confirm it.
-    } catch (e) {
+    } catch {
         // Revert on error
         setDocuments(previousDocs);
         notifications.show({

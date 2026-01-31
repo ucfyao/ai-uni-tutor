@@ -1,68 +1,53 @@
 'use client';
 
-import { Container, Title, Text, Accordion, Stack, Button, Flex, TextInput, Textarea, Box, Paper } from '@mantine/core';
-import { Mail, Search, HelpCircle } from 'lucide-react';
+import { Container, Title, Text, Accordion, Paper, Stack, ThemeIcon, Input, ActionIcon } from '@mantine/core';
+import { HelpCircle, FileText, Search, GraduationCap, Sparkles } from 'lucide-react';
 
 export default function HelpPage() {
   return (
-    <Container size="md" py={60}>
-      <Stack gap={60}>
-        <Stack align="center" gap="md">
-            <HelpCircle size={48} className="text-violet-600" />
-            <Title order={1} fz={40} fw={900}>How can we help?</Title>
-            <TextInput 
-                placeholder="Search for answers..." 
-                leftSection={<Search size={16} />}
-                size="lg"
-                w="100%"
-                maw={500}
-                radius="xl"
-            />
-        </Stack>
+    <Container size="lg" py={80}>
+      <Stack align="center" gap="xl" mb={60}>
+        <ThemeIcon size={80} radius="100%" variant="light" color="blue" mb="md">
+            <HelpCircle size={40} />
+        </ThemeIcon>
+        <Title order={1} size={48} fw={900} ta="center">How can we help?</Title>
+        <Text c="dimmed" size="lg" ta="center" maw={600}>
+          Search our knowledge base or browse frequently asked questions to find the answers you need.
+        </Text>
         
-        <Box>
-            <Title order={2} mb="xl">Frequently Asked Questions</Title>
-            <Accordion variant="separated" radius="lg" defaultValue="account">
-                <Accordion.Item value="account">
-                    <Accordion.Control>How do I reset my password?</Accordion.Control>
-                    <Accordion.Panel>You can reset your password by going to the login page and clicking on "Forgot Password". Follow the instructions sent to your email.</Accordion.Panel>
+        <Paper withBorder radius="xl" p="xs" w="100%" maw={600} style={{ display: 'flex', alignItems: 'center' }}>
+            <Input 
+                variant="unstyled" 
+                placeholder="Search for help..." 
+                style={{ flex: 1, paddingLeft: 16 }} 
+            />
+            <ActionIcon size="xl" radius="xl" variant="filled" color="blue">
+                <Search size={20} />
+            </ActionIcon>
+        </Paper>
+      </Stack>
+
+      <Container size="sm">
+        <Stack gap="xl">
+            <Title order={2}>Frequently Asked Questions</Title>
+            <Accordion variant="separated" radius="lg">
+                <Accordion.Item value="upload">
+                    <Accordion.Control icon={<FileText size={20} />}>How do I upload course materials?</Accordion.Control>
+                    <Accordion.Panel>You can upload PDF documents (syllabus, notes, etc.) directly in the chat interface or through the &quot;Knowledge Base&quot; section in the sidebar. Simply drag and drop your files or click to select them.</Accordion.Panel>
                 </Accordion.Item>
 
-                <Accordion.Item value="billing">
-                    <Accordion.Control>How do I cancel my subscription?</Accordion.Control>
-                    <Accordion.Panel>Go to Settings, scroll down to the Plan & Billing section, and click "Manage via Stripe". You can cancel your subscription there.</Accordion.Panel>
+                <Accordion.Item value="modes">
+                    <Accordion.Control icon={<GraduationCap size={20} />}>What are the different tutoring modes?</Accordion.Control>
+                    <Accordion.Panel>AI Tutor offers several modes: &quot;Lecture Helper&quot; for understanding concepts, &quot;Assignment Coach&quot; for help with tasks, and &quot;Exam Prep&quot; for study sessions. You can switch modes in the session settings.</Accordion.Panel>
                 </Accordion.Item>
 
-                <Accordion.Item value="uploads">
-                    <Accordion.Control>What file formats are supported?</Accordion.Control>
-                    <Accordion.Panel>We currently support PDF files for knowledge base uploads.</Accordion.Panel>
-                </Accordion.Item>
-                
-                 <Accordion.Item value="ai">
-                    <Accordion.Control>Which AI model is used?</Accordion.Control>
+                <Accordion.Item value="ai">
+                    <Accordion.Control icon={<Sparkles size={20} />}>Which AI model is used?</Accordion.Control>
                     <Accordion.Panel>We utilize advanced models like Gemini 2.0 to provide the best possible tutoring experience.</Accordion.Panel>
                 </Accordion.Item>
             </Accordion>
-        </Box>
-
-        <Paper withBorder p="xl" radius="lg" bg="gray.0">
-            <Flex justify="space-between" align="center" direction={{ base: 'column', sm: 'row' }} gap="md">
-                <Stack gap={4}>
-                    <Title order={3}>Still need help?</Title>
-                    <Text c="dimmed">Our support team is just a message away.</Text>
-                </Stack>
-                <Button 
-                    component="a" 
-                    href="mailto:ucfyao@gmail.com"
-                    size="lg" 
-                    color="dark" 
-                    leftSection={<Mail size={18}/>}
-                >
-                    Contact Support
-                </Button>
-            </Flex>
-        </Paper>
-      </Stack>
+        </Stack>
+      </Container>
     </Container>
   );
 }
