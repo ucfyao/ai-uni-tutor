@@ -49,7 +49,7 @@ async function _generateChatResponse(
             ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100')
             : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10');
 
-        const { success, remaining, count } = await checkLLMUsage(user.id, limit);
+        const { success, count } = await checkLLMUsage(user.id, limit);
 
         console.log(`[Quota Check] User: ${user.id} | Plan: ${isPro ? 'Pro' : 'Free'} | Limit: ${limit} | Usage: ${count} | Success: ${success}`);
 
@@ -137,7 +137,7 @@ async function _generateChatResponse(
             });
 
             return response.text;
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
             lastError = error;
             // Check for 429 Too Many Requests
             if (error.message?.includes('429') || error.status === 429) {
@@ -167,7 +167,7 @@ export async function generateChatResponse(
 ): Promise<ChatActionResponse> {
     try {
         return { success: true, data: await _generateChatResponse(course, mode, history, userInput) };
-    } catch (error: any) {
+    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
         // Business Logic Errors: Propagate message
         const message = error.message || String(error);
 
@@ -217,7 +217,7 @@ export async function getChatSession(sessionId: string): Promise<ChatSession | n
         course: sessionData.course,
         mode: sessionData.mode,
         title: sessionData.title,
-        messages: msgData?.map((msg: any) => ({
+        messages: msgData?.map((msg: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
             id: msg.id,
             role: msg.role,
             content: msg.content,
@@ -265,7 +265,7 @@ export async function getChatSessions(): Promise<ChatSession[]> {
             course: row.course,
             mode: row.mode,
             title: row.title,
-            messages: msgData?.map((msg: any) => ({
+            messages: msgData?.map((msg: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
                 id: msg.id,
                 role: msg.role,
                 content: msg.content,
@@ -413,7 +413,7 @@ export async function getSharedSession(sessionId: string): Promise<ChatSession |
         course: sessionData.course,
         mode: sessionData.mode,
         title: sessionData.title,
-        messages: msgData?.map((msg: any) => ({
+        messages: msgData?.map((msg: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
             id: msg.id,
             role: msg.role,
             content: msg.content,

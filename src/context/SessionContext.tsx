@@ -2,8 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ChatSession, Course, TutoringMode } from '@/types/index';
-import { getChatSessions, createChatSession, deleteChatSession, updateChatSessionTitle, toggleSessionPin } from '@/app/actions/chat';
-import { useRouter } from 'next/navigation';
+import { getChatSessions, createChatSession, deleteChatSession } from '@/app/actions/chat';
 
 interface SessionContextType {
     sessions: ChatSession[];
@@ -19,7 +18,6 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 export function SessionProvider({ children }: { children: React.ReactNode }) {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(true);
-    const router = useRouter();
 
     const fetchSessions = useCallback(async () => {
         try {

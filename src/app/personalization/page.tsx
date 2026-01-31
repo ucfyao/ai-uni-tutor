@@ -1,6 +1,6 @@
 'use client';
 
-import { Container, Title, Text, Stack, Switch, Select, Button, Paper, Divider, Box, Avatar, Group, FileInput, useMantineColorScheme, useComputedColorScheme, Modal, TextInput, LoadingOverlay } from '@mantine/core';
+import { Container, Title, Text, Stack, Switch, Select, Button, Paper, Divider, Box, Avatar, Group, useMantineColorScheme, useComputedColorScheme, Modal, TextInput } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { User, Globe, Moon, Bell, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -11,6 +11,7 @@ export default function PersonalizationPage() {
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const [opened, { open, close }] = useDisclosure(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

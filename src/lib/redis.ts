@@ -15,6 +15,7 @@ export const ratelimit = new Ratelimit({
     redis: redis,
     limiter: Ratelimit.slidingWindow(
         parseInt(process.env.RATE_LIMIT_PUBLIC_REQUESTS || '10'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (process.env.RATE_LIMIT_PUBLIC_WINDOW || '10 s') as any
     ),
     analytics: true,
@@ -26,6 +27,7 @@ export const freeRatelimit = new Ratelimit({
     redis: redis,
     limiter: Ratelimit.slidingWindow(
         parseInt(process.env.RATE_LIMIT_FREE_REQUESTS || '20'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (process.env.RATE_LIMIT_FREE_WINDOW || '10 s') as any
     ),
     analytics: true,
@@ -37,6 +39,7 @@ export const proRatelimit = new Ratelimit({
     redis: redis,
     limiter: Ratelimit.slidingWindow(
         parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (process.env.RATE_LIMIT_PRO_WINDOW || '10 s') as any
     ),
     analytics: true,

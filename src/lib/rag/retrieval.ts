@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { generateEmbedding } from "./embedding";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function retrieveContext(query: string, filter: Record<string, any> = {}, matchCount: number = 5) {
     const embedding = await generateEmbedding(query);
     const supabase = await createClient();
@@ -8,7 +9,7 @@ export async function retrieveContext(query: string, filter: Record<string, any>
     // Hybrid Search: combines vector similarity + keyword rank (RRF)
     const { data: chunks, error } = await supabase.rpc('hybrid_search', {
         query_text: query,
-        query_embedding: embedding as any,
+        query_embedding: embedding,
         match_threshold: 0.5,
         match_count: matchCount,
         rrf_k: 60,
@@ -23,6 +24,7 @@ export async function retrieveContext(query: string, filter: Record<string, any>
     // Format context with citations
     // e.g. "Content... (Page 5)"
     return chunks.map(chunk => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const page = (chunk.metadata as any)?.page;
         const sourceInfo = page ? ` (Page ${page})` : '';
         return `${chunk.content}${sourceInfo}`;

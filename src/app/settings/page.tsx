@@ -1,20 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Container, Title, Text, Card, Button, Stack, Group, Badge, ThemeIcon, Skeleton, Paper, Divider, Box, Progress } from '@mantine/core';
-import { Check, Crown, CreditCard, ShieldCheck, Sparkles } from 'lucide-react';
+import { Container, Title, Text, Button, Stack, Group, Badge, ThemeIcon, Skeleton, Paper, Divider, Box, Progress } from '@mantine/core';
+import { ShieldCheck, Crown, CreditCard } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { notifications } from '@mantine/notifications';
 import { TextInput } from '@mantine/core';
 import { getAccessLimits, type AccessLimits, getDailyUsage } from '@/app/actions/limits';
 
 export default function SettingsPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [profile, setProfile] = useState<any>(null);
   const [limits, setLimits] = useState<AccessLimits | null>(null);
   const [usage, setUsage] = useState<number>(0);
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState(false);
+  // const [upgrading, setUpgrading] = useState(false);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
 
@@ -48,7 +49,7 @@ export default function SettingsPage() {
     getProfile();
   }, [supabase]);
 
-  const handleUpgrade = async () => {
+  /* const handleUpgrade = async () => {
     setUpgrading(true);
     try {
       const response = await fetch('/api/stripe/checkout', {
@@ -69,7 +70,7 @@ export default function SettingsPage() {
     } finally {
       setUpgrading(false);
     }
-  };
+  }; */
 
   const handleSaveProfile = async () => {
     if (!profile) return;
@@ -90,10 +91,11 @@ export default function SettingsPage() {
             message: 'Profile updated successfully',
             color: 'green',
         });
-    } catch (e: any) {
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Unknown error';
         notifications.show({
             title: 'Error',
-            message: e.message,
+            message,
             color: 'red',
         });
     } finally {

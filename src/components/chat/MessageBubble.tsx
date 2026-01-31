@@ -3,7 +3,7 @@ import { Box, Group, Text, Popover, Button, TextInput } from '@mantine/core'; //
 import MarkdownRenderer from '../MarkdownRenderer';
 import { Typewriter } from '../ui/Typewriter';
 import { ChatMessage, TutoringMode } from '@/types/index';
-import { Presentation, Compass, FileQuestion, Bot, Feather, Plus } from 'lucide-react'; // Add Plus
+import { Presentation, Compass, FileQuestion, Bot, Plus } from 'lucide-react'; // Add Plus
 import { KnowledgeCard, injectLinks } from '@/lib/contentParser';
 
 interface MessageBubbleProps {
@@ -57,7 +57,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // Close selection on generic click if not selecting
   useEffect(() => {
-    const clearSelection = (e: MouseEvent) => {
+    const clearSelection = () => {
         // Validation logic to ensure we don't close when clicking INSIDE the popover
         // This is tricky with React Portals.
         // For simple MVP: reliance on Popover's outside click + text selection logic.
@@ -87,7 +87,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   // Bot Configuration based on Mode
   const botConfig = React.useMemo(() => {
     if (isUser) return {};
-    const defaultConfig = { icon: Bot, color: 'gray', gradient: 'from-gray-100 to-gray-200' };
+    // const defaultConfig = { icon: Bot, color: 'gray', gradient: 'from-gray-100 to-gray-200' };
     switch (mode) {
         case 'Lecture Helper':
             return { icon: Presentation, color: 'indigo', gradient: 'var(--mantine-color-indigo-1)', iconColor: 'var(--mantine-color-indigo-6)' };
@@ -188,7 +188,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                 autoFocus
                             />
                             <Text size="xs" c="dimmed" lineClamp={2} mb={8} fs="italic">
-                                "{selection.text}"
+                                &quot;{selection.text}&quot;
                             </Text>
                             <Button 
                                 size="xs" 

@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Loader, Container, SimpleGrid, Paper, ThemeIcon, rem, Menu, Tooltip, Modal, Button } from '@mantine/core';
+import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Loader, Container, SimpleGrid, Paper, ThemeIcon, Menu, Tooltip, Modal, Button, Drawer, Burger } from '@mantine/core'; // Added Burger
 import { notifications } from '@mantine/notifications';
-import { Bot, Paperclip, ArrowUp, Share2, MoreHorizontal, Lightbulb, Code, Feather, ClipboardCheck, Globe, BrainCircuit, Pin, PinOff, PenLine, Share, Trash, Presentation, Compass, FileQuestion, ChevronRight, Sparkles } from 'lucide-react';
+import { useMediaQuery } from '@mantine/hooks'; 
+import { Bot, Paperclip, ArrowUp, Share2, MoreHorizontal, Globe, BrainCircuit, Pin, PinOff, PenLine, Share, Trash, Presentation, Compass, FileQuestion, Sparkles, Feather, BookOpen } from 'lucide-react';
 import { ChatSession, ChatMessage } from '../types/index';
 import { generateChatResponse } from '@/app/actions/chat';
 import { MessageBubble } from './chat/MessageBubble';
 import { MODES } from '../constants/index';
+import { useSidebar } from '@/context/SidebarContext'; // Re-added useSidebar
+import { useHeader } from '@/context/HeaderContext'; // Added
 
 interface ChatInterfaceProps {
   session: ChatSession;
@@ -20,28 +23,125 @@ import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { KnowledgePanel } from './chat/KnowledgePanel';
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession, onRenameSession, onDeleteSession, onShareSession, onTogglePin }) => {
+  // ... existing state ...
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
-  
-  // Knowledge Card Logic
+
+  // Derived State (Moved Up)
+  const isNewChat = session.messages.length === 0;
+  const isKnowledgeMode = session.mode === 'Lecture Helper' || session.mode === 'Assignment Coach';
+
+  // Mobile Response State
+  const isMobile = useMediaQuery('(max-width: 48em)'); // 768px (Sidebar)
+  const isCompact = useMediaQuery('(max-width: 64em)'); // 1024px (Knowledge Panel)
+  const [mobileKnowledgeOpened, setMobileKnowledgeOpened] = useState(false);
+  const { toggleMobile, mobileOpened } = useSidebar(); 
+  const { setHeaderContent } = useHeader(); // Context
+
+  // ... Knowledge Card Logic ...
   const [knowledgeCards, setKnowledgeCards] = useState<KnowledgeCard[]>([]);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [cardChats, setCardChats] = useState<Record<string, ChatMessage[]>>({});
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  
+  // ... useEffects ...
+
+  // HEADER CONTENT CONSTRUCTION
+  const headerContentNode = React.useMemo(() => (
+      <Group justify="space-between" wrap="nowrap" w="100%">
+           <Group 
+             gap={8} 
+             align="center" 
+             wrap="nowrap"
+             style={{ cursor: 'pointer', flex: 1, minWidth: 0 }} 
+             className="hover:bg-gray-50 p-2 rounded-lg transition-colors"
+           >
+              <Text fw={600} size="lg" c="dark.8" truncate>{session.course.code}</Text>
+              <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}> {'>'} </Text>
+              <Text fw={500} size="sm" c={session.mode ? "dimmed" : "indigo.6"} truncate>
+                {session.mode || "Select Mode"}
+              </Text>
+           </Group>
+           
+           <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+               {isKnowledgeMode && isCompact && (
+                   <ActionIcon 
+                       variant={mobileKnowledgeOpened ? "light" : "subtle"} 
+                       color="indigo"
+                       radius="xl" 
+                       size="lg" 
+                       onClick={() => setMobileKnowledgeOpened(true)}
+                   >
+                        <BookOpen size={20} strokeWidth={1.5} />
+                   </ActionIcon>
+               )}
+               <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg" onClick={onShareSession}>
+                    <Share2 size={20} strokeWidth={1.5} />
+               </ActionIcon>
+               
+               <Menu position="bottom-end" withArrow>
+                   <Menu.Target>
+                       <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg">
+                            <MoreHorizontal size={20} strokeWidth={1.5} />
+                       </ActionIcon>
+                   </Menu.Target>
+                   <Menu.Dropdown>
+                        <Menu.Item leftSection={<Share size={14} />} onClick={onShareSession}>Share</Menu.Item>
+                        <Menu.Item leftSection={<PenLine size={14} />} onClick={onRenameSession}>Rename</Menu.Item>
+                        <Menu.Item leftSection={session.isPinned ? <PinOff size={14} /> : <Pin size={14} />} onClick={onTogglePin}>{session.isPinned ? 'Unpin chat' : 'Pin chat'}</Menu.Item>
+                        <Menu.Divider />
+                        <Menu.Item leftSection={<Trash size={14} />} color="red" onClick={onDeleteSession}>Delete</Menu.Item>
+                   </Menu.Dropdown>
+               </Menu>
+           </Group>
+      </Group>
+  ), [session.course.code, session.mode, session.isPinned, isKnowledgeMode, isCompact, mobileKnowledgeOpened, onShareSession, onRenameSession, onTogglePin, onDeleteSession]);
+
+  // Sync Header to Context on Mobile
+  useEffect(() => {
+    if (isMobile) {
+        setHeaderContent(headerContentNode);
+    } else {
+        setHeaderContent(null);
+    }
+    // Cleanup to prevent stale header if unmounting
+    return () => setHeaderContent(null); 
+  }, [isMobile, headerContentNode, setHeaderContent]);
+
+  // ... 
+  
+  // Handlers ...
+
+  // Auto-open drawer when card becomes active on mobile/compact
+  useEffect(() => {
+    if (activeCardId && isCompact) {
+        setMobileKnowledgeOpened(true);
+    }
+  }, [activeCardId, isCompact]);
+
+  // Derived State (WAS here, moved up)
+
+  // ... rest ...
+
+  // RENDER
+  // We need to Conditional Render the Header inside Return.
+  // Find where `return (` starts (approx line 325-ish originally).
+  // Wrap layout header in `{!isMobile && ...}`.
+  
+  // Note: I cannot replace the whole render here easily because it's huge.
+  // I will target the Header block specifically.
+
 
   // User-Managed State
-  const [manualCards, setManualCards] = useState<KnowledgeCard[]>([]);
+  const [manualCards] = useState<KnowledgeCard[]>([]);
   const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(new Set());
 
-  const isNewChat = session.messages.length === 0;
-  const isKnowledgeMode = session.mode === 'Lecture Helper' || session.mode === 'Assignment Coach';
-
   // 1. Separate Main Chat vs. Knowledge Card Chat
-  const mainMessages = session.messages.filter(m => !m.cardId);
+  const mainMessages = React.useMemo(() => session.messages.filter(m => !m.cardId), [session.messages]);
 
   // 2. Hydrate Card Chats from Session History
   useEffect(() => {
@@ -84,7 +184,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
     const uniqueFinalCards = Array.from(new Map(combinedCards.map(c => [c.id, c])).values());
 
     setKnowledgeCards(uniqueFinalCards);
-  }, [session.messages, isKnowledgeMode, manualCards, deletedCardIds]);
+  }, [mainMessages, isKnowledgeMode, manualCards, deletedCardIds]);
 
   const handleDeleteCard = (cardId: string) => {
     setDeletedCardIds(prev => {
@@ -94,7 +194,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
     });
   };
 
-  const handleAddManualCard = (title: string, content: string) => {
+  /* const handleAddManualCard = (title: string, content: string) => {
     const newCard: KnowledgeCard = {
         id: `manual-${Date.now()}`,
         title: title.trim(),
@@ -110,7 +210,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
     });
     // Scroll to panel? or Open it?
     setActiveCardId(newCard.id);
-  };
+  }; */
 
   const scrollToBottom = () => {
     if (viewport.current) {
@@ -179,7 +279,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
         };
         
         onUpdateSession({ ...updatedSession, messages: [...updatedSession.messages, aiMsg] });
-    } catch (e: any) {
+    } catch (e) {
         console.error("Layout/Network Error:", e);
         notifications.show({ title: 'Error', message: 'Failed to connect to server.', color: 'red' });
     } finally {
@@ -214,7 +314,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
         const aiMsg: ChatMessage = { id: `a_${Date.now()}`, role: 'assistant', content: result.data || "...", timestamp: Date.now() };
         onUpdateSession({ ...updatedSession, messages: [...updatedSession.messages, aiMsg] });
         setStreamingMsgId(aiMsg.id);
-    } catch (e: any) {
+    } catch (e) {
         console.error("Layout/Network Error:", e);
         notifications.show({
             title: 'Network Error',
@@ -238,16 +338,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
   const inputArea = (
     <Container size={isKnowledgeMode ? "100%" : "48rem"} px={isKnowledgeMode ? "md" : 0} w="100%">
       <Box 
-        p="sm"
+        p={8}
         style={{ 
-          borderRadius: '24px', 
+          borderRadius: '26px', 
           display: 'flex',
           alignItems: 'flex-end', 
-          border: '1px solid var(--mantine-color-gray-2)',
-          backgroundColor: 'rgba(255, 255, 255, 0.85)',
-          backdropFilter: 'blur(12px)',
-          transition: 'all 0.3s ease',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)'
+          border: '1px solid var(--mantine-color-gray-3)',
+          backgroundColor: 'rgba(255, 255, 255, 1)',
+          transition: 'all 0.2s ease',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
         }}
         className="group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300"
       >
@@ -255,11 +354,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
             variant="subtle" 
             c="gray.5" 
             radius="xl" 
-            size="lg" 
+            size={32}
             mb={6}
+            ml={4}
             className="hover:bg-gray-100 hover:text-dark transition-colors"
         >
-          <Paperclip size={20} strokeWidth={2} />
+          <Paperclip size={18} strokeWidth={2} />
         </ActionIcon>
         
         <Textarea
@@ -273,7 +373,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
           onChange={(e) => setInput(e.currentTarget.value)}
           onKeyDown={handleKeyDown}
           flex={1}
-          px="sm"
+          px="xs"
           styles={{ 
             input: { 
                 paddingTop: '10px', 
@@ -287,18 +387,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
         />
         
         <ActionIcon 
-          size={42} 
+          size={32} 
           radius="xl" 
           variant={input.trim() ? 'gradient' : 'filled'}
           gradient={{ from: 'indigo.6', to: 'violet.6', deg: 45 }}
           color={input.trim() ? undefined : "gray.2"} 
           onClick={handleSend} 
           disabled={!input.trim() || isTyping}
-          mb={2}
-          style={{ transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
-          className={input.trim() ? 'shadow-md hover:scale-110 hover:shadow-lg' : ''}
+          mb={6}
+          mr={4}
+          style={{ transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+          className={input.trim() ? 'shadow-md hover:scale-105' : ''}
         >
-          <ArrowUp size={22} strokeWidth={3} color={input.trim() ? 'white' : 'var(--mantine-color-gray-5)'} />
+          <ArrowUp size={18} strokeWidth={3} color={input.trim() ? 'white' : 'var(--mantine-color-gray-5)'} />
         </ActionIcon>
       </Box>
       <Text ta="center" size="xs" c="dimmed" mt="xs" mb="xs" fw={500}>
@@ -310,8 +411,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
   return (
     <Stack h="100%" gap={0} bg="transparent" pos="relative">
       
-      {/* Header - Minimal with Glass Effect */}
-      <Box px="md" py={14} bg="rgba(255,255,255,0.7)" pos="absolute" top={0} left={0} right={0} style={{ borderBottom: isNewChat ? 'none' : '1px solid var(--mantine-color-gray-2)', zIndex: 10, backdropFilter: 'blur(10px)' }}>
+      {/* Header - Static Flex Item - Only on NON-MOBILE */}
+      {!isMobile && (
+      <Box px="md" py={14} bg="rgba(255,255,255,0.7)" style={{ borderBottom: isNewChat ? 'none' : '1px solid var(--mantine-color-gray-2)', zIndex: 10, backdropFilter: 'blur(10px)', flexShrink: 0 }}>
         <Group justify="space-between" wrap="nowrap">
            <Group 
              gap={8} 
@@ -328,6 +430,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
            </Group>
            
            <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+               {isKnowledgeMode && isCompact && (
+                   <ActionIcon 
+                       variant={mobileKnowledgeOpened ? "light" : "subtle"} 
+                       color="indigo"
+                       radius="xl" 
+                       size="lg" 
+                       onClick={() => setMobileKnowledgeOpened(true)}
+                   >
+                        <BookOpen size={20} strokeWidth={1.5} />
+                   </ActionIcon>
+               )}
                <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg" onClick={onShareSession}>
                     <Share2 size={20} strokeWidth={1.5} />
                </ActionIcon>
@@ -370,10 +483,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
            </Group>
         </Group>
       </Box>
+      )}
 
       {isNewChat ? (
           /* CENTERED LAYOUT FOR NEW CHAT */
-              <Stack flex={1} px="md" justify="center" gap={64}>
+              <Stack flex={1} px="md" justify="center" gap={64} style={{ overflowY: 'auto' }}>
+                  {/* ... contents ... */}
                   <Container size="50rem" w="100%">
                       <Stack gap={64}>
                           {/* Welcome Hero Section */}
@@ -456,7 +571,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                                             };
                                             onUpdateSession({ 
                                                 ...session, 
-                                                mode: mode.label as any, 
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                mode: mode.label as any,  // Fixed elsewhere if types allow, but sticking with existing any here for safety if types mismatch 
                                                 messages: [welcomeMsg] 
                                             });
                                         }}
@@ -515,13 +631,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
               </Container>
           </Stack>
       ) : (
-          /* STANDARD LAYOUT - CONDITIONAL SPLIT */
-          <Group h="100%" gap={0} bg="transparent" align="stretch" style={{ flex: 1, overflow: 'hidden' }}>
+          /* STANDARD LAYOUT - FLEX COLUMN SPLIT */
+          <Group flex={1} gap={0} bg="transparent" align="stretch" style={{ overflow: 'hidden', minHeight: 0 }}>
             
             {/* LEFT COLUMN: CHAT */}
-            <Stack gap={0} h="100%" style={{ flex: 1, position: 'relative' }}>
+            <Stack gap={0} h="100%" style={{ flex: 1, minWidth: 0 }}>
+                {/* Chat Scroll Area - Flex 1 to fill available space */}
                 <ScrollArea viewportRef={viewport} flex={1} scrollbarSize={8} type="auto">
-                    <Box pt={84} pb={150}> 
+                    <Box pt="md" pb="md"> 
                     <Container size={isKnowledgeMode ? "100%" : "48rem"} px={isKnowledgeMode ? "xl" : 0}> 
                         <Stack gap="xl">
                         {mainMessages.map((msg) => {
@@ -558,8 +675,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                     </Box>
                 </ScrollArea>
 
-                {/* Input Area - Floating & Centered */}
-                <Box bg="white" pos="absolute" bottom={0} left={0} right={0} px={isKnowledgeMode ? "xl" : 0} pb={isKnowledgeMode ? "xl" : 0}>
+                {/* Input Area - Static Flex Item at Bottom */}
+                <Box bg="white" px={isKnowledgeMode ? "md" : 0} pb={isKnowledgeMode ? "md" : 0} pt={0} style={{ flexShrink: 0, zIndex: 5 }}>
                     {inputArea}
                 </Box>
             </Stack>
@@ -567,7 +684,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
             {/* RIGHT COLUMN: KNOWLEDGE PANEL */}
             <KnowledgePanel 
                 cards={knowledgeCards} 
-                visible={isKnowledgeMode} 
+                visible={isKnowledgeMode && !isCompact} 
                 activeCardId={activeCardId}
                 onCardClick={(id) => setActiveCardId(id)}
                 onAsk={handleCardAsk}
@@ -625,6 +742,36 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
             </Group>
         </Stack>
       </Modal>
+
+        <Drawer
+            opened={isKnowledgeMode && isCompact && mobileKnowledgeOpened}
+            onClose={() => setMobileKnowledgeOpened(false)}
+            position="right"
+            size="90%"
+            withCloseButton={false}
+            padding={0}
+            zIndex={200}
+        >
+            <Box h="100dvh" style={{ display: 'flex', flexDirection: 'column' }}>
+                <Group p="md" bg="white" justify="space-between" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+                    <Text fw={600}>Knowledge Panel</Text>
+                    <ActionIcon variant="subtle" onClick={() => setMobileKnowledgeOpened(false)}>
+                        <ArrowUp size={20} className="rotate-90" />
+                    </ActionIcon>
+                </Group>
+                 <KnowledgePanel 
+                    cards={knowledgeCards} 
+                    visible={true} 
+                    activeCardId={activeCardId}
+                    onCardClick={(id) => setActiveCardId(id)}
+                    onAsk={handleCardAsk}
+                    onDelete={handleDeleteCard}
+                    cardRefs={cardRefs}
+                    cardChats={cardChats}
+                    loadingCardId={loadingCardId}
+                />
+            </Box>
+        </Drawer>
 
     </Stack>
   );

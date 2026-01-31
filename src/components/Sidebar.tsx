@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ActionIcon, Avatar, Box, Button, Group, Menu, Modal, ScrollArea, Stack, Text, TextInput, ThemeIcon, Tooltip, UnstyledButton, rem } from '@mantine/core';
-import { Plus, GraduationCap, PanelLeft, PanelLeftOpen, LogOut, LogIn, Settings, Sparkles, Wand2, LifeBuoy, Pin, PinOff, MoreHorizontal, Share, PenLine, Trash } from 'lucide-react';
-import { notifications } from '@mantine/notifications';
+import { ActionIcon, Avatar, Box, Button, Group, Menu, ScrollArea, Stack, Text, Tooltip, UnstyledButton, ThemeIcon } from '@mantine/core';
+import { Plus, GraduationCap, PanelLeft, PanelLeftOpen, LogOut, LogIn, Settings, Sparkles, Wand2, LifeBuoy, Pin, PinOff, MoreHorizontal, Share, PenLine, Trash, X, SquarePen } from 'lucide-react';
 import { ChatSession } from '../types/index';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -24,9 +23,10 @@ interface SidebarProps {
   opened: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSession, onNewChat, onToggleSidebar, onTogglePin, onRenameSession, onDeleteSession, onShareSession, onUpdateSession, onGoHome, opened }) => {
+const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSession, onNewChat, onToggleSidebar, onTogglePin, onRenameSession, onDeleteSession, onShareSession, onGoHome, opened }) => {
+
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<{ full_name?: string; subscription_status?: string } | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
@@ -70,14 +70,15 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
 
   if (!opened) {
     return (
-      <Stack h="100%" bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }} align="center" py="sm">
+      <Stack h="100%" bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }} align="center" py="md" gap="sm">
+        {/* Mini Header / Toggle */}
         {/* Mini Header / Toggle */}
         <Tooltip label="Expand sidebar" position="right" withArrow>
             <ActionIcon 
                 variant="transparent" 
                 color="dimmed" 
                 onClick={onToggleSidebar} 
-                size="lg" 
+                size="md" 
                 mb="xs"
                 className="transition-colors hover:text-dark"
                 onMouseEnter={() => setExpandHover(true)}
@@ -85,9 +86,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
             >
                 {/* Show Logo by default, show Panel icon on hover */}
                 {expandHover ? (
-                    <PanelLeftOpen size={20} />
+                    <PanelLeftOpen size={20} strokeWidth={1.5} />
                 ) : (
-                    <img src="/assets/logo.png" alt="Logo" width={22} height={22} />
+                    <img src="/assets/logo.png" alt="Logo" width={20} height={20} />
                 )}
             </ActionIcon>
         </Tooltip>
@@ -96,13 +97,12 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
         <Tooltip label="New chat" position="right" withArrow>
             <ActionIcon
                 onClick={onNewChat}
-                size={34}
-                radius="xl"
-                variant="light"
-                color="indigo"
-                className="shadow-sm hover:shadow-md transition-all"
+                size="md"
+                variant="subtle"
+                color="gray"
+                className="hover:bg-gray-100 transition-colors hover:text-dark"
             >
-                <Plus size={18} strokeWidth={2.5} />
+                <SquarePen size={20} strokeWidth={2} />
             </ActionIcon>
         </Tooltip>
 
@@ -180,58 +180,71 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
   }
 
   return (
-    <Stack h="100%" gap={0} bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }}>
+    <Stack h="100%" gap={0} bd={{ base: 'none', sm: '1px solid var(--mantine-color-gray-2)' }} bg="gray.0">
       
       {/* --- TOP SECTION --- */}
       <Box p="md">
-        {/* Header / Brand */}
-        <Group justify="space-between" mb="xl" h={28} align="center">
-            <Group gap={10} visibleFrom="sm" style={{ cursor: 'pointer' }} onClick={onGoHome} align="center">
-                <img src="/assets/logo.png" alt="Logo" width={28} height={28} />
-                <Text fw={600} size="md" c="dark.9" style={{ letterSpacing: '-0.3px' }}>AI Tutor</Text>
-            </Group>
+        {/* Minimal Header */}
+        {/* Minimal Header */}
+        <Group justify="space-between" align="center">
+            <Box 
+              onClick={onGoHome} 
+              role="button"
+              aria-label="Return to Home"
+              className="hover:bg-gray-100 transition-colors"
+              style={{ cursor: 'pointer', borderRadius: 'var(--mantine-radius-md)' }} 
+              p={8}
+            >
+                 <img src="/assets/logo.png" alt="Logo" width={20} height={20} />
+            </Box>
             
             <Tooltip label="Close sidebar" withArrow>
-                <ActionIcon variant="transparent" c="dimmed" className="hover:text-gray-900 transition-colors" onClick={onToggleSidebar} size="lg">
-                    <PanelLeft size={20} />
+                <ActionIcon 
+                    variant="transparent" 
+                    c="dimmed" 
+                    onClick={onToggleSidebar} 
+                    size="sm" 
+                    className="hover:text-dark"
+                    aria-label="Close Sidebar"
+                >
+                    <PanelLeft size={20} strokeWidth={1.5} />
                 </ActionIcon>
             </Tooltip>
         </Group>
 
-        {/* New Chat Button */ }
-        <Button 
-            fullWidth
-            variant="outline"
-            color="indigo"
-            mb="xs"
-            onClick={onNewChat}
-            leftSection={<Plus size={16} strokeWidth={2.5} />}
-            justify="flex-start"
-            styles={{
-                label: {
-                    fontWeight: 600,
-                }
-            }}
-        >
-            New Chat
-        </Button>
-        <Button
-                fullWidth
-                variant="light" 
-                color="indigo"
-                leftSection={<GraduationCap size={16} />}
-                justify="flex-start"
-                onClick={() => router.push('/knowledge')}
+        {/* Primary Navigation List */}
+        <Stack gap={2}>
+             <UnstyledButton 
+                onClick={onNewChat}
+                className="group w-full rounded-lg hover:bg-black/5 transition-colors" 
+                p={8}
+                aria-label="Start new chat"
              >
-                Knowledge Base
-             </Button>
+               <Group gap={12}>
+                  <SquarePen size={20} strokeWidth={2} className="text-gray-600 group-hover:text-gray-900" />
+                  <Text size="sm" fw={500} c="gray.8">New chat</Text>
+               </Group>
+             </UnstyledButton>
+
+             <UnstyledButton
+                 onClick={() => router.push('/knowledge')}
+                 className="group w-full rounded-lg hover:bg-black/5 transition-colors"
+                 p={8}
+                 aria-label="Open Knowledge Base"
+             >
+                <Group gap={12}>
+                   <GraduationCap size={20} strokeWidth={2} className="text-gray-600 group-hover:text-gray-900" />
+                   <Text size="sm" fw={500} c="gray.8">Knowledge Base</Text>
+                </Group>
+             </UnstyledButton>
+        </Stack>
       </Box>
 
       {/* --- MIDDLE SECTION (Grow) --- */}
       <Box flex={1} style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         <Group px="md" mb="xs" justify="space-between">
-            <Text size="11px" fw={700} c="dimmed" tt="uppercase" lts={1.2}>Recent Activity</Text>
+            <Text size="xs" fw={600} c="gray.6" pl={8}>Recent Activity</Text>
         </Group>
         
         <ScrollArea flex={1} px="md">
@@ -244,6 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
                   key={session.id}
                   onClick={() => onSelectSession(session.id)}
                   py={6}
+                  px={8}
                   bg={isActive ? 'gray.1' : 'transparent'}
                   style={{
                     borderRadius: 'var(--mantine-radius-md)',
@@ -279,7 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
                                 leftSection={<Share size={14} />} 
                                 onClick={(e) => { 
                                     e.stopPropagation(); 
-                                    onShareSession && onShareSession(session.id);
+                                    if (onShareSession) onShareSession(session.id);
                                 }}
                             >
                                 Share
@@ -289,7 +303,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
                                 leftSection={<PenLine size={14} />} 
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    onRenameSession && onRenameSession(session.id, session.title || session.course.code); // Pass current title effectively? Wait, Sidebar signature logic needs check.
+                                    if (onRenameSession) onRenameSession(session.id, session.title || session.course.code);
                                 }}
                             >
                                 Rename
@@ -301,7 +315,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
                                 leftSection={session.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    onTogglePin && onTogglePin(session.id, !session.isPinned);
+                                    if (onTogglePin) onTogglePin(session.id, !session.isPinned);
                                 }}
                             >
                                 {session.isPinned ? 'Unpin chat' : 'Pin chat'}
@@ -312,7 +326,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSelectSe
                                 color="red"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    onDeleteSession && onDeleteSession(session.id);
+                                    if (onDeleteSession) onDeleteSession(session.id);
                                 }}
                             >
                                 Delete

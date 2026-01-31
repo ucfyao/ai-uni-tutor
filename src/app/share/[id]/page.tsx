@@ -1,8 +1,8 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import { getSharedSession } from '@/app/actions/chat';
-import { Center, Container, Title, Text, Stack, Box, ThemeIcon, Button, Group, Badge } from '@mantine/core';
-import { GraduationCap, MessageCircle, LogIn, Calendar } from 'lucide-react';
+import { Container, Title, Text, Stack, Box, Button, Group, Badge } from '@mantine/core';
+import { LogIn, Calendar } from 'lucide-react';
 import { ChatMessage } from '@/types/index';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -88,7 +88,8 @@ export default async function SharedSessionPage({ params }: PageProps) {
                                                 remarkPlugins={[remarkMath]}
                                                 rehypePlugins={[rehypeKatex]}
                                                 components={{
-                                                    code: ({node, inline, className, children, ...props}: any) => {
+                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                    code: ({node: _node, inline, className, children, ...props}: any) => { // eslint-disable-line @typescript-eslint/no-unused-vars
                                                         const match = /language-(\w+)/.exec(className || '')
                                                         return !inline && match ? (
                                                             <Box component="pre" p="xs" bg="dark.8" c="gray.1" style={{ borderRadius: 4, overflowX: 'auto' }}>

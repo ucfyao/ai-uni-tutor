@@ -19,6 +19,7 @@ export async function updateProfile(prevState: ActionState, formData: FormData):
     const fullName = formData.get('fullName') as string;
     // const avatarUrl = formData.get('avatarUrl') as string; // Optional for now
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updates: any = {};
     if (fullName !== null) updates.full_name = fullName;
     // if (avatarUrl) updates.avatar_url = avatarUrl;

@@ -1,18 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Group, Text, useMantineTheme, rem, Stack, Progress, Alert } from '@mantine/core';
+import { Group, Text, rem, Stack, Alert } from '@mantine/core';
 import { Dropzone, DropzoneProps, PDF_MIME_TYPE } from '@mantine/dropzone';
-import { Upload, X, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 import { uploadDocument } from '@/app/actions/documents';
 import { notifications } from '@mantine/notifications';
-import { useRouter } from 'next/navigation';
 import { UNIVERSITIES, COURSES } from '@/constants/index';
 import { Select } from '@mantine/core';
 
 export function FileUploader(props: Partial<DropzoneProps>) {
-  const theme = useMantineTheme();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
@@ -83,8 +80,9 @@ export function FileUploader(props: Partial<DropzoneProps>) {
             color: 'red',
         });
       }
-    } catch (e: any) {
-      setError(e.message || 'Upload failed');
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Upload failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -94,7 +92,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
     <Stack>
       <Dropzone
         onDrop={handleDrop}
-        onReject={(files) => setError(`File rejected. Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`)}
+        onReject={() => setError(`File rejected. Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`)}
         maxSize={(parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5')) * 1024 * 1024} // Configurable MB
         accept={PDF_MIME_TYPE}
         loading={loading}

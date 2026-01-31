@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Center, Loader, Text } from '@mantine/core';
+import { Center, Loader } from '@mantine/core';
 import ChatInterface from '@/components/ChatInterface';
 import { ChatSession } from '@/types/index';
 import { getChatSession, saveChatMessage, updateChatSessionTitle, updateChatSessionMode, deleteChatSession, toggleSessionPin } from '@/app/actions/chat';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import ShareModal from '@/components/ShareModal';
-import { notifications } from '@mantine/notifications';
+import { useSessions } from '@/context/SessionContext';
 
 export default function ChatPage() {
     const params = useParams();
@@ -39,14 +39,12 @@ export default function ChatPage() {
         load();
     }, [id, router]);
 
+    const { updateSessionLocal } = useSessions();
+
     const handleUpdateSession = async (updated: ChatSession) => {
         setSession(updated);
         
         // Identify new message(s) to save
-        // NOTE: fetching session again ensures we are in sync, but for immediate UI we use local `updated`.
-        // The persistence logic below is duplicated from previous Page.tsx. 
-        // Ideally checking `session` ref.
-        
         if (session && updated.messages.length > session.messages.length) {
             const newMsgs = updated.messages.slice(session.messages.length);
             for (const msg of newMsgs) {
@@ -59,14 +57,18 @@ export default function ChatPage() {
              await updateChatSessionMode(updated.id, updated.mode).catch(e => console.error(e));
              
              // Auto-rename
-             if (session.title.endsWith(' - New Session')) {
+             // Check if title contains "New Session" (robust to dash/spaces) or is new
+             if (session.title.includes('New Session')) {
                   const newTitle = `${session.course.code} - ${updated.mode}`;
-                  // We update local state in the setSession call above? Yes, but need to update title field too if that logic was implicitly doing it? 
-                  // ChatInterface typically returns the *updated* object.
-                  // But `updateChatSessionTitle` needs to be called.
+                  
                    await updateChatSessionTitle(updated.id, newTitle).catch(e => console.error(e));
-                   // Update local title to reflect auto-rename
-                   setSession(prev => prev ? { ...prev, title: newTitle } : null);
+                   
+                   // Update local page state
+                   const updatedWithTitle = { ...updated, title: newTitle };
+                   setSession(updatedWithTitle);
+                   
+                   // Update Sidebar Context immediately
+                   updateSessionLocal(updatedWithTitle);
              }
         }
     };

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { AppShell } from '@mantine/core';
+import React, { useState } from 'react';
+import { AppShell, Burger, Group, Text, Box } from '@mantine/core'; // Added Burger, Group, Text
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
@@ -10,13 +10,15 @@ import NewSessionModal from '@/components/NewSessionModal';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import ShareModal from '@/components/ShareModal';
-import { ChatSession, Course, TutoringMode } from '@/types/index';
+import { Course, TutoringMode } from '@/types/index';
 // import { getChatSessions, createChatSession, toggleSessionPin, updateChatSessionTitle, deleteChatSession } from '@/app/actions/chat'; // Moved to Context
-import { toggleSessionPin, updateChatSessionTitle, deleteChatSession } from '@/app/actions/chat'; // Actually toggle/update/delete are still used here for async calls, but Context handles state. 
-// Wait, I updated Shell to call asyncs directly? 
+import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat'; // Actually toggle/update/delete are still used here for async calls, but Context handles state.
+// Wait, I updated Shell to call asyncs directly?
 // Yes: `try { await toggleSessionPin(id, isPinned); }`
 // So I need to keep those imports. But `getChatSessions` and `createChatSession` are removed.
 import { useSessions } from '@/context/SessionContext';
+import { useSidebar } from '@/context/SidebarContext';
+import { useHeader } from '@/context/HeaderContext';
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -27,10 +29,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const activeSessionId = params?.id as string || null;
 
   const { sessions, addSession, removeSession, updateSessionLocal } = useSessions();
+  const { mobileOpened, toggleMobile } = useSidebar();
+  const { headerContent } = useHeader();
   
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
-  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure(false);
   const isMobile = useMediaQuery('(max-width: 48em)');
 
   // Shared Modal State
@@ -43,6 +46,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const toggleSidebar = () => isMobile ? toggleMobile() : toggleDesktop();
+  const isChatRoute = pathname?.startsWith('/chat/');
 
   const handleStartSession = async (course: Course, mode: TutoringMode | null) => {
     closeModal();
@@ -93,9 +97,24 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     <>
       <AppShell
         navbar={{ width: desktopOpened ? 260 : 60, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
+        header={{ height: 50, collapsed: !isMobile }} // Enable header only on mobile
         padding={0}
         bg="gray.0"
       >
+        <AppShell.Header hiddenFrom="sm" px="md" bg="white" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}> 
+             <Group h="100%" align="center">
+                <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" />
+                {headerContent ? (
+                  <Box flex={1} style={{ overflow: 'hidden' }}>{headerContent}</Box>
+                ) : (
+                  <Group gap={8} align="center">
+                      <img src="/assets/logo.png" alt="Logo" width={24} height={24} />
+                      <Text fw={600} size="md">AI Tutor</Text>
+                  </Group>
+                )}
+             </Group>
+        </AppShell.Header>
+
         <AppShell.Navbar bg="transparent">
           <Sidebar 
             sessions={sessions} 
@@ -112,7 +131,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           />
         </AppShell.Navbar>
 
-        <AppShell.Main h="100dvh" bg="white" pt={0} pb={0}>
+        <AppShell.Main h="100dvh" bg="white" pt={(isMobile && !isChatRoute) ? 50 : 0} pb={0}>
             {children}
         </AppShell.Main>
       </AppShell>

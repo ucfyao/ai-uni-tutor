@@ -1,10 +1,10 @@
 'use client';
 
-import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
-import { theme } from '@/theme';
 import { SessionProvider } from '@/context/SessionContext';
+import { SidebarProvider } from '@/context/SidebarContext';
+import { HeaderProvider } from '@/context/HeaderContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -18,11 +18,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme}>
+        <SidebarProvider>
+        <HeaderProvider>
         <SessionProvider>
             {children}
         </SessionProvider>
-      </MantineProvider>
+        </HeaderProvider>
+        </SidebarProvider>
     </QueryClientProvider>
   );
 }

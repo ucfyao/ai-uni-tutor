@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 import { createClient } from '@/lib/supabase/server'
-import { ratelimit, freeRatelimit, proRatelimit } from '@/lib/redis'
+import { ratelimit, proRatelimit } from '@/lib/redis'
 
 export async function middleware(request: NextRequest) {
     const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1"

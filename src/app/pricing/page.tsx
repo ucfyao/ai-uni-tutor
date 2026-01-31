@@ -1,13 +1,12 @@
 'use client';
 
-import { Container, Title, Text, Card, Group, Button, Stack, ThemeIcon, Badge, List } from '@mantine/core';
+import { Container, Title, Text, Badge, Stack, Card, Group, ThemeIcon, List, Button, Box } from '@mantine/core';
 import { Check, Sparkles, CreditCard } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 
 export default function PricingPage() {
-  const router = useRouter();
+  // const router = useRouter(); // Unused
   const [loading, setLoading] = useState(false);
 
   const handleUpgrade = async () => {
@@ -22,10 +21,11 @@ export default function PricingPage() {
       } else {
         throw new Error(data.error || 'Failed to create checkout session');
       }
-    } catch (error: any) {
+    } catch (error) {
       notifications.show({
         title: 'Error',
-        message: error.message,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        message: (error as any).message || 'An error occurred',
         color: 'red',
       });
     } finally {
@@ -47,7 +47,7 @@ export default function PricingPage() {
         <Badge variant="light" color="violet" size="lg">Pricing</Badge>
         <Title order={1} size={48} fw={900} ta="center">Simple, transparent pricing</Title>
         <Text c="dimmed" size="lg" ta="center" maw={600}>
-          Choose the plan that's right for you. Upgrade anytime to unlock the full potential of your AI Tutor.
+          Choose the plan that&apos;s right for you. Upgrade anytime to unlock the full potential of your AI Tutor.
         </Text>
       </Stack>
 
@@ -106,5 +106,4 @@ export default function PricingPage() {
   );
 }
 
-// Helper Box component needed since it's used in the code but not imported in the original prompt
-import { Box } from '@mantine/core';
+// Helper Box component already imported

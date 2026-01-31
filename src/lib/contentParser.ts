@@ -9,7 +9,7 @@ export const extractCards = (text: string): { cleanContent: string; cards: Knowl
     const cards: KnowledgeCard[] = [];
     const cardRegex = /<card\s+([^>]*?)>([\s\S]*?)<\/card>/gi;
 
-    let cleanContent = text.replace(cardRegex, (match, attributes, content) => {
+    const cleanContent = text.replace(cardRegex, (match, attributes, content) => {
         const titleMatch = attributes.match(/title=['"]([^'"]+)['"]/);
         const title = titleMatch ? titleMatch[1] : 'Untitled Concept';
         // Add to cards array

@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from "@/lib/supabase/server";
-import { chunkText } from "@/lib/rag/chunking";
+// import { chunkText } from "@/lib/rag/chunking";
 import { generateEmbedding } from "@/lib/rag/embedding";
 import { Database } from "@/types/database";
 import { revalidatePath } from "next/cache";
@@ -96,6 +96,7 @@ export async function uploadDocument(prevState: UploadState, formData: FormData)
                     chunksData.push({
                         document_id: doc.id,
                         content: chunk.content,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         embedding: embedding as any,
                         metadata: chunk.metadata, // Store page number
                     });

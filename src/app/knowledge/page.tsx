@@ -1,20 +1,9 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { Container, Title, Text, Stack, Card, Group, Badge, ThemeIcon, Center, Alert, Button } from '@mantine/core';
+import { Container, Title, Text, Stack, Card, Group, ThemeIcon, Alert, Button, Box } from '@mantine/core';
 import { FileUploader } from '@/components/rag/FileUploader';
 import { KnowledgeTable } from '@/components/rag/KnowledgeTable';
-import { FileText, Database, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import Sidebar from '@/components/Sidebar'; // Needs sidebar wrapping? 
-// Actually this page is disjoint from the main chat app logic in page.tsx if we just navigate here.
-// But we probably want the Sidebar to be persisted.
-// However, in Next.js App Router, layout.tsx handles persistence if structured correctly.
-// Current structure: src/app/page.tsx contains the AppShell and Sidebar.
-// src/app/layout.tsx contains the Providers.
-// If I navigate to /knowledge, I lose the AppShell unless I duplicate it or move AppShell to layout.tsx.
-// Moving AppShell to layout.tsx is a big refactor.
-// For now, I will wrap /knowledge with a similar AppShell or just a simple page with a "Back to Chat" button.
-// Given MVP, a "Back to Chat" button is acceptable.
-// Or I can instruct user to refactor layout later.
-// I'll make it a standalone page with a "Back to Dashboard" button.
+import { Database, AlertCircle, BookOpen } from 'lucide-react';
 
 export default async function KnowledgePage() {
   const supabase = await createClient();
@@ -22,9 +11,11 @@ export default async function KnowledgePage() {
 
   if (!user) {
     return (
-        <Center h="100vh">
-            <Text>Please sign in to manage your knowledge base.</Text>
-        </Center>
+        <Container size="md" py="xl">
+            <Alert variant="light" color="blue" icon={<AlertCircle size={16} />}>
+                Please sign in to manage your knowledge base.
+            </Alert>
+        </Container>
     );
   }
 
@@ -37,19 +28,17 @@ export default async function KnowledgePage() {
   return (
     <Container size="md" py="xl">
       <Stack gap="xl">
-        <div>
-           {/* <Link href="/" passHref><Button variant="subtle" leftSection={<ArrowLeft size={16}/>}>Back to Chat</Button></Link> */}
-           {/* Can't import Link easily inside server component if I don't use it, but Next.js standard Link is fine. */}
-           <a href="/" style={{ textDecoration: 'none', color: 'inherit', marginBottom: '1rem', display: 'inline-block' }}>
-              <Group gap="xs">
-                 <ThemeIcon variant="light" color="gray" size="sm"><Clock size={12} /></ThemeIcon>
-                 <Text size="sm" c="dimmed">Back to Chat</Text>
-              </Group>
-           </a>
-
-           <Title order={1}>Knowledge Base</Title>
-           <Text c="dimmed">Upload documents to personalize your AI tutor.</Text>
-        </div>
+        <Group justify="space-between">
+            <Box>
+                <Title order={1}>Knowledge Base</Title>
+                <Text c="dimmed">Upload documents to personalize your AI tutor.</Text>
+            </Box>
+            <Link href="/" style={{ textDecoration: 'none' }}>
+                <Button component="div" variant="subtle" leftSection={<BookOpen size={16} />}>
+                    Back to Chat
+                </Button>
+            </Link>
+        </Group>
 
         <Card withBorder radius="md" p="xl">
             <Stack>
