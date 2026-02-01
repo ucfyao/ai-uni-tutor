@@ -1,6 +1,7 @@
 'use client';
 
-import { Table, Group, Text, Badge, ActionIcon, Tooltip } from '@mantine/core';
+import { Table, Group, Text, Badge, ActionIcon, Tooltip, Stack, Card, Box } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { FileText, CheckCircle, Clock, AlertCircle, Trash2 } from 'lucide-react';
 import { deleteDocument } from '@/app/actions/documents';
 import { useState, useEffect } from 'react';
@@ -29,6 +30,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
   const [documents, setDocuments] = useState<Document[]>(initialDocuments);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const supabase = createClient();
+  const isMobile = useMediaQuery('(max-width: 48em)'); // 768px
 
   // Sync initialDocuments prop with local state when it changes (e.g. after refresh)
   useEffect(() => {
@@ -98,70 +100,129 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
     }
   };
 
-  return (
-    <Table verticalSpacing="xs">
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>Name</Table.Th>
-          <Table.Th>University</Table.Th>
-          <Table.Th>Course</Table.Th>
-          <Table.Th>Date</Table.Th>
-          <Table.Th>Status</Table.Th>
-          <Table.Th style={{ width: 50 }}></Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {documents.map((doc) => (
-          <Table.Tr key={doc.id}>
-            <Table.Td>
-              <Group gap="xs">
-                <FileText size={16} className="text-gray-500" />
-                <Text size="sm" fw={500}>{doc.name}</Text>
-              </Group>
-            </Table.Td>
-            <Table.Td>
-               <Text size="sm">{doc.metadata?.school || '-'}</Text>
-            </Table.Td>
-            <Table.Td>
-               <Badge variant="dot" color="gray" size="sm">{doc.metadata?.course || 'General'}</Badge>
-            </Table.Td>
-            <Table.Td>
-              <Text size="sm" c="dimmed" suppressHydrationWarning>{new Date(doc.created_at).toLocaleDateString()}</Text>
-            </Table.Td>
-            <Table.Td>
-              {doc.status === 'ready' && <Badge color="green" variant="light" leftSection={<CheckCircle size={12}/>}>Ready</Badge>}
-              {doc.status === 'processing' && <Badge color="blue" variant="light" leftSection={<Clock size={12}/>}>Processing</Badge>}
-              {doc.status === 'error' && (
-                <Group gap={4}>
-                  <Badge color="red" variant="light" leftSection={<AlertCircle size={12}/>}>Error</Badge>
-                  {doc.status_message && (
-                    <Tooltip label={doc.status_message}>
-                         <AlertCircle size={14} className="text-red-500 cursor-help"/>
-                    </Tooltip>
-                  )}
+  const renderStatusBadge = (doc: Document) => {
+    if (doc.status === 'ready') {
+      return <Badge color="green" variant="light" leftSection={<CheckCircle size={12}/>}>Ready</Badge>;
+    }
+    if (doc.status === 'processing') {
+      return <Badge color="blue" variant="light" leftSection={<Clock size={12}/>}>Processing</Badge>;
+    }
+    if (doc.status === 'error') {
+      return (
+        <Group gap={4}>
+          <Badge color="red" variant="light" leftSection={<AlertCircle size={12}/>}>Error</Badge>
+          {doc.status_message && (
+            <Tooltip label={doc.status_message}>
+              <AlertCircle size={14} className="text-red-500 cursor-help"/>
+            </Tooltip>
+          )}
+        </Group>
+      );
+    }
+    return null;
+  };
+
+  // Mobile Card View
+  if (isMobile) {
+    return (
+      <Stack gap="sm">
+        {documents.length === 0 ? (
+          <Text c="dimmed" size="sm" py="xl" ta="center">No documents uploaded yet</Text>
+        ) : (
+          documents.map((doc) => (
+            <Card key={doc.id} withBorder padding="sm" radius="md">
+              <Group justify="space-between" mb="xs">
+                <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+                  <FileText size={18} className="text-gray-500" style={{ flexShrink: 0 }} />
+                  <Text size="sm" fw={500} truncate style={{ flex: 1 }}>{doc.name}</Text>
                 </Group>
-              )}
-            </Table.Td>
-            <Table.Td>
                 <ActionIcon 
-                    variant="subtle" 
-                    color="red" 
-                    onClick={() => handleDelete(doc.id)}
-                    loading={deletingId === doc.id}
+                  variant="subtle" 
+                  color="red" 
+                  onClick={() => handleDelete(doc.id)}
+                  loading={deletingId === doc.id}
+                  aria-label="Delete document"
                 >
-                    <Trash2 size={16} />
+                  <Trash2 size={16} />
                 </ActionIcon>
-            </Table.Td>
-          </Table.Tr>
-        ))}
-        {documents.length === 0 && (
-            <Table.Tr>
-                <Table.Td colSpan={6} align="center">
-                    <Text c="dimmed" size="sm" py="xl">No documents uploaded yet</Text>
-                </Table.Td>
-            </Table.Tr>
+              </Group>
+              
+              <Group gap="xs" mb="xs">
+                <Text size="xs" c="dimmed">{doc.metadata?.school || '-'}</Text>
+                <Text size="xs" c="dimmed">•</Text>
+                <Badge variant="dot" color="gray" size="xs">{doc.metadata?.course || 'General'}</Badge>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text size="xs" c="dimmed" suppressHydrationWarning>
+                  {new Date(doc.created_at).toLocaleDateString()}
+                </Text>
+                {renderStatusBadge(doc)}
+              </Group>
+            </Card>
+          ))
         )}
-      </Table.Tbody>
-    </Table>
+      </Stack>
+    );
+  }
+
+  // Desktop Table View
+  return (
+    <Box style={{ overflowX: 'auto' }}>
+      <Table verticalSpacing="xs" aria-label="Knowledge base documents">
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Name</Table.Th>
+            <Table.Th>University</Table.Th>
+            <Table.Th>Course</Table.Th>
+            <Table.Th>Date</Table.Th>
+            <Table.Th>Status</Table.Th>
+            <Table.Th style={{ width: 50 }}></Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {documents.map((doc) => (
+            <Table.Tr key={doc.id}>
+              <Table.Td>
+                <Group gap="xs">
+                  <FileText size={16} className="text-gray-500" />
+                  <Text size="sm" fw={500}>{doc.name}</Text>
+                </Group>
+              </Table.Td>
+              <Table.Td>
+                <Text size="sm">{doc.metadata?.school || '-'}</Text>
+              </Table.Td>
+              <Table.Td>
+                <Badge variant="dot" color="gray" size="sm">{doc.metadata?.course || 'General'}</Badge>
+              </Table.Td>
+              <Table.Td>
+                <Text size="sm" c="dimmed" suppressHydrationWarning>{new Date(doc.created_at).toLocaleDateString()}</Text>
+              </Table.Td>
+              <Table.Td>
+                {renderStatusBadge(doc)}
+              </Table.Td>
+              <Table.Td>
+                <ActionIcon 
+                  variant="subtle" 
+                  color="red" 
+                  onClick={() => handleDelete(doc.id)}
+                  loading={deletingId === doc.id}
+                  aria-label="Delete document"
+                >
+                  <Trash2 size={16} />
+                </ActionIcon>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+          {documents.length === 0 && (
+            <Table.Tr>
+              <Table.Td colSpan={6} align="center">
+                <Text c="dimmed" size="sm" py="xl">No documents uploaded yet</Text>
+              </Table.Td>
+            </Table.Tr>
+          )}
+        </Table.Tbody>
+      </Table>
+    </Box>
   );
 }

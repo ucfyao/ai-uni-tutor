@@ -1,19 +1,54 @@
 'use client';
 
-import { useState } from 'react';
-import { Group, Text, rem, Stack, Alert } from '@mantine/core';
+import { useState, useEffect } from 'react';
+import { Group, Text, rem, Stack, Alert, Progress, Box, SimpleGrid } from '@mantine/core';
 import { Dropzone, DropzoneProps, PDF_MIME_TYPE } from '@mantine/dropzone';
-import { Upload, X, FileText, AlertCircle } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { uploadDocument } from '@/app/actions/documents';
 import { notifications } from '@mantine/notifications';
 import { UNIVERSITIES, COURSES } from '@/constants/index';
 import { Select } from '@mantine/core';
+
+type ProcessingStage = 'idle' | 'uploading' | 'parsing' | 'chunking' | 'embedding' | 'saving' | 'complete';
+
+const STAGE_INFO: Record<ProcessingStage, { label: string; progress: number }> = {
+  idle: { label: '', progress: 0 },
+  uploading: { label: 'Uploading file...', progress: 10 },
+  parsing: { label: 'Parsing PDF content...', progress: 30 },
+  chunking: { label: 'Splitting into chunks...', progress: 50 },
+  embedding: { label: 'Generating embeddings...', progress: 70 },
+  saving: { label: 'Saving to database...', progress: 90 },
+  complete: { label: 'Complete!', progress: 100 },
+};
 
 export function FileUploader(props: Partial<DropzoneProps>) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [stage, setStage] = useState<ProcessingStage>('idle');
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  // Simulate progress stages during processing
+  useEffect(() => {
+    if (!loading) {
+      setStage('idle');
+      return;
+    }
+
+    // Simulate stage progression
+    const stages: ProcessingStage[] = ['uploading', 'parsing', 'chunking', 'embedding', 'saving'];
+    let currentIndex = 0;
+
+    const interval = setInterval(() => {
+      if (currentIndex < stages.length) {
+        setStage(stages[currentIndex]);
+        currentIndex++;
+      }
+    }, 1500); // Progress every 1.5s
+
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // Derived state for courses based on selected university
   const filteredCourses = selectedUniId 
@@ -24,17 +59,20 @@ export function FileUploader(props: Partial<DropzoneProps>) {
     setLoading(true);
     setError(null);
     const file = files[0]; // Process one file for MVP
+    setFileName(file.name);
     
     // Only PDF for now
     if (file.type !== 'application/pdf') {
         setError('Only PDF files are supported currently.');
         setLoading(false);
+        setFileName(null);
         return;
     }
 
     if (!selectedUniId || !selectedCourseId) {
         setError('Please select a valid University and Course before uploading.');
         setLoading(false);
+        setFileName(null);
         return;
     }
 
@@ -61,17 +99,18 @@ export function FileUploader(props: Partial<DropzoneProps>) {
       const result = await uploadDocument({ status: 'idle', message: '' }, formData);
       
       if (result.status === 'success') {
+        setStage('complete');
         notifications.show({
             title: 'Success',
             message: 'Document uploaded and processed!',
             color: 'green',
         });
-        notifications.show({
-            title: 'Success',
-            message: 'Document uploaded and processed!',
-            color: 'green',
-        });
-        // router.refresh(); // Removed to avoid double refresh (Server Action revalidates + Realtime updates)
+        // Reset selections after successful upload
+        setTimeout(() => {
+          setSelectedUniId(null);
+          setSelectedCourseId(null);
+          setFileName(null);
+        }, 1000);
       } else {
         setError(result.message);
         notifications.show({
@@ -132,7 +171,30 @@ export function FileUploader(props: Partial<DropzoneProps>) {
         </Group>
       </Dropzone>
 
-      <Group grow align="flex-start">
+      {/* Progress Indicator */}
+      {loading && stage !== 'idle' && (
+        <Box p="md" bg="gray.0" style={{ borderRadius: '8px' }}>
+          <Group gap="sm" mb="xs">
+            <Loader2 size={16} className="animate-spin" color="var(--mantine-color-indigo-6)" />
+            <Text size="sm" fw={500} c="dark.7">
+              {fileName && <Text component="span" c="dimmed" mr="xs">{fileName}</Text>}
+              {STAGE_INFO[stage].label}
+            </Text>
+          </Group>
+          <Progress 
+            value={STAGE_INFO[stage].progress} 
+            size="sm" 
+            radius="xl"
+            color={stage === 'complete' ? 'green' : 'indigo'}
+            animated={stage !== 'complete'}
+          />
+          <Text size="xs" c="dimmed" mt="xs" ta="right">
+            {STAGE_INFO[stage].progress}%
+          </Text>
+        </Box>
+      )}
+
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
         <Select 
             label="University" 
             placeholder="Select University" 
@@ -144,6 +206,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
             }}
             searchable
             allowDeselect={false}
+            aria-label="Select university"
         />
         <Select 
             label="Course" 
@@ -154,8 +217,9 @@ export function FileUploader(props: Partial<DropzoneProps>) {
             disabled={!selectedUniId}
             searchable
             allowDeselect={false}
+            aria-label="Select course"
         />
-      </Group>
+      </SimpleGrid>
 
       {error && (
         <Alert variant="light" color="red" title="Upload Failed" icon={<AlertCircle size={16} />}>
