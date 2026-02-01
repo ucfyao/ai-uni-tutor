@@ -40,7 +40,8 @@ import {
   Textarea,
   ThemeIcon,
   Tooltip,
-} from '@mantine/core'; // Removed Burger
+} from '@mantine/core';
+// Removed Burger
 
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';

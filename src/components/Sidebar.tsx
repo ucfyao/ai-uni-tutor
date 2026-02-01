@@ -1,13 +1,45 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { ActionIcon, Avatar, Box, Group, Menu, ScrollArea, Stack, Text, Tooltip, UnstyledButton, Badge, Collapse } from '@mantine/core';
-import { GraduationCap, PanelLeft, PanelLeftOpen, LogOut, LogIn, Settings, Sparkles, Wand2, LifeBuoy, Pin, PinOff, Share, PenLine, Trash, Plus, Search, ChevronDown, Ellipsis } from 'lucide-react';
-import { ChatSession } from '../types/index';
-import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
+import {
+  ChevronDown,
+  Ellipsis,
+  GraduationCap,
+  LifeBuoy,
+  LogIn,
+  LogOut,
+  PanelLeft,
+  PanelLeftOpen,
+  PenLine,
+  Pin,
+  PinOff,
+  Plus,
+  Search,
+  Settings,
+  Share,
+  Sparkles,
+  Trash,
+  Wand2,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import {
+  ActionIcon,
+  Avatar,
+  Badge,
+  Box,
+  Collapse,
+  Group,
+  Menu,
+  ScrollArea,
+  Stack,
+  Text,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { createClient } from '@/lib/supabase/client';
+import { ChatSession } from '../types/index';
 
 interface SidebarProps {
   sessions: ChatSession[];
@@ -24,28 +56,33 @@ interface SidebarProps {
   opened: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  sessions, 
-  activeSessionId, 
-  onSelectSession, 
-  onNewChat, 
-  onToggleSidebar, 
-  onTogglePin, 
-  onRenameSession, 
-  onDeleteSession, 
-  onShareSession, 
-  onGoHome, 
-  opened 
+const Sidebar: React.FC<SidebarProps> = ({
+  sessions,
+  activeSessionId,
+  onSelectSession,
+  onNewChat,
+  onToggleSidebar,
+  onTogglePin,
+  onRenameSession,
+  onDeleteSession,
+  onShareSession,
+  onGoHome,
+  opened,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ full_name?: string; subscription_status?: string } | null>(null);
+  const [profile, setProfile] = useState<{
+    full_name?: string;
+    subscription_status?: string;
+  } | null>(null);
   const supabase = createClient();
   const router = useRouter();
   const [chatsExpanded, { toggle: toggleChats }] = useDisclosure(true);
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
         const { data } = await supabase
@@ -58,7 +95,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
     getUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
 
@@ -72,7 +111,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSignIn = () => router.push('/login');
 
-  const isPro = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
+  const isPro =
+    profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
 
   // === COLLAPSED STATE ===
   if (!opened) {
@@ -81,7 +121,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Header area - 52px height to match expanded */}
         <Box h={52} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Tooltip label="Open sidebar" position="right" color="dark" radius="md">
-            <ActionIcon variant="subtle" color="gray" onClick={onToggleSidebar} size={36} radius="md">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={onToggleSidebar}
+              size={36}
+              radius="md"
+            >
               <PanelLeftOpen size={20} strokeWidth={1.5} />
             </ActionIcon>
           </Tooltip>
@@ -89,7 +135,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* New Chat (+) */}
         <Tooltip label="New chat" position="right">
-          <ActionIcon onClick={onNewChat} variant="subtle" color="gray" size={36} radius="md" mb={4}>
+          <ActionIcon
+            onClick={onNewChat}
+            variant="subtle"
+            color="gray"
+            size={36}
+            radius="md"
+            mb={4}
+          >
             <Plus size={20} strokeWidth={2} />
           </ActionIcon>
         </Tooltip>
@@ -103,7 +156,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Knowledge Base */}
         <Tooltip label="Knowledge Base" position="right">
-          <ActionIcon onClick={() => router.push('/knowledge')} variant="subtle" color="gray" size={36} radius="md">
+          <ActionIcon
+            onClick={() => router.push('/knowledge')}
+            variant="subtle"
+            color="gray"
+            size={36}
+            radius="md"
+          >
             <GraduationCap size={20} strokeWidth={1.5} />
           </ActionIcon>
         </Tooltip>
@@ -114,22 +173,38 @@ const Sidebar: React.FC<SidebarProps> = ({
         {user ? (
           <Menu shadow="lg" width={220} position="right-end" withinPortal>
             <Menu.Target>
-              <Avatar size={28} radius="xl" color="dark" variant="filled" style={{ cursor: 'pointer' }}>
+              <Avatar
+                size={28}
+                radius="xl"
+                color="dark"
+                variant="filled"
+                style={{ cursor: 'pointer' }}
+              >
                 {(profile?.full_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
               </Avatar>
             </Menu.Target>
             <Menu.Dropdown>
               <Box px="sm" py="xs">
-                <Text size="sm" fw={600}>{profile?.full_name || user.email?.split('@')[0]}</Text>
-                <Text size="xs" c="dimmed">{user.email}</Text>
+                <Text size="sm" fw={600}>
+                  {profile?.full_name || user.email?.split('@')[0]}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {user.email}
+                </Text>
               </Box>
               <Menu.Divider />
               {!isPro && (
-                <Menu.Item leftSection={<Sparkles size={14} />} onClick={() => router.push('/pricing')}>
+                <Menu.Item
+                  leftSection={<Sparkles size={14} />}
+                  onClick={() => router.push('/pricing')}
+                >
                   Upgrade plan
                 </Menu.Item>
               )}
-              <Menu.Item leftSection={<Settings size={14} />} onClick={() => router.push('/settings')}>
+              <Menu.Item
+                leftSection={<Settings size={14} />}
+                onClick={() => router.push('/settings')}
+              >
                 Settings
               </Menu.Item>
               <Menu.Divider />
@@ -152,11 +227,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   // === EXPANDED STATE ===
   return (
     <Stack h="100%" gap={0} bg="white">
-      
       {/* Header: 52px height, Logo and Toggle aligned */}
       <Group justify="space-between" align="center" h={52} px={8}>
-        <UnstyledButton 
-          onClick={onGoHome} 
+        <UnstyledButton
+          onClick={onGoHome}
           h={36}
           px={8}
           className="hover:bg-gray-100 transition-colors"
@@ -184,10 +258,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <Group gap={10} wrap="nowrap">
             <Plus size={18} strokeWidth={2} className="text-gray-600" />
-            <Text size="sm" c="gray.8">New chat</Text>
+            <Text size="sm" c="gray.8">
+              New chat
+            </Text>
           </Group>
         </UnstyledButton>
-        
+
         {/* Search */}
         <UnstyledButton
           w="100%"
@@ -198,10 +274,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <Group gap={10} wrap="nowrap">
             <Search size={18} strokeWidth={1.5} className="text-gray-600" />
-            <Text size="sm" c="gray.8">Search chats</Text>
+            <Text size="sm" c="gray.8">
+              Search chats
+            </Text>
           </Group>
         </UnstyledButton>
-        
+
         {/* Knowledge Base */}
         <UnstyledButton
           onClick={() => router.push('/knowledge')}
@@ -213,30 +291,38 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <Group gap={10} wrap="nowrap">
             <GraduationCap size={18} strokeWidth={1.5} className="text-gray-600" />
-            <Text size="sm" c="gray.8">Knowledge Base</Text>
+            <Text size="sm" c="gray.8">
+              Knowledge Base
+            </Text>
           </Group>
         </UnstyledButton>
       </Stack>
 
       {/* Your Chats Section */}
-      <Box mt={12} flex={1} style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Box
+        mt={12}
+        flex={1}
+        style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+      >
         {/* Section Header */}
-        <UnstyledButton 
+        <UnstyledButton
           onClick={toggleChats}
-          px={16} 
+          px={16}
           py={6}
           className="hover:bg-gray-50 transition-colors"
           style={{ cursor: 'pointer' }}
         >
           <Group gap={4}>
-            <Text size="xs" c="gray.5" fw={500}>Your chats</Text>
-            <ChevronDown 
-              size={12} 
+            <Text size="xs" c="gray.5" fw={500}>
+              Your chats
+            </Text>
+            <ChevronDown
+              size={12}
               className="text-gray-400"
-              style={{ 
+              style={{
                 transform: chatsExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-                transition: 'transform 0.15s ease'
-              }} 
+                transition: 'transform 0.15s ease',
+              }}
             />
           </Group>
         </UnstyledButton>
@@ -246,9 +332,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           <ScrollArea flex={1} scrollbarSize={4}>
             <Stack gap={0} pb={8}>
               {sessions.map((session) => (
-                <SessionItem 
+                <SessionItem
                   key={session.id}
-                  session={session} 
+                  session={session}
                   isActive={activeSessionId === session.id}
                   onSelect={onSelectSession}
                   onTogglePin={onTogglePin}
@@ -273,8 +359,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         {user ? (
           <Menu shadow="lg" width={220} position="top-start" withinPortal>
             <Menu.Target>
-              <UnstyledButton 
-                w="100%" 
+              <UnstyledButton
+                w="100%"
                 py={6}
                 px={8}
                 className="hover:bg-gray-100 transition-colors"
@@ -287,7 +373,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <Text size="sm" fw={500} c="gray.8" truncate style={{ flex: 1 }}>
                     {profile?.full_name || user.email?.split('@')[0]}
                   </Text>
-                  {isPro && <Badge size="xs" variant="light" color="dark" radius="sm">Plus</Badge>}
+                  {isPro && (
+                    <Badge size="xs" variant="light" color="dark" radius="sm">
+                      Plus
+                    </Badge>
+                  )}
                 </Group>
               </UnstyledButton>
             </Menu.Target>
@@ -298,21 +388,34 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {(profile?.full_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
                   </Avatar>
                   <Box>
-                    <Text size="sm" fw={600}>{profile?.full_name || user.email?.split('@')[0]}</Text>
-                    <Text size="xs" c="dimmed">{user.email}</Text>
+                    <Text size="sm" fw={600}>
+                      {profile?.full_name || user.email?.split('@')[0]}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {user.email}
+                    </Text>
                   </Box>
                 </Group>
               </Box>
               <Menu.Divider />
               {!isPro && (
-                <Menu.Item leftSection={<Sparkles size={14} />} onClick={() => router.push('/pricing')}>
+                <Menu.Item
+                  leftSection={<Sparkles size={14} />}
+                  onClick={() => router.push('/pricing')}
+                >
                   Upgrade plan
                 </Menu.Item>
               )}
-              <Menu.Item leftSection={<Wand2 size={14} />} onClick={() => router.push('/personalization')}>
+              <Menu.Item
+                leftSection={<Wand2 size={14} />}
+                onClick={() => router.push('/personalization')}
+              >
                 Personalization
               </Menu.Item>
-              <Menu.Item leftSection={<Settings size={14} />} onClick={() => router.push('/settings')}>
+              <Menu.Item
+                leftSection={<Settings size={14} />}
+                onClick={() => router.push('/settings')}
+              >
                 Settings
               </Menu.Item>
               <Menu.Divider />
@@ -335,7 +438,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             <Group gap={8}>
               <LogIn size={16} className="text-gray-500" />
-              <Text size="sm" c="gray.7">Sign in</Text>
+              <Text size="sm" c="gray.7">
+                Sign in
+              </Text>
             </Group>
           </UnstyledButton>
         )}
@@ -355,8 +460,14 @@ interface SessionItemProps {
   onShare?: (id: string) => void;
 }
 
-const SessionItem: React.FC<SessionItemProps> = ({ 
-  session, isActive, onSelect, onTogglePin, onRename, onDelete, onShare 
+const SessionItem: React.FC<SessionItemProps> = ({
+  session,
+  isActive,
+  onSelect,
+  onTogglePin,
+  onRename,
+  onDelete,
+  onShare,
 }) => {
   const [hovered, setHovered] = useState(false);
 
@@ -377,27 +488,21 @@ const SessionItem: React.FC<SessionItemProps> = ({
     >
       <Group wrap="nowrap" gap={8}>
         {/* Title */}
-        <Text 
-          size="sm" 
-          truncate 
-          c={isActive ? 'dark.9' : 'gray.7'} 
-          fw={400}
-          style={{ flex: 1 }}
-        >
+        <Text size="sm" truncate c={isActive ? 'dark.9' : 'gray.7'} fw={400} style={{ flex: 1 }}>
           {session.title || session.course.code}
         </Text>
-        
+
         {/* Pin indicator: show when pinned AND not hovered */}
         {session.isPinned && !hovered && (
           <Pin size={14} style={{ color: 'var(--mantine-color-gray-5)', flexShrink: 0 }} />
         )}
-        
+
         {/* Actions Menu: show only when hovered */}
         {hovered && (
           <Menu position="right-start" withinPortal shadow="md">
             <Menu.Target>
-              <ActionIcon 
-                variant="subtle" 
+              <ActionIcon
+                variant="subtle"
                 size={22}
                 radius="sm"
                 color="gray"
@@ -408,20 +513,42 @@ const SessionItem: React.FC<SessionItemProps> = ({
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item leftSection={<Share size={14} />} onClick={(e) => { e.stopPropagation(); onShare?.(session.id); }}>
+              <Menu.Item
+                leftSection={<Share size={14} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShare?.(session.id);
+                }}
+              >
                 Share
               </Menu.Item>
-              <Menu.Item leftSection={<PenLine size={14} />} onClick={(e) => { e.stopPropagation(); onRename?.(session.id, session.title || session.course.code); }}>
+              <Menu.Item
+                leftSection={<PenLine size={14} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename?.(session.id, session.title || session.course.code);
+                }}
+              >
                 Rename
               </Menu.Item>
               <Menu.Divider />
-              <Menu.Item 
+              <Menu.Item
                 leftSection={session.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
-                onClick={(e) => { e.stopPropagation(); onTogglePin?.(session.id, !session.isPinned); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin?.(session.id, !session.isPinned);
+                }}
               >
                 {session.isPinned ? 'Unpin' : 'Pin'}
               </Menu.Item>
-              <Menu.Item leftSection={<Trash size={14} />} color="red" onClick={(e) => { e.stopPropagation(); onDelete?.(session.id); }}>
+              <Menu.Item
+                leftSection={<Trash size={14} />}
+                color="red"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete?.(session.id);
+                }}
+              >
                 Delete
               </Menu.Item>
             </Menu.Dropdown>

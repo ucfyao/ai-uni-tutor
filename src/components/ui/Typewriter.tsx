@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import MarkdownRenderer from '../MarkdownRenderer';
 
 interface TypewriterProps {
@@ -9,11 +9,7 @@ interface TypewriterProps {
   speed?: number;
 }
 
-export const Typewriter: React.FC<TypewriterProps> = ({ 
-  content, 
-  onComplete, 
-  speed = 3 
-}) => {
+export const Typewriter: React.FC<TypewriterProps> = ({ content, onComplete, speed = 3 }) => {
   const [displayedContent, setDisplayedContent] = useState('');
   const indexRef = useRef(0);
 
@@ -21,9 +17,9 @@ export const Typewriter: React.FC<TypewriterProps> = ({
     // Reset if content changes completely (fresh start)
     // In a real streaming scenario, we might append, but this logic assumes full content replacement
     if (content.length < displayedContent.length) {
-        // Content surprisingly shrank or changed? Reset.
-        indexRef.current = 0;
-        setDisplayedContent('');
+      // Content surprisingly shrank or changed? Reset.
+      indexRef.current = 0;
+      setDisplayedContent('');
     }
 
     const intervalId = setInterval(() => {
@@ -32,7 +28,7 @@ export const Typewriter: React.FC<TypewriterProps> = ({
         setDisplayedContent(content);
         clearInterval(intervalId);
         if (onComplete) {
-            onComplete();
+          onComplete();
         }
         return;
       }
@@ -41,7 +37,6 @@ export const Typewriter: React.FC<TypewriterProps> = ({
       // Ensure we don't go out of bounds
       const nextIndex = Math.min(indexRef.current, content.length);
       setDisplayedContent(content.slice(0, nextIndex));
-      
     }, 10);
 
     return () => clearInterval(intervalId);

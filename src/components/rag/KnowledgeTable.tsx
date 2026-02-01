@@ -1,12 +1,12 @@
 'use client';
 
-import { Table, Group, Text, Badge, ActionIcon, Tooltip, Stack, Card, Box } from '@mantine/core';
+import { AlertCircle, CheckCircle, Clock, FileText, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ActionIcon, Badge, Box, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { FileText, CheckCircle, Clock, AlertCircle, Trash2 } from 'lucide-react';
-import { deleteDocument } from '@/app/actions/documents';
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { notifications } from '@mantine/notifications';
+import { deleteDocument } from '@/app/actions/documents';
+import { createClient } from '@/lib/supabase/client';
 
 interface Document {
   id: string;
@@ -46,7 +46,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
         {
           event: '*',
           schema: 'public',
-          table: 'documents'
+          table: 'documents',
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -54,13 +54,13 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
             setDocuments((prev) => [newDoc, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
             const updatedDoc = payload.new as Document;
-            setDocuments((prev) => 
-                prev.map((doc) => doc.id === updatedDoc.id ? updatedDoc : doc)
+            setDocuments((prev) =>
+              prev.map((doc) => (doc.id === updatedDoc.id ? updatedDoc : doc)),
             );
           } else if (payload.eventType === 'DELETE') {
-             setDocuments((prev) => prev.filter((doc) => doc.id !== payload.old.id)); 
+            setDocuments((prev) => prev.filter((doc) => doc.id !== payload.old.id));
           }
-        }
+        },
       )
       .subscribe();
 
@@ -71,49 +71,59 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this document?')) return;
-    
+
     // Optimistic Update
     setDeletingId(id);
     const previousDocs = [...documents];
     setDocuments((prev) => prev.filter((doc) => doc.id !== id));
 
     try {
-        await deleteDocument(id);
-        notifications.show({
-            title: 'Deleted',
-            message: 'Document deleted successfully',
-            color: 'green',
-        });
-        // We don't need to refresh here if we trust the optimistic update + realtime
-        // But revalidatePath on server is good for next hard nav.
-        // Also realtime DELETE event will confirm it.
+      await deleteDocument(id);
+      notifications.show({
+        title: 'Deleted',
+        message: 'Document deleted successfully',
+        color: 'green',
+      });
+      // We don't need to refresh here if we trust the optimistic update + realtime
+      // But revalidatePath on server is good for next hard nav.
+      // Also realtime DELETE event will confirm it.
     } catch {
-        // Revert on error
-        setDocuments(previousDocs);
-        notifications.show({
-            title: 'Error',
-            message: 'Failed to delete document',
-            color: 'red',
-        });
+      // Revert on error
+      setDocuments(previousDocs);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to delete document',
+        color: 'red',
+      });
     } finally {
-        setDeletingId(null);
+      setDeletingId(null);
     }
   };
 
   const renderStatusBadge = (doc: Document) => {
     if (doc.status === 'ready') {
-      return <Badge color="green" variant="light" leftSection={<CheckCircle size={12}/>}>Ready</Badge>;
+      return (
+        <Badge color="green" variant="light" leftSection={<CheckCircle size={12} />}>
+          Ready
+        </Badge>
+      );
     }
     if (doc.status === 'processing') {
-      return <Badge color="blue" variant="light" leftSection={<Clock size={12}/>}>Processing</Badge>;
+      return (
+        <Badge color="blue" variant="light" leftSection={<Clock size={12} />}>
+          Processing
+        </Badge>
+      );
     }
     if (doc.status === 'error') {
       return (
         <Group gap={4}>
-          <Badge color="red" variant="light" leftSection={<AlertCircle size={12}/>}>Error</Badge>
+          <Badge color="red" variant="light" leftSection={<AlertCircle size={12} />}>
+            Error
+          </Badge>
           {doc.status_message && (
             <Tooltip label={doc.status_message}>
-              <AlertCircle size={14} className="text-red-500 cursor-help"/>
+              <AlertCircle size={14} className="text-red-500 cursor-help" />
             </Tooltip>
           )}
         </Group>
@@ -127,18 +137,22 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
     return (
       <Stack gap="sm">
         {documents.length === 0 ? (
-          <Text c="dimmed" size="sm" py="xl" ta="center">No documents uploaded yet</Text>
+          <Text c="dimmed" size="sm" py="xl" ta="center">
+            No documents uploaded yet
+          </Text>
         ) : (
           documents.map((doc) => (
             <Card key={doc.id} withBorder padding="sm" radius="md">
               <Group justify="space-between" mb="xs">
                 <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
                   <FileText size={18} className="text-gray-500" style={{ flexShrink: 0 }} />
-                  <Text size="sm" fw={500} truncate style={{ flex: 1 }}>{doc.name}</Text>
+                  <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
+                    {doc.name}
+                  </Text>
                 </Group>
-                <ActionIcon 
-                  variant="subtle" 
-                  color="red" 
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
                   onClick={() => handleDelete(doc.id)}
                   loading={deletingId === doc.id}
                   aria-label="Delete document"
@@ -146,13 +160,19 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
                   <Trash2 size={16} />
                 </ActionIcon>
               </Group>
-              
+
               <Group gap="xs" mb="xs">
-                <Text size="xs" c="dimmed">{doc.metadata?.school || '-'}</Text>
-                <Text size="xs" c="dimmed">•</Text>
-                <Badge variant="dot" color="gray" size="xs">{doc.metadata?.course || 'General'}</Badge>
+                <Text size="xs" c="dimmed">
+                  {doc.metadata?.school || '-'}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  •
+                </Text>
+                <Badge variant="dot" color="gray" size="xs">
+                  {doc.metadata?.course || 'General'}
+                </Badge>
               </Group>
-              
+
               <Group justify="space-between">
                 <Text size="xs" c="dimmed" suppressHydrationWarning>
                   {new Date(doc.created_at).toLocaleDateString()}
@@ -186,25 +206,29 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
               <Table.Td>
                 <Group gap="xs">
                   <FileText size={16} className="text-gray-500" />
-                  <Text size="sm" fw={500}>{doc.name}</Text>
+                  <Text size="sm" fw={500}>
+                    {doc.name}
+                  </Text>
                 </Group>
               </Table.Td>
               <Table.Td>
                 <Text size="sm">{doc.metadata?.school || '-'}</Text>
               </Table.Td>
               <Table.Td>
-                <Badge variant="dot" color="gray" size="sm">{doc.metadata?.course || 'General'}</Badge>
+                <Badge variant="dot" color="gray" size="sm">
+                  {doc.metadata?.course || 'General'}
+                </Badge>
               </Table.Td>
               <Table.Td>
-                <Text size="sm" c="dimmed" suppressHydrationWarning>{new Date(doc.created_at).toLocaleDateString()}</Text>
+                <Text size="sm" c="dimmed" suppressHydrationWarning>
+                  {new Date(doc.created_at).toLocaleDateString()}
+                </Text>
               </Table.Td>
+              <Table.Td>{renderStatusBadge(doc)}</Table.Td>
               <Table.Td>
-                {renderStatusBadge(doc)}
-              </Table.Td>
-              <Table.Td>
-                <ActionIcon 
-                  variant="subtle" 
-                  color="red" 
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
                   onClick={() => handleDelete(doc.id)}
                   loading={deletingId === doc.id}
                   aria-label="Delete document"
@@ -217,7 +241,9 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
           {documents.length === 0 && (
             <Table.Tr>
               <Table.Td colSpan={6} align="center">
-                <Text c="dimmed" size="sm" py="xl">No documents uploaded yet</Text>
+                <Text c="dimmed" size="sm" py="xl">
+                  No documents uploaded yet
+                </Text>
               </Table.Td>
             </Table.Tr>
           )}
