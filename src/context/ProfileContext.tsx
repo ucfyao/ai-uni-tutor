@@ -7,6 +7,7 @@ interface Profile {
   full_name?: string;
   email?: string;
   subscription_status?: string;
+  current_period_end?: string;
 }
 
 interface ProfileContextType {
@@ -36,7 +37,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, email, subscription_status')
+        .select('full_name, email, subscription_status, current_period_end')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -44,6 +45,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         full_name: data?.full_name || undefined,
         email: user.email || undefined,
         subscription_status: data?.subscription_status || undefined,
+        current_period_end: data?.current_period_end || undefined,
       });
     } catch (error) {
       console.error('Failed to fetch profile', error);
