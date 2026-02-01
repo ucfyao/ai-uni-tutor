@@ -1,10 +1,96 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Loader, Container, SimpleGrid, Paper, ThemeIcon, Menu, Tooltip, Modal, Button, Drawer } from '@mantine/core'; // Removed Burger
+import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Skeleton, Container, SimpleGrid, Paper, ThemeIcon, Menu, Tooltip, Modal, Button, Drawer } from '@mantine/core'; // Removed Burger
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks'; 
-import { Bot, Paperclip, ArrowUp, Share2, MoreHorizontal, Globe, BrainCircuit, Pin, PinOff, PenLine, Share, Trash, Presentation, Compass, FileQuestion, Sparkles, Feather, BookOpen } from 'lucide-react';
+import { Bot, Paperclip, ArrowUp, Share2, MoreHorizontal, Globe, BrainCircuit, Pin, PinOff, PenLine, Share, Trash, Presentation, Compass, FileQuestion, Sparkles, Feather, BookOpen, RefreshCw, AlertCircle } from 'lucide-react';
 import { ChatSession, ChatMessage } from '../types/index';
 import { generateChatResponse } from '@/app/actions/chat';
+
+// Streaming chat function with timeout and retry support
+const STREAM_TIMEOUT_MS = 60000; // 60 seconds timeout
+
+async function streamChatResponse(
+    course: { code: string; name: string },
+    mode: string | null,
+    history: { role: string; content: string }[],
+    userInput: string,
+    onChunk: (text: string) => void,
+    onError: (error: string, isLimitError?: boolean, isRetryable?: boolean) => void,
+    onComplete: () => void,
+    signal?: AbortSignal
+) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+
+    // Combine external signal with timeout
+    if (signal) {
+        signal.addEventListener('abort', () => controller.abort());
+    }
+
+    try {
+        const response = await fetch('/api/chat/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ course, mode, history, userInput }),
+            signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            onError(errorData.error || 'Failed to generate response', errorData.isLimitError, false);
+            return;
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+            onError('Failed to read response stream', false, true);
+            return;
+        }
+
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data === '[DONE]') {
+                        onComplete();
+                        return;
+                    }
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.text) {
+                            onChunk(parsed.text);
+                        } else if (parsed.error) {
+                            onError(parsed.error, false, true);
+                            return;
+                        }
+                    } catch {
+                        // Ignore parse errors for partial chunks
+                    }
+                }
+            }
+        }
+        onComplete();
+    } catch (error) {
+        clearTimeout(timeoutId);
+        console.error('Stream error:', error);
+        
+        if (error instanceof Error && error.name === 'AbortError') {
+            onError('Request timed out. Please try again.', false, true);
+        } else {
+            onError('Failed to connect to server. Please check your connection.', false, true);
+        }
+    }
+}
 import { MessageBubble } from './chat/MessageBubble';
 import { MODES } from '../constants/index';
 // Removed useSidebar import
@@ -29,6 +115,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
+  
+  // Error and retry state
+  const [lastError, setLastError] = useState<{ message: string; canRetry: boolean } | null>(null);
+  const [lastInput, setLastInput] = useState<string>('');
 
   // Derived State (Moved Up)
   const isNewChat = session.messages.length === 0;
@@ -75,17 +165,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                        radius="xl" 
                        size="lg" 
                        onClick={() => setMobileKnowledgeOpened(true)}
+                       aria-label="Open knowledge panel"
+                       aria-expanded={mobileKnowledgeOpened}
                    >
                         <BookOpen size={20} strokeWidth={1.5} />
                    </ActionIcon>
                )}
-               <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg" onClick={onShareSession}>
+               <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg" onClick={onShareSession} aria-label="Share conversation">
                     <Share2 size={20} strokeWidth={1.5} />
                </ActionIcon>
                
                <Menu position="bottom-end" withArrow>
                    <Menu.Target>
-                       <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg">
+                       <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg" aria-label="More options">
                             <MoreHorizontal size={20} strokeWidth={1.5} />
                        </ActionIcon>
                    </Menu.Target>
@@ -279,42 +371,77 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
-    const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: 'user', content: input, timestamp: Date.now() };
+  const handleSend = async (retryInput?: string) => {
+    const messageToSend = retryInput || input.trim();
+    if (!messageToSend || isTyping) return;
+    
+    // Clear any previous error
+    setLastError(null);
+    setLastInput(messageToSend);
+    
+    const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: 'user', content: messageToSend, timestamp: Date.now() };
+    const aiMsgId = `a_${Date.now()}`;
     const updatedSession = { ...session, messages: [...session.messages, userMsg] };
     onUpdateSession(updatedSession);
-    setInput('');
+    if (!retryInput) setInput('');
     setIsTyping(true);
 
-    try {
-        const result = await generateChatResponse(session.course, session.mode, updatedSession.messages, input);
-        
-        if (result.success === false) {
-            if (result.isLimitError) {
+    // Create placeholder AI message for streaming
+    const aiMsg: ChatMessage = { id: aiMsgId, role: 'assistant', content: '', timestamp: Date.now() };
+    let currentSession = { ...updatedSession, messages: [...updatedSession.messages, aiMsg] };
+    onUpdateSession(currentSession);
+    setStreamingMsgId(aiMsgId);
+
+    let accumulatedContent = '';
+
+    await streamChatResponse(
+        session.course,
+        session.mode,
+        updatedSession.messages.map(m => ({ role: m.role, content: m.content })),
+        messageToSend,
+        // onChunk
+        (text) => {
+            accumulatedContent += text;
+            const updatedAiMsg = { ...aiMsg, content: accumulatedContent };
+            currentSession = { ...currentSession, messages: [...updatedSession.messages, updatedAiMsg] };
+            onUpdateSession(currentSession);
+        },
+        // onError
+        (error, isLimitError, isRetryable) => {
+            setIsTyping(false);
+            setStreamingMsgId(null);
+            // Remove the placeholder message
+            onUpdateSession(updatedSession);
+            
+            if (isLimitError) {
                 setShowUpgradeModal(true);
             } else {
+                setLastError({ message: error || 'Failed to generate response.', canRetry: isRetryable || false });
                 notifications.show({
                     title: 'Action Failed',
-                    message: result.error || 'Failed to generate response.',
+                    message: error || 'Failed to generate response.',
                     color: 'red',
                 });
             }
-            return;
+        },
+        // onComplete
+        () => {
+            setIsTyping(false);
+            setStreamingMsgId(null);
+            setLastError(null);
+            // Final update with complete content
+            const finalAiMsg = { ...aiMsg, content: accumulatedContent || '...' };
+            onUpdateSession({ ...currentSession, messages: [...updatedSession.messages, finalAiMsg] });
         }
+    );
+  };
 
-        const aiMsg: ChatMessage = { id: `a_${Date.now()}`, role: 'assistant', content: result.data || "...", timestamp: Date.now() };
-        onUpdateSession({ ...updatedSession, messages: [...updatedSession.messages, aiMsg] });
-        setStreamingMsgId(aiMsg.id);
-    } catch (e) {
-        console.error("Layout/Network Error:", e);
-        notifications.show({
-            title: 'Network Error',
-            message: 'Failed to connect to server.',
-            color: 'red',
-        });
-    } finally {
-        setIsTyping(false);
+  const handleRetry = () => {
+    if (lastInput) {
+      // Remove the last user message before retrying
+      const messagesWithoutLast = session.messages.slice(0, -1);
+      onUpdateSession({ ...session, messages: messagesWithoutLast });
+      handleSend(lastInput);
     }
   };
 
@@ -350,6 +477,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
             mb={6}
             ml={4}
             className="hover:bg-gray-100 hover:text-dark transition-colors"
+            aria-label="Attach file"
         >
           <Paperclip size={18} strokeWidth={2} />
         </ActionIcon>
@@ -384,12 +512,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
           variant={input.trim() ? 'gradient' : 'filled'}
           gradient={{ from: 'indigo.6', to: 'violet.6', deg: 45 }}
           color={input.trim() ? undefined : "gray.2"} 
-          onClick={handleSend} 
+          onClick={() => handleSend()} 
           disabled={!input.trim() || isTyping}
           mb={6}
           mr={4}
           style={{ transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
           className={input.trim() ? 'shadow-md hover:scale-105' : ''}
+          aria-label="Send message"
         >
           <ArrowUp size={18} strokeWidth={3} color={input.trim() ? 'white' : 'var(--mantine-color-gray-5)'} />
         </ActionIcon>
@@ -441,17 +570,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                        radius="xl" 
                        size={36}
                        onClick={() => setMobileKnowledgeOpened(true)}
+                       aria-label="Open knowledge panel"
+                       aria-expanded={mobileKnowledgeOpened}
                    >
                         <BookOpen size={20} strokeWidth={1.5} />
                    </ActionIcon>
                )}
-               <ActionIcon variant="subtle" c="dimmed" radius="xl" size={36} onClick={onShareSession}>
+               <ActionIcon variant="subtle" c="dimmed" radius="xl" size={36} onClick={onShareSession} aria-label="Share conversation">
                     <Share2 size={20} strokeWidth={1.5} />
                </ActionIcon>
                
                <Menu position="bottom-end" withArrow>
                    <Menu.Target>
-                       <ActionIcon variant="subtle" c="dimmed" radius="xl" size={36}>
+                       <ActionIcon variant="subtle" c="dimmed" radius="xl" size={36} aria-label="More options">
                             <MoreHorizontal size={20} strokeWidth={1.5} />
                        </ActionIcon>
                    </Menu.Target>
@@ -558,6 +689,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                                         shadow="sm" 
                                         radius="lg" 
                                         p="lg"
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`Select ${mode.label} mode: ${meta.desc}`}
                                         style={{ 
                                             cursor: 'pointer', 
                                             backgroundColor: 'white',
@@ -566,7 +700,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                                             transition: 'all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)',
                                             minHeight: '140px',
                                         }}
-                                        className={`group ${meta.hoverClass} hover:-translate-y-1`}
+                                        className={`group ${meta.hoverClass} hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2`}
                                         onClick={() => {
                                             const welcomeMsg: ChatMessage = { 
                                                 id: `a_${Date.now()}`, 
@@ -580,6 +714,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                                                 mode: mode.label as any,  // Fixed elsewhere if types allow, but sticking with existing any here for safety if types mismatch 
                                                 messages: [welcomeMsg] 
                                             });
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                const welcomeMsg: ChatMessage = { 
+                                                    id: `a_${Date.now()}`, 
+                                                    role: 'assistant', 
+                                                    content: meta.intro, 
+                                                    timestamp: Date.now() 
+                                                };
+                                                onUpdateSession({ 
+                                                    ...session, 
+                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                    mode: mode.label as any,
+                                                    messages: [welcomeMsg] 
+                                                });
+                                            }
                                         }}
                                     >
                                         <Stack gap="sm" h="100%" justify="space-between">
@@ -667,13 +818,42 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                         })}
                         
                         {isTyping && (
-                            <Group align="flex-start" gap="md" px="md">
+                            <Group align="flex-start" gap="md" px="md" aria-live="polite" aria-busy="true">
                             <Avatar size="sm" radius="sm" style={{ border: '1px solid var(--mantine-color-gray-2)' }} bg="transparent">
-                                <Bot size={18} className="text-indigo-600" />
+                                <Bot size={18} className="text-indigo-600 animate-pulse" />
                             </Avatar>
-                            <Box mt={6}>
-                                <Loader size="xs" color="gray" type="dots" />
-                            </Box>
+                            <Stack gap="xs" style={{ flex: 1, maxWidth: '70%' }}>
+                                <Text size="xs" c="dimmed" className="animate-pulse">AI is thinking...</Text>
+                                <Skeleton height={12} radius="md" width="90%" />
+                                <Skeleton height={12} radius="md" width="75%" />
+                                <Skeleton height={12} radius="md" width="60%" />
+                            </Stack>
+                            </Group>
+                        )}
+                        
+                        {/* Error with Retry Button */}
+                        {lastError && !isTyping && (
+                            <Group align="flex-start" gap="md" px="md">
+                            <Avatar size="sm" radius="sm" bg="red.1">
+                                <AlertCircle size={18} className="text-red-600" />
+                            </Avatar>
+                            <Stack gap="xs" style={{ flex: 1 }}>
+                                <Text size="sm" c="red.7" fw={500}>
+                                    {lastError.message}
+                                </Text>
+                                {lastError.canRetry && (
+                                    <Button 
+                                        variant="light" 
+                                        color="red" 
+                                        size="xs" 
+                                        leftSection={<RefreshCw size={14} />}
+                                        onClick={handleRetry}
+                                        style={{ width: 'fit-content' }}
+                                    >
+                                        Retry
+                                    </Button>
+                                )}
+                            </Stack>
                             </Group>
                         )}
                         </Stack>

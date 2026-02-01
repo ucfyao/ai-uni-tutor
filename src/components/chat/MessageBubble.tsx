@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Group, Text, Popover, Button, TextInput } from '@mantine/core'; // Add Popover, Button, TextInput
+import { Box, Group, Text, Popover, Button, TextInput } from '@mantine/core';
 import MarkdownRenderer from '../MarkdownRenderer';
-import { Typewriter } from '../ui/Typewriter';
 import { ChatMessage, TutoringMode } from '@/types/index';
-import { Presentation, Compass, FileQuestion, Bot, Plus } from 'lucide-react'; // Add Plus
+import { Presentation, Compass, FileQuestion, Bot, Plus } from 'lucide-react';
 import { KnowledgeCard, injectLinks } from '@/lib/contentParser';
 
 interface MessageBubbleProps {
@@ -145,11 +144,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {isUser ? (
               <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.6}>{message.content}</Text>
             ) : (
-              isStreaming ? (
-                <Typewriter content={message.content} onComplete={onStreamingComplete} />
-              ) : (
-                <MarkdownRenderer content={processedContent} onLinkClick={handleLinkClick} />
-              )
+              <>
+                <MarkdownRenderer 
+                  content={isStreaming ? message.content : processedContent} 
+                  onLinkClick={handleLinkClick} 
+                />
+                {isStreaming && (
+                  <Box 
+                    component="span" 
+                    className="animate-pulse"
+                    style={{ 
+                      display: 'inline-block',
+                      width: '6px',
+                      height: '16px',
+                      backgroundColor: 'var(--mantine-color-indigo-5)',
+                      marginLeft: '2px',
+                      borderRadius: '2px',
+                      verticalAlign: 'text-bottom'
+                    }}
+                  />
+                )}
+              </>
             )}
           </Box>
 
