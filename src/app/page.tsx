@@ -1,13 +1,13 @@
 'use client';
 
-import React from 'react';
-import { Stack, Center, Text, Button, Box, Title, Container } from '@mantine/core';
 import { Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import React from 'react';
+import { Box, Button, Center, Container, Stack, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import NewSessionModal from '@/components/NewSessionModal';
-import { useRouter } from 'next/navigation';
-import { Course, TutoringMode } from '@/types/index';
 import { useSessions } from '@/context/SessionContext';
+import { Course, TutoringMode } from '@/types/index';
 
 export default function Page() {
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
@@ -18,7 +18,7 @@ export default function Page() {
     closeModal();
     const newId = await addSession(course, mode);
     if (newId) {
-        router.push(`/chat/${newId}`);
+      router.push(`/chat/${newId}`);
     }
   };
 
@@ -26,54 +26,49 @@ export default function Page() {
     <>
       <Center h="100%">
         <Container size="xs" w="100%">
-            <Stack align="center" gap={0} ta="center">
-              
-              <Box mb={24} className="animate-in fade-in zoom-in duration-700 ease-out">
-                  <img 
-                    src="/assets/logo.png" 
-                    alt="AI Uni Tutor" 
-                    width={120} 
-                    height={120}
-                  />
-              </Box>
+          <Stack align="center" gap={0} ta="center">
+            <Box mb={24} className="animate-in fade-in zoom-in duration-700 ease-out">
+              <img src="/assets/logo.png" alt="AI Uni Tutor" width={120} height={120} />
+            </Box>
 
-              <Stack gap={12} align="center" mb={40}>
-                <Title order={1} fw={800} c="dark.9" style={{ fontSize: '36px', letterSpacing: '-1.5px' }}>
-                  AI Uni Tutor
-                </Title>
-                <Text c="dark.5" size="lg" fw={500}>
-                  Your personalized academic copilot.
-                </Text>
-              </Stack>
-
-              <Button 
-                size="xl" 
-                radius="xl"
-                onClick={openModal} 
-                variant="gradient"
-                gradient={{ from: 'indigo.6', to: 'violet.6', deg: 45 }}
-                leftSection={<Plus size={24} strokeWidth={3} />}
-                className="transition-all hover:translate-y-[-3px] hover:shadow-2xl hover:scale-[1.02]"
-                px={48}
-                styles={{ 
-                  root: { 
-                      boxShadow: '0 10px 30px rgba(79, 70, 229, 0.25)',
-                      height: '60px',
-                      fontSize: '18px'
-                  } 
-                }}
+            <Stack gap={12} align="center" mb={40}>
+              <Title
+                order={1}
+                fw={800}
+                c="dark.9"
+                style={{ fontSize: '36px', letterSpacing: '-1.5px' }}
               >
-                Start Learning
-              </Button>
+                AI Uni Tutor
+              </Title>
+              <Text c="dark.5" size="lg" fw={500}>
+                Your personalized academic copilot.
+              </Text>
             </Stack>
+
+            <Button
+              size="xl"
+              radius="xl"
+              onClick={openModal}
+              variant="gradient"
+              gradient={{ from: 'indigo.6', to: 'violet.6', deg: 45 }}
+              leftSection={<Plus size={24} strokeWidth={3} />}
+              className="transition-all hover:translate-y-[-3px] hover:shadow-2xl hover:scale-[1.02]"
+              px={48}
+              styles={{
+                root: {
+                  boxShadow: '0 10px 30px rgba(79, 70, 229, 0.25)',
+                  height: '60px',
+                  fontSize: '18px',
+                },
+              }}
+            >
+              Start Learning
+            </Button>
+          </Stack>
         </Container>
       </Center>
 
-      <NewSessionModal 
-        opened={modalOpened}
-        onClose={closeModal}
-        onStart={handleStartSession}
-      />
+      <NewSessionModal opened={modalOpened} onClose={closeModal} onStart={handleStartSession} />
     </>
   );
 }
