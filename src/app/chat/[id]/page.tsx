@@ -59,17 +59,21 @@ export default function ChatPage() {
 
       // Save new messages that haven't been saved yet
       for (const msg of updated.messages) {
-        // Skip if already saved
+        // Skip if already saved or being saved
         if (savedMsgIdsRef.current.has(msg.id)) continue;
 
         // Skip messages with empty content (AI placeholder during streaming)
         if (!msg.content || msg.content.trim().length === 0) continue;
 
-        // Save the message and track it
+        // Mark as saved FIRST to prevent duplicate saves from overlapping calls
+        savedMsgIdsRef.current.add(msg.id);
+
+        // Then save the message
         try {
           await saveChatMessage(updated.id, msg);
-          savedMsgIdsRef.current.add(msg.id);
         } catch (e) {
+          // Remove from ref if save failed, so it can be retried
+          savedMsgIdsRef.current.delete(msg.id);
           console.error('Failed to save message:', e);
         }
       }
