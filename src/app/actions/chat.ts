@@ -2,6 +2,8 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
+import { enforceQuota } from '@/app/actions/limits';
+import { QuotaExceededError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
 
@@ -122,34 +124,8 @@ async function _generateChatResponse(
     throw new Error('Unauthorized');
   }
 
-  // Check Usage Limits
-  if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATELIMIT === 'true') {
-    const { checkLLMUsage } = await import('@/lib/redis');
-
-    // Get user subscription status
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('subscription_status')
-      .eq('id', user.id)
-      .single();
-
-    const isPro =
-      profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
-
-    const limit = isPro
-      ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100')
-      : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10');
-
-    const { success, count } = await checkLLMUsage(user.id, limit);
-
-    console.log(
-      `[Quota Check] User: ${user.id} | Plan: ${isPro ? 'Pro' : 'Free'} | Limit: ${limit} | Usage: ${count} | Success: ${success}`,
-    );
-
-    if (!success) {
-      throw new Error(`Daily limit reached (${limit}/${limit}). Please upgrade to Pro for more.`);
-    }
-  }
+  // Unified Quota Check
+  await enforceQuota();
 
   // --- Validation Section ---
   if (!mode) {
@@ -278,13 +254,13 @@ export async function generateChatResponse(
 
     return { success: true, data: await _generateChatResponse(course, mode, history, userInput) };
   } catch (error: unknown) {
+    // Quota Exceeded: trigger UI Modal
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message, isLimitError: true };
+    }
+
     // Business Logic Errors: Propagate message
     const message = error instanceof Error ? error.message : String(error);
-
-    // Specific handling for Limit Reached to trigger UI Modal
-    if (message.includes('Daily limit reached')) {
-      return { success: false, error: message, isLimitError: true };
-    }
 
     if (
       message.includes('Validation Failed') ||
@@ -663,6 +639,9 @@ export async function explainConcept(
       throw new Error('Unauthorized');
     }
 
+    // Unified Quota Check
+    await enforceQuota();
+
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     // Build a focused prompt for concept explanation
@@ -714,6 +693,11 @@ Use this context to provide course-specific explanations when relevant.`;
 
     return { success: true, explanation: response.text || 'Unable to generate explanation.' };
   } catch (error: unknown) {
+    // Quota Exceeded: return specific error
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
+
     console.error('explainConcept error:', error);
     const message = error instanceof Error ? error.message : 'Failed to explain concept';
     return { success: false, error: message };

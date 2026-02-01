@@ -444,8 +444,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               card.id === cardId ? { ...card, content: result.explanation } : card,
             ),
           );
+        } else if (result.error?.includes('Daily limit reached')) {
+          // Show upgrade modal when quota exceeded
+          setShowUpgradeModal(true);
         }
-        // If failed, keep original content (silent fail)
+        // If failed for other reasons, keep original content (silent fail)
       } catch (e) {
         console.error('Failed to explain concept:', e);
       } finally {
