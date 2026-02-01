@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Loader, Container, SimpleGrid, Paper, ThemeIcon, Menu, Tooltip, Modal, Button, Drawer, Burger } from '@mantine/core'; // Added Burger
+import { Stack, Group, Text, Textarea, ActionIcon, ScrollArea, Avatar, Box, Loader, Container, SimpleGrid, Paper, ThemeIcon, Menu, Tooltip, Modal, Button, Drawer } from '@mantine/core'; // Removed Burger
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks'; 
 import { Bot, Paperclip, ArrowUp, Share2, MoreHorizontal, Globe, BrainCircuit, Pin, PinOff, PenLine, Share, Trash, Presentation, Compass, FileQuestion, Sparkles, Feather, BookOpen } from 'lucide-react';
@@ -7,7 +7,7 @@ import { ChatSession, ChatMessage } from '../types/index';
 import { generateChatResponse } from '@/app/actions/chat';
 import { MessageBubble } from './chat/MessageBubble';
 import { MODES } from '../constants/index';
-import { useSidebar } from '@/context/SidebarContext'; // Re-added useSidebar
+// Removed useSidebar import
 import { useHeader } from '@/context/HeaderContext'; // Added
 
 interface ChatInterfaceProps {
@@ -38,7 +38,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
   const isMobile = useMediaQuery('(max-width: 48em)'); // 768px (Sidebar)
   const isCompact = useMediaQuery('(max-width: 64em)'); // 1024px (Knowledge Panel)
   const [mobileKnowledgeOpened, setMobileKnowledgeOpened] = useState(false);
-  const { toggleMobile, mobileOpened } = useSidebar(); 
+  // const { toggleMobile, mobileOpened } = useSidebar(); // Removed unused variables 
   const { setHeaderContent } = useHeader(); // Context
 
   // ... Knowledge Card Logic ...

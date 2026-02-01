@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ActionIcon, Avatar, Box, Button, Group, Menu, ScrollArea, Stack, Text, Tooltip, UnstyledButton, ThemeIcon } from '@mantine/core';
-import { Plus, GraduationCap, PanelLeft, PanelLeftOpen, LogOut, LogIn, Settings, Sparkles, Wand2, LifeBuoy, Pin, PinOff, MoreHorizontal, Share, PenLine, Trash, X, SquarePen } from 'lucide-react';
+import { ActionIcon, Avatar, Box, Button, Group, Menu, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
+import { GraduationCap, PanelLeft, PanelLeftOpen, LogOut, LogIn, Settings, Sparkles, Wand2, LifeBuoy, Pin, PinOff, MoreHorizontal, Share, PenLine, Trash, SquarePen } from 'lucide-react';
 import { ChatSession } from '../types/index';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
