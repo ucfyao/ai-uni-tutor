@@ -1,7 +1,8 @@
-# 🚀 AI Uni Tutor 🎓  
+# 🚀 AI Uni Tutor 🎓
+
 ### The AI Copilot for University Learning at Scale
 
-> **AI Uni Tutor** is an AI-powered academic copilot designed to help university students *learn better, not cheat faster*.  
+> **AI Uni Tutor** is an AI-powered academic copilot designed to help university students _learn better, not cheat faster_.  
 > It combines **LLM reasoning**, **course-specific RAG**, and **pedagogy-aligned tutoring modes** to deliver personalized, ethical, and scalable education support.
 
 <div align="center">
@@ -31,11 +32,13 @@
 ---
 
 ### What AI Uni Tutor Is
+
 - A **course-aware AI tutor**
 - A **learning companion**, not an answer engine
 - A **platform**, not a single model wrapper
 
 ### Who It’s For
+
 - 🎓 University students (STEM-first, expanding later)
 - 🧑‍🏫 Educators & teaching teams
 - 🏫 Institutions exploring AI-assisted learning
@@ -45,20 +48,24 @@
 ## 💎 Key Features
 
 ### 🧠 Pedagogy-Aligned Tutoring Modes
+
 Each interaction is explicitly scoped to a **learning intent**:
+
 - **Lecture Helper**  
   → Explains concepts using analogies, step-by-step reasoning, and Socratic questioning
 - **Assignment Coach**  
   → Guides thinking, debugging, and structure **without revealing final answers**
 - **Exam Prep**  
-  → Generates exam-style questions, identifies weak spots, and simulates test conditions
-> 🔒 Designed to **reduce cheating incentives**, not amplify them.
+   → Generates exam-style questions, identifies weak spots, and simulates test conditions
+  > 🔒 Designed to **reduce cheating incentives**, not amplify them.
 
 ### 📚 Context-Aware RAG
+
 • **Course Retrieval**: Upload textbooks, slides, and papers. The AI retrieves and grounds every answer in your specific course material using **Supabase Vector Search**.<br>
 • **Citation Tracking**: Responses are backed by source documents to ensure academic accuracy.
 
 ### 💎 "Pro Max" UI/UX
+
 • **Modern Aesthetic**: Clean, glassmorphic interfaces with deep diffused shadows and unified **Indigo-Violet** gradients.<br>
 • **Fluid Interactions**: Levitating cards, magnetic buttons, and smooth layout transitions powered by Mantine v8.
 
@@ -68,9 +75,9 @@ Each interaction is explicitly scoped to a **learning intent**:
 
 ### Prerequisites
 
-*   **Node.js**: v18+
-*   **Supabase Project**: With `vector` extension enabled.
-*   **Google AI Studio Key**: For accessing Gemini Pro model.
+- **Node.js**: v18+
+- **Supabase Project**: With `vector` extension enabled.
+- **Google AI Studio Key**: For accessing Gemini Pro model.
 
 ### 📦 Installation
 
@@ -98,12 +105,12 @@ cp .env.example .env.local
 <details>
 <summary>📋 <b>Environment Variables Reference</b></summary>
 
-| Variable | Required | Description |
-|:---|:---:|:---|
-| `GEMINI_API_KEY` | **Yes** | Your Google Gemini API Key |
-| `NEXT_PUBLIC_SUPABASE_URL` | **Yes** | Supabase Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Yes** | Supabase Anon (Public) Key |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Yes** | Supabase Service Role Key (for indexing) |
+| Variable                        | Required | Description                              |
+| :------------------------------ | :------: | :--------------------------------------- |
+| `GEMINI_API_KEY`                | **Yes**  | Your Google Gemini API Key               |
+| `NEXT_PUBLIC_SUPABASE_URL`      | **Yes**  | Supabase Project URL                     |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Yes**  | Supabase Anon (Public) Key               |
+| `SUPABASE_SERVICE_ROLE_KEY`     | **Yes**  | Supabase Service Role Key (for indexing) |
 
 </details>
 
@@ -121,16 +128,62 @@ Visit `http://localhost:3000` to start your session.
 
 <div align="center">
 
-| Component | Technology | Description |
-|:---:|:---:|:---|
-| **Framework** | **Next.js 16** | App Router, Server Actions, React 19 |
-| **UI Library** | **Mantine v8** | Design System, Hooks, Theming |
-| **Styling** | **Tailwind CSS** | Utility-first styling with CSS Modules |
-| **Database** | **Supabase** | PostgreSQL with pgvector for RAG |
-| **AI Model** | **Google Gemini** | Gemini 1.5 Pro for Reasoning |
-| **Icons** | **Lucide React** | Consistent, crisp iconography |
+|   Component    |    Technology     | Description                            |
+| :------------: | :---------------: | :------------------------------------- |
+| **Framework**  |  **Next.js 16**   | App Router, Server Actions, React 19   |
+| **UI Library** |  **Mantine v8**   | Design System, Hooks, Theming          |
+|  **Styling**   | **Tailwind CSS**  | Utility-first styling with CSS Modules |
+|  **Database**  |   **Supabase**    | PostgreSQL with pgvector for RAG       |
+|  **AI Model**  | **Google Gemini** | Gemini 1.5 Pro for Reasoning           |
+|   **Icons**    | **Lucide React**  | Consistent, crisp iconography          |
 
 </div>
+
+---
+
+## 🛠️ Development
+
+### Available Scripts
+
+| Script             | Description               |
+| ------------------ | ------------------------- |
+| `npm run dev`      | Start development server  |
+| `npm run build`    | Build for production      |
+| `npm run lint`     | Run ESLint                |
+| `npm run lint:fix` | Fix ESLint issues         |
+| `npm run format`   | Format code with Prettier |
+| `npm run test`     | Run tests                 |
+| `npm run commit`   | Interactive commit wizard |
+
+### Commit Convention
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) with the following format:
+
+```
+<type>(<scope>): <description>
+```
+
+**Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`
+
+**Scopes**: `chat`, `rag`, `api`, `ui`, `auth`, `stripe`, `db`, `deps`, `config`
+
+**Examples**:
+
+```bash
+feat(chat): add message streaming support
+fix(rag): resolve embedding dimension mismatch
+chore(deps): upgrade Next.js to 16.1.4
+```
+
+Use `npm run commit` for an interactive commit wizard.
+
+### Git Hooks
+
+This project uses Husky for automated checks:
+
+- **pre-commit**: Runs ESLint and Prettier on staged files
+- **commit-msg**: Validates commit message format
+- **pre-push**: Runs build to catch errors before pushing
 
 ---
 
