@@ -1,35 +1,34 @@
-
 export type University = {
-    id: string;
-    name: string;
-    shortName: string;
-    logo?: string;
+  id: string;
+  name: string;
+  shortName: string;
+  logo?: string;
 };
 
 export type Course = {
-    id: string;
-    universityId: string;
-    code: string;
-    name: string;
+  id: string;
+  universityId: string;
+  code: string;
+  name: string;
 };
 
 export type TutoringMode = 'Lecture Helper' | 'Assignment Coach' | 'Exam Prep' | 'Feedback';
 
 export interface ChatMessage {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: number;
-    cardId?: string;
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  cardId?: string;
 }
 
 export interface ChatSession {
-    id: string;
-    course: Course;
-    mode: TutoringMode | null;
-    title: string;
-    messages: ChatMessage[];
-    lastUpdated: number;
-    isPinned?: boolean;
-    isShared?: boolean;
+  id: string;
+  course: Course;
+  mode: TutoringMode | null;
+  title: string;
+  messages: ChatMessage[];
+  lastUpdated: number;
+  isPinned?: boolean;
+  isShared?: boolean;
 }
