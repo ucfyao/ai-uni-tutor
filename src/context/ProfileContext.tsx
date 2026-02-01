@@ -37,7 +37,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, email, subscription_status, current_period_end')
+        .select('full_name, subscription_status, current_period_end')
         .eq('id', user.id)
         .maybeSingle();
 
