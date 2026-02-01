@@ -1,6 +1,7 @@
 'use server';
 
 import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
 
@@ -10,8 +11,95 @@ import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
 const MAX_RETRIES = 3;
 const BASE_DELAY = 2000;
 
+type ChatMessageRow = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  card_id: string | null;
+};
+
+const tutoringModeSchema = z.enum(['Lecture Helper', 'Assignment Coach', 'Exam Prep', 'Feedback']);
+
+const courseSchema = z.object({
+  id: z.string().min(1),
+  universityId: z.string().min(1),
+  code: z.string().min(1),
+  name: z.string().min(1),
+});
+
+const chatMessageSchema = z.object({
+  id: z.string().min(1),
+  role: z.enum(['user', 'assistant']),
+  content: z.string().min(1),
+  timestamp: z.number().finite(),
+  cardId: z.string().min(1).optional(),
+});
+
+const generateChatSchema = z.object({
+  course: courseSchema,
+  mode: tutoringModeSchema.nullable(),
+  history: z.array(chatMessageSchema),
+  userInput: z.string().min(1),
+});
+
+const sessionIdSchema = z.string().min(1);
+const createSessionSchema = z
+  .object({
+    course: courseSchema,
+    mode: tutoringModeSchema.nullable(),
+    title: z.string().min(1),
+  })
+  .passthrough();
+
+const saveMessageSchema = z.object({
+  sessionId: sessionIdSchema,
+  message: chatMessageSchema,
+});
+
+const togglePinSchema = z.object({
+  sessionId: sessionIdSchema,
+  isPinned: z.boolean(),
+});
+
+const updateTitleSchema = z.object({
+  sessionId: sessionIdSchema,
+  title: z.string().min(1).max(200),
+});
+
+const updateModeSchema = z.object({
+  sessionId: sessionIdSchema,
+  mode: tutoringModeSchema,
+});
+
+const toggleShareSchema = z.object({
+  sessionId: sessionIdSchema,
+  isShared: z.boolean(),
+});
+
+const explainConceptSchema = z.object({
+  concept: z.string().min(1),
+  context: z.string().min(1),
+  courseCode: z.string().min(1).optional(),
+});
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function assertSessionOwnership(supabase: SupabaseClient, userId: string, sessionId: string) {
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) {
+    throw new Error('Unauthorized');
+  }
 }
 
 // --- Internal Implementation ---
@@ -128,7 +216,7 @@ async function _generateChatResponse(
     // Continue without RAG
   }
 
-  let lastError;
+  let lastError: unknown;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
@@ -141,12 +229,18 @@ async function _generateChatResponse(
         },
       });
 
-      return response.text;
-    } catch (error: any) {
-      // eslint-disable-line @typescript-eslint/no-explicit-any
+      const text = response.text;
+      if (!text) {
+        throw new Error('Empty response from AI model.');
+      }
+      return text;
+    } catch (error: unknown) {
       lastError = error;
       // Check for 429 Too Many Requests
-      if (error.message?.includes('429') || error.status === 429) {
+      if (
+        error instanceof Error &&
+        (error.message?.includes('429') || (error as { status?: number }).status === 429)
+      ) {
         console.warn(
           `Gemini 429 Rate Limit hit. Retrying attempt ${attempt + 1}/${MAX_RETRIES}...`,
         );
@@ -159,7 +253,10 @@ async function _generateChatResponse(
   }
 
   console.error('Gemini service failed after retries:', lastError);
-  throw lastError;
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+  throw new Error(String(lastError));
 }
 
 // --- Exported Wrapper with Error Masking ---
@@ -174,11 +271,15 @@ export async function generateChatResponse(
   userInput: string,
 ): Promise<ChatActionResponse> {
   try {
+    const parsed = generateChatSchema.safeParse({ course, mode, history, userInput });
+    if (!parsed.success) {
+      throw new Error('Validation Failed: Invalid chat request payload.');
+    }
+
     return { success: true, data: await _generateChatResponse(course, mode, history, userInput) };
-  } catch (error: any) {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
+  } catch (error: unknown) {
     // Business Logic Errors: Propagate message
-    const message = error.message || String(error);
+    const message = error instanceof Error ? error.message : String(error);
 
     // Specific handling for Limit Reached to trigger UI Modal
     if (message.includes('Daily limit reached')) {
@@ -205,6 +306,11 @@ export async function generateChatResponse(
 // --- Persistence Actions ---
 
 export async function getChatSession(sessionId: string): Promise<ChatSession | null> {
+  const parsed = sessionIdSchema.safeParse(sessionId);
+  if (!parsed.success) {
+    return null;
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -226,19 +332,20 @@ export async function getChatSession(sessionId: string): Promise<ChatSession | n
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true });
 
+  const messages: ChatMessageRow[] = Array.isArray(msgData) ? msgData : [];
+
   return {
     id: sessionData.id,
     course: sessionData.course,
     mode: sessionData.mode,
     title: sessionData.title,
     messages:
-      msgData?.map((msg: any) => ({
-        // eslint-disable-line @typescript-eslint/no-explicit-any
+      messages.map((msg) => ({
         id: msg.id,
         role: msg.role,
         content: msg.content,
         timestamp: new Date(msg.created_at).getTime(),
-        cardId: msg.card_id,
+        cardId: msg.card_id ?? undefined,
       })) || [],
     lastUpdated: new Date(sessionData.updated_at).getTime(),
     isPinned: sessionData.is_pinned,
@@ -277,19 +384,20 @@ export async function getChatSessions(): Promise<ChatSession[]> {
       .eq('session_id', row.id)
       .order('created_at', { ascending: true });
 
+    const messages: ChatMessageRow[] = Array.isArray(msgData) ? msgData : [];
+
     sessions.push({
       id: row.id,
       course: row.course,
       mode: row.mode,
       title: row.title,
       messages:
-        msgData?.map((msg: any) => ({
-          // eslint-disable-line @typescript-eslint/no-explicit-any
+        messages.map((msg) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
           timestamp: new Date(msg.created_at).getTime(),
-          cardId: msg.card_id, // Map DB column to type
+          cardId: msg.card_id ?? undefined, // Map DB column to type
         })) || [],
       lastUpdated: new Date(row.updated_at).getTime(),
       isPinned: row.is_pinned,
@@ -300,6 +408,11 @@ export async function getChatSessions(): Promise<ChatSession[]> {
 }
 
 export async function createChatSession(session: Omit<ChatSession, 'id' | 'lastUpdated'>) {
+  const parsed = createSessionSchema.safeParse(session);
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid chat session payload.');
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -330,7 +443,19 @@ export async function createChatSession(session: Omit<ChatSession, 'id' | 'lastU
 }
 
 export async function saveChatMessage(sessionId: string, message: ChatMessage) {
+  const parsed = saveMessageSchema.safeParse({ sessionId, message });
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid chat message payload.');
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertSessionOwnership(supabase, user.id, sessionId);
+
   const { error } = await supabase.from('chat_messages').insert({
     session_id: sessionId,
     role: message.role,
@@ -348,7 +473,19 @@ export async function saveChatMessage(sessionId: string, message: ChatMessage) {
 }
 
 export async function toggleSessionPin(sessionId: string, isPinned: boolean) {
+  const parsed = togglePinSchema.safeParse({ sessionId, isPinned });
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid pin toggle payload.');
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertSessionOwnership(supabase, user.id, sessionId);
+
   const { error } = await supabase
     .from('chat_sessions')
     .update({ is_pinned: isPinned })
@@ -358,14 +495,38 @@ export async function toggleSessionPin(sessionId: string, isPinned: boolean) {
 }
 
 export async function deleteChatSession(sessionId: string) {
+  const parsed = sessionIdSchema.safeParse(sessionId);
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid session id.');
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertSessionOwnership(supabase, user.id, sessionId);
+
   const { error } = await supabase.from('chat_sessions').delete().eq('id', sessionId);
 
   if (error) throw error;
 }
 
 export async function updateChatSessionTitle(sessionId: string, title: string) {
+  const parsed = updateTitleSchema.safeParse({ sessionId, title });
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid title payload.');
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertSessionOwnership(supabase, user.id, sessionId);
+
   const { error } = await supabase
     .from('chat_sessions')
     .update({ title, updated_at: new Date().toISOString() })
@@ -375,7 +536,19 @@ export async function updateChatSessionTitle(sessionId: string, title: string) {
 }
 
 export async function updateChatSessionMode(sessionId: string, mode: TutoringMode) {
+  const parsed = updateModeSchema.safeParse({ sessionId, mode });
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid mode payload.');
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertSessionOwnership(supabase, user.id, sessionId);
+
   const { error } = await supabase
     .from('chat_sessions')
     .update({ mode, updated_at: new Date().toISOString() })
@@ -385,7 +558,18 @@ export async function updateChatSessionMode(sessionId: string, mode: TutoringMod
 }
 
 export async function toggleSessionShare(sessionId: string, isShared: boolean) {
+  const parsed = toggleShareSchema.safeParse({ sessionId, isShared });
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid share toggle payload.');
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertSessionOwnership(supabase, user.id, sessionId);
 
   // Default expiration: 1 hour from now
   const expiresAt = isShared ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : null;
@@ -402,6 +586,11 @@ export async function toggleSessionShare(sessionId: string, isShared: boolean) {
 }
 
 export async function getSharedSession(sessionId: string): Promise<ChatSession | null> {
+  const parsed = sessionIdSchema.safeParse(sessionId);
+  if (!parsed.success) {
+    return null;
+  }
+
   const supabase = await createClient();
 
   // Fetch session only if it is marked as shared
@@ -424,19 +613,20 @@ export async function getSharedSession(sessionId: string): Promise<ChatSession |
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true });
 
+  const messages: ChatMessageRow[] = Array.isArray(msgData) ? msgData : [];
+
   return {
     id: sessionData.id,
     course: sessionData.course,
     mode: sessionData.mode,
     title: sessionData.title,
     messages:
-      msgData?.map((msg: any) => ({
-        // eslint-disable-line @typescript-eslint/no-explicit-any
+      messages.map((msg) => ({
         id: msg.id,
         role: msg.role,
         content: msg.content,
         timestamp: new Date(msg.created_at).getTime(),
-        cardId: msg.card_id, // Map DB column
+        cardId: msg.card_id ?? undefined, // Map DB column
       })) || [],
     lastUpdated: new Date(sessionData.updated_at).getTime(),
     isPinned: sessionData.is_pinned,
@@ -455,6 +645,11 @@ export async function explainConcept(
   courseCode?: string,
 ): Promise<ExplainConceptResponse> {
   try {
+    const parsed = explainConceptSchema.safeParse({ concept, context, courseCode });
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid explain concept payload.' };
+    }
+
     if (!process.env.GEMINI_API_KEY) {
       throw new Error('Missing GEMINI_API_KEY');
     }
@@ -518,9 +713,9 @@ Use this context to provide course-specific explanations when relevant.`;
     });
 
     return { success: true, explanation: response.text || 'Unable to generate explanation.' };
-  } catch (error: any) {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
+  } catch (error: unknown) {
     console.error('explainConcept error:', error);
-    return { success: false, error: error.message || 'Failed to explain concept' };
+    const message = error instanceof Error ? error.message : 'Failed to explain concept';
+    return { success: false, error: message };
   }
 }

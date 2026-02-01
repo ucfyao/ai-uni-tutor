@@ -1,32 +1,40 @@
-import { createClient } from "@/lib/supabase/server";
-import { generateEmbedding } from "./embedding";
+import { createClient } from '@/lib/supabase/server';
+import { generateEmbedding } from './embedding';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function retrieveContext(query: string, filter: Record<string, any> = {}, matchCount: number = 5) {
-    const embedding = await generateEmbedding(query);
-    const supabase = await createClient();
+export async function retrieveContext(
+  query: string,
+  filter: Record<string, unknown> = {},
+  matchCount: number = 5,
+) {
+  const embedding = await generateEmbedding(query);
+  const supabase = await createClient();
 
-    // Hybrid Search: combines vector similarity + keyword rank (RRF)
-    const { data: chunks, error } = await supabase.rpc('hybrid_search', {
-        query_text: query,
-        query_embedding: embedding,
-        match_threshold: 0.5,
-        match_count: matchCount,
-        rrf_k: 60,
-        filter: filter,
-    });
+  // Hybrid Search: combines vector similarity + keyword rank (RRF)
+  const { data, error } = await supabase.rpc('hybrid_search', {
+    query_text: query,
+    query_embedding: embedding,
+    match_threshold: 0.5,
+    match_count: matchCount,
+    rrf_k: 60,
+    filter: filter,
+  });
 
-    if (error) {
-        console.error('Error retrieving context:', error);
-        return "";
-    }
+  if (error) {
+    console.error('Error retrieving context:', error);
+    return '';
+  }
 
-    // Format context with citations
-    // e.g. "Content... (Page 5)"
-    return chunks.map(chunk => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const page = (chunk.metadata as any)?.page;
-        const sourceInfo = page ? ` (Page ${page})` : '';
-        return `${chunk.content}${sourceInfo}`;
-    }).join('\n\n---\n\n');
+  // Format context with citations
+  // e.g. "Content... (Page 5)"
+  const chunks: Array<{ content: string; metadata?: Record<string, unknown> | null }> =
+    Array.isArray(data) ? data : [];
+
+  return chunks
+    .map((chunk) => {
+      const metadata = chunk.metadata ?? {};
+      const page = typeof metadata === 'object' ? (metadata as { page?: number }).page : undefined;
+      const sourceInfo = page ? ` (Page ${page})` : '';
+      return `${chunk.content}${sourceInfo}`;
+    })
+    .join('\n\n---\n\n');
 }
