@@ -1,8 +1,20 @@
+import { BookOpen, ChevronRight, Send, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
-import { Stack, Paper, Text, ScrollArea, Box, Group, Collapse, TextInput, Button, ThemeIcon, ActionIcon, Loader, Avatar, Modal } from '@mantine/core';
-import { KnowledgeCard, extractCards } from '@/lib/contentParser';
-import { Lightbulb, BookOpen, Send, Bot, Trash2 } from 'lucide-react';
-
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Collapse,
+  Group,
+  Loader,
+  Modal,
+  ScrollArea,
+  Skeleton,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
+import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
 import MarkdownRenderer from '../MarkdownRenderer';
 
@@ -16,18 +28,20 @@ interface KnowledgePanelProps {
   cardRefs: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
   cardChats: Record<string, ChatMessage[]>;
   loadingCardId: string | null;
+  explainingCardIds?: Set<string>;
 }
 
-export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({ 
-    cards, 
-    visible, 
-    activeCardId, 
-    onCardClick, 
-    onAsk,
-    onDelete,
-    cardRefs,
-    cardChats,
-    loadingCardId
+export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
+  cards,
+  visible,
+  activeCardId,
+  onCardClick,
+  onAsk,
+  onDelete,
+  cardRefs,
+  cardChats,
+  loadingCardId,
+  explainingCardIds = new Set(),
 }) => {
   const [inputs, setInputs] = useState<{ [key: string]: string }>({});
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
@@ -35,239 +49,234 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   if (!visible) return null;
 
   const handleAsk = (card: KnowledgeCard) => {
-    const question = inputs[card.id] || '';
-    if (!question.trim()) return;
-    
-    onAsk(card, question);
-    setInputs(prev => ({ ...prev, [card.id]: '' }));
+    const q = inputs[card.id]?.trim();
+    if (!q) return;
+    onAsk(card, q);
+    setInputs((p) => ({ ...p, [card.id]: '' }));
   };
 
   return (
-    <Box 
-      h="100%" 
-      w={{ base: '100%', md: 360, lg: 400 }}
-      bg="gray.0" 
-      style={{ 
-        borderLeft: '1px solid var(--mantine-color-gray-2)',
-        flexShrink: 0,
+    <Box
+      h="100%"
+      w={{ base: '100%', md: 340 }}
+      style={{
+        borderLeft: '1px solid #eee',
         display: 'flex',
         flexDirection: 'column',
-        minWidth: 320
+        background: '#fafafa',
       }}
     >
-        {/* Header - Detached/Floating Style */}
-        <Box pt={1} px={1} pb={0} style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--mantine-color-gray-0)' }}>
-            <Group 
-                h={46} 
-                px="sm" 
-                justify="space-between"
-                bg="white"
-                style={{ 
-                    border: '1px solid var(--mantine-color-gray-2)',
-                }}
-            >
-                <Group gap="xs">
-                    <ThemeIcon variant="light" color="indigo" size="sm" radius="sm">
-                        <BookOpen size={14} />
-                    </ThemeIcon>
-                    <Text fw={600} size="sm" c="dark.8">Knowledge Panel</Text>
-                </Group>
-            </Group>
-        </Box>
-        
-        <ScrollArea flex={1} type="auto" offsetScrollbars>
-            <Stack gap="sm" p="md" pb="xl">
-                {cards.length === 0 && (
-                    <Box 
-                        mt="xl" 
-                        p="xl" 
-                        ta="center" 
-                        style={{ opacity: 0.8 }}
-                    >
-                        <Box bg="gray.1" w={64} h={64} mx="auto" mb="md" style={{ borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Lightbulb size={32} className="text-gray-400" />
-                        </Box>
-                        <Text size="sm" c="dimmed" fw={500}>
-                            Waiting for concepts...
-                        </Text>
-                        <Text size="xs" c="dimmed" mt={4} maw={200} mx="auto" lh={1.4}>
-                            Click highlighted terms in chat to view details here.
-                        </Text>
-                    </Box>
-                )}
-
-                {cards.map((card, index) => {
-                    const isActive = activeCardId === card.id;
-
-                    return (
-                        <Paper 
-                            key={card.id || index} 
-                            ref={(el) => { cardRefs.current[card.id] = el; }}
-                            radius="md" 
-                            shadow={isActive ? 'md' : 'sm'}
-                            withBorder
-                            onClick={() => onCardClick(isActive ? null : card.id)}
-                            className={`group animate-in slide-in-from-right-4 fade-in duration-200 transition-all cursor-pointer hover:border-indigo-300 hover:shadow-md ${isActive ? 'ring-2 ring-indigo-50 border-indigo-200 shadow-md' : ''}`}
-                            style={{ 
-                                animationDelay: `${index * 100}ms`,
-                                borderColor: isActive ? 'var(--mantine-color-indigo-4)' : 'var(--mantine-color-gray-2)',
-                                backgroundColor: isActive ? 'white' : 'var(--mantine-color-white)',
-                            }}
-                        >
-                            <Box p="md">
-                                <Group justify="space-between" align="center" mb={isActive ? "xs" : 0}>
-                                    <Text fw={700} size="sm" c={isActive ? "indigo.7" : "dark.8"} lh={1.3} style={{ flex: 1 }}>
-                                        {card.title}
-                                    </Text>
-                                    <Group gap={4}>
-                                        <ThemeIcon variant="light" color={isActive ? "indigo" : "gray"} size="sm">
-                                            <BookOpen size={14} />
-                                        </ThemeIcon>
-
-                                        <ActionIcon 
-                                            variant="subtle" 
-                                            color="gray" 
-                                            size="sm"
-                                            className="text-gray-300 hover:text-red-500 transition-colors"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setDeleteCardId(card.id);
-                                            }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </ActionIcon>
-                                    </Group>
-                                </Group>
-
-                                <Collapse in={isActive}>
-                                    <Stack gap="md" mt="xs">
-                                        <Box style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--mantine-color-dark-6)' }}>
-                                            <MarkdownRenderer content={card.content} compact />
-                                        </Box>
-
-                                        {/* Local Chat History */}
-                                        {(cardChats[card.id] && cardChats[card.id].length > 0) || loadingCardId === card.id ? (
-                                            <Stack gap="xs" mt="sm">
-                                                {cardChats[card.id]?.map((msg) => (
-                                                    <Box 
-                                                        key={msg.id} 
-                                                        bg={msg.role === 'user' ? 'indigo.0' : 'gray.0'} 
-                                                        p="xs" 
-                                                        style={{ 
-                                                            borderRadius: '8px', 
-                                                            alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                                                            maxWidth: '90%'
-                                                        }}
-                                                    >
-                                                        {msg.role === 'user' ? (
-                                                            <Text size="xs" c="dark.8">{msg.content}</Text>
-                                                        ) : (
-                                                            <Box style={{ fontSize: '12px' }}>
-                                                                <MarkdownRenderer content={extractCards(msg.content).cleanContent} compact />
-                                                            </Box>
-                                                        )}
-                                                    </Box>
-                                                ))}
-                                                {loadingCardId === card.id && (
-                                                    <Box 
-                                                        bg="gray.0" 
-                                                        p="xs" 
-                                                        style={{ 
-                                                            borderRadius: '8px', 
-                                                            alignSelf: 'flex-start',
-                                                            maxWidth: '90%',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px'
-                                                        }}
-                                                    >
-                                                        <Avatar size={16} radius="sm" bg="transparent">
-                                                            <Bot size={14} className="text-indigo-600" />
-                                                        </Avatar>
-                                                        <Loader size={12} color="gray" type="dots" />
-                                                    </Box>
-                                                )}
-                                            </Stack>
-                                        ) : null}
-
-                                        {/* Action Area */}
-                                        <Box 
-                                            pt="sm" 
-                                            mt="sm" 
-                                            style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}
-                                            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking input
-                                        >
-                                            <Stack gap={8}>
-                                                <Group gap={6}>
-                                                    <Text size="xs" fw={500} c="indigo.9">Ask about this topic</Text>
-                                                </Group>
-                                                <Group gap={0}>
-                                                    <TextInput 
-                                                        placeholder={`Ask about "${card.title}"...`}
-                                                        size="xs"
-                                                        radius="md"
-                                                        value={inputs[card.id] || ''}
-                                                        onChange={(e) => {
-                                                            const value = e.currentTarget.value;
-                                                            setInputs(prev => ({ ...prev, [card.id]: value }));
-                                                        }}
-                                                        disabled={loadingCardId === card.id}
-                                                        onKeyDown={(e) => {
-                                                            if (e.nativeEvent.isComposing) return;
-                                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                                e.preventDefault();
-                                                                handleAsk(card);
-                                                            }
-                                                        }}
-                                                        style={{ flex: 1 }}
-                                                        rightSection={
-                                                            <ActionIcon 
-                                                                size="sm" 
-                                                                radius="sm" 
-                                                                variant="filled" 
-                                                                color="indigo"
-                                                                onClick={() => handleAsk(card)}
-                                                                disabled={loadingCardId === card.id || !inputs[card.id]?.trim()}
-                                                                style={{ marginRight: 4 }}
-                                                            >
-                                                                <Send size={12} />
-                                                            </ActionIcon>
-                                                        }
-                                                        rightSectionWidth={34}
-                                                    />
-                                                </Group>
-                                            </Stack>
-                                        </Box>
-                                    </Stack>
-                                </Collapse>
-                            </Box>
-                        </Paper>
-                    );
-                })}
-            </Stack>
-        </ScrollArea>
-      {/* Delete Confirmation Modal */}
-      <Modal 
-        opened={!!deleteCardId} 
-        onClose={() => setDeleteCardId(null)}
-        title="Delete Knowledge Card"
-        centered
-        size="sm"
-      >
-        <Text size="sm" mb="lg">
-            Are you sure you want to delete this card? The conversation history inside it will also be removed.
+      {/* Header */}
+      <Group gap={8} px="md" py="sm" style={{ borderBottom: '1px solid #eee' }}>
+        <BookOpen size={15} color="#6366f1" />
+        <Text size="sm" fw={600} c="gray.7">
+          Knowledge Cards
         </Text>
-        <Group justify="flex-end">
-            <Button variant="default" onClick={() => setDeleteCardId(null)}>Cancel</Button>
-            <Button 
-                color="red" 
-                onClick={() => {
-                    if (deleteCardId) onDelete(deleteCardId);
-                    setDeleteCardId(null);
+        {cards.length > 0 && (
+          <Box px={6} py={2} style={{ background: '#6366f1', borderRadius: 10 }}>
+            <Text size="xs" fw={600} c="white" lh={1}>
+              {cards.length}
+            </Text>
+          </Box>
+        )}
+      </Group>
+
+      <ScrollArea flex={1} scrollbarSize={4}>
+        <Stack gap={6} p="sm">
+          {cards.length === 0 && (
+            <Text size="sm" c="gray.4" ta="center" py="xl">
+              Select text to add card
+            </Text>
+          )}
+
+          {cards.map((card) => {
+            const isActive = activeCardId === card.id;
+            const isExplaining = explainingCardIds.has(card.id);
+            const chats = cardChats[card.id] || [];
+
+            return (
+              <Box
+                key={card.id}
+                ref={(el) => {
+                  cardRefs.current[card.id] = el;
                 }}
-            >
-                Delete
-            </Button>
+                className="group"
+                style={{
+                  background: '#fff',
+                  borderRadius: 8,
+                  border: `1px solid ${isExplaining ? '#a5b4fc' : isActive ? '#c7d2fe' : '#e5e5e5'}`,
+                  animation: isExplaining ? 'pulse-border 1.5s ease-in-out infinite' : 'none',
+                }}
+              >
+                {/* Card Header */}
+                <Group
+                  gap={8}
+                  px={12}
+                  py={10}
+                  wrap="nowrap"
+                  onClick={() => onCardClick(isActive ? null : card.id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {isExplaining ? (
+                    <Loader size={14} color="indigo" />
+                  ) : (
+                    <BookOpen size={14} color={isActive ? '#6366f1' : '#aaa'} />
+                  )}
+                  <Text size="sm" fw={500} c="gray.7" lineClamp={1} style={{ flex: 1 }}>
+                    {card.title}
+                  </Text>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size={20}
+                    className="opacity-0 group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteCardId(card.id);
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </ActionIcon>
+                  <ChevronRight
+                    size={14}
+                    color="#aaa"
+                    style={{
+                      transform: isActive ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 0.1s',
+                    }}
+                  />
+                </Group>
+
+                {/* Content */}
+                <Collapse in={isActive}>
+                  <Box px={12} pb={12}>
+                    <Box
+                      p={10}
+                      mb={10}
+                      style={{
+                        background: '#f5f5f5',
+                        borderRadius: 6,
+                        fontSize: 13,
+                        lineHeight: 1.65,
+                        color: '#374151',
+                      }}
+                    >
+                      {isExplaining ? (
+                        <Stack gap={8}>
+                          <Group gap={6}>
+                            <Loader size={12} color="indigo" />
+                            <Text size="xs" c="gray.5">
+                              Generating explanation...
+                            </Text>
+                          </Group>
+                          <Skeleton height={8} width="90%" radius={4} />
+                          <Skeleton height={8} width="75%" radius={4} />
+                          <Skeleton height={8} width="60%" radius={4} />
+                        </Stack>
+                      ) : (
+                        <MarkdownRenderer content={card.content} compact />
+                      )}
+                    </Box>
+
+                    {chats.length > 0 && (
+                      <Stack gap={6} mb={10}>
+                        {chats.map((m) => (
+                          <Box
+                            key={m.id}
+                            px={10}
+                            py={6}
+                            style={{
+                              background: m.role === 'user' ? '#eef2ff' : '#f5f5f5',
+                              borderRadius: 6,
+                              marginLeft: m.role === 'user' ? '15%' : 0,
+                              fontSize: 13,
+                              color: '#374151',
+                            }}
+                          >
+                            {m.role === 'user' ? (
+                              m.content
+                            ) : (
+                              <MarkdownRenderer
+                                content={extractCards(m.content).cleanContent}
+                                compact
+                              />
+                            )}
+                          </Box>
+                        ))}
+                      </Stack>
+                    )}
+
+                    {loadingCardId === card.id && (
+                      <Box mb={10}>
+                        <Loader size={14} color="indigo" />
+                      </Box>
+                    )}
+
+                    <Group gap={4} onClick={(e) => e.stopPropagation()}>
+                      <TextInput
+                        placeholder="Ask follow-up..."
+                        size="xs"
+                        radius={4}
+                        value={inputs[card.id] || ''}
+                        onChange={(e) => {
+                          const v = e.currentTarget.value;
+                          setInputs((p) => ({ ...p, [card.id]: v }));
+                        }}
+                        disabled={loadingCardId === card.id || isExplaining}
+                        onKeyDown={(e) => {
+                          if (!e.nativeEvent.isComposing && e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAsk(card);
+                          }
+                        }}
+                        style={{ flex: 1 }}
+                        styles={{ input: { fontSize: 12 } }}
+                      />
+                      <ActionIcon
+                        size={24}
+                        radius={4}
+                        variant="filled"
+                        color="indigo"
+                        onClick={() => handleAsk(card)}
+                        disabled={
+                          !inputs[card.id]?.trim() || loadingCardId === card.id || isExplaining
+                        }
+                      >
+                        <Send size={10} />
+                      </ActionIcon>
+                    </Group>
+                  </Box>
+                </Collapse>
+              </Box>
+            );
+          })}
+        </Stack>
+      </ScrollArea>
+
+      <Modal
+        opened={!!deleteCardId}
+        onClose={() => setDeleteCardId(null)}
+        title="Delete Card"
+        centered
+        size="xs"
+      >
+        <Text size="xs" c="gray.6" mb="md">
+          Are you sure you want to delete this card?
+        </Text>
+        <Group justify="flex-end" gap="xs">
+          <Button variant="subtle" color="gray" size="xs" onClick={() => setDeleteCardId(null)}>
+            Cancel
+          </Button>
+          <Button
+            color="red"
+            size="xs"
+            onClick={() => {
+              if (deleteCardId) onDelete(deleteCardId);
+              setDeleteCardId(null);
+            }}
+          >
+            Delete
+          </Button>
         </Group>
       </Modal>
     </Box>
