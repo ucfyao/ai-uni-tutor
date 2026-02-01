@@ -107,43 +107,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       wrap="nowrap" 
       gap="sm"
       px="md"
-      my={4}
+      my={6}
     >
       {!isUser && (
         <Box mt={4}>
           <Box 
             bg={botConfig.gradient}
-            w={40} h={40} 
+            w={36} h={36} 
             style={{ 
-                borderRadius: '14px', 
+                borderRadius: '12px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                border: `1px solid ${botConfig.iconColor}20` 
+                boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                border: `1px solid ${botConfig.iconColor}15` 
             }}
           >
-             {botConfig.icon && <botConfig.icon size={22} color={botConfig.iconColor} strokeWidth={2} />}
+             {botConfig.icon && <botConfig.icon size={20} color={botConfig.iconColor} strokeWidth={2} />}
           </Box>
         </Box>
       )}
 
       <Box style={{ maxWidth: '85%' }}> 
         <Box 
-          p={isUser ? '12px 20px' : 0}
+          p={isUser ? '10px 18px' : 0}
           onMouseUp={handleMouseUp} // Listen for selection
           style={{ 
-            borderRadius: isUser ? '20px 20px 4px 20px' : 0, 
-            background: isUser ? 'var(--mantine-color-gray-1)' : 'none', // Minimalist Light Gray
-            boxShadow: 'none', // Flat style
+            borderRadius: isUser ? '18px' : 0, 
+            background: isUser ? 'var(--mantine-color-gray-1)' : 'none',
+            boxShadow: 'none',
             color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
-            position: 'relative' // For positioning context if needed
+            position: 'relative'
           }}
         >
           
           <Box className="markdown-content" c={isUser ? 'dark.9' : 'dark.8'}>
             {isUser ? (
-              <Text style={{ whiteSpace: 'pre-wrap' }} fz="17px" lh={1.6}>{message.content}</Text>
+              <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.6}>{message.content}</Text>
             ) : (
               isStreaming ? (
                 <Typewriter content={message.content} onComplete={onStreamingComplete} />

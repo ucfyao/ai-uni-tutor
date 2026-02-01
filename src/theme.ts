@@ -80,6 +80,48 @@ export const theme = createTheme({
                 radius: 'lg',
                 shadow: 'md',
             }
+        },
+        Paper: {
+            defaultProps: {
+                shadow: 'sm',
+                radius: 'lg',
+            },
+            styles: {
+                root: {
+                    transition: 'box-shadow 0.15s ease, transform 0.15s ease',
+                }
+            }
+        },
+        ActionIcon: {
+            defaultProps: {
+                radius: 'md',
+            },
+            styles: {
+                root: {
+                    transition: 'all 0.15s ease',
+                }
+            }
+        },
+        Badge: {
+            defaultProps: {
+                radius: 'md',
+            }
+        },
+        Loader: {
+            defaultProps: {
+                type: 'dots',
+            }
+        },
+        ScrollArea: {
+            defaultProps: {
+                scrollbarSize: 6,
+            }
+        },
+        Tooltip: {
+            defaultProps: {
+                withArrow: true,
+                arrowSize: 6,
+            }
         }
     },
 });
