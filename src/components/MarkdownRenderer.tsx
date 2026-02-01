@@ -22,12 +22,13 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClic
         h2: ({ children }) => <Title order={3} size={compact ? 18 : 26} mt={compact ? 12 : 24} mb={compact ? 6 : 12} c="slate.9" fw={600}>{children}</Title>,
         h3: ({ children }) => <Title order={4} size={compact ? 16 : 22} mt={compact ? 10 : 20} mb={compact ? 4 : 8} c="slate.9" fw={600}>{children}</Title>,
         p: ({ children }) => <Text size={compact ? "xs" : "xl"} c="slate.8" mb={compact ? "xs" : "sm"} style={{ lineHeight: compact ? 1.5 : 1.8, fontSize: compact ? '13px' : '18px' }}>{children}</Text>,
-        strong: ({ children }) => <Text span fw={600} c="slate.9">{children}</Text>,
-        em: ({ children }) => <Text span fs="italic" c="slate.8">{children}</Text>,
+        strong: ({ children }) => <Text span inherit fw={600} c="slate.9">{children}</Text>,
+        em: ({ children }) => <Text span inherit fs="italic" c="slate.8">{children}</Text>,
         a: ({ href, children }) => (
             <Text 
                 component="a" 
-                href={href} 
+                href={href}
+                inherit 
                 c="indigo.6" 
                 fw={500} 
                 className="hover:underline cursor-pointer"
