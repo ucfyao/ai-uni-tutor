@@ -1,4 +1,3 @@
-
 import type { NextConfig } from "next";
 
 // Read from env or default to 5MB
@@ -9,7 +8,7 @@ const nextConfig: NextConfig = {
     reactStrictMode: true,
     experimental: {
         serverActions: {
-            bodySizeLimit: `${maxFileSizeMB}mb`, // Sync with NEXT_PUBLIC_MAX_FILE_SIZE_MB
+            bodySizeLimit: `${maxFileSizeMB}mb` as `${number}mb`,
         },
     },
 };
