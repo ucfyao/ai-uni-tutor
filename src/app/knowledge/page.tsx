@@ -11,7 +11,7 @@ export default async function KnowledgePage() {
 
   if (!user) {
     return (
-        <Container size="md" py="xl">
+        <Container size="md" py={48}>
             <Alert variant="light" color="blue" icon={<AlertCircle size={16} />}>
                 Please sign in to manage your knowledge base.
             </Alert>
@@ -26,12 +26,12 @@ export default async function KnowledgePage() {
     .order('created_at', { ascending: false });
 
   return (
-    <Container size="md" py="xl">
+    <Container size="md" py={48}>
       <Stack gap="xl">
-        <Group justify="space-between">
+        <Group justify="space-between" align="flex-start">
             <Box>
-                <Title order={1}>Knowledge Base</Title>
-                <Text c="dimmed">Upload documents to personalize your AI tutor.</Text>
+                <Title order={1} fw={800} mb={4}>Knowledge Base</Title>
+                <Text c="dimmed" size="lg">Upload documents to personalize your AI tutor.</Text>
             </Box>
             <Link href="/" style={{ textDecoration: 'none' }}>
                 <Button component="div" variant="subtle" leftSection={<BookOpen size={16} />}>
@@ -40,22 +40,22 @@ export default async function KnowledgePage() {
             </Link>
         </Group>
 
-        <Card withBorder radius="md" p="xl">
-            <Stack>
+        <Card withBorder radius="lg" p="xl">
+            <Stack gap="md">
                 <Group>
                     <ThemeIcon variant="light" size="lg" radius="md">
                         <Database size={20} />
                     </ThemeIcon>
-                    <Text fw={500} size="lg">Upload Materials</Text>
+                    <Text fw={600} size="lg">Upload Materials</Text>
                 </Group>
                 <FileUploader />
             </Stack>
         </Card>
 
-        <div>
-            <Title order={3} mb="md">My Documents</Title>
+        <Box>
+            <Title order={3} fw={700} mb="md">My Documents</Title>
             {documents && documents.length > 0 ? (
-                <Card withBorder radius="md">
+                <Card withBorder radius="lg" p={0}>
                     <KnowledgeTable documents={documents} />
                 </Card>
             ) : (
@@ -63,7 +63,7 @@ export default async function KnowledgePage() {
                     No documents uploaded yet.
                 </Alert>
             )}
-        </div>
+        </Box>
       </Stack>
     </Container>
   );

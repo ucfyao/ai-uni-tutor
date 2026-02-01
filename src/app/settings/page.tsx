@@ -242,10 +242,17 @@ export default function SettingsPage() {
                     </Group>
                     <Progress 
                         value={(usage / (isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10))) * 100} 
-                        color={usage >= (isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10)) ? "red" : "blue"}
+                        color={
+                            usage >= (isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10)) 
+                                ? "red" 
+                                : usage >= (isPro ? (limits?.dailyLimitPro || 100) : (limits?.dailyLimitFree || 10)) * 0.7 
+                                    ? "yellow" 
+                                    : "indigo"
+                        }
                         size="md"
                         radius="xl"
                         mb="sm"
+                        animated
                     />
                     
                     <Divider />
@@ -267,14 +274,14 @@ export default function SettingsPage() {
         </Paper>
 
         <Box>
-            <Title order={3} mb="md">Data & Privacy</Title>
-            <Paper withBorder p="xl" radius="lg">
+            <Title order={3} fw={700} mb="md">Data & Privacy</Title>
+            <Paper withBorder p="xl" radius="lg" bg="red.0" style={{ borderColor: 'var(--mantine-color-red-2)' }}>
                  <Group justify="space-between">
                     <Box>
                         <Text fw={600} c="red.7">Delete Account</Text>
-                        <Text size="sm" c="dimmed">Permanently delete your account and all data.</Text>
+                        <Text size="sm" c="red.6">Permanently delete your account and all data.</Text>
                     </Box>
-                    <Button color="red" variant="subtle">Delete Account</Button>
+                    <Button color="red" variant="light">Delete Account</Button>
                 </Group>
             </Paper>
         </Box>
