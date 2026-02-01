@@ -166,6 +166,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
 
+  // Ref to prevent double-sends during async operations
+  const isSendingRef = useRef(false);
+
   // Error and retry state
   const [lastError, setLastError] = useState<{ message: string; canRetry: boolean } | null>(null);
   const [lastInput, setLastInput] = useState<string>('');
@@ -538,9 +541,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // Ref to prevent double-sends during async operations
-  const isSendingRef = useRef(false);
-
   const handleSend = async (retryInput?: string) => {
     const messageToSend = retryInput || input.trim();
 
@@ -596,6 +596,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setStreamingMsgId(aiMsgId);
 
     let accumulatedContent = '';
+    // Use ref to track the latest session state for onComplete
+    const latestSessionRef = { current: currentSession };
 
     await streamChatResponse(
       session.course,
@@ -610,6 +612,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           ...currentSession,
           messages: [...updatedSession.messages, updatedAiMsg],
         };
+        latestSessionRef.current = currentSession; // Update ref
         onUpdateSession(currentSession);
       },
       // onError
@@ -640,9 +643,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setStreamingMsgId(null);
         setLastError(null);
         isSendingRef.current = false; // Reset sending flag
+
+        // Get the latest accumulated content from the most recent session state
+        // Find the AI message in the latest session to get the complete content
+        const latestSession = latestSessionRef.current;
+        const latestAiMsg = latestSession.messages.find((m) => m.id === aiMsgId);
+        const finalContent = latestAiMsg?.content || accumulatedContent || '...';
+
         // Final update with complete content
-        const finalAiMsg = { ...aiMsg, content: accumulatedContent || '...' };
-        onUpdateSession({ ...currentSession, messages: [...updatedSession.messages, finalAiMsg] });
+        const finalAiMsg = { ...aiMsg, content: finalContent };
+        const finalSession = {
+          ...latestSession,
+          messages: latestSession.messages.map((m) => (m.id === aiMsgId ? finalAiMsg : m)),
+        };
+        onUpdateSession(finalSession);
       },
     );
   };

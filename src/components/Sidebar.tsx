@@ -38,6 +38,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { useProfile } from '@/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { ChatSession } from '../types/index';
 
@@ -70,10 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   opened,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{
-    full_name?: string;
-    subscription_status?: string;
-  } | null>(null);
+  const { profile } = useProfile();
   const supabase = createClient();
   const router = useRouter();
   const [chatsExpanded, { toggle: toggleChats }] = useDisclosure(true);
@@ -84,14 +82,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         data: { user },
       } = await supabase.auth.getUser();
       setUser(user);
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
-        setProfile(data);
-      }
     };
     getUser();
 
@@ -180,16 +170,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                 variant="filled"
                 style={{ cursor: 'pointer' }}
               >
-                {(profile?.full_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                {(profile?.full_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
               </Avatar>
             </Menu.Target>
             <Menu.Dropdown>
               <Box px="sm" py="xs">
                 <Text size="sm" fw={600}>
-                  {profile?.full_name || user.email?.split('@')[0]}
+                  {profile?.full_name || profile?.email?.split('@')[0]}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  {user.email}
+                  {profile?.email}
                 </Text>
               </Box>
               <Menu.Divider />
@@ -368,10 +358,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Group gap={8} wrap="nowrap">
                   <Avatar size={24} radius="xl" color="dark" variant="filled">
-                    {(profile?.full_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                    {(profile?.full_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
                   </Avatar>
                   <Text size="sm" fw={500} c="gray.8" truncate style={{ flex: 1 }}>
-                    {profile?.full_name || user.email?.split('@')[0]}
+                    {profile?.full_name || profile?.email?.split('@')[0]}
                   </Text>
                   {isPro && (
                     <Badge size="xs" variant="light" color="dark" radius="sm">
@@ -385,14 +375,14 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Box px="sm" py="xs">
                 <Group gap={8}>
                   <Avatar size={28} radius="xl" color="dark" variant="filled">
-                    {(profile?.full_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                    {(profile?.full_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
                   </Avatar>
                   <Box>
                     <Text size="sm" fw={600}>
-                      {profile?.full_name || user.email?.split('@')[0]}
+                      {profile?.full_name || profile?.email?.split('@')[0]}
                     </Text>
                     <Text size="xs" c="dimmed">
-                      {user.email}
+                      {profile?.email}
                     </Text>
                   </Box>
                 </Group>

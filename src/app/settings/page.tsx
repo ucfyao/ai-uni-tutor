@@ -20,33 +20,27 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { getAccessLimits, getDailyUsage, type AccessLimits } from '@/app/actions/limits';
+import { useProfile } from '@/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 
 export default function SettingsPage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [profile, setProfile] = useState<any>(null);
+  const { profile, loading: profileLoading, updateProfile } = useProfile();
   const [limits, setLimits] = useState<AccessLimits | null>(null);
   const [usage, setUsage] = useState<number>(0);
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(true);
-  // const [upgrading, setUpgrading] = useState(false);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
-    async function getProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        setProfile(data);
-        if (data?.full_name) {
-          setFullName(data.full_name);
-        }
-      }
+    // Initialize fullName from profile context
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  }, [profile]);
 
-      // Fetch limits & usage
+  useEffect(() => {
+    async function fetchLimits() {
       try {
         const limitsData = await getAccessLimits();
         setLimits(limitsData);
@@ -54,12 +48,12 @@ export default function SettingsPage() {
         setUsage(usageData);
       } catch (e) {
         console.error('Failed to fetch access limits', e);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
-    getProfile();
-  }, [supabase]);
+    fetchLimits();
+  }, []);
 
   /* const handleUpgrade = async () => {
     setUpgrading(true);
@@ -88,22 +82,8 @@ export default function SettingsPage() {
     if (!profile) return;
     setSaving(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Unauthorized');
-      }
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: fullName })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      // Refresh local state
-      setProfile({ ...profile, full_name: fullName });
+      // Update via Context (which handles DB update and state sync)
+      await updateProfile({ full_name: fullName });
 
       notifications.show({
         title: 'Saved',
@@ -122,7 +102,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <Container size="md" py="xl">
         <Stack>
