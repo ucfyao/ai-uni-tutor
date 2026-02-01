@@ -137,7 +137,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
 
 
   // User-Managed State
-  const [manualCards] = useState<KnowledgeCard[]>([]);
+  const [manualCards, setManualCards] = useState<KnowledgeCard[]>([]);
   const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(new Set());
 
   // 1. Separate Main Chat vs. Knowledge Card Chat
@@ -194,23 +194,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
     });
   };
 
-  /* const handleAddManualCard = (title: string, content: string) => {
+  const handleAddManualCard = (title: string, content: string) => {
     const newCard: KnowledgeCard = {
         id: `manual-${Date.now()}`,
         title: title.trim(),
         content: content.trim()
     };
     setManualCards(prev => [...prev, newCard]);
-    // Also remove from deleted if it was there (optional, but good UX)
-    setDeletedCardIds(prev => {
-        const next = new Set(prev);
-        // We can't easily know the ID if it was auto-generated differently, 
-        // but this manual add is fresh.
-        return next;
-    });
-    // Scroll to panel? or Open it?
     setActiveCardId(newCard.id);
-  }; */
+  };
 
   const scrollToBottom = () => {
     if (viewport.current) {
@@ -340,13 +332,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
       <Box 
         p={8}
         style={{ 
-          borderRadius: '26px', 
+          borderRadius: '24px', 
           display: 'flex',
           alignItems: 'flex-end', 
           border: '1px solid var(--mantine-color-gray-3)',
           backgroundColor: 'rgba(255, 255, 255, 1)',
-          transition: 'all 0.2s ease',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+          transition: 'all 0.15s ease',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
         }}
         className="group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300"
       >
@@ -413,8 +405,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
       
       {/* Header - Static Flex Item - Only on NON-MOBILE */}
       {!isMobile && (
-      <Box px="md" py={14} bg="rgba(255,255,255,0.7)" style={{ borderBottom: isNewChat ? 'none' : '1px solid var(--mantine-color-gray-2)', zIndex: 10, backdropFilter: 'blur(10px)', flexShrink: 0 }}>
-        <Group justify="space-between" wrap="nowrap">
+      <Box 
+        h={52} 
+        px="md" 
+        bg="rgba(255,255,255,0.7)" 
+        style={{ 
+          borderBottom: isNewChat ? 'none' : '1px solid var(--mantine-color-gray-2)', 
+          zIndex: 10, 
+          backdropFilter: 'blur(10px)', 
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center'
+        }}
+      >
+        <Group justify="space-between" wrap="nowrap" w="100%">
            <Group 
              gap={8} 
              align="center" 
@@ -435,19 +439,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                        variant={mobileKnowledgeOpened ? "light" : "subtle"} 
                        color="indigo"
                        radius="xl" 
-                       size="lg" 
+                       size={36}
                        onClick={() => setMobileKnowledgeOpened(true)}
                    >
                         <BookOpen size={20} strokeWidth={1.5} />
                    </ActionIcon>
                )}
-               <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg" onClick={onShareSession}>
+               <ActionIcon variant="subtle" c="dimmed" radius="xl" size={36} onClick={onShareSession}>
                     <Share2 size={20} strokeWidth={1.5} />
                </ActionIcon>
                
                <Menu position="bottom-end" withArrow>
                    <Menu.Target>
-                       <ActionIcon variant="subtle" c="dimmed" radius="xl" size="lg">
+                       <ActionIcon variant="subtle" c="dimmed" radius="xl" size={36}>
                             <MoreHorizontal size={20} strokeWidth={1.5} />
                        </ActionIcon>
                    </Menu.Target>
@@ -556,10 +560,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                                         p="lg"
                                         style={{ 
                                             cursor: 'pointer', 
-                                            backgroundColor: 'white', // Ensure white card
+                                            backgroundColor: 'white',
                                             border: '1px solid var(--mantine-color-gray-2)',
                                             position: 'relative',
-                                            transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                                            transition: 'all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                                            minHeight: '140px',
                                         }}
                                         className={`group ${meta.hoverClass} hover:-translate-y-1`}
                                         onClick={() => {
@@ -601,7 +606,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                                                 <Text size="md" fw={700} c="dark.9" lh={1.2} mb={4} className={`group-hover:text-${meta.color === 'indigo' ? 'indigo-700' : 'dark-9'} transition-colors`}>
                                                     {mode.label}
                                                 </Text>
-                                                <Text size="xs" c="dimmed" lh={1.4} lineClamp={2}>
+                                                <Text size="sm" c="gray.6" lh={1.4} lineClamp={2}>
                                                     {meta.desc}
                                                 </Text>
                                             </Box>
@@ -656,6 +661,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, onUpdateSession,
                                 mode={session.mode}
                                 knowledgeCards={knowledgeCards} // Pass cards for highlighting
                                 onHighlightClick={handleHighlightClick} // Pass click handler
+                                onAddCard={handleAddManualCard}
                                 />
                             );
                         })}
