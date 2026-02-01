@@ -65,31 +65,47 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. Check Usage Limits
-  if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATELIMIT === 'true') {
-    const { checkLLMUsage } = await import('@/lib/redis');
+  // Always check rate limits (both dev and prod) to prevent hitting Gemini API quota
+  const shouldCheckLimits =
+    process.env.NODE_ENV === 'production' ||
+    process.env.ENABLE_RATELIMIT === 'true' ||
+    process.env.UPSTASH_REDIS_REST_URL; // Enable if Redis is configured
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('subscription_status')
-      .eq('id', user.id)
-      .single();
+  if (shouldCheckLimits) {
+    try {
+      const { checkLLMUsage } = await import('@/lib/redis');
 
-    const isPro =
-      profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
-    const limit = isPro
-      ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100')
-      : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10');
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_status')
+        .eq('id', user.id)
+        .single();
 
-    const { success, count } = await checkLLMUsage(user.id, limit);
-    console.log(
-      `[Quota Check] User: ${user.id} | Plan: ${isPro ? 'Pro' : 'Free'} | Limit: ${limit} | Usage: ${count} | Success: ${success}`,
-    );
+      const isPro =
+        profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
 
-    if (!success) {
-      return new Response(
-        JSON.stringify({ error: `Daily limit reached (${limit}/${limit})`, isLimitError: true }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      // Daily LLM quota (default: 10 for free, 100 for pro)
+      const limit = isPro
+        ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100')
+        : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10');
+
+      const { success, count } = await checkLLMUsage(user.id, limit);
+      console.log(
+        `[Quota Check] User: ${user.id} | Plan: ${isPro ? 'Pro' : 'Free'} | Limit: ${limit} | Usage: ${count} | Success: ${success}`,
       );
+
+      if (!success) {
+        return new Response(
+          JSON.stringify({
+            error: `Daily limit reached (${count}/${limit}). Please try again tomorrow or upgrade your plan.`,
+            isLimitError: true,
+          }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+    } catch (error) {
+      // If Redis is not available, log warning but allow request to proceed
+      console.warn('[Rate Limit] Redis check failed, proceeding without limit check:', error);
     }
   }
 
@@ -192,9 +208,31 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to start stream:', error);
-    return new Response(JSON.stringify({ error: 'Failed to generate response' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+
+    // Check if it's a rate limit error from Gemini API
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isGeminiRateLimit =
+      errorMessage.includes('429') ||
+      errorMessage.includes('RESOURCE_EXHAUSTED') ||
+      errorMessage.includes('quota');
+
+    if (isGeminiRateLimit) {
+      return new Response(
+        JSON.stringify({
+          error: 'API quota exceeded. Please wait a moment and try again.',
+          isLimitError: true,
+          isRetryable: true,
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to generate response. Please try again.',
+        isRetryable: true,
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
   }
 }

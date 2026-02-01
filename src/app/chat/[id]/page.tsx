@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Center, Loader } from '@mantine/core';
 import {
   deleteChatSession,
@@ -25,6 +25,9 @@ export default function ChatPage() {
   const [session, setSession] = useState<ChatSession | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Track saved message IDs to prevent duplicate saves
+  const savedMsgIdsRef = useRef<Set<string>>(new Set());
+
   // Local Modal State (since ChatInterface props require callbacks that might trigger these)
   // Actually, ChatInterface just calls callbacks. We can implement them here.
   const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -40,6 +43,8 @@ export default function ChatPage() {
         router.push('/');
         return;
       }
+      // Initialize saved message IDs with existing messages
+      savedMsgIdsRef.current = new Set(data.messages.map((m) => m.id));
       setSession(data);
       setLoading(false);
     };
@@ -48,37 +53,49 @@ export default function ChatPage() {
 
   const { updateSessionLocal } = useSessions();
 
-  const handleUpdateSession = async (updated: ChatSession) => {
-    setSession(updated);
+  const handleUpdateSession = useCallback(
+    async (updated: ChatSession) => {
+      setSession(updated);
 
-    // Identify new message(s) to save
-    if (session && updated.messages.length > session.messages.length) {
-      const newMsgs = updated.messages.slice(session.messages.length);
-      for (const msg of newMsgs) {
-        await saveChatMessage(updated.id, msg).catch((e) => console.error(e));
+      // Save new messages that haven't been saved yet
+      for (const msg of updated.messages) {
+        // Skip if already saved
+        if (savedMsgIdsRef.current.has(msg.id)) continue;
+
+        // Skip messages with empty content (AI placeholder during streaming)
+        if (!msg.content || msg.content.trim().length === 0) continue;
+
+        // Save the message and track it
+        try {
+          await saveChatMessage(updated.id, msg);
+          savedMsgIdsRef.current.add(msg.id);
+        } catch (e) {
+          console.error('Failed to save message:', e);
+        }
       }
-    }
 
-    // Persist mode change
-    if (session && updated.mode !== session.mode && updated.mode) {
-      await updateChatSessionMode(updated.id, updated.mode).catch((e) => console.error(e));
+      // Persist mode change
+      if (session && updated.mode !== session.mode && updated.mode) {
+        await updateChatSessionMode(updated.id, updated.mode).catch((e) => console.error(e));
 
-      // Auto-rename
-      // Check if title contains "New Session" (robust to dash/spaces) or is new
-      if (session.title.includes('New Session')) {
-        const newTitle = `${session.course.code} - ${updated.mode}`;
+        // Auto-rename
+        // Check if title contains "New Session" (robust to dash/spaces) or is new
+        if (session.title.includes('New Session')) {
+          const newTitle = `${session.course.code} - ${updated.mode}`;
 
-        await updateChatSessionTitle(updated.id, newTitle).catch((e) => console.error(e));
+          await updateChatSessionTitle(updated.id, newTitle).catch((e) => console.error(e));
 
-        // Update local page state
-        const updatedWithTitle = { ...updated, title: newTitle };
-        setSession(updatedWithTitle);
+          // Update local page state
+          const updatedWithTitle = { ...updated, title: newTitle };
+          setSession(updatedWithTitle);
 
-        // Update Sidebar Context immediately
-        updateSessionLocal(updatedWithTitle);
+          // Update Sidebar Context immediately
+          updateSessionLocal(updatedWithTitle);
+        }
       }
-    }
-  };
+    },
+    [session, updateSessionLocal],
+  );
 
   if (loading) {
     return (

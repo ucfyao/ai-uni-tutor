@@ -224,15 +224,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {isStreaming && (
                   <Box
                     component="span"
-                    className="animate-pulse"
                     style={{
                       display: 'inline-block',
-                      width: '6px',
-                      height: '16px',
+                      width: '8px',
+                      height: '18px',
                       backgroundColor: 'var(--mantine-color-indigo-5)',
-                      marginLeft: '2px',
-                      borderRadius: '2px',
+                      marginLeft: '4px',
+                      borderRadius: '3px',
                       verticalAlign: 'text-bottom',
+                      animation: 'cursorBlink 1s ease-in-out infinite',
+                      boxShadow: '0 0 8px var(--mantine-color-indigo-3)',
                     }}
                   />
                 )}
