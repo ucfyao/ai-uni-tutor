@@ -35,3 +35,48 @@ export async function getDailyUsage() {
 
   return await getLLMUsage(user.id);
 }
+
+export type QuotaStatus = {
+  canSend: boolean;
+  usage: number;
+  limit: number;
+  remaining: number;
+  isPro: boolean;
+};
+
+/**
+ * Check if user can send a message (pre-flight check before API call)
+ */
+export async function checkQuotaBeforeSend(): Promise<QuotaStatus> {
+  const { createClient } = await import('@/lib/supabase/server');
+  const { getLLMUsage } = await import('@/lib/redis');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { canSend: false, usage: 0, limit: 0, remaining: 0, isPro: false };
+  }
+
+  // Get user's subscription status
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_status')
+    .eq('id', user.id)
+    .single();
+
+  const isPro =
+    profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
+
+  const limit = isPro
+    ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100')
+    : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10');
+
+  const usage = await getLLMUsage(user.id);
+  const remaining = Math.max(0, limit - usage);
+  const canSend = usage < limit;
+
+  return { canSend, usage, limit, remaining, isPro };
+}

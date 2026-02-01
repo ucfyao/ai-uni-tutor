@@ -46,6 +46,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { explainConcept, generateChatResponse } from '@/app/actions/chat';
+import { checkQuotaBeforeSend } from '@/app/actions/limits';
 // Removed useSidebar import
 import { useHeader } from '@/context/HeaderContext'; // Added
 
@@ -537,9 +538,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
+  // Ref to prevent double-sends during async operations
+  const isSendingRef = useRef(false);
+
   const handleSend = async (retryInput?: string) => {
     const messageToSend = retryInput || input.trim();
-    if (!messageToSend || isTyping) return;
+
+    // Prevent double-sends: check both state and ref
+    if (!messageToSend || isTyping || isSendingRef.current) return;
+
+    // Set sending flag immediately (before any async operation)
+    isSendingRef.current = true;
+
+    // Pre-flight check: verify quota before sending
+    try {
+      const quota = await checkQuotaBeforeSend();
+      if (!quota.canSend) {
+        isSendingRef.current = false; // Reset on early return
+        setShowUpgradeModal(true);
+        notifications.show({
+          title: 'Daily Limit Reached',
+          message: `You've used ${quota.usage}/${quota.limit} messages today. Upgrade for more!`,
+          color: 'orange',
+        });
+        return;
+      }
+    } catch (error) {
+      // If quota check fails, proceed anyway (will be caught by API)
+      console.warn('Quota pre-check failed:', error);
+    }
 
     // Clear any previous error
     setLastError(null);
@@ -589,6 +616,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       (error, isLimitError, isRetryable) => {
         setIsTyping(false);
         setStreamingMsgId(null);
+        isSendingRef.current = false; // Reset sending flag
         // Remove the placeholder message
         onUpdateSession(updatedSession);
 
@@ -611,6 +639,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setIsTyping(false);
         setStreamingMsgId(null);
         setLastError(null);
+        isSendingRef.current = false; // Reset sending flag
         // Final update with complete content
         const finalAiMsg = { ...aiMsg, content: accumulatedContent || '...' };
         onUpdateSession({ ...currentSession, messages: [...updatedSession.messages, finalAiMsg] });
@@ -1094,13 +1123,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       );
                     })}
 
-                    {isTyping && (
+                    {/* Only show skeleton when waiting for response, NOT during streaming */}
+                    {isTyping && !streamingMsgId && (
                       <Group
                         align="flex-start"
                         gap="md"
                         px="md"
                         aria-live="polite"
                         aria-busy="true"
+                        style={{
+                          animation: 'fadeIn 0.2s ease-out',
+                        }}
                       >
                         <Avatar
                           size="sm"
@@ -1114,9 +1147,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           <Text size="xs" c="dimmed" className="animate-pulse">
                             AI is thinking...
                           </Text>
-                          <Skeleton height={12} radius="md" width="90%" />
-                          <Skeleton height={12} radius="md" width="75%" />
-                          <Skeleton height={12} radius="md" width="60%" />
+                          <Skeleton height={12} radius="md" width="90%" animate />
+                          <Skeleton height={12} radius="md" width="75%" animate />
+                          <Skeleton height={12} radius="md" width="60%" animate />
                         </Stack>
                       </Group>
                     )}
