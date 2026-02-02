@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { checkAndConsumeQuota } from '@/app/actions/limits';
+import { appendRagContext, buildSystemInstruction } from '@/lib/prompts';
 import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -91,24 +92,7 @@ export async function POST(req: NextRequest) {
     parts: [{ text: userInput }],
   });
 
-  let systemInstruction = `
-    You are an elite academic AI tutor for the course ${course.code}: ${course.name}.
-    Mode: ${mode}.
-    
-    Instructions:
-    1. Always use LaTeX for math formulas enclosed in $...$ or $$...$$. DO NOT wrap them in code blocks or backticks.
-    2. In "Assignment Coach" mode:
-       - Provide scaffolding and hints, never full answers.
-       - For every key concept, syntax, or method mentioned, generate a Knowledge Card using the format: <card title='TERM'>Brief explanation</card>.
-       - Place these cards at the end of the paragraph where the term is introduced.
-    3. In "Lecture Helper" mode:
-       - Be concise and emphasize logical connections.
-       - You are a Tutor, not just an Answer Bot. Use guiding language (e.g., "Let's first look at...", "You can think of this as...").
-       - For every key term, math concept, or proper noun mentioned, generate a Knowledge Card using the format: <card title='TERM'>Brief explanation</card>.
-       - Place these cards at the end of the paragraph where the term is introduced.
-       - Do not show the cards as a list in the main text; just embed the tags.
-    4. Maintain a supportive, professor-like persona.
-    `;
+  let systemInstruction = buildSystemInstruction(course, mode);
 
   // 7. RAG Integration
   try {
@@ -116,17 +100,7 @@ export async function POST(req: NextRequest) {
     const context = await retrieveContext(userInput, { course: course.code });
 
     if (context) {
-      systemInstruction += `
-            
-            ### Context from User Documents:
-            ${context}
-            
-            ### RAG Instructions:
-            - Use the above context to answer the user's question if relevant.
-            - If the information is present in the context, answer confidently based on it.
-            - If the answer is NOT in the context, use your general knowledge but clarify that you are using general knowledge.
-            - **IMPORTANT**: When referencing information from the context, cite the page number if available (e.g., "[Page 5]").
-            `;
+      systemInstruction = appendRagContext(systemInstruction, context);
     }
   } catch (e) {
     console.error('RAG Retrieval Failed', e);
