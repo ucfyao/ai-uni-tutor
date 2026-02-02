@@ -46,7 +46,6 @@ import {
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { explainConcept, generateChatResponse } from '@/app/actions/chat';
-import { checkQuotaBeforeSend } from '@/app/actions/limits';
 // Removed useSidebar import
 import { useHeader } from '@/context/HeaderContext'; // Added
 
@@ -553,23 +552,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     // Set sending flag immediately (before any async operation)
     isSendingRef.current = true;
 
-    // Pre-flight check: verify quota before sending
-    try {
-      const quota = await checkQuotaBeforeSend();
-      if (!quota.canSend) {
-        isSendingRef.current = false; // Reset on early return
-        setShowUpgradeModal(true);
-        notifications.show({
-          title: 'Daily Limit Reached',
-          message: `You've used ${quota.usage}/${quota.limit} messages today. Upgrade for more!`,
-          color: 'orange',
-        });
-        return;
-      }
-    } catch (error) {
-      // If quota check fails, proceed anyway (will be caught by API)
-      console.warn('Quota pre-check failed:', error);
-    }
+    // Note: Quota check is done by the API (checkAndConsumeQuota)
+    // Errors are handled in onError callback with isLimitError flag
 
     // Clear any previous error
     setLastError(null);
