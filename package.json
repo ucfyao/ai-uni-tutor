@@ -11,8 +11,7 @@
     "lint:fix": "eslint src --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
     "test": "vitest",
-    "prepare": "husky",
-    "commit": "cz"
+    "prepare": "husky"
   },
   "dependencies": {
     "@google/genai": "^1.39.0",
@@ -55,8 +54,6 @@
     "@types/react": "^19.2.10",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.1",
-    "commitizen": "^4.3.1",
-    "cz-conventional-changelog": "^3.3.0",
     "dotenv": "^17.2.3",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.11",
@@ -71,10 +68,5 @@
     "typescript": "^5.9.3",
     "vite-tsconfig-paths": "^6.0.5",
     "vitest": "^4.0.18"
-  },
-  "config": {
-    "commitizen": {
-      "path": "cz-conventional-changelog"
-    }
   }
 }
