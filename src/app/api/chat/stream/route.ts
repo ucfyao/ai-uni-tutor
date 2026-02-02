@@ -18,9 +18,25 @@ const chatStreamSchema = z.object({
     z.object({
       role: z.enum(['user', 'assistant']),
       content: z.string().min(1),
+      images: z
+        .array(
+          z.object({
+            data: z.string(),
+            mimeType: z.string(),
+          }),
+        )
+        .optional(),
     }),
   ),
   userInput: z.string().min(1),
+  images: z
+    .array(
+      z.object({
+        data: z.string(),
+        mimeType: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -43,7 +59,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { course, mode, history, userInput } = parsed.data;
+  const { course, mode, history, userInput, images } = parsed.data;
 
   // 2. Validate API Key
   if (!process.env.GEMINI_API_KEY) {
@@ -82,14 +98,48 @@ export async function POST(req: NextRequest) {
   // 5. Prepare AI Request
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const contents = history.map((msg: { role: string; content: string }) => ({
-    role: msg.role === 'user' ? 'user' : 'model',
-    parts: [{ text: msg.content }],
-  }));
+  const contents = history.map((msg: (typeof history)[0]) => {
+    const parts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [
+      { text: msg.content },
+    ];
+
+    // Add images if present
+    if (msg.images && msg.images.length > 0) {
+      msg.images.forEach((img) => {
+        parts.push({
+          inlineData: {
+            data: img.data,
+            mimeType: img.mimeType,
+          },
+        });
+      });
+    }
+
+    return {
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts,
+    };
+  });
+
+  // Add current user message with images
+  const userParts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [
+    { text: userInput },
+  ];
+
+  if (images && images.length > 0) {
+    images.forEach((img) => {
+      userParts.push({
+        inlineData: {
+          data: img.data,
+          mimeType: img.mimeType,
+        },
+      });
+    });
+  }
 
   contents.push({
     role: 'user',
-    parts: [{ text: userInput }],
+    parts: userParts,
   });
 
   let systemInstruction = buildSystemInstruction(course, mode);

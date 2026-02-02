@@ -19,6 +19,7 @@ import {
   Share2,
   Sparkles,
   Trash,
+  X,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -27,9 +28,11 @@ import {
   Box,
   Button,
   Center,
+  CloseButton,
   Container,
   Drawer,
   Group,
+  Image,
   Menu,
   Modal,
   Paper,
@@ -63,8 +66,9 @@ const STREAM_TIMEOUT_MS = 60000; // 60 seconds timeout
 async function streamChatResponse(
   course: { code: string; name: string },
   mode: string | null,
-  history: { role: string; content: string }[],
+  history: { role: string; content: string; images?: { data: string; mimeType: string }[] }[],
   userInput: string,
+  imageData: { data: string; mimeType: string }[],
   onChunk: (text: string) => void,
   onError: (error: string, isLimitError?: boolean, isRetryable?: boolean) => void,
   onComplete: () => void,
@@ -82,7 +86,7 @@ async function streamChatResponse(
     const response = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ course, mode, history, userInput }),
+      body: JSON.stringify({ course, mode, history, userInput, images: imageData }),
       signal: controller.signal,
     });
 
@@ -173,6 +177,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Error and retry state
   const [lastError, setLastError] = useState<{ message: string; canRetry: boolean } | null>(null);
   const [lastInput, setLastInput] = useState<string>('');
+
+  // File upload state
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Derived State (Moved Up)
   const isNewChat = session.messages.length === 0;
@@ -548,8 +557,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleSend = async (retryInput?: string) => {
     const messageToSend = retryInput || input.trim();
 
-    // Prevent double-sends: check both state and ref
-    if (!messageToSend || isTyping || isSendingRef.current) return;
+    // Allow sending if there's text OR images
+    if ((!messageToSend && attachedFiles.length === 0) || isTyping || isSendingRef.current) return;
 
     // Set sending flag immediately (before any async operation)
     isSendingRef.current = true;
@@ -561,16 +570,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setLastError(null);
     setLastInput(messageToSend);
 
+    // Convert attached files to base64
+    const imageData: { data: string; mimeType: string }[] = [];
+    for (const file of attachedFiles) {
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Remove data URL prefix (e.g., "data:image/png;base64,")
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        imageData.push({ data: base64, mimeType: file.type });
+      } catch (error) {
+        console.error('Failed to process image:', error);
+        showNotification({
+          title: 'Error',
+          message: 'Failed to process image attachment',
+          color: 'red',
+        });
+        isSendingRef.current = false;
+        return;
+      }
+    }
+
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
       role: 'user',
-      content: messageToSend,
+      content: messageToSend || '(Image attached)',
       timestamp: Date.now(),
+      images: imageData.length > 0 ? imageData : undefined,
     };
     const aiMsgId = `a_${Date.now()}`;
     const updatedSession = { ...session, messages: [...session.messages, userMsg] };
     onUpdateSession(updatedSession);
-    if (!retryInput) setInput('');
+    if (!retryInput) {
+      setInput('');
+      setAttachedFiles([]);
+      setImagePreviews([]);
+    }
     setIsTyping(true);
 
     // Create placeholder AI message for streaming
@@ -591,8 +633,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     await streamChatResponse(
       session.course,
       session.mode,
-      updatedSession.messages.map((m) => ({ role: m.role, content: m.content })),
+      updatedSession.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        images: m.images,
+      })),
       messageToSend,
+      imageData,
       // onChunk
       (text) => {
         accumulatedContent += text;
@@ -667,81 +714,216 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
+  // File upload handlers
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+
+    if (imageFiles.length === 0) {
+      showNotification({
+        title: 'Invalid file type',
+        message: 'Please select image files only',
+        color: 'red',
+      });
+      return;
+    }
+
+    // Limit to 4 images
+    const totalFiles = attachedFiles.length + imageFiles.length;
+    if (totalFiles > 4) {
+      showNotification({
+        title: 'Too many files',
+        message: 'You can attach up to 4 images',
+        color: 'orange',
+      });
+      return;
+    }
+
+    // Create previews
+    imageFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreviews((prev) => [...prev, e.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    setAttachedFiles((prev) => [...prev, ...imageFiles]);
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItems = items.filter((item) => item.type.startsWith('image/'));
+
+    if (imageItems.length === 0) return;
+
+    e.preventDefault();
+
+    imageItems.forEach((item) => {
+      const file = item.getAsFile();
+      if (!file) return;
+
+      if (attachedFiles.length >= 4) {
+        showNotification({
+          title: 'Too many files',
+          message: 'You can attach up to 4 images',
+          color: 'orange',
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreviews((prev) => [...prev, e.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+
+      setAttachedFiles((prev) => [...prev, file]);
+    });
+  };
+
   // Shared Input Component
   const inputArea = (
     <Container size={isKnowledgeMode ? '100%' : '48rem'} px={isKnowledgeMode ? 'md' : 0} w="100%">
-      <Box
-        p={8}
-        style={{
-          borderRadius: '24px',
-          display: 'flex',
-          alignItems: 'flex-end',
-          border: '1px solid var(--mantine-color-gray-3)',
-          backgroundColor: 'rgba(255, 255, 255, 1)',
-          transition: 'all 0.15s ease',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-        }}
-        className="group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300"
-      >
-        <ActionIcon
-          variant="subtle"
-          c="gray.5"
-          radius="xl"
-          size={32}
-          mb={6}
-          ml={4}
-          className="hover:bg-gray-100 hover:text-dark transition-colors"
-          aria-label="Attach file"
-        >
-          <Paperclip size={18} strokeWidth={2} />
-        </ActionIcon>
+      <Stack gap={8}>
+        {/* Image Previews - Optimized */}
+        {imagePreviews.length > 0 && (
+          <Group gap={8} px={4}>
+            {imagePreviews.map((preview, index) => (
+              <Box
+                key={index}
+                pos="relative"
+                style={{
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  border: '1px solid var(--mantine-color-gray-3)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'pointer',
+                }}
+                className="hover:shadow-md hover:scale-105"
+              >
+                <Image src={preview} alt={`Preview ${index + 1}`} w={64} h={64} fit="cover" />
+                <CloseButton
+                  pos="absolute"
+                  top={2}
+                  right={2}
+                  size="xs"
+                  radius="xl"
+                  onClick={() => handleRemoveFile(index)}
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    color: 'white',
+                    transition: 'all 0.15s ease',
+                  }}
+                  className="hover:bg-gray-900 hover:scale-110"
+                />
+              </Box>
+            ))}
+          </Group>
+        )}
 
-        <Textarea
-          autosize
-          minRows={1}
-          maxRows={8}
-          variant="unstyled"
-          placeholder={isKnowledgeMode ? PLACEHOLDERS.ASK_CONCEPT : PLACEHOLDERS.MESSAGE}
-          size="md"
-          value={input}
-          onChange={(e) => setInput(e.currentTarget.value)}
-          onKeyDown={handleKeyDown}
-          flex={1}
-          px="xs"
-          styles={{
-            input: {
-              paddingTop: '10px',
-              paddingBottom: '10px',
-              fontWeight: 450,
-              fontSize: '15px',
-              color: 'var(--mantine-color-dark-9)',
-              lineHeight: 1.5,
-            },
+        <Box
+          p={8}
+          style={{
+            borderRadius: '24px',
+            display: 'flex',
+            alignItems: 'flex-end',
+            border: '1px solid var(--mantine-color-gray-3)',
+            backgroundColor: 'rgba(255, 255, 255, 1)',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
           }}
-        />
-
-        <ActionIcon
-          size={32}
-          radius="xl"
-          variant={input.trim() ? 'gradient' : 'filled'}
-          gradient={{ from: 'indigo.6', to: 'violet.6', deg: 45 }}
-          color={input.trim() ? undefined : 'gray.2'}
-          onClick={() => handleSend()}
-          disabled={!input.trim() || isTyping}
-          mb={6}
-          mr={4}
-          style={{ transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
-          className={input.trim() ? 'shadow-md hover:scale-105' : ''}
-          aria-label="Send message"
+          className="group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 focus-within:shadow-lg"
         >
-          <ArrowUp
-            size={18}
-            strokeWidth={3}
-            color={input.trim() ? 'white' : 'var(--mantine-color-gray-5)'}
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleFileSelect}
           />
-        </ActionIcon>
-      </Box>
-      <Text ta="center" size="xs" c="dimmed" mt="xs" mb="xs" fw={500}>
+
+          <Tooltip label="Attach images" position="top" withArrow>
+            <ActionIcon
+              variant="subtle"
+              c="gray.6"
+              radius="xl"
+              size={36}
+              mb={6}
+              ml={2}
+              className="hover:bg-gray-100 hover:text-indigo-600 transition-all duration-200"
+              aria-label="Attach file"
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <Paperclip size={18} strokeWidth={2} />
+            </ActionIcon>
+          </Tooltip>
+
+          <Textarea
+            autosize
+            minRows={1}
+            maxRows={8}
+            variant="unstyled"
+            placeholder={isKnowledgeMode ? PLACEHOLDERS.ASK_CONCEPT : PLACEHOLDERS.MESSAGE}
+            size="md"
+            value={input}
+            onChange={(e) => setInput(e.currentTarget.value)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            flex={1}
+            px="xs"
+            styles={{
+              input: {
+                paddingTop: '10px',
+                paddingBottom: '10px',
+                fontWeight: 450,
+                fontSize: '15px',
+                color: 'var(--mantine-color-dark-9)',
+                lineHeight: 1.5,
+              },
+            }}
+          />
+
+          <ActionIcon
+            size={36}
+            radius="xl"
+            variant={input.trim() || attachedFiles.length > 0 ? 'gradient' : 'filled'}
+            gradient={{ from: 'indigo.6', to: 'violet.6', deg: 45 }}
+            color={input.trim() || attachedFiles.length > 0 ? undefined : 'gray.2'}
+            onClick={() => handleSend()}
+            disabled={(!input.trim() && attachedFiles.length === 0) || isTyping}
+            mb={5}
+            mr={2}
+            style={{ transition: 'all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+            className={
+              input.trim() || attachedFiles.length > 0
+                ? 'shadow-md hover:scale-110 hover:shadow-lg'
+                : ''
+            }
+            aria-label="Send message"
+          >
+            <ArrowUp
+              size={18}
+              strokeWidth={3}
+              color={
+                input.trim() || attachedFiles.length > 0 ? 'white' : 'var(--mantine-color-gray-5)'
+              }
+            />
+          </ActionIcon>
+        </Box>
+      </Stack>
+      <Text ta="center" size="xs" c="dimmed" mt={10} mb="xs" fw={500}>
         AI Tutor can make mistakes. Check important info.
       </Text>
     </Container>
