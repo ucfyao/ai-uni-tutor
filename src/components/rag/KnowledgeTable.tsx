@@ -4,8 +4,8 @@ import { AlertCircle, CheckCircle, Clock, FileText, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react';
 import { ActionIcon, Badge, Box, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
 import { deleteDocument } from '@/app/actions/documents';
+import { showNotification } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/client';
 
 interface Document {
@@ -79,7 +79,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
 
     try {
       await deleteDocument(id);
-      notifications.show({
+      showNotification({
         title: 'Deleted',
         message: 'Document deleted successfully',
         color: 'green',
@@ -90,7 +90,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
     } catch {
       // Revert on error
       setDocuments(previousDocs);
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to delete document',
         color: 'red',

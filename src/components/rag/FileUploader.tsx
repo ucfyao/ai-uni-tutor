@@ -4,9 +4,10 @@ import { AlertCircle, FileText, Loader2, Upload, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Alert, Box, Group, Progress, rem, Select, SimpleGrid, Stack, Text } from '@mantine/core';
 import { Dropzone, DropzoneProps, PDF_MIME_TYPE } from '@mantine/dropzone';
-import { notifications } from '@mantine/notifications';
 import { uploadDocument } from '@/app/actions/documents';
 import { COURSES, UNIVERSITIES } from '@/constants/index';
+import { PLACEHOLDERS } from '@/constants/placeholders';
+import { showNotification } from '@/lib/notifications';
 
 type ProcessingStage =
   | 'idle'
@@ -106,7 +107,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
 
       if (result.status === 'success') {
         setStage('complete');
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: 'Document uploaded and processed!',
           color: 'green',
@@ -119,7 +120,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
         }, 1000);
       } else {
         setError(result.message);
-        notifications.show({
+        showNotification({
           title: 'Error',
           message: result.message,
           color: 'red',
@@ -211,7 +212,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
         <Select
           label="University"
-          placeholder="Select University"
+          placeholder={PLACEHOLDERS.SELECT_UNIVERSITY}
           data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
           value={selectedUniId}
           onChange={(val) => {
@@ -224,7 +225,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
         />
         <Select
           label="Course"
-          placeholder={selectedUniId ? 'Select Course' : 'Select University First'}
+          placeholder={selectedUniId ? PLACEHOLDERS.SELECT_COURSE : PLACEHOLDERS.SELECT_FIRST}
           data={filteredCourses.map((c) => ({ value: c.id, label: `${c.code}: ${c.name}` }))}
           value={selectedCourseId}
           onChange={setSelectedCourseId}

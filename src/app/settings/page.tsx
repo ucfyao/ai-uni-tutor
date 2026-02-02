@@ -18,10 +18,9 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
 import { getAccessLimits, getDailyUsage, type AccessLimits } from '@/app/actions/limits';
 import { useProfile } from '@/context/ProfileContext';
-import { createClient } from '@/lib/supabase/client';
+import { showNotification } from '@/lib/notifications';
 
 export default function SettingsPage() {
   const { profile, loading: profileLoading, updateProfile } = useProfile();
@@ -30,7 +29,6 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const supabase = createClient();
 
   useEffect(() => {
     // Initialize fullName from profile context
@@ -85,14 +83,14 @@ export default function SettingsPage() {
       // Update via Context (which handles DB update and state sync)
       await updateProfile({ full_name: fullName });
 
-      notifications.show({
+      showNotification({
         title: 'Saved',
         message: 'Profile updated successfully',
         color: 'green',
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Unknown error';
-      notifications.show({
+      showNotification({
         title: 'Error',
         message,
         color: 'red',

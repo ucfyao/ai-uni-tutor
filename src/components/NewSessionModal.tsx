@@ -13,6 +13,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { COURSES, UNIVERSITIES } from '../constants/index';
+import { PLACEHOLDERS } from '../constants/placeholders';
 import { Course, TutoringMode } from '../types/index';
 
 interface NewSessionModalProps {
@@ -218,7 +219,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({ opened, onClose, onSt
                 setSelectedUniId(val);
                 setSelectedCourseId(null); // 学校变了，重置后续
               }}
-              placeholder="Select University"
+              placeholder={PLACEHOLDERS.SELECT_UNIVERSITY}
               variant="unstyled"
               styles={selectStyles}
               allowDeselect={false}
@@ -233,7 +234,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({ opened, onClose, onSt
               onChange={(val) => {
                 setSelectedCourseId(val);
               }}
-              placeholder={selectedUniId ? 'Pick your course' : 'Select university first'}
+              placeholder={selectedUniId ? PLACEHOLDERS.SELECT_COURSE : PLACEHOLDERS.SELECT_FIRST}
               variant="unstyled"
               styles={selectStyles}
               disabled={!selectedUniId}

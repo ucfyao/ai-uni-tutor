@@ -1,10 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import { AppShell, Box, Burger, Group, Text } from '@mantine/core'; // Added Burger, Group, Text
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
 // import { getChatSessions, createChatSession, toggleSessionPin, updateChatSessionTitle, deleteChatSession } from '@/app/actions/chat'; // Moved to Context
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat'; // Actually toggle/update/delete are still used here for async calls, but Context handles state.
 import DeleteSessionModal from '@/components/DeleteSessionModal';
@@ -18,6 +18,7 @@ import { useHeader } from '@/context/HeaderContext';
 // So I need to keep those imports. But `getChatSessions` and `createChatSession` are removed.
 import { useSessions } from '@/context/SessionContext';
 import { useSidebar } from '@/context/SidebarContext';
+import { showNotification } from '@/lib/notifications';
 import { Course, TutoringMode } from '@/types/index';
 
 export default function Shell({ children }: { children: React.ReactNode }) {
@@ -54,7 +55,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     if (newId) {
       router.push(`/chat/${newId}`);
     } else {
-      notifications.show({ title: 'Error', message: 'Failed to create session', color: 'red' });
+      showNotification({ title: 'Error', message: 'Failed to create session', color: 'red' });
     }
   };
 
@@ -127,7 +128,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               </Box>
             ) : (
               <Group gap={8} align="center">
-                <img src="/assets/logo.png" alt="Logo" width={24} height={24} />
+                <Image src="/assets/logo.png" alt="Logo" width={24} height={24} />
                 <Text fw={600} size="md">
                   AI Tutor
                 </Text>

@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
+import { PLACEHOLDERS } from '@/constants/placeholders';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -214,7 +215,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
 
                     <Group gap={4} onClick={(e) => e.stopPropagation()}>
                       <TextInput
-                        placeholder="Ask follow-up..."
+                        placeholder={PLACEHOLDERS.ASK_FOLLOWUP}
                         size="xs"
                         radius={4}
                         value={inputs[card.id] || ''}

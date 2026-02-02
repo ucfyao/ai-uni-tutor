@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 import { Box, Button, Center, Container, Stack, Text, Title } from '@mantine/core';
@@ -28,7 +29,7 @@ export default function Page() {
         <Container size="xs" w="100%">
           <Stack align="center" gap={0} ta="center">
             <Box mb={24} className="animate-in fade-in zoom-in duration-700 ease-out">
-              <img src="/assets/logo.png" alt="AI Uni Tutor" width={120} height={120} />
+              <Image src="/assets/logo.png" alt="AI Uni Tutor" width={120} height={120} />
             </Box>
 
             <Stack gap={12} align="center" mb={40}>

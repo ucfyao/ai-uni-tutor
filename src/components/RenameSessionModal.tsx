@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Group, Modal, TextInput } from '@mantine/core';
+import { PLACEHOLDERS } from '@/constants/placeholders';
 
 interface RenameSessionModalProps {
   opened: boolean;
@@ -37,7 +38,7 @@ const RenameSessionModal: React.FC<RenameSessionModalProps> = ({
           value={editTitle}
           onChange={(e) => setEditTitle(e.currentTarget.value)}
           data-autofocus
-          placeholder="Enter session name"
+          placeholder={PLACEHOLDERS.SESSION_NAME}
           mb="md"
         />
         <Group justify="flex-end">

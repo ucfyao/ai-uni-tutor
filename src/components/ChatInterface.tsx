@@ -26,6 +26,7 @@ import {
   Avatar,
   Box,
   Button,
+  Center,
   Container,
   Drawer,
   Group,
@@ -44,12 +45,13 @@ import {
 // Removed Burger
 
 import { useMediaQuery } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
 import { explainConcept, generateChatResponse } from '@/app/actions/chat';
+import { PLACEHOLDERS } from '@/constants/placeholders';
 // Removed useSidebar import
 import { useHeader } from '@/context/HeaderContext'; // Added
 
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
+import { showNotification } from '@/lib/notifications';
 import { MODES } from '../constants/index';
 import { ChatMessage, ChatSession } from '../types/index';
 import { KnowledgePanel } from './chat/KnowledgePanel';
@@ -521,7 +523,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         if (result.isLimitError) {
           setShowUpgradeModal(true);
         } else {
-          notifications.show({ title: 'Error', message: result.error, color: 'red' });
+          showNotification({ title: 'Error', message: result.error, color: 'red' });
         }
         return;
       }
@@ -537,7 +539,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       onUpdateSession({ ...updatedSession, messages: [...updatedSession.messages, aiMsg] });
     } catch (e) {
       console.error('Layout/Network Error:', e);
-      notifications.show({ title: 'Error', message: 'Failed to connect to server.', color: 'red' });
+      showNotification({ title: 'Error', message: 'Failed to connect to server.', color: 'red' });
     } finally {
       setLoadingCardId(null);
     }
@@ -617,7 +619,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             message: error || 'Failed to generate response.',
             canRetry: isRetryable || false,
           });
-          notifications.show({
+          showNotification({
             title: 'Action Failed',
             message: error || 'Failed to generate response.',
             color: 'red',
@@ -699,7 +701,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           minRows={1}
           maxRows={8}
           variant="unstyled"
-          placeholder={isKnowledgeMode ? 'Ask about a concept...' : 'Message AI Tutor...'}
+          placeholder={isKnowledgeMode ? PLACEHOLDERS.ASK_CONCEPT : PLACEHOLDERS.MESSAGE}
           size="md"
           value={input}
           onChange={(e) => setInput(e.currentTarget.value)}
@@ -1272,22 +1274,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <Drawer
         opened={isKnowledgeMode && isCompact && mobileKnowledgeOpened}
         onClose={() => setMobileKnowledgeOpened(false)}
-        position="right"
-        size="90%"
+        position="bottom"
+        size="85%"
         withCloseButton={false}
         padding={0}
         zIndex={200}
+        styles={{
+          content: { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+        }}
       >
-        <Box h="100dvh" style={{ display: 'flex', flexDirection: 'column' }}>
+        <Box h="85dvh" style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Drag handle indicator */}
+          <Center pt="xs" pb={4}>
+            <Box w={40} h={4} bg="gray.3" style={{ borderRadius: 2 }} />
+          </Center>
           <Group
-            p="md"
+            px="md"
+            pb="sm"
             bg="white"
             justify="space-between"
             style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}
           >
             <Text fw={600}>Knowledge Panel</Text>
             <ActionIcon variant="subtle" onClick={() => setMobileKnowledgeOpened(false)}>
-              <ArrowUp size={20} className="rotate-90" />
+              <ArrowUp size={20} style={{ transform: 'rotate(180deg)' }} />
             </ActionIcon>
           </Group>
           <KnowledgePanel

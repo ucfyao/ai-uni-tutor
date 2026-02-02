@@ -21,6 +21,7 @@ import {
   Trash,
   Wand2,
 } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import {
@@ -226,7 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="hover:bg-gray-100 transition-colors"
           style={{ borderRadius: 8, display: 'flex', alignItems: 'center' }}
         >
-          <img src="/assets/logo.png" alt="Logo" width={22} height={22} />
+          <Image src="/assets/logo.png" alt="Logo" width={22} height={22} />
         </UnstyledButton>
         <Tooltip label="Close sidebar" position="right">
           <ActionIcon variant="subtle" color="gray" onClick={onToggleSidebar} size={36} radius="md">

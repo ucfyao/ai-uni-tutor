@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, Check, Lock, Mail } from 'lucide-react';
+import Image from 'next/image';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -82,7 +83,7 @@ export default function LoginPage() {
       <Container size={460} w="100%">
         <Stack align="center" gap="xl" mb="xl">
           <Box mb={6} className="animate-in fade-in zoom-in duration-500">
-            <img src="/assets/logo.png" alt="AI Uni Tutor Logo" width={80} height={80} />
+            <Image src="/assets/logo.png" alt="AI Uni Tutor Logo" width={80} height={80} />
           </Box>
 
           <Box ta="center">

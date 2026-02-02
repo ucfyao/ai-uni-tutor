@@ -1,6 +1,6 @@
 import { Bot, Compass, FileQuestion, Presentation, Sparkles, Zap } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionIcon, Badge, Box, Group, Text } from '@mantine/core';
+import { Box, Group, Text } from '@mantine/core';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -36,6 +36,7 @@ interface MessageBubbleProps {
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isStreaming = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onStreamingComplete,
   mode,
   knowledgeCards = [],
