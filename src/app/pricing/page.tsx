@@ -15,7 +15,7 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@/lib/notifications';
 
 export default function PricingPage() {
   // const router = useRouter(); // Unused
@@ -34,7 +34,7 @@ export default function PricingPage() {
         throw new Error(data.error || 'Failed to create checkout session');
       }
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         message: (error as any).message || 'An error occurred',

@@ -21,8 +21,9 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
 import { getProfile, updateProfile } from '@/app/actions/user';
+import { PLACEHOLDERS } from '@/constants/placeholders';
+import { showNotification } from '@/lib/notifications';
 
 export default function PersonalizationPage() {
   const { setColorScheme } = useMantineColorScheme();
@@ -54,7 +55,7 @@ export default function PersonalizationPage() {
     const result = await updateProfile({ message: '', status: 'idle' }, formData);
 
     if (result.status === 'success') {
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Profile updated successfully',
         color: 'green',
@@ -62,7 +63,7 @@ export default function PersonalizationPage() {
       setProfile({ ...profile, full_name: fullName });
       close();
     } else {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: result.message,
         color: 'red',
@@ -77,7 +78,7 @@ export default function PersonalizationPage() {
         <Stack>
           <TextInput
             label="Full Name"
-            placeholder="Your name"
+            placeholder={PLACEHOLDERS.ENTER_NAME}
             value={fullName}
             onChange={(event) => setFullName(event.currentTarget.value)}
           />

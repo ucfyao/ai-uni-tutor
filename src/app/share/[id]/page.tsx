@@ -1,4 +1,5 @@
 import { Calendar, LogIn } from 'lucide-react';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
@@ -29,7 +30,7 @@ export default async function SharedSessionPage({ params }: PageProps) {
           <Group justify="space-between">
             <Group gap="xs">
               <Box mr={2}>
-                <img src="/assets/logo.png" alt="Logo" width={28} height={28} />
+                <Image src="/assets/logo.png" alt="Logo" width={28} height={28} />
               </Box>
               <Text fw={700} size="lg" c="dark.9">
                 AI Tutor
@@ -106,7 +107,7 @@ export default async function SharedSessionPage({ params }: PageProps) {
                         remarkPlugins={[remarkMath]}
                         rehypePlugins={[rehypeKatex]}
                         components={{
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
                           code: ({ node: _node, inline, className, children, ...props }: any) => {
                             // eslint-disable-line @typescript-eslint/no-unused-vars
                             const match = /language-(\w+)/.exec(className || '');
