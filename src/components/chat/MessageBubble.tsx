@@ -1,6 +1,6 @@
 import { Bot, Compass, FileQuestion, Presentation, Sparkles, Zap } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Group, Text } from '@mantine/core';
+import { Box, Group, Image, SimpleGrid, Text } from '@mantine/core';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -211,6 +211,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             position: 'relative',
           }}
         >
+          {/* Display images if present */}
+          {message.images && message.images.length > 0 && (
+            <Box mb={message.content ? 12 : 0}>
+              <SimpleGrid
+                cols={message.images.length === 1 ? 1 : 2}
+                spacing={8}
+                style={{ maxWidth: message.images.length === 1 ? '320px' : '400px' }}
+              >
+                {message.images.map((img, index) => (
+                  <Image
+                    key={index}
+                    src={`data:${img.mimeType};base64,${img.data}`}
+                    alt={`Attachment ${index + 1}`}
+                    radius="md"
+                    style={{
+                      maxHeight: (message.images?.length ?? 0) === 1 ? '400px' : '200px',
+                      objectFit: 'cover',
+                      border: '1px solid var(--mantine-color-gray-3)',
+                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
+                      transition: 'all 0.2s ease',
+                      cursor: 'pointer',
+                    }}
+                    className="hover:shadow-lg hover:scale-[1.02]"
+                  />
+                ))}
+              </SimpleGrid>
+            </Box>
+          )}
+
           <Box className="markdown-content" c={isUser ? 'dark.9' : 'dark.8'}>
             {isUser ? (
               <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.6}>
