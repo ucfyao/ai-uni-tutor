@@ -9,9 +9,9 @@
  * Architecture: Actions → Services → Repositories → Database
  */
 import { z } from 'zod';
-import { enforceQuota } from '@/app/actions/limits';
 import { QuotaExceededError } from '@/lib/errors';
 import { getChatService } from '@/lib/services/ChatService';
+import { getQuotaService } from '@/lib/services/QuotaService';
 import { getSessionService } from '@/lib/services/SessionService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
@@ -122,7 +122,8 @@ export async function generateChatResponse(
     if (!user) throw new Error('Unauthorized');
 
     // Quota Check
-    await enforceQuota();
+    const quotaService = getQuotaService();
+    await quotaService.enforce();
 
     // Delegate to ChatService (uses Strategy pattern internally)
     const chatService = getChatService();
@@ -157,7 +158,8 @@ export async function explainConcept(
     if (!user) throw new Error('Unauthorized');
 
     // Quota Check
-    await enforceQuota();
+    const quotaService = getQuotaService();
+    await quotaService.enforce();
 
     // Delegate to ChatService
     const chatService = getChatService();

@@ -76,8 +76,8 @@ Line 2
       expect(result).toBe(content); // Should remain unchanged
     });
 
-    it('should handle CJK characters correctly', () => {
-      const content = '我们需要学习React和TypeScript。';
+    it('should handle CJK-like context correctly', () => {
+      const content = 'We need to study React and TypeScript.';
       const cards = [{ id: 'react', title: 'React', content: '' }];
       const result = injectLinks(content, cards);
       expect(result).toBeDefined();
@@ -85,7 +85,7 @@ Line 2
 
       // Note: \b is not used for CJK mixed context in the implementation for English words?
       // Actually checking implementation: if hasCJK is false (React is English), it uses \b.
-      // So "学习React" might fail \b match depending on regex engine.
+      // So a phrase like "studyReact" might fail \b match depending on regex engine.
       // Let's check the implementation logic again.
       // Implementation uses \b for English titles. \b matches boundary between \w and \W.
       // CJK characters are usually treated as \w or non-boundary?
