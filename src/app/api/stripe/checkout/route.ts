@@ -1,10 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkApiRateLimit } from '@/lib/api-rate-limit';
 import { stripe } from '@/lib/stripe';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(_req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const rateLimitRes = await checkApiRateLimit(req);
+    if (rateLimitRes) return rateLimitRes;
+
     const user = await getCurrentUser();
 
     if (!user) {
