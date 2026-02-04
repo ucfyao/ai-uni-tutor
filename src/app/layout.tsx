@@ -30,7 +30,7 @@ export default function RootLayout({
       <head>
         <ColorSchemeScript />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <MantineProvider theme={theme}>
           <Notifications position="top-right" zIndex={1000} />
           <SpeedInsights />

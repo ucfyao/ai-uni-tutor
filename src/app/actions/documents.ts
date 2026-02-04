@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { parsePDF } from '@/lib/pdf';
 // import { chunkText } from "@/lib/rag/chunking";
 import { generateEmbedding } from '@/lib/rag/embedding';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { Database } from '@/types/database';
 
 export type UploadState = {
@@ -45,15 +45,12 @@ export async function uploadDocument(
       return { status: 'error', message: 'Only PDF files are supported currently' };
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const user = await getCurrentUser();
     if (!user) {
       return { status: 'error', message: 'Unauthorized' };
     }
 
+    const supabase = await createClient();
     // Check for duplicates
     const { data: existingDoc } = await supabase
       .from('documents')
@@ -158,15 +155,12 @@ export async function uploadDocument(
 }
 
 export async function deleteDocument(documentId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) {
     throw new Error('Unauthorized');
   }
 
+  const supabase = await createClient();
   const { data: existingDoc, error: fetchError } = await supabase
     .from('documents')
     .select('id')

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export type ActionState = {
   message: string;
@@ -20,15 +20,13 @@ export async function updateProfile(
   prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { message: 'Unauthorized', status: 'error' };
   }
 
+  const supabase = await createClient();
   const parsed = updateProfileSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { message: 'Invalid input', status: 'error' };
@@ -56,14 +54,16 @@ export async function updateProfile(
 }
 
 export async function getProfile() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return null;
 
-  const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, subscription_status, current_period_end')
+    .eq('id', user.id)
+    .single();
 
   return data;
 }

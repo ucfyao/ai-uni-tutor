@@ -17,9 +17,3 @@ export const COURSES: Course[] = [
   //   { id: '5', universityId: 'unimelb', code: 'MAST10006', name: 'Calculus 2' },
   //   { id: '6', universityId: 'mit', code: '6.036', name: 'Introduction to Machine Learning' },
 ];
-
-export const MODES = [
-  { id: 'lecture', label: 'Lecture Helper', icon: 'Presentation' },
-  { id: 'assignment', label: 'Assignment Coach', icon: 'Compass' },
-  { id: 'exam', label: 'Exam Prep', icon: 'FileQuestion' },
-] as const;

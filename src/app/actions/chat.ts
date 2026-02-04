@@ -1,15 +1,12 @@
 'use server';
 
-import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { enforceQuota } from '@/app/actions/limits';
 import { QuotaExceededError } from '@/lib/errors';
+import { getGenAI } from '@/lib/gemini';
 import { appendRagContext, buildSystemInstruction } from '@/lib/prompts';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
-
-// Initialize outside to allow env var loading check at runtime if needed, but here it's fine.
-// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const MAX_RETRIES = 3;
 const BASE_DELAY = 2000;
@@ -22,7 +19,7 @@ type ChatMessageRow = {
   card_id: string | null;
 };
 
-const tutoringModeSchema = z.enum(['Lecture Helper', 'Assignment Coach', 'Exam Prep', 'Feedback']);
+const tutoringModeSchema = z.enum(['Lecture Helper', 'Assignment Coach', 'Exam Prep']);
 
 const courseSchema = z.object({
   id: z.string().min(1),
@@ -116,11 +113,7 @@ async function _generateChatResponse(
     throw new Error('Missing GEMINI_API_KEY in environment variables');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) {
     throw new Error('Unauthorized');
   }
@@ -136,7 +129,7 @@ async function _generateChatResponse(
     throw new Error('Validation Failed: Invalid Course Context. Please restart the session.');
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = getGenAI();
 
   // 1. Prepare contents for Gemini
   const contents = history.map((msg) => ({
@@ -255,30 +248,62 @@ export async function generateChatResponse(
 
 // --- Persistence Actions ---
 
+/** Fetch only messages for a session (caller must have metadata e.g. from list). Verifies ownership. */
+export async function getChatMessages(sessionId: string): Promise<ChatMessage[] | null> {
+  const parsed = sessionIdSchema.safeParse(sessionId);
+  if (!parsed.success) return null;
+
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const supabase = await createClient();
+  const { data: sessionRow, error: sessionError } = await supabase
+    .from('chat_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (sessionError || !sessionRow) return null;
+
+  const { data: msgData } = await supabase
+    .from('chat_messages')
+    .select('id, role, content, created_at, card_id')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+
+  const rows: ChatMessageRow[] = Array.isArray(msgData) ? msgData : [];
+  return rows.map((msg) => ({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content ?? '',
+    timestamp: new Date(msg.created_at).getTime(),
+    cardId: msg.card_id ?? undefined,
+  }));
+}
+
 export async function getChatSession(sessionId: string): Promise<ChatSession | null> {
   const parsed = sessionIdSchema.safeParse(sessionId);
   if (!parsed.success) {
     return null;
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const { data: sessionData, error } = await supabase
+  const supabase = await createClient();
+  const { data: sessionData, error: sessionError } = await supabase
     .from('chat_sessions')
-    .select('*')
+    .select('id, course, mode, title, updated_at, is_pinned, is_shared')
     .eq('id', sessionId)
     .eq('user_id', user.id)
     .single();
 
-  if (error || !sessionData) return null;
+  if (sessionError || !sessionData) return null;
 
   const { data: msgData } = await supabase
     .from('chat_messages')
-    .select('*')
+    .select('id, role, content, created_at, card_id')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true });
 
@@ -289,14 +314,13 @@ export async function getChatSession(sessionId: string): Promise<ChatSession | n
     course: sessionData.course,
     mode: sessionData.mode,
     title: sessionData.title,
-    messages:
-      messages.map((msg) => ({
-        id: msg.id,
-        role: msg.role,
-        content: msg.content,
-        timestamp: new Date(msg.created_at).getTime(),
-        cardId: msg.card_id ?? undefined,
-      })) || [],
+    messages: messages.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content ?? '',
+      timestamp: new Date(msg.created_at).getTime(),
+      cardId: msg.card_id ?? undefined,
+    })),
     lastUpdated: new Date(sessionData.updated_at).getTime(),
     isPinned: sessionData.is_pinned,
     isShared: sessionData.is_shared,
@@ -304,15 +328,13 @@ export async function getChatSession(sessionId: string): Promise<ChatSession | n
 }
 
 export async function getChatSessions(): Promise<ChatSession[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('chat_sessions')
-    .select('*')
+    .select('id, course, mode, title, updated_at, is_pinned')
     .eq('user_id', user.id)
     .order('is_pinned', { ascending: false })
     .order('updated_at', { ascending: false });
@@ -322,37 +344,16 @@ export async function getChatSessions(): Promise<ChatSession[]> {
     return [];
   }
 
-  // ... (previous code)
-
-  const sessions: ChatSession[] = [];
-  for (const row of data) {
-    // Optimization: For the sidebar list, we might not need all messages immediately,
-    // but the type requires it. Fetching them ensures validity.
-    const { data: msgData } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('session_id', row.id)
-      .order('created_at', { ascending: true });
-
-    const messages: ChatMessageRow[] = Array.isArray(msgData) ? msgData : [];
-
-    sessions.push({
-      id: row.id,
-      course: row.course,
-      mode: row.mode,
-      title: row.title,
-      messages:
-        messages.map((msg) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.created_at).getTime(),
-          cardId: msg.card_id ?? undefined, // Map DB column to type
-        })) || [],
-      lastUpdated: new Date(row.updated_at).getTime(),
-      isPinned: row.is_pinned,
-    });
-  }
+  // Sidebar only needs session metadata; full messages are loaded by getChatSession() on session page.
+  const sessions: ChatSession[] = (data ?? []).map((row) => ({
+    id: row.id,
+    course: row.course,
+    mode: row.mode,
+    title: row.title,
+    messages: [],
+    lastUpdated: new Date(row.updated_at).getTime(),
+    isPinned: row.is_pinned,
+  }));
 
   return sessions;
 }
@@ -363,12 +364,10 @@ export async function createChatSession(session: Omit<ChatSession, 'id' | 'lastU
     throw new Error('Validation Failed: Invalid chat session payload.');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('chat_sessions')
     .insert({
@@ -398,12 +397,10 @@ export async function saveChatMessage(sessionId: string, message: ChatMessage) {
     throw new Error('Validation Failed: Invalid chat message payload.');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Unauthorized');
 
+  const supabase = await createClient();
   await assertSessionOwnership(supabase, user.id, sessionId);
 
   const { error } = await supabase.from('chat_messages').insert({
@@ -428,12 +425,10 @@ export async function toggleSessionPin(sessionId: string, isPinned: boolean) {
     throw new Error('Validation Failed: Invalid pin toggle payload.');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Unauthorized');
 
+  const supabase = await createClient();
   await assertSessionOwnership(supabase, user.id, sessionId);
 
   const { error } = await supabase
@@ -450,12 +445,10 @@ export async function deleteChatSession(sessionId: string) {
     throw new Error('Validation Failed: Invalid session id.');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Unauthorized');
 
+  const supabase = await createClient();
   await assertSessionOwnership(supabase, user.id, sessionId);
 
   const { error } = await supabase.from('chat_sessions').delete().eq('id', sessionId);
@@ -469,12 +462,10 @@ export async function updateChatSessionTitle(sessionId: string, title: string) {
     throw new Error('Validation Failed: Invalid title payload.');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Unauthorized');
 
+  const supabase = await createClient();
   await assertSessionOwnership(supabase, user.id, sessionId);
 
   const { error } = await supabase
@@ -491,12 +482,10 @@ export async function updateChatSessionMode(sessionId: string, mode: TutoringMod
     throw new Error('Validation Failed: Invalid mode payload.');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Unauthorized');
 
+  const supabase = await createClient();
   await assertSessionOwnership(supabase, user.id, sessionId);
 
   const { error } = await supabase
@@ -513,12 +502,10 @@ export async function toggleSessionShare(sessionId: string, isShared: boolean) {
     throw new Error('Validation Failed: Invalid share toggle payload.');
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Unauthorized');
 
+  const supabase = await createClient();
   await assertSessionOwnership(supabase, user.id, sessionId);
 
   // Default expiration: 1 hour from now
@@ -546,7 +533,7 @@ export async function getSharedSession(sessionId: string): Promise<ChatSession |
   // Fetch session only if it is marked as shared
   const { data: sessionData, error } = await supabase
     .from('chat_sessions')
-    .select('*')
+    .select('id, course, mode, title, updated_at, is_pinned, is_shared')
     .eq('id', sessionId)
     .eq('is_shared', true)
     .or(`share_expires_at.is.null,share_expires_at.gt.${new Date().toISOString()}`) // Check expiration
@@ -559,7 +546,7 @@ export async function getSharedSession(sessionId: string): Promise<ChatSession |
   // Fetch messages for the session
   const { data: msgData } = await supabase
     .from('chat_messages')
-    .select('*')
+    .select('id, role, content, created_at, card_id')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true });
 
@@ -604,11 +591,7 @@ export async function explainConcept(
       throw new Error('Missing GEMINI_API_KEY');
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const user = await getCurrentUser();
     if (!user) {
       throw new Error('Unauthorized');
     }
@@ -616,7 +599,7 @@ export async function explainConcept(
     // Unified Quota Check
     await enforceQuota();
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const ai = getGenAI();
 
     // Build a focused prompt for concept explanation
     let systemInstruction = `You are a concise academic tutor. Explain the concept "${concept}" in a clear, educational manner.

@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: `${maxFileSizeMB}mb` as `${number}mb`,
     },
+    optimizePackageImports: ['@mantine/core', '@mantine/hooks', 'lucide-react'],
   },
 };
 
