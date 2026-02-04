@@ -104,14 +104,12 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     }
   };
 
-  // 动态主题色 - 根据选中的 Mode 变化
   const activeThemeColor = useMemo(() => {
     if (!selectedMode) return 'indigo';
     const mode = MODES_LIST.find((m) => m.label === selectedMode);
     return mode?.color || 'indigo';
   }, [selectedMode]);
 
-  // Main 分支的 FormRow 组件样式
   const FormRow = ({
     icon: Icon,
     label,
@@ -229,7 +227,6 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
           </UnstyledButton>
         </Group>
 
-        {/* University & Course Selection - Always visible at top */}
         <Stack gap={12}>
           <FormRow icon={Building2} label="Institution" color={activeThemeColor} active={true}>
             <Select
@@ -267,7 +264,6 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
           </FormRow>
         </Stack>
 
-        {/* Mode Selection - 动态主题配色 */}
         <Box>
           <Group gap={8}>
             {MODES_LIST.map((mode, index) => {

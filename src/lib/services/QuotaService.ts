@@ -17,6 +17,16 @@ export interface QuotaStatus {
   isPro: boolean;
 }
 
+export interface AccessLimits {
+  dailyLimitFree: number;
+  dailyLimitPro: number;
+  rateLimitFreeRequests: number;
+  rateLimitFreeWindow: string;
+  rateLimitProRequests: number;
+  rateLimitProWindow: string;
+  maxFileSizeMB: number;
+}
+
 export interface QuotaCheckResult {
   allowed: boolean;
   usage: number;
@@ -43,6 +53,21 @@ export class QuotaService {
     const canSend = usage < limit;
 
     return { canSend, usage, limit, remaining, isPro };
+  }
+
+  /**
+   * Get system-configured access limits (for UI display)
+   */
+  getSystemLimits(): AccessLimits {
+    return {
+      dailyLimitFree: parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10', 10),
+      dailyLimitPro: parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100', 10),
+      rateLimitFreeRequests: parseInt(process.env.RATE_LIMIT_FREE_REQUESTS || '20', 10),
+      rateLimitFreeWindow: process.env.RATE_LIMIT_FREE_WINDOW || '10 s',
+      rateLimitProRequests: parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100', 10),
+      rateLimitProWindow: process.env.RATE_LIMIT_PRO_WINDOW || '10 s',
+      maxFileSizeMB: parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5', 10),
+    };
   }
 
   /**

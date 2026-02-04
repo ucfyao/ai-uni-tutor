@@ -18,9 +18,9 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core';
-import { getAccessLimits, getDailyUsage, type AccessLimits } from '@/app/actions/limits';
 import { useProfile } from '@/context/ProfileContext';
 import { showNotification } from '@/lib/notifications';
+import type { AccessLimits } from '@/lib/services/QuotaService';
 
 export default function SettingsPage() {
   const { profile, loading: profileLoading, updateProfile } = useProfile();
@@ -40,10 +40,13 @@ export default function SettingsPage() {
   useEffect(() => {
     async function fetchLimits() {
       try {
-        const limitsData = await getAccessLimits();
-        setLimits(limitsData);
-        const usageData = await getDailyUsage();
-        setUsage(usageData);
+        const res = await fetch('/api/quota');
+        if (!res.ok) {
+          throw new Error('Failed to fetch quota information');
+        }
+        const data: { status: { usage: number }; limits: AccessLimits } = await res.json();
+        setLimits(data.limits);
+        setUsage(data.status.usage);
       } catch (e) {
         console.error('Failed to fetch access limits', e);
       } finally {

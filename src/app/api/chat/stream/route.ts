@@ -7,8 +7,8 @@
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { checkAndConsumeQuota } from '@/app/actions/limits';
 import { getChatService } from '@/lib/services/ChatService';
+import { getQuotaService } from '@/lib/services/QuotaService';
 import { StrategyFactory } from '@/lib/strategies';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ChatMessage, Course, TutoringMode } from '@/types';
@@ -87,7 +87,9 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. Check Usage Limits
-  const quota = await checkAndConsumeQuota();
+  const quotaService = getQuotaService();
+  const quota = await quotaService.checkAndConsume();
+
   if (!quota.allowed) {
     return errorResponse(quota.error || 'Daily limit reached. Please upgrade your plan.', 429, {
       isLimitError: true,
