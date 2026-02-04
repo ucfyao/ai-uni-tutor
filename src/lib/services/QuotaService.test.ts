@@ -130,6 +130,9 @@ describe('QuotaService', () => {
   });
 
   it('should fail open if redis fails', async () => {
+    // Suppress console.error for this test as we expect an error to be logged
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-error' } as any);
 
@@ -151,5 +154,13 @@ describe('QuotaService', () => {
 
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(999); // Fallback value
+
+    // Verify error was logged check
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[QuotaService] Check failed'),
+      expect.any(Error),
+    );
+
+    consoleSpy.mockRestore();
   });
 });
