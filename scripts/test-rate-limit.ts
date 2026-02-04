@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 async function testRateLimit() {
-  // Proxy applies to all routes (except static). Use GET /login for simple IP-based test.
+  // Proxy applies to all routes (except static). Use GET /login for simple IP-based test (no auth/body).
   const url = 'http://localhost:3000/login';
   const requestCount = 15; // Anonymous limit: 10 req/10s (RATE_LIMIT_PUBLIC_*), so 15 should trigger 429
   const interval = 50; // ms
