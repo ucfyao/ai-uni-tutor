@@ -148,8 +148,29 @@ export async function POST(req: NextRequest) {
           controller.close();
         } catch (error) {
           console.error('Streaming error:', error);
-          const errorMsg = error instanceof Error ? error.message : 'Streaming failed';
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorMsg })}\n\n`));
+
+          let clientMessage = 'An unexpected error occurred. Please contact support.';
+          const isLimitError = false;
+
+          // Check if it's a Gemini API error (Third Party)
+          const errorMessage = error instanceof Error ? error.message : String(error);
+
+          // Detect Gemini 429/Resource Exhausted
+          if (
+            errorMessage.includes('429') ||
+            errorMessage.includes('RESOURCE_EXHAUSTED') ||
+            errorMessage.includes('quota')
+          ) {
+            // It's a third-party capacity issue, not the user's plan limit
+            clientMessage =
+              'The AI service is currently experiencing high volume. Please try again in a moment.';
+            // We do NOT set isLimitError=true here because that triggers the "Upgrade Plan" modal
+            // which is reserved for when the USER hits their own limit.
+          }
+
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ error: clientMessage, isLimitError })}\n\n`),
+          );
           controller.close();
         }
       },
@@ -173,13 +194,18 @@ export async function POST(req: NextRequest) {
       errorMessage.includes('quota');
 
     if (isRateLimit) {
-      return errorResponse('API quota exceeded. Please wait a moment and try again.', 429, {
-        isLimitError: true,
-        isRetryable: true,
-      });
+      // Third-party API limit (Gemini) - do NOT flag as user limit error
+      return errorResponse(
+        'The AI service is currently experiencing high volume. Please try again in a moment.',
+        429,
+        {
+          isLimitError: false, // Explicitly false so UI doesn't show Upgrade modal
+          isRetryable: true,
+        },
+      );
     }
 
-    return errorResponse('Failed to generate response. Please try again.', 500, {
+    return errorResponse('An unexpected error occurred. Please try again.', 500, {
       isRetryable: true,
     });
   }
