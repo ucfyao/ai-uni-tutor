@@ -79,3 +79,17 @@
 
 [1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
        [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/lib/services/QuotaService.ts [22m[34mx1 [34m[39m
+
+[90mstdout[2m | src/lib/services/QuotaService.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (14) from .env.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+ [32m✓[39m src/lib/services/QuotaService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 20:18:30
+[2m   Duration [22m 52ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
