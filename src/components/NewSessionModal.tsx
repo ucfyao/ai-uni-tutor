@@ -94,12 +94,13 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     const course = COURSES.find((c) => c.id === selectedCourseId);
     if (course && selectedMode) {
       setIsLoading(true);
-      localStorage.setItem('lastUniId', course.universityId);
-      localStorage.setItem('lastUniId', course.universityId);
-      localStorage.setItem('lastCourseId', course.id);
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      await onStart(course, selectedMode);
-      setIsLoading(false);
+      try {
+        localStorage.setItem('lastUniId', course.universityId);
+        localStorage.setItem('lastCourseId', course.id);
+        await onStart(course, selectedMode);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
