@@ -1,21 +1,18 @@
 'use client';
 
 import Image from 'next/image';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import React, { useState } from 'react';
-import { AppShell, Box, Burger, Group, Text } from '@mantine/core'; // Added Burger, Group, Text
+import { usePathname, useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { AppShell, Box, Burger, Group, Text } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
-// import { getChatSessions, createChatSession, toggleSessionPin, updateChatSessionTitle, deleteChatSession } from '@/app/actions/chat'; // Moved to Context
-import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat'; // Actually toggle/update/delete are still used here for async calls, but Context handles state.
+import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import NewSessionModal from '@/components/NewSessionModal';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
 import Sidebar from '@/components/Sidebar';
+import { MODES_METADATA } from '@/constants/modes';
 import { useHeader } from '@/context/HeaderContext';
-// Wait, I updated Shell to call asyncs directly?
-// Yes: `try { await toggleSessionPin(id, isPinned); }`
-// So I need to keep those imports. But `getChatSessions` and `createChatSession` are removed.
 import { useSessions } from '@/context/SessionContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { showNotification } from '@/lib/notifications';
@@ -24,10 +21,12 @@ import { Course, TutoringMode } from '@/types/index';
 export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const params = useParams();
 
-  // Extract active ID from URL if present
-  const activeSessionId = (params?.id as string) || null;
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = pathname?.match(/^\/(lecture|assignment|exam)\/([^/]+)/)?.[2] ?? null;
+    setActiveSessionId(id);
+  }, [pathname]);
 
   const { sessions, addSession, removeSession, updateSessionLocal } = useSessions();
   const { mobileOpened, toggleMobile } = useSidebar();
@@ -47,20 +46,38 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const toggleSidebar = () => (isMobile ? toggleMobile() : toggleDesktop());
-  const isChatRoute = pathname?.startsWith('/chat/');
 
-  const handleStartSession = async (course: Course, mode: TutoringMode | null) => {
+  // Pre-select mode when opening New Chat from a mode page (e.g. /lecture/xxx -> Lecture Helper)
+  const pathnameMode: TutoringMode | null = pathname?.startsWith('/lecture')
+    ? 'Lecture Helper'
+    : pathname?.startsWith('/assignment')
+      ? 'Assignment Coach'
+      : pathname?.startsWith('/exam')
+        ? 'Exam Prep'
+        : null;
+
+  const handleStartSession = async (course: Course, mode: TutoringMode) => {
     closeModal();
     const newId = await addSession(course, mode);
     if (newId) {
-      router.push(`/chat/${newId}`);
+      const modeRoute = MODES_METADATA[mode].id;
+      const targetPath = `/${modeRoute}/${newId}`;
+      setActiveSessionId(newId);
+      window.history.pushState(null, '', targetPath);
+      router.push(targetPath);
     } else {
       showNotification({ title: 'Error', message: 'Failed to create session', color: 'red' });
     }
   };
 
   const handleSelectSession = (id: string) => {
-    router.push(`/chat/${id}`);
+    const session = sessions.find((s) => s.id === id);
+    if (session?.mode) {
+      const modeRoute = MODES_METADATA[session.mode].id;
+      router.push(`/${modeRoute}/${id}`);
+    } else {
+      router.push(`/`);
+    }
     if (isMobile) toggleMobile();
   };
 
@@ -162,12 +179,17 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           />
         </AppShell.Navbar>
 
-        <AppShell.Main h="100dvh" bg="white" pt={isMobile && !isChatRoute ? 50 : 0} pb={0}>
+        <AppShell.Main h="100dvh" bg="white" pt={isMobile ? 50 : 0} pb={0}>
           {children}
         </AppShell.Main>
       </AppShell>
 
-      <NewSessionModal opened={modalOpened} onClose={closeModal} onStart={handleStartSession} />
+      <NewSessionModal
+        opened={modalOpened}
+        onClose={closeModal}
+        onStart={handleStartSession}
+        preSelectedMode={pathnameMode}
+      />
 
       <RenameSessionModal
         opened={renameModalOpen}

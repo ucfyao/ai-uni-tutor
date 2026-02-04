@@ -1,19 +1,17 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function POST(_req: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     if (!user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    const supabase = await createClient();
     const { data: profile } = await supabase
       .from('profiles')
       .select('stripe_customer_id')

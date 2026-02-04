@@ -14,13 +14,10 @@ import {
 } from '@mantine/core';
 import { FileUploader } from '@/components/rag/FileUploader';
 import { KnowledgeTable } from '@/components/rag/KnowledgeTable';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export default async function KnowledgePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return (
@@ -32,9 +29,10 @@ export default async function KnowledgePage() {
     );
   }
 
+  const supabase = await createClient();
   const { data: documents } = await supabase
     .from('documents')
-    .select('*')
+    .select('id, name, status, status_message, created_at, metadata')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 

@@ -2,7 +2,7 @@
 
 import { QuotaExceededError } from '@/lib/errors';
 import { checkLLMUsage, getLLMUsage } from '@/lib/redis';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 // ============================================================================
 // TYPES
@@ -40,15 +40,13 @@ export type QuotaCheckResult = {
 // ============================================================================
 
 async function getUserAndPlan() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { user: null, isPro: false };
   }
 
+  const supabase = await createClient();
   const { data: profile } = await supabase
     .from('profiles')
     .select('subscription_status')

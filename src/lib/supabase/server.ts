@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -19,7 +20,7 @@ export async function createClient() {
             );
           } catch {
             // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
+            // This can be ignored if you have proxy refreshing
             // user sessions.
           }
         },
@@ -27,3 +28,12 @@ export async function createClient() {
     },
   );
 }
+
+/** Per-request cached user; deduplicates getUser() when multiple actions/components need it in the same request. */
+export const getCurrentUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});

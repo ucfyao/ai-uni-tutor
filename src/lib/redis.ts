@@ -1,67 +1,148 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-  throw new Error('Redis credentials are not defined');
+let _redis: Redis | null = null;
+let _ratelimit: Ratelimit | null = null;
+let _freeRatelimit: Ratelimit | null = null;
+let _proRatelimit: Ratelimit | null = null;
+
+function getRedis(): Redis {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    throw new Error(
+      'Redis credentials are not defined (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN)',
+    );
+  }
+  if (!_redis) {
+    _redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  }
+  return _redis;
 }
 
-export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+/** Lazy: validated on first use so pages/tests without Redis env don't crash at import. */
+export const redis = new Proxy({} as Redis, {
+  get(_, prop) {
+    const r = getRedis();
+    const v = (r as unknown as Record<string, unknown>)[prop as string];
+    return typeof v === 'function' ? (v as (...args: unknown[]) => unknown).bind(r) : v;
+  },
 });
 
-// Public ratelimiter (IP based): 10 requests per 10 seconds (or configured)
-export const ratelimit = new Ratelimit({
-  redis: redis,
-  limiter: Ratelimit.slidingWindow(
-    parseInt(process.env.RATE_LIMIT_PUBLIC_REQUESTS || '10'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (process.env.RATE_LIMIT_PUBLIC_WINDOW || '10 s') as any,
-  ),
-  analytics: true,
-  prefix: '@upstash/ratelimit/public',
+function getRatelimit(): Ratelimit {
+  if (!_ratelimit) {
+    _ratelimit = new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(
+        parseInt(process.env.RATE_LIMIT_PUBLIC_REQUESTS || '10'),
+        (process.env.RATE_LIMIT_PUBLIC_WINDOW || '10 s') as Parameters<
+          typeof Ratelimit.slidingWindow
+        >[1],
+      ),
+      analytics: true,
+      prefix: '@upstash/ratelimit/public',
+    });
+  }
+  return _ratelimit;
+}
+
+function getFreeRatelimit(): Ratelimit {
+  if (!_freeRatelimit) {
+    _freeRatelimit = new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(
+        parseInt(process.env.RATE_LIMIT_FREE_REQUESTS || '20'),
+        (process.env.RATE_LIMIT_FREE_WINDOW || '10 s') as Parameters<
+          typeof Ratelimit.slidingWindow
+        >[1],
+      ),
+      analytics: true,
+      prefix: '@upstash/ratelimit/free',
+    });
+  }
+  return _freeRatelimit;
+}
+
+function getProRatelimit(): Ratelimit {
+  if (!_proRatelimit) {
+    _proRatelimit = new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(
+        parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100'),
+        (process.env.RATE_LIMIT_PRO_WINDOW || '10 s') as Parameters<
+          typeof Ratelimit.slidingWindow
+        >[1],
+      ),
+      analytics: true,
+      prefix: '@upstash/ratelimit/pro',
+    });
+  }
+  return _proRatelimit;
+}
+
+/** Lazy: validated on first use. */
+export const ratelimit = new Proxy({} as Ratelimit, {
+  get(_, prop) {
+    const r = getRatelimit();
+    const v = (r as unknown as Record<string, unknown>)[prop as string];
+    return typeof v === 'function' ? (v as (...args: unknown[]) => unknown).bind(r) : v;
+  },
 });
 
-// Free tier ratelimiter (User based): 20 requests per 10 seconds (or configured)
-export const freeRatelimit = new Ratelimit({
-  redis: redis,
-  limiter: Ratelimit.slidingWindow(
-    parseInt(process.env.RATE_LIMIT_FREE_REQUESTS || '20'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (process.env.RATE_LIMIT_FREE_WINDOW || '10 s') as any,
-  ),
-  analytics: true,
-  prefix: '@upstash/ratelimit/free',
+/** Lazy: validated on first use. */
+export const freeRatelimit = new Proxy({} as Ratelimit, {
+  get(_, prop) {
+    const r = getFreeRatelimit();
+    const v = (r as unknown as Record<string, unknown>)[prop as string];
+    return typeof v === 'function' ? (v as (...args: unknown[]) => unknown).bind(r) : v;
+  },
 });
 
-// Pro tier ratelimiter (User based): 100 requests per 10 seconds (or configured)
-export const proRatelimit = new Ratelimit({
-  redis: redis,
-  limiter: Ratelimit.slidingWindow(
-    parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (process.env.RATE_LIMIT_PRO_WINDOW || '10 s') as any,
-  ),
-  analytics: true,
-  prefix: '@upstash/ratelimit/pro',
+/** Lazy: validated on first use. */
+export const proRatelimit = new Proxy({} as Ratelimit, {
+  get(_, prop) {
+    const r = getProRatelimit();
+    const v = (r as unknown as Record<string, unknown>)[prop as string];
+    return typeof v === 'function' ? (v as (...args: unknown[]) => unknown).bind(r) : v;
+  },
 });
+
+/**
+ * Lua script: atomically check current usage and increment only if under limit.
+ * Returns [allowed, count] where allowed is 1 or 0, count is current usage after the op (or current if rejected).
+ */
+const CHECK_AND_INCR_LLM_SCRIPT = `
+local cur = redis.call('GET', KEYS[1])
+if cur == false then cur = 0 else cur = tonumber(cur) end
+local limit = tonumber(ARGV[1])
+if cur >= limit then
+  return {0, cur}
+end
+redis.call('INCR', KEYS[1])
+local newVal = cur + 1
+if newVal == 1 then
+  redis.call('EXPIRE', KEYS[1], 86400)
+end
+return {1, newVal}
+`;
 
 export async function checkLLMUsage(userId: string, limit: number) {
   const date = new Date().toISOString().split('T')[0];
   const key = `usage:llm:${userId}:${date}`;
 
-  // Increment usage
-  const usage = await redis.incr(key);
+  const r = getRedis();
+  const result = (await r.eval(CHECK_AND_INCR_LLM_SCRIPT, [key], [limit.toString()])) as unknown;
 
-  // Set expiry for 24 hours if it's new (or just set it every time, it's cheap)
-  if (usage === 1) {
-    await redis.expire(key, 86400);
-  }
+  const arr = Array.isArray(result) ? result : [0, 0];
+  const allowed = Number(arr[0]) || 0;
+  const count = Number(arr[1]) || 0;
+  const success = allowed === 1;
 
   return {
-    success: usage <= limit,
-    remaining: Math.max(0, limit - usage),
-    count: usage,
+    success,
+    remaining: Math.max(0, limit - count),
+    count,
   };
 }
 

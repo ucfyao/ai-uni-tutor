@@ -17,6 +17,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   onLinkClick,
   compact = false,
 }) => {
+  const safeContent = content ?? '';
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
@@ -181,7 +182,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ),
       }}
     >
-      {content}
+      {safeContent}
     </ReactMarkdown>
   );
 };

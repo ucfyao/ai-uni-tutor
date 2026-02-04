@@ -10,20 +10,19 @@ export const extractCards = (text: string): { cleanContent: string; cards: Knowl
 
   const cleanContent = text.replace(cardRegex, (match, attributes, content) => {
     const titleMatch = attributes.match(/title=['"]([^'"]+)['"]/);
-    const title = titleMatch ? titleMatch[1] : 'Untitled Concept';
-    // Add to cards array
+    const title = (titleMatch ? titleMatch[1] : 'Untitled Concept').trim();
+    const id =
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || `card-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     cards.push({
-      id:
-        title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '') ||
-        `card-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      title: title.trim(),
+      id,
+      title,
       content: content.trim(),
     });
-    // Remove from main text
-    return '';
+    // Replace with markdown link so the sentence still reads correctly (e.g. "the lens of the [underfit model](#card-xxx)")
+    return `[${title}](#card-${id})`;
   });
 
   return { cleanContent, cards };

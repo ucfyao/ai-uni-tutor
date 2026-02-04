@@ -1,9 +1,9 @@
-import { GoogleGenAI } from '@google/genai';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { checkAndConsumeQuota } from '@/app/actions/limits';
+import { getGenAI } from '@/lib/gemini';
 import { appendRagContext, buildSystemInstruction } from '@/lib/prompts';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,10 +70,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. Authentication
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -96,7 +93,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Prepare AI Request
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = getGenAI();
 
   const contents = history.map((msg: (typeof history)[0]) => {
     const parts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [

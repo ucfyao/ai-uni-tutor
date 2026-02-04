@@ -3,11 +3,11 @@ import { extractCards, injectLinks } from './contentParser';
 
 describe('contentParser', () => {
   describe('extractCards', () => {
-    it('should extract a single card and return clean content', () => {
+    it('should extract a single card and replace with markdown link in clean content', () => {
       const input = 'Here is a concept: <card title="React">React is a library.</card> End.';
       const { cleanContent, cards } = extractCards(input);
 
-      expect(cleanContent).toBe('Here is a concept:  End.');
+      expect(cleanContent).toBe('Here is a concept: [React](#card-react) End.');
       expect(cards).toHaveLength(1);
       expect(cards[0]).toMatchObject({
         title: 'React',
@@ -20,7 +20,7 @@ describe('contentParser', () => {
       const input = '<card title="A">Conte nt A</card> and <card title="B">Content B</card>';
       const { cleanContent, cards } = extractCards(input);
 
-      expect(cleanContent).toBe(' and ');
+      expect(cleanContent).toBe('[A](#card-a) and [B](#card-b)');
       expect(cards).toHaveLength(2);
       expect(cards[0].title).toBe('A');
       expect(cards[1].title).toBe('B');
@@ -80,6 +80,8 @@ Line 2
       const content = '我们需要学习React和TypeScript。';
       const cards = [{ id: 'react', title: 'React', content: '' }];
       const result = injectLinks(content, cards);
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('string');
 
       // Note: \b is not used for CJK mixed context in the implementation for English words?
       // Actually checking implementation: if hasCJK is false (React is English), it uses \b.
