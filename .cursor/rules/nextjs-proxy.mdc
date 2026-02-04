@@ -1,0 +1,60 @@
+---
+description: Next.js 16 proxy conventions for session refresh and rate limiting
+globs: proxy.ts, src/proxy.ts, **/supabase/middleware.ts
+alwaysApply: false
+---
+
+# Next.js 16 Proxy
+
+Next.js 16 uses `proxy.ts` (not `middleware.ts`). The proxy runs before routes and handles session refresh, rate limiting, and auth redirects.
+
+## File Convention
+
+- File: `proxy.ts` at project root or `src/proxy.ts` (same level as `app/`)
+- Export: `export async function proxy(request: NextRequest)`
+- Config: `export const config = { matcher: [...] }`
+
+## Matcher
+
+Use negative lookahead to exclude static assets:
+
+```typescript
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+};
+```
+
+## Responsibilities
+
+1. **Rate limit**: Return 429 when exceeded (anonymous: IP key; logged-in: userId key)
+2. **Session refresh**: Call `updateSession(request)` from `@/lib/supabase/middleware`
+3. **Auth redirect**: `updateSession` redirects unauthenticated users to `/login` (except /login, /auth, /share)
+
+## Example
+
+```typescript
+// src/proxy.ts
+import { NextResponse, type NextRequest } from 'next/server';
+import { proRatelimit, ratelimit } from '@/lib/redis';
+import { getUserIdFromRequest, updateSession } from '@/lib/supabase/middleware';
+
+export async function proxy(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATELIMIT === 'true') {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    let userId: string | null = null;
+    try {
+      userId = await getUserIdFromRequest(request);
+    } catch { /* fallback to IP */ }
+    const limiter = userId ? proRatelimit : ratelimit;
+    const { success } = await limiter.limit(userId ?? ip);
+    if (!success) return new NextResponse('Too Many Requests', { status: 429 });
+  }
+  return await updateSession(request);
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+};
+```
