@@ -29,7 +29,6 @@ import {
   Avatar,
   Badge,
   Box,
-  Collapse,
   Group,
   Menu,
   ScrollArea,
@@ -319,7 +318,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </UnstyledButton>
 
         {/* Chat List */}
-        <Collapse in={chatsExpanded}>
+        {/* Chat List */}
+        {chatsExpanded && (
           <ScrollArea flex={1} scrollbarSize={4}>
             <Stack gap={0} pb={8}>
               {sessions.map((session) => (
@@ -342,7 +342,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
             </Stack>
           </ScrollArea>
-        </Collapse>
+        )}
       </Box>
 
       {/* User Section (Bottom) - Compact */}

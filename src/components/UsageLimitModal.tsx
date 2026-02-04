@@ -1,9 +1,9 @@
 'use client';
 
-import { Sparkles } from 'lucide-react';
+import { ArrowUp, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
-import { Button, Group, Modal, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Box, Button, Group, Modal, Stack, Text, ThemeIcon } from '@mantine/core';
 
 interface UsageLimitModalProps {
   opened: boolean;
@@ -11,46 +11,64 @@ interface UsageLimitModalProps {
   message?: string;
 }
 
-export function UsageLimitModal({ opened, onClose, message }: UsageLimitModalProps) {
+export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
   const router = useRouter();
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Daily Limit Reached"
+      title={
+        <Group gap="xs">
+          <Sparkles size={20} className="text-violet-600" />
+          <Text fw={700} c="violet.7" size="lg">
+            Unlock Unlimited AI
+          </Text>
+        </Group>
+      }
       centered
-      size="md"
+      radius="lg"
       padding="xl"
-      radius="md"
+      zIndex={1001}
     >
-      <Stack align="center" gap="md">
-        <ThemeIcon size={80} radius="100%" variant="light" color="orange">
-          <Sparkles size={40} />
-        </ThemeIcon>
-        <Stack gap="xs" align="center">
-          <Text fw={600} size="lg" ta="center">
-            You&apos;ve reached your daily limit
+      <Stack align="center" ta="center" gap="lg">
+        <Box p="md" bg="violet.0" style={{ borderRadius: '50%' }}>
+          <ThemeIcon
+            size={48}
+            radius="xl"
+            variant="gradient"
+            gradient={{ from: 'violet', to: 'indigo' }}
+          >
+            <Sparkles size={26} />
+          </ThemeIcon>
+        </Box>
+
+        <Box>
+          <Text size="xl" fw={800} mb="xs">
+            Daily Usage Limit Reached
           </Text>
-          <Text ta="center" c="dimmed" size="sm" maw={400}>
-            {message ||
-              'Upgrade to Pro to get more messages, unlimited knowledge cards, and advanced features.'}
+          <Text c="dimmed" lh={1.5}>
+            You&apos;ve hit your daily message limit on the Free tier. Upgrade to{' '}
+            <span className="font-semibold text-violet-700">Pro</span> to remove limits and help us
+            maintain the service.
           </Text>
-        </Stack>
-        <Group w="100%" grow mt="sm">
+        </Box>
+
+        <Group w="100%" justify="center">
           <Button variant="default" onClick={onClose} radius="md">
-            Not now
+            Maybe Later
           </Button>
           <Button
+            variant="gradient"
+            gradient={{ from: 'violet', to: 'indigo' }}
+            radius="md"
             onClick={() => {
               onClose();
               router.push('/pricing');
             }}
-            color="black"
-            radius="md"
-            leftSection={<Sparkles size={16} />}
+            rightSection={<ArrowUp size={16} className="rotate-45" />}
           >
-            Upgrade Plan
+            Upgrade Now
           </Button>
         </Group>
       </Stack>

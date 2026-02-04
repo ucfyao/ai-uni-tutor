@@ -219,6 +219,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           cardId: card.id,
         };
         addMessage(aiMsg);
+      } else if (result.isLimitError) {
+        setLimitModalOpen(true);
       } else {
         showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
       }
