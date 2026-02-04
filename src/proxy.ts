@@ -33,7 +33,6 @@ export async function proxy(request: NextRequest) {
       return new NextResponse('Too Many Requests', { status: 429 });
     }
   }
-
   return await updateSession(request);
 }
 

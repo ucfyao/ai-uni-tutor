@@ -334,7 +334,7 @@ export async function getChatSessions(): Promise<ChatSession[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('chat_sessions')
-    .select('id, course, mode, title, updated_at, is_pinned')
+    .select('id, course, mode, title, updated_at, is_pinned, is_shared')
     .eq('user_id', user.id)
     .order('is_pinned', { ascending: false })
     .order('updated_at', { ascending: false });
@@ -353,6 +353,7 @@ export async function getChatSessions(): Promise<ChatSession[]> {
     messages: [],
     lastUpdated: new Date(row.updated_at).getTime(),
     isPinned: row.is_pinned,
+    isShared: row.is_shared,
   }));
 
   return sessions;

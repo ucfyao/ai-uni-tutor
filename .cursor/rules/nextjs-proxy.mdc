@@ -46,7 +46,9 @@ export async function proxy(request: NextRequest) {
     let userId: string | null = null;
     try {
       userId = await getUserIdFromRequest(request);
-    } catch { /* fallback to IP */ }
+    } catch {
+      /* fallback to IP */
+    }
     const limiter = userId ? proRatelimit : ratelimit;
     const { success } = await limiter.limit(userId ?? ip);
     if (!success) return new NextResponse('Too Many Requests', { status: 429 });

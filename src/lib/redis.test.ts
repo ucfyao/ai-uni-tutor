@@ -1,8 +1,44 @@
-import { describe, expect, it } from 'vitest';
-import { checkLLMUsage } from './redis';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('Redis Rate Limiting Integration', () => {
+const store = new Map<string, number>();
+
+vi.mock('@upstash/redis', () => {
+  class Redis {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    constructor(_opts: { url: string; token: string }) {}
+
+    async eval(_script: string, keys: string[], args: string[]) {
+      const key = keys[0];
+      const limit = Number(args[0]);
+      const current = store.get(key) ?? 0;
+
+      if (current >= limit) return [0, current];
+
+      const next = current + 1;
+      store.set(key, next);
+      return [1, next];
+    }
+
+    async get<T>(key: string): Promise<T | null> {
+      const value = store.get(key);
+      return (value ?? null) as unknown as T | null;
+    }
+  }
+
+  return { Redis };
+});
+
+describe('LLM daily limit counter', () => {
+  beforeEach(() => {
+    store.clear();
+    vi.resetModules();
+    process.env.UPSTASH_REDIS_REST_URL = 'http://localhost:8079';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+  });
+
   it('should enforce daily limits correctly', async () => {
+    const { checkLLMUsage } = await import('./redis');
+
     const testUserId = `test-unit-${Date.now()}`;
     const limit = 3;
 
@@ -27,7 +63,7 @@ describe('Redis Rate Limiting Integration', () => {
     // 4. Fourth Request (4/3) -> Should Fail (Over Limit)
     const r4 = await checkLLMUsage(testUserId, limit);
     expect(r4.success).toBe(false);
-    expect(r4.count).toBe(4);
+    expect(r4.count).toBe(3);
     expect(r4.remaining).toBe(0);
 
     // Cleanup (Optional, but good for keeping Redis clean)

@@ -25,6 +25,7 @@ if (!user) {
 Use `proxy.ts` for session refresh and auth redirect. Proxy runs before routes, refreshes Supabase tokens, and redirects unauthenticated users to `/login` (except /login, /auth, /share paths).
 
 Rate limiting is applied globally in proxy (anonymous: IP key; logged-in: userId key). See [nextjs-proxy.mdc](nextjs-proxy.mdc).
+Route groups `(public)` / `(protected)` can still be used to organize layout. If you add a protected layout, keep it consistent with proxy redirect behavior.
 
 ## Authorization
 

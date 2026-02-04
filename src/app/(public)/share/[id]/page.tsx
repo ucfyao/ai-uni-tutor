@@ -109,7 +109,6 @@ export default async function SharedSessionPage({ params }: PageProps) {
                         components={{
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
                           code: ({ node: _node, inline, className, children, ...props }: any) => {
-                            // eslint-disable-line @typescript-eslint/no-unused-vars
                             const match = /language-(\w+)/.exec(className || '');
                             return !inline && match ? (
                               <Box

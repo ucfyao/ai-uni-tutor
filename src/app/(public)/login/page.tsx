@@ -30,9 +30,6 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  /* const router = useRouter(); */ // Removed as redirect is handled by server action
-  /* const supabase = createClient(); */
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
