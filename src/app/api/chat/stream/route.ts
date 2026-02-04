@@ -1,23 +1,39 @@
+/**
+ * Chat Streaming API Route
+ *
+ * Uses ChatService with Strategy pattern for mode-specific behavior.
+ * Streams responses via Server-Sent Events (SSE).
+ */
+
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { checkAndConsumeQuota } from '@/app/actions/limits';
-import { getGenAI } from '@/lib/gemini';
-import { appendRagContext, buildSystemInstruction } from '@/lib/prompts';
+import { getChatService } from '@/lib/services/ChatService';
+import { StrategyFactory } from '@/lib/strategies';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { ChatMessage, Course, TutoringMode } from '@/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// ============================================================================
+// VALIDATION SCHEMA
+// ============================================================================
+
 const chatStreamSchema = z.object({
   course: z.object({
+    id: z.string().optional(),
+    universityId: z.string().optional(),
     code: z.string().min(1),
     name: z.string().min(1),
   }),
-  mode: z.string().min(1),
+  mode: z.enum(['Lecture Helper', 'Assignment Coach', 'Exam Prep']),
   history: z.array(
     z.object({
+      id: z.string().optional(),
       role: z.enum(['user', 'assistant']),
       content: z.string().min(1),
+      timestamp: z.number().optional(),
       images: z
         .array(
           z.object({
@@ -39,150 +55,121 @@ const chatStreamSchema = z.object({
     .optional(),
 });
 
+// ============================================================================
+// POST HANDLER
+// ============================================================================
+
 export async function POST(req: NextRequest) {
   // 1. Parse request body
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Invalid JSON body', 400);
   }
 
   const parsed = chatStreamSchema.safeParse(body);
   if (!parsed.success) {
-    return new Response(
-      JSON.stringify({ error: 'Invalid request body', details: parsed.error.flatten() }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
+    return errorResponse('Invalid request body', 400, parsed.error.flatten());
   }
 
   const { course, mode, history, userInput, images } = parsed.data;
 
   // 2. Validate API Key
   if (!process.env.GEMINI_API_KEY) {
-    return new Response(JSON.stringify({ error: 'Missing GEMINI_API_KEY' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Missing GEMINI_API_KEY', 500);
   }
 
   // 3. Authentication
   const user = await getCurrentUser();
-
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Unauthorized', 401);
   }
 
-  // 4. Check Usage Limits (Unified)
+  // 4. Check Usage Limits
   const quota = await checkAndConsumeQuota();
-
   if (!quota.allowed) {
-    return new Response(
-      JSON.stringify({
-        error: quota.error || 'Daily limit reached. Please upgrade your plan.',
-        isLimitError: true,
-      }),
-      { status: 429, headers: { 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // 5. Prepare AI Request
-  const ai = getGenAI();
-
-  const contents = history.map((msg: (typeof history)[0]) => {
-    const parts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [
-      { text: msg.content },
-    ];
-
-    // Add images if present
-    if (msg.images && msg.images.length > 0) {
-      msg.images.forEach((img) => {
-        parts.push({
-          inlineData: {
-            data: img.data,
-            mimeType: img.mimeType,
-          },
-        });
-      });
-    }
-
-    return {
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts,
-    };
-  });
-
-  // Add current user message with images
-  const userParts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [
-    { text: userInput },
-  ];
-
-  if (images && images.length > 0) {
-    images.forEach((img) => {
-      userParts.push({
-        inlineData: {
-          data: img.data,
-          mimeType: img.mimeType,
-        },
-      });
+    return errorResponse(quota.error || 'Daily limit reached. Please upgrade your plan.', 429, {
+      isLimitError: true,
     });
   }
 
-  contents.push({
-    role: 'user',
-    parts: userParts,
-  });
+  // 5. Get Strategy for the mode
+  const strategy = StrategyFactory.create(mode as TutoringMode);
 
-  let systemInstruction = buildSystemInstruction(course, mode);
+  // 6. Convert history to ChatMessage format
+  const chatHistory: ChatMessage[] = history.map((msg, index) => ({
+    id: msg.id || `msg-${index}`,
+    role: msg.role,
+    content: msg.content,
+    timestamp: msg.timestamp || Date.now(),
+    images: msg.images,
+  }));
 
-  // 7. RAG Integration
+  // 7. Create streaming response using ChatService
   try {
-    const { retrieveContext } = await import('@/lib/rag/retrieval');
-    const context = await retrieveContext(userInput, { course: course.code });
+    const chatService = getChatService();
 
-    if (context) {
-      systemInstruction = appendRagContext(systemInstruction, context);
-    }
-  } catch (e) {
-    console.error('RAG Retrieval Failed', e);
-  }
-
-  // 8. Create streaming response
-  try {
-    const stream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
-      contents: contents,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
+    const streamGenerator = chatService.generateStream({
+      course: course as Course,
+      mode: mode as TutoringMode,
+      history: chatHistory,
+      userInput,
+      images,
     });
 
-    // Create a TransformStream to convert the Gemini stream to SSE format
+    // Create SSE stream
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of stream) {
-            const text = chunk.text;
-            if (text) {
-              // Send as SSE data event
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+          let fullResponse = '';
+
+          for await (const text of streamGenerator) {
+            fullResponse += text;
+            // Send as SSE data event
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+          }
+
+          // Post-process with strategy if available
+          if (strategy.postprocessResponse) {
+            const processed = strategy.postprocessResponse(fullResponse);
+            // If post-processing added content, send it
+            if (processed.length > fullResponse.length) {
+              const additional = processed.slice(fullResponse.length);
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ text: additional })}\n\n`),
+              );
             }
           }
+
           // Send done event
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
           controller.close();
         } catch (error) {
           console.error('Streaming error:', error);
+
+          let clientMessage = 'An unexpected error occurred. Please contact support.';
+          const isLimitError = false;
+
+          // Check if it's a Gemini API error (Third Party)
+          const errorMessage = error instanceof Error ? error.message : String(error);
+
+          // Detect Gemini 429/Resource Exhausted
+          if (
+            errorMessage.includes('429') ||
+            errorMessage.includes('RESOURCE_EXHAUSTED') ||
+            errorMessage.includes('quota')
+          ) {
+            // It's a third-party capacity issue, not the user's plan limit
+            clientMessage =
+              'The AI service is currently experiencing high volume. Please try again in a moment.';
+            // We do NOT set isLimitError=true here because that triggers the "Upgrade Plan" modal
+            // which is reserved for when the USER hits their own limit.
+          }
+
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: 'Streaming failed' })}\n\n`),
+            encoder.encode(`data: ${JSON.stringify({ error: clientMessage, isLimitError })}\n\n`),
           );
           controller.close();
         }
@@ -199,30 +186,38 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Failed to start stream:', error);
 
-    // Check if it's a rate limit error from Gemini API
+    // Check if it's a rate limit error
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const isGeminiRateLimit =
+    const isRateLimit =
       errorMessage.includes('429') ||
       errorMessage.includes('RESOURCE_EXHAUSTED') ||
       errorMessage.includes('quota');
 
-    if (isGeminiRateLimit) {
-      return new Response(
-        JSON.stringify({
-          error: 'API quota exceeded. Please wait a moment and try again.',
-          isLimitError: true,
+    if (isRateLimit) {
+      // Third-party API limit (Gemini) - do NOT flag as user limit error
+      return errorResponse(
+        'The AI service is currently experiencing high volume. Please try again in a moment.',
+        429,
+        {
+          isLimitError: false, // Explicitly false so UI doesn't show Upgrade modal
           isRetryable: true,
-        }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } },
+        },
       );
     }
 
-    return new Response(
-      JSON.stringify({
-        error: 'Failed to generate response. Please try again.',
-        isRetryable: true,
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
-    );
+    return errorResponse('An unexpected error occurred. Please try again.', 500, {
+      isRetryable: true,
+    });
   }
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function errorResponse(message: string, status: number, extra?: Record<string, unknown>): Response {
+  return new Response(JSON.stringify({ error: message, ...extra }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }

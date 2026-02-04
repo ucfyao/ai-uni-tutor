@@ -4,6 +4,7 @@ import { generateChatResponse } from '@/app/actions/chat';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
 import { MessageList } from '@/components/chat/MessageList';
+import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useKnowledgeCards } from '@/hooks/useKnowledgeCards';
@@ -54,6 +55,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   // Knowledge Panel drawer state for responsive screens
   const [knowledgePanelDrawerOpened, setKnowledgePanelDrawerOpened] = useState(false);
+  const [isLimitModalOpen, setLimitModalOpen] = useState(false);
 
   const isSendingRef = useRef(false);
 
@@ -168,9 +170,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           isSendingRef.current = false;
 
           if (isLimitError) {
-            showNotification({ title: 'Daily Limit Reached', message: error, color: 'orange' });
+            setLimitModalOpen(true);
           } else {
-            setLastError({ message: error, canRetry: true });
+            setLastError({ message: error, canRetry: true }); // Keep retry logic only for non-limit errors
             showNotification({ title: 'Error', message: error, color: 'red' });
           }
         },
@@ -217,6 +219,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           cardId: card.id,
         };
         addMessage(aiMsg);
+      } else if (result.isLimitError) {
+        setLimitModalOpen(true);
       } else {
         showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
       }
@@ -239,11 +243,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const handleAddCard = async (title: string, content: string) => {
     const result = await addManualCard(title, content);
     if (result.error === 'limit') {
-      showNotification({
-        title: 'Daily Limit Reached',
-        message: 'Upgrade to continue',
-        color: 'orange',
-      });
+      setLimitModalOpen(true);
     } else if (result.success && result.cardId) {
       setActiveCardId(result.cardId);
       setKnowledgePanelDrawerOpened(true); // Open drawer on mobile so user sees the new card
@@ -430,6 +430,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           onClose={() => setKnowledgePanelDrawerOpened(false)}
         />
       </Drawer>
+
+      <UsageLimitModal opened={isLimitModalOpen} onClose={() => setLimitModalOpen(false)} />
     </Stack>
   );
 };
