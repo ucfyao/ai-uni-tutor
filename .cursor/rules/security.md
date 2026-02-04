@@ -22,21 +22,11 @@ if (!user) {
 
 ### Protected Routes
 
-Use route groups with a protected layout (`app/(protected)/layout.tsx`):
+Use `proxy.ts` for session refresh and auth redirect. Proxy runs before routes, refreshes Supabase tokens, and redirects unauthenticated users to `/login` (except /login, /auth, /share paths).
 
-```typescript
-// app/(protected)/layout.tsx
-import { redirect } from 'next/navigation'
-import { getCurrentUser } from '@/lib/supabase/server'
+Rate limiting is applied globally in proxy (anonymous: IP key; logged-in: userId key). See [nextjs-proxy.mdc](nextjs-proxy.mdc).
 
-export default async function ProtectedLayout({ children }) {
-  const user = await getCurrentUser()
-  if (!user) redirect('/login')
-  return <>{children}</>
-}
-```
-
-Public routes live in `(public)`, protected in `(protected)`. API routes use `checkApiRateLimit` for request-level rate limiting.
+Route groups `(public)` / `(protected)` organize layout. Protected layout can optionally provide additional auth check.
 
 ## Authorization
 

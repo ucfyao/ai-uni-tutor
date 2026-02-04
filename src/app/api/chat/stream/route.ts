@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { checkAndConsumeQuota } from '@/app/actions/limits';
-import { checkApiRateLimit } from '@/lib/api-rate-limit';
 import { getGenAI } from '@/lib/gemini';
 import { appendRagContext, buildSystemInstruction } from '@/lib/prompts';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -41,10 +40,6 @@ const chatStreamSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  // 0. Rate limit
-  const rateLimitRes = await checkApiRateLimit(req);
-  if (rateLimitRes) return rateLimitRes;
-
   // 1. Parse request body
   let body: unknown;
   try {

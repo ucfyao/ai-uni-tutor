@@ -20,7 +20,7 @@ export async function createClient() {
             );
           } catch {
             // The `setAll` method was called from a Server Component.
-            // Session refresh happens client-side via Supabase auto-refresh.
+            // Session refresh happens in proxy.
           }
         },
       },
