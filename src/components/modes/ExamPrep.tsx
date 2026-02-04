@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Box, Group, Stack } from '@mantine/core';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { MessageList } from '@/components/chat/MessageList';
+import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { showNotification } from '@/lib/notifications';
@@ -19,6 +20,8 @@ export const ExamPrep: React.FC<ExamPrepProps> = ({ session: initialSession, onU
   });
 
   const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse } = useChatStream();
+
+  const [isLimitModalOpen, setLimitModalOpen] = useState(false);
 
   // Input state
   const [input, setInput] = useState('');
@@ -123,7 +126,7 @@ export const ExamPrep: React.FC<ExamPrepProps> = ({ session: initialSession, onU
 
           if (isLimitError) {
             // Handle limit error - could show upgrade modal
-            showNotification({ title: 'Daily Limit Reached', message: error, color: 'orange' });
+            setLimitModalOpen(true);
           } else {
             setLastError({ message: error, canRetry: true });
             showNotification({ title: 'Error', message: error, color: 'red' });
@@ -265,6 +268,7 @@ export const ExamPrep: React.FC<ExamPrepProps> = ({ session: initialSession, onU
           </Box>
         </Stack>
       </Group>
+      <UsageLimitModal opened={isLimitModalOpen} onClose={() => setLimitModalOpen(false)} />
     </Stack>
   );
 };

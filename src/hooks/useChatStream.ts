@@ -83,7 +83,7 @@ export function useChatStream() {
                 if (parsed.text) {
                   onChunk(parsed.text);
                 } else if (parsed.error) {
-                  onError(parsed.error, false, true);
+                  onError(parsed.error, parsed.isLimitError, true);
                   setIsStreaming(false);
                   return;
                 }
@@ -100,7 +100,7 @@ export function useChatStream() {
             try {
               const parsed = JSON.parse(data);
               if (parsed.text) onChunk(parsed.text);
-              else if (parsed.error) onError(parsed.error, false, true);
+              else if (parsed.error) onError(parsed.error, parsed.isLimitError, true);
             } catch {
               // ignore
             }
