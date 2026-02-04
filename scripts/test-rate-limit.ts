@@ -1,5 +1,4 @@
 import path from 'path';
-import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
 // Load env vars
@@ -13,7 +12,7 @@ async function testRateLimit() {
 
   console.log(`Starting Rate Limit Test against ${url}...`);
   console.log(`Proxy: anonymous = ratelimit (default 10/10s), logged-in = proRatelimit (100/10s).`);
-  console.log(`Sending ${requestCount} requests with ${interval}ms interval.\n`);
+  console.log(`Sending ${requestCount} GET requests with ${interval}ms interval.\n`);
 
   let successCount = 0;
   let blockedCount = 0;
