@@ -1,12 +1,12 @@
 'use client';
 
-import { Outfit } from 'next/font/google';
 import { createTheme, rem } from '@mantine/core';
 
-const outfit = Outfit({ subsets: ['latin'] });
+/** System + Outfit stack; no next/font so build works offline/CI. Load Outfit via layout <link> if desired. */
+const fontFamily = '"Outfit", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
 
 export const theme = createTheme({
-  fontFamily: outfit.style.fontFamily,
+  fontFamily,
   colors: {
     slate: [
       '#f8fafc',
@@ -34,7 +34,7 @@ export const theme = createTheme({
     ],
   },
   headings: {
-    fontFamily: outfit.style.fontFamily,
+    fontFamily,
     sizes: {
       h1: { fontSize: rem(32), fontWeight: '700', lineHeight: '1.2' },
       h2: { fontSize: rem(26), fontWeight: '600', lineHeight: '1.3' },
