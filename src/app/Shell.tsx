@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Group, Text } from '@mantine/core';
@@ -11,6 +10,7 @@ import NewSessionModal from '@/components/NewSessionModal';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
 import Sidebar from '@/components/Sidebar';
+import { Logo } from '@/components/ui/Logo';
 import { MODES_METADATA } from '@/constants/modes';
 import { useHeader } from '@/context/HeaderContext';
 import { useSessions } from '@/context/SessionContext';
@@ -145,7 +145,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               </Box>
             ) : (
               <Group gap={8} align="center">
-                <Image src="/assets/logo.png" alt="Logo" width={24} height={24} />
+                <Logo size={24} alt="Logo" />
                 <Text fw={600} size="md">
                   AI Tutor
                 </Text>

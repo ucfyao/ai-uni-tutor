@@ -52,11 +52,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      fetchProfile();
+    });
+    return () => subscription.unsubscribe();
+  }, [supabase, fetchProfile]);
 
   const updateProfile = useCallback(
     async (updates: Partial<Profile>) => {

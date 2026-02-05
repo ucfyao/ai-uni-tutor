@@ -1,6 +1,5 @@
 'use client';
 
-import { User } from '@supabase/supabase-js';
 import {
   ChevronDown,
   Ellipsis,
@@ -21,9 +20,8 @@ import {
   Trash,
   Wand2,
 } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActionIcon,
   Avatar,
@@ -38,6 +36,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { Logo } from '@/components/ui/Logo';
 import { useProfile } from '@/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { ChatSession } from '../types/index';
@@ -70,29 +69,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onGoHome,
   opened,
 }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const { profile } = useProfile();
+  const { profile, loading } = useProfile();
   const supabase = createClient();
   const router = useRouter();
   const [chatsExpanded, { toggle: toggleChats }] = useDisclosure(true);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -160,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Box flex={1} />
 
         {/* User Avatar */}
-        {user ? (
+        {profile ? (
           <Menu shadow="lg" width={220} position="right-end" withinPortal>
             <Menu.Target>
               <Avatar
@@ -203,13 +183,13 @@ const Sidebar: React.FC<SidebarProps> = ({
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
-        ) : (
+        ) : !loading ? (
           <Tooltip label="Sign In" position="right">
             <ActionIcon variant="filled" size={28} radius="xl" onClick={handleSignIn} color="dark">
               <LogIn size={14} />
             </ActionIcon>
           </Tooltip>
-        )}
+        ) : null}
       </Stack>
     );
   }
@@ -226,7 +206,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="hover:bg-gray-100 transition-colors"
           style={{ borderRadius: 8, display: 'flex', alignItems: 'center' }}
         >
-          <Image src="/assets/logo.png" alt="Logo" width={22} height={22} />
+          <Logo size={22} alt="Logo" />
         </UnstyledButton>
         <Tooltip label="Close sidebar" position="right">
           <ActionIcon variant="subtle" color="gray" onClick={onToggleSidebar} size={36} radius="md">
@@ -347,7 +327,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User Section (Bottom) - Compact */}
       <Box px={8} pb={8} pt={4} style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}>
-        {user ? (
+        {profile ? (
           <Menu shadow="lg" width={220} position="top-start" withinPortal>
             <Menu.Target>
               <UnstyledButton
@@ -418,7 +398,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
-        ) : (
+        ) : !loading ? (
           <UnstyledButton
             w="100%"
             py={6}
@@ -434,7 +414,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </Text>
             </Group>
           </UnstyledButton>
-        )}
+        ) : null}
       </Box>
     </Stack>
   );

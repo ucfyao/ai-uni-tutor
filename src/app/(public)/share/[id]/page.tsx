@@ -1,5 +1,4 @@
 import { Calendar, LogIn } from 'lucide-react';
-import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
@@ -7,6 +6,7 @@ import remarkMath from 'remark-math';
 import React from 'react';
 import { Badge, Box, Button, Container, Group, Stack, Text, Title } from '@mantine/core';
 import { getSharedSession } from '@/app/actions/chat';
+import { Logo } from '@/components/ui/Logo';
 import { ChatMessage } from '@/types/index';
 import 'katex/dist/katex.min.css';
 
@@ -30,7 +30,7 @@ export default async function SharedSessionPage({ params }: PageProps) {
           <Group justify="space-between">
             <Group gap="xs">
               <Box mr={2}>
-                <Image src="/assets/logo.png" alt="Logo" width={28} height={28} />
+                <Logo size={28} alt="Logo" />
               </Box>
               <Text fw={700} size="lg" c="dark.9">
                 AI Tutor

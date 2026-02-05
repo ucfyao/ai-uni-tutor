@@ -1,12 +1,12 @@
 'use client';
 
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import { Box, Center, Container, Stack, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { ModeSelectionGrid } from '@/components/chat/ModeSelectionGrid';
 import NewSessionModal from '@/components/NewSessionModal';
+import { Logo } from '@/components/ui/Logo';
 import { MODES_METADATA } from '@/constants/modes';
 import { useSessions } from '@/context/SessionContext';
 import { Course, TutoringMode } from '@/types/index';
@@ -40,7 +40,7 @@ export default function HomePage() {
           <Stack align="center" gap={48} ta="center">
             <Stack align="center" gap={0}>
               <Box mb={24} className="animate-in fade-in zoom-in duration-700 ease-out">
-                <Image src="/assets/logo.png" alt="AI Uni Tutor" width={120} height={120} />
+                <Logo size={120} alt="AI Uni Tutor" />
               </Box>
 
               <Stack gap={12} align="center" mb={16}>
