@@ -66,62 +66,60 @@ export default function LoginPage() {
     }
   };
 
+  const inputStyles = {
+    label: {
+      marginBottom: 4,
+      fontWeight: 600,
+      fontSize: 13,
+      color: 'var(--mantine-color-slate-7)',
+    },
+    input: {
+      backgroundColor: 'var(--mantine-color-slate-0)',
+      border: '1px solid var(--mantine-color-slate-2)',
+      fontSize: 14,
+      minHeight: 40,
+      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+    },
+  };
+
   return (
     <Box
+      className="login-page-bg"
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(circle at 50% 10%, #f1f5f9 0%, #e2e8f0 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: 16,
       }}
     >
-      <Container size={460} w="100%">
-        <Stack align="center" gap="xl" mb="xl">
-          <Box mb={6} className="animate-in fade-in zoom-in duration-500">
-            <Logo size={80} alt="AI Uni Tutor Logo" />
-          </Box>
-
-          <Box ta="center">
-            <Title
-              order={1}
-              fw={900}
-              style={{
-                fontSize: '32px',
-                letterSpacing: '-1px',
-                background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              {isSignUp ? 'Join AI Tutor' : 'Welcome Back'}
-            </Title>
-            <Text c="dimmed" size="lg" mt="xs" fw={500}>
-              {isSignUp
-                ? 'Start your personalized learning journey'
-                : 'Continue where you left off'}
-            </Text>
-          </Box>
+      <Container size={360} w="100%" style={{ position: 'relative', zIndex: 1 }}>
+        <Stack align="center" gap="xs" mb="md">
+          <Logo size={48} alt="AI Uni Tutor" />
+          <Title
+            order={1}
+            fw={700}
+            className="login-page-title"
+            style={{ fontSize: 22, lineHeight: 1.3 }}
+          >
+            {isSignUp ? 'Join AI Tutor' : 'Welcome Back'}
+          </Title>
+          <Text c="dimmed" size="xs" fw={500}>
+            {isSignUp ? 'Start your learning journey' : 'Continue where you left off'}
+          </Text>
         </Stack>
 
-        <Paper
-          radius={24}
-          p={40}
-          bg="white"
-          style={{
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1)',
-            border: '1px solid rgba(255,255,255,0.5)',
-          }}
-        >
+        <Paper radius="lg" p={24} className="login-page-card" style={{}}>
           {error && (
             <Alert
-              icon={<AlertCircle size={16} />}
-              title="Authentication Error"
+              icon={<AlertCircle size={14} />}
               color="red"
-              mb="lg"
+              mb="sm"
               radius="md"
               variant="light"
+              styles={{
+                root: { padding: '8px 12px', border: '1px solid var(--mantine-color-red-2)' },
+              }}
             >
               {error}
             </Alert>
@@ -129,75 +127,80 @@ export default function LoginPage() {
 
           {successMsg && (
             <Alert
-              icon={<Check size={16} />}
-              title="Success"
+              icon={<Check size={14} />}
               color="teal"
-              mb="lg"
+              mb="sm"
               radius="md"
               variant="light"
+              title="Check your email"
+              styles={{
+                root: {
+                  padding: '8px 12px',
+                  border: '1px solid var(--mantine-color-teal-2)',
+                  backgroundColor: 'var(--mantine-color-teal-0)',
+                },
+                title: { fontWeight: 600, fontSize: 13 },
+              }}
             >
               {successMsg}
             </Alert>
           )}
 
           <form onSubmit={handleAuth}>
-            <Stack gap="md">
+            <Stack gap="xs">
               <TextInput
-                label="Email Address"
-                placeholder="student@university.edu"
+                label="Email"
+                placeholder="you@university.edu"
                 required
-                size="md"
+                size="sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                leftSection={<Mail size={18} className="text-gray-400" />}
+                leftSection={<Mail size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
                 radius="md"
-                styles={{
-                  label: { marginBottom: '6px', fontWeight: 600, color: '#475569' },
-                  input: {
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    transition: 'all 0.2s',
-                  },
-                }}
+                styles={inputStyles}
+                classNames={{ input: 'login-input' }}
               />
 
               <Box>
                 <PasswordInput
                   label="Password"
-                  placeholder="Create a strong password"
+                  placeholder={isSignUp ? 'Strong password' : 'Your password'}
                   required
-                  size="md"
-                  mt={4}
+                  size="sm"
+                  mt={2}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  leftSection={<Lock size={18} className="text-gray-400" />}
+                  leftSection={<Lock size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
                   radius="md"
-                  styles={{
-                    label: { marginBottom: '6px', fontWeight: 600, color: '#475569' },
-                    input: { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' },
-                  }}
+                  styles={inputStyles}
+                  classNames={{ input: 'login-input' }}
                 />
+                {isSignUp && (
+                  <Text size="xs" c="dimmed" mt={2} style={{ lineHeight: 1.35 }}>
+                    8+ chars, upper, lower, number, symbol
+                  </Text>
+                )}
 
                 {isSignUp && (
                   <PasswordInput
-                    label="Confirm Password"
-                    placeholder="Re-enter your password"
+                    label="Confirm"
+                    placeholder="Re-enter password"
                     required
-                    size="md"
-                    mt="md"
+                    size="sm"
+                    mt="sm"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    leftSection={<Lock size={18} className="text-gray-400" />}
+                    leftSection={
+                      <Lock size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />
+                    }
                     radius="md"
-                    styles={{
-                      label: { marginBottom: '6px', fontWeight: 600, color: '#475569' },
-                      input: { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' },
-                    }}
+                    styles={inputStyles}
+                    classNames={{ input: 'login-input' }}
                   />
                 )}
 
                 {!isSignUp && (
-                  <Group justify="flex-end" mt={6}>
+                  <Group justify="flex-end" mt={2}>
                     <Anchor href="#" size="xs" fw={600} c="indigo.6">
                       Forgot password?
                     </Anchor>
@@ -207,56 +210,73 @@ export default function LoginPage() {
 
               <Button
                 fullWidth
-                size="lg"
-                radius="xl"
+                size="sm"
+                radius="md"
                 type="submit"
                 loading={loading}
                 variant="gradient"
-                gradient={{ from: 'blue.6', to: 'indigo.6', deg: 90 }}
+                gradient={{ from: 'indigo.5', to: 'violet.6', deg: 105 }}
                 mt="sm"
-                styles={{
-                  root: {
-                    boxShadow: '0 10px 20px -5px rgba(67, 56, 202, 0.4)',
-                    transition: 'transform 0.2s',
-                  },
-                  label: { fontWeight: 700, letterSpacing: '0.5px' },
+                fw={600}
+                style={{
+                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                 }}
+                className="login-submit-btn"
               >
                 {isSignUp ? 'Create Account' : 'Sign In'}
               </Button>
             </Stack>
           </form>
 
-          <Divider label="Or continue with" labelPosition="center" my="xl" color="gray.2" />
+          <Divider
+            label="Or continue with"
+            labelPosition="center"
+            my="md"
+            styles={{
+              label: { fontSize: 12, color: 'var(--mantine-color-slate-5)', fontWeight: 500 },
+            }}
+          />
 
-          <Group grow>
+          <Group grow gap="xs">
             <Button
               variant="default"
-              size="md"
-              radius="lg"
+              size="sm"
+              radius="md"
               disabled
-              style={{ border: '1px solid #e2e8f0', backgroundColor: 'white', color: '#64748b' }}
+              style={{
+                border: '1px solid var(--mantine-color-slate-2)',
+                backgroundColor: 'white',
+                color: 'var(--mantine-color-slate-6)',
+                fontWeight: 500,
+              }}
             >
               Google
             </Button>
             <Button
               variant="default"
-              size="md"
-              radius="lg"
+              size="sm"
+              radius="md"
               disabled
-              style={{ border: '1px solid #e2e8f0', backgroundColor: 'white', color: '#64748b' }}
+              style={{
+                border: '1px solid var(--mantine-color-slate-2)',
+                backgroundColor: 'white',
+                color: 'var(--mantine-color-slate-6)',
+                fontWeight: 500,
+              }}
             >
               GitHub
             </Button>
           </Group>
 
-          <Center mt="xl">
-            <Text c="dimmed" size="sm">
-              {isSignUp ? 'Already have an account? ' : 'New to AI Tutor? '}
+          <Center mt="md">
+            <Text size="xs" c="dimmed" span>
+              {isSignUp ? 'Already have an account? ' : 'New? '}
               <Anchor<'a'>
                 href="#"
-                fw={700}
+                fw={600}
                 c="indigo.6"
+                size="xs"
                 onClick={(e) => {
                   e.preventDefault();
                   setIsSignUp(!isSignUp);
@@ -271,8 +291,8 @@ export default function LoginPage() {
           </Center>
         </Paper>
 
-        <Text ta="center" size="xs" c="dimmed" mt="xl">
-          &copy; {new Date().getFullYear()} AI Uni Tutor. All rights reserved.
+        <Text ta="center" size="xs" c="dimmed" mt="md">
+          &copy; {new Date().getFullYear()} AI Uni Tutor
         </Text>
       </Container>
     </Box>
