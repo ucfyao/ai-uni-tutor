@@ -167,7 +167,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
 
   // Desktop header (hidden on mobile, shown by Shell's AppShell.Header)
   return (
-    <Box h="100%" style={{ display: 'flex', flexDirection: 'column' }}>
+    <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Desktop Header */}
       {!isMobile && (
         <Box
@@ -182,8 +182,8 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
         </Box>
       )}
 
-      {/* Main Content */}
-      <Box style={{ flex: 1, overflow: 'hidden' }}>{children}</Box>
+      {/* Main Content - minHeight: 0 so flex child can shrink and inner scroll works */}
+      <Box style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{children}</Box>
     </Box>
   );
 };
