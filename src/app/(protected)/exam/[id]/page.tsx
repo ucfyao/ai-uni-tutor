@@ -92,6 +92,11 @@ export default function ExamPage({ params }: ExamPageProps) {
         if (!msg.content || msg.content.trim().length === 0) continue;
         if (options?.streamingMessageId != null && options.streamingMessageId === msg.id) continue;
 
+        if (options?.streamingMessageId != null) {
+          const streamIdx = updated.messages.findIndex((m) => m.id === options.streamingMessageId);
+          if (streamIdx > 0 && updated.messages[streamIdx - 1].id === msg.id) continue;
+        }
+
         savedMsgIdsRef.current.add(msg.id);
 
         try {

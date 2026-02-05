@@ -96,6 +96,12 @@ export default function LecturePage({ params }: LecturePageProps) {
         // Don't persist the message that is still streaming; wait until stream completes (streamingMessageId null/undefined)
         if (options?.streamingMessageId != null && options.streamingMessageId === msg.id) continue;
 
+        // Don't persist the "pending" user message until stream is accepted (avoids saving when quota/429)
+        if (options?.streamingMessageId != null) {
+          const streamIdx = updated.messages.findIndex((m) => m.id === options.streamingMessageId);
+          if (streamIdx > 0 && updated.messages[streamIdx - 1].id === msg.id) continue;
+        }
+
         savedMsgIdsRef.current.add(msg.id);
 
         try {

@@ -166,7 +166,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           updateLastMessage(accumulatedContent, aiMsgId);
         },
         onError: (error, isLimitError) => {
-          removeLastMessage();
+          removeLastMessage(); // Remove AI placeholder
+          removeLastMessage(); // Remove user message (never persisted when quota/429)
           isSendingRef.current = false;
 
           if (isLimitError) {
@@ -190,7 +191,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
     const contextualInput = `Regarding the concept "${card.title}" in our lecture: ${question}`;
 
-    // Add user message to card chat
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
       role: 'user',
@@ -198,19 +198,20 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       timestamp: Date.now(),
       cardId: card.id,
     };
-    addMessage(userMsg);
 
     setLoadingCardId(card.id);
 
     try {
+      // Check quota and call model first; only add (and persist) messages on success
       const result = await generateChatResponse(
         session.course,
         session.mode,
-        session.messages,
+        [...session.messages, userMsg],
         contextualInput,
       );
 
       if (result.success) {
+        addMessage(userMsg);
         const aiMsg: ChatMessage = {
           id: `a_${Date.now()}`,
           role: 'assistant',
@@ -257,7 +258,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   const handleRetry = () => {
     if (lastInput && session) {
-      removeLastMessage();
+      // onError already removed both AI placeholder and user message; just resend
       handleSend(lastInput);
     }
   };
