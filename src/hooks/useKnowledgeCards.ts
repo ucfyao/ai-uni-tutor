@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { explainConcept } from '@/app/actions/chat';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
@@ -52,17 +52,31 @@ export function useKnowledgeCards({
     localStorage.setItem(`deleted-cards-${sessionId}`, JSON.stringify([...deletedCardIds]));
   }, [deletedCardIds, sessionId, enabled]);
 
-  // Extract auto-generated cards from main chat messages
+  // Cache for card extraction to avoid re-parsing same messages
+  const extractionCache = useRef<Record<string, { content: string; cards: KnowledgeCard[] }>>({});
+
   const autoCards = useMemo(() => {
     if (!enabled) return [];
 
     const allCards: KnowledgeCard[] = [];
+
     // Only extract from main chat (not card-specific messages)
-    messages.forEach((msg) => {
-      if (msg.role === 'assistant' && !msg.cardId) {
-        const { cards } = extractCards(msg.content);
-        allCards.push(...cards);
+    const assistantMessages = messages.filter(
+      (msg) => msg.role === 'assistant' && !msg.cardId && msg.content,
+    );
+
+    assistantMessages.forEach((msg) => {
+      // Check cache first
+      const cached = extractionCache.current[msg.id];
+      if (cached && cached.content === msg.content) {
+        allCards.push(...cached.cards);
+        return;
       }
+
+      // Cache miss or content changed - re-extract
+      const { cards } = extractCards(msg.content);
+      extractionCache.current[msg.id] = { content: msg.content, cards };
+      allCards.push(...cards);
     });
 
     // Deduplicate by title

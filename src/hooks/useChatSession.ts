@@ -68,17 +68,23 @@ export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessi
     [updateSession],
   );
 
-  // Remove last message (for retry)
-  const removeLastMessage = useCallback(() => {
-    const current = sessionRef.current;
-    if (!current || current.messages.length === 0) return;
-    const updatedSession = {
-      ...current,
-      messages: current.messages.slice(0, -1),
-      lastUpdated: Date.now(),
-    };
-    updateSession(updatedSession);
-  }, [updateSession]);
+  // Remove last N messages (for retry or error handling)
+  const removeMessages = useCallback(
+    (count: number = 1) => {
+      const current = sessionRef.current;
+      if (!current || current.messages.length === 0) return;
+      const updatedSession = {
+        ...current,
+        messages: current.messages.slice(0, -count),
+        lastUpdated: Date.now(),
+      };
+      updateSession(updatedSession);
+    },
+    [updateSession],
+  );
+
+  // Remove last message (convenience wrapper)
+  const removeLastMessage = useCallback(() => removeMessages(1), [removeMessages]);
 
   // Update session metadata
   const updateMetadata = useCallback(
@@ -101,6 +107,7 @@ export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessi
     addMessage,
     updateLastMessage,
     removeLastMessage,
+    removeMessages,
     updateMetadata,
   };
 }
