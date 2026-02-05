@@ -141,33 +141,36 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           </Blockquote>
         ),
         ul: ({ children }) => (
-          <List
-            spacing="xs"
-            size={compact ? 'sm' : 'md'}
-            mb="md"
-            center
-            icon={
-              <Box w={6} h={6} bg="slate.5" style={{ borderRadius: '50%', marginTop: '8px' }} />
-            }
-          >
-            {children}
-          </List>
-        ),
-        ol: ({ children }) => (
-          <List type="ordered" spacing="xs" size={compact ? 'sm' : 'md'} mb="md" center>
-            {children}
-          </List>
-        ),
-        li: ({ children }) => (
-          <List.Item
+          <ul
             style={{
-              fontSize: compact ? '13px' : '18px',
-              lineHeight: compact ? '20px' : '30px',
-              color: 'var(--mantine-color-slate-7)',
+              paddingLeft: compact ? 18 : 22,
+              marginBottom: compact ? 8 : 12,
             }}
           >
             {children}
-          </List.Item>
+          </ul>
+        ),
+        ol: ({ children }) => (
+          <ol
+            style={{
+              paddingLeft: compact ? 18 : 22,
+              marginBottom: compact ? 8 : 12,
+            }}
+          >
+            {children}
+          </ol>
+        ),
+        li: ({ children }) => (
+          <li
+            style={{
+              fontSize: compact ? 13 : 18,
+              lineHeight: compact ? '20px' : '30px',
+              color: 'var(--mantine-color-slate-7)',
+              marginBottom: compact ? 2 : 4,
+            }}
+          >
+            {children}
+          </li>
         ),
         hr: () => <Divider my="xl" color="slate.2" />,
         img: ({ src, alt }) => (

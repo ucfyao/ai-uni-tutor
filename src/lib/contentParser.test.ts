@@ -3,11 +3,11 @@ import { extractCards, injectLinks } from './contentParser';
 
 describe('contentParser', () => {
   describe('extractCards', () => {
-    it('should extract a single card and replace with markdown link in clean content', () => {
+    it('should extract a single card and keep readable content', () => {
       const input = 'Here is a concept: <card title="React">React is a library.</card> End.';
       const { cleanContent, cards } = extractCards(input);
 
-      expect(cleanContent).toBe('Here is a concept: [React](#card-react) End.');
+      expect(cleanContent).toBe('Here is a concept: React End.');
       expect(cards).toHaveLength(1);
       expect(cards[0]).toMatchObject({
         title: 'React',
@@ -16,11 +16,11 @@ describe('contentParser', () => {
       });
     });
 
-    it('should extract multiple cards', () => {
+    it('should extract multiple cards while preserving sentence flow', () => {
       const input = '<card title="A">Conte nt A</card> and <card title="B">Content B</card>';
       const { cleanContent, cards } = extractCards(input);
 
-      expect(cleanContent).toBe('[A](#card-a) and [B](#card-b)');
+      expect(cleanContent).toBe('A and B');
       expect(cards).toHaveLength(2);
       expect(cards[0].title).toBe('A');
       expect(cards[1].title).toBe('B');
@@ -40,6 +40,41 @@ Line 2
       const input = `<card title='Single'>Content</card>`;
       const { cards } = extractCards(input);
       expect(cards[0].title).toBe('Single');
+    });
+
+    it('should extract directive-style cards and keep plain title in content', () => {
+      const input = 'Here is :::card{title="Directive"}Content::: text.';
+      const { cleanContent, cards } = extractCards(input);
+
+      expect(cleanContent).toBe('Here is Directive text.');
+      expect(cards).toHaveLength(1);
+      expect(cards[0].title).toBe('Directive');
+      expect(cards[0].content).toBe('Content');
+    });
+
+    it('should merge directive-style cards into previous line while preserving spacing', () => {
+      const input = 'Check this out:\n:::card{title="Newline"}Content:::';
+      const { cleanContent } = extractCards(input);
+      // Should replace newline with paragraph break but keep title visible
+      expect(cleanContent).toBe('Check this out:\n\nNewline');
+    });
+
+    it('should handle optional spaces in directive and preserve title text', () => {
+      const input = ':::card { title="Spaces" } Content :::';
+      const { cleanContent, cards } = extractCards(input);
+      expect(cards[0].title).toBe('Spaces');
+      expect(cleanContent).toBe('Spaces');
+    });
+
+    it('should extract multiline directive-style cards', () => {
+      const input = `:::card{title="Multiline Directive"}
+Line 1
+Line 2
+:::`;
+      const { cards } = extractCards(input);
+      expect(cards[0].title).toBe('Multiline Directive');
+      expect(cards[0].content).toContain('Line 1');
+      expect(cards[0].content).toContain('Line 2');
     });
   });
 
