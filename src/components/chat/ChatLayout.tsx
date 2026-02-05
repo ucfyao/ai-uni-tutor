@@ -36,7 +36,7 @@ interface ChatLayoutProps {
   onCardClick?: (id: string | null) => void;
   onCardAsk?: (card: KnowledgeCard, question: string) => void;
   onCardDelete?: (cardId: string) => void;
-  cardRefs?: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
+
   cardChats?: Record<string, ChatMessage[]>;
   loadingCardId?: string | null;
   explainingCardIds?: Set<string>;
@@ -70,7 +70,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   onCardClick,
   onCardAsk,
   onCardDelete,
-  cardRefs,
+
   cardChats = {},
   loadingCardId = null,
   explainingCardIds = new Set(),
@@ -136,7 +136,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         </Stack>
 
         {/* Right Column: Knowledge Panel (if enabled) */}
-        {showKnowledgePanel && onCardClick && onCardAsk && onCardDelete && cardRefs && (
+        {showKnowledgePanel && onCardClick && onCardAsk && onCardDelete && (
           <KnowledgePanel
             cards={knowledgeCards}
             visible={true}
@@ -144,7 +144,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             onCardClick={onCardClick}
             onAsk={onCardAsk}
             onDelete={onCardDelete}
-            cardRefs={cardRefs}
             cardChats={cardChats}
             loadingCardId={loadingCardId}
             explainingCardIds={explainingCardIds}
