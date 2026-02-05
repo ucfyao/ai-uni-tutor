@@ -121,7 +121,8 @@ export const ExamPrep: React.FC<ExamPrepProps> = ({ session: initialSession, onU
           updateLastMessage(accumulatedContent, aiMsgId);
         },
         onError: (error, isLimitError) => {
-          removeLastMessage(); // Remove placeholder
+          removeLastMessage(); // Remove AI placeholder
+          removeLastMessage(); // Remove user message (never persisted when quota/429)
           isSendingRef.current = false;
 
           if (isLimitError) {
@@ -143,9 +144,7 @@ export const ExamPrep: React.FC<ExamPrepProps> = ({ session: initialSession, onU
 
   const handleRetry = () => {
     if (lastInput) {
-      if (session && session.messages.length > 0) {
-        removeLastMessage(); // Remove failed user message
-      }
+      // onError already removed both AI placeholder and user message; just resend
       handleSend(lastInput);
     }
   };
