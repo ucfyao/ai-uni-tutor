@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Box, Drawer, Group, Stack } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { generateChatResponse } from '@/app/actions/chat';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
@@ -28,6 +29,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   });
 
   const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse } = useChatStream();
+  const isLargeScreen = useMediaQuery('(min-width: 75em)'); // Matches Mantine 'lg' breakpoint
 
   // Knowledge cards management
   const { knowledgeCards, explainingCardIds, addManualCard, deleteCard } = useKnowledgeCards({
@@ -41,7 +43,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [cardChats, setCardChats] = useState<Record<string, ChatMessage[]>>({});
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
-  const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Input state
   const [input, setInput] = useState('');
@@ -56,6 +57,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   // Knowledge Panel drawer state for responsive screens
   const [knowledgePanelDrawerOpened, setKnowledgePanelDrawerOpened] = useState(false);
   const [isLimitModalOpen, setLimitModalOpen] = useState(false);
+  const [pendingScrollToCardId, setPendingScrollToCardId] = useState<string | null>(null);
+  // Incrementing trigger to ensure scroll useEffect fires even for same cardId
+  const [scrollTrigger, setScrollTrigger] = useState(0);
 
   const isSendingRef = useRef(false);
 
@@ -235,10 +239,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   const handleHighlightClick = (cardId: string) => {
     setActiveCardId(cardId);
-    const cardElement = cardRefs.current[cardId];
-    if (cardElement) {
-      cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!isLargeScreen) {
+      setKnowledgePanelDrawerOpened(true); // Open drawer on mobile so user can see the card
     }
+    setPendingScrollToCardId(cardId); // Trigger scroll via KnowledgePanel's scroll mechanism
+    setScrollTrigger((prev) => prev + 1); // Ensure useEffect fires even for same cardId
   };
 
   const handleAddCard = async (title: string, content: string) => {
@@ -246,13 +251,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     if (result.error === 'limit') {
       setLimitModalOpen(true);
     } else if (result.success && result.cardId) {
-      setActiveCardId(result.cardId);
+      const newCardId = result.cardId;
+      setActiveCardId(newCardId); // Expand the new card
       setKnowledgePanelDrawerOpened(true); // Open drawer on mobile so user sees the new card
-      // Defer scroll so the card has expanded
-      setTimeout(() => {
-        const el = cardRefs.current[result.cardId!];
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 150);
+      setPendingScrollToCardId(newCardId); // useEffect will scroll once the card is rendered
+      setScrollTrigger((prev) => prev + 1); // Ensure useEffect fires
     }
   };
 
@@ -333,16 +336,16 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   if (!session) return null;
 
   return (
-    <Stack gap={0} h="100%" w="100%">
+    <Stack gap={0} h="100%" w="100%" style={{ minHeight: 0, overflow: 'hidden' }}>
       <Group
         flex={1}
         gap={0}
         bg="transparent"
         align="stretch"
-        style={{ overflow: 'hidden', minHeight: 0 }}
+        style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}
       >
-        {/* Left: Chat */}
-        <Stack gap={0} h="100%" pt={24} style={{ flex: 1, minWidth: 0 }}>
+        {/* Left: Chat - minHeight: 0 so MessageList ScrollArea gets bounded height */}
+        <Stack gap={0} h="100%" pt={24} style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           <MessageList
             messages={session.messages}
             isTyping={isStreaming}
@@ -386,6 +389,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           style={{
             borderLeft: '1px solid #e2e8f0',
             flexShrink: 0,
+            minHeight: 0,
           }}
         >
           <KnowledgePanel
@@ -395,10 +399,12 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onCardClick={setActiveCardId}
             onAsk={handleCardAsk}
             onDelete={deleteCard}
-            cardRefs={cardRefs}
             cardChats={cardChats}
             loadingCardId={loadingCardId}
             explainingCardIds={explainingCardIds}
+            scrollToCardId={pendingScrollToCardId}
+            scrollTrigger={scrollTrigger}
+            onScrolledToCard={() => setPendingScrollToCardId(null)}
           />
         </Box>
       </Group>
@@ -409,27 +415,47 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         onClose={() => setKnowledgePanelDrawerOpened(false)}
         position="right"
         size="lg"
-        withCloseButton
         padding={0}
         hiddenFrom="lg"
+        lockScroll={false}
         styles={{
           header: { display: 'none' },
-          body: { height: '100%', padding: 0 },
+          body: {
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            padding: 0,
+            overflow: 'hidden',
+            minHeight: 0,
+          },
         }}
       >
-        <KnowledgePanel
-          cards={knowledgeCards}
-          visible={true}
-          activeCardId={activeCardId}
-          onCardClick={setActiveCardId}
-          onAsk={handleCardAsk}
-          onDelete={deleteCard}
-          cardRefs={cardRefs}
-          cardChats={cardChats}
-          loadingCardId={loadingCardId}
-          explainingCardIds={explainingCardIds}
-          onClose={() => setKnowledgePanelDrawerOpened(false)}
-        />
+        <Box
+          style={{
+            flex: 1,
+            minHeight: 0,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          <KnowledgePanel
+            cards={knowledgeCards}
+            visible={true}
+            activeCardId={activeCardId}
+            onCardClick={setActiveCardId}
+            onAsk={handleCardAsk}
+            onDelete={deleteCard}
+            cardChats={cardChats}
+            loadingCardId={loadingCardId}
+            explainingCardIds={explainingCardIds}
+            onClose={() => setKnowledgePanelDrawerOpened(false)}
+            scrollToCardId={pendingScrollToCardId}
+            scrollTrigger={scrollTrigger}
+            onScrolledToCard={() => setPendingScrollToCardId(null)}
+          />
+        </Box>
       </Drawer>
 
       <UsageLimitModal opened={isLimitModalOpen} onClose={() => setLimitModalOpen(false)} />
