@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { createChatSession, deleteChatSession, getChatSessions } from '@/app/actions/chat';
+import { createClient } from '@/lib/supabase/client';
 import { ChatSession, Course, TutoringMode } from '@/types/index';
 
 interface SessionContextType {
@@ -17,7 +18,9 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+
   const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -31,8 +34,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+    fetchSessions(); // Initial fetch
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event: string) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        fetchSessions();
+      } else if (event === 'SIGNED_OUT') {
+        setSessions([]);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [fetchSessions, supabase]);
 
   // Sort Helper
   const sortSessions = (list: ChatSession[]) => {

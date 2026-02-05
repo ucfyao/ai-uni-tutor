@@ -13,6 +13,7 @@ import Sidebar from '@/components/Sidebar';
 import { Logo } from '@/components/ui/Logo';
 import { MODES_METADATA } from '@/constants/modes';
 import { useHeader } from '@/context/HeaderContext';
+import { useProfile } from '@/context/ProfileContext';
 import { useSessions } from '@/context/SessionContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { showNotification } from '@/lib/notifications';
@@ -28,8 +29,17 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     setActiveSessionId(id);
   }, [pathname]);
 
-  const { sessions, addSession, removeSession, updateSessionLocal } = useSessions();
+  // Force refresh data when entering the protected shell
+  useEffect(() => {
+    refreshSessions();
+    refreshProfile();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { sessions, addSession, removeSession, updateSessionLocal, refreshSessions } =
+    useSessions();
+  const { refreshProfile } = useProfile();
   const { mobileOpened, toggleMobile } = useSidebar();
+
   const { headerContent } = useHeader();
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
