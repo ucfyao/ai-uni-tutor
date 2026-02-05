@@ -23,6 +23,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { getProfile, updateProfile } from '@/app/actions/user';
 import { PLACEHOLDERS } from '@/constants/placeholders';
+import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { showNotification } from '@/lib/notifications';
 
 export default function PersonalizationPage() {
@@ -79,8 +80,10 @@ export default function PersonalizationPage() {
           <TextInput
             label="Full Name"
             placeholder={PLACEHOLDERS.ENTER_NAME}
+            description={`Max ${FULL_NAME_MAX_LENGTH} characters`}
             value={fullName}
             onChange={(event) => setFullName(event.currentTarget.value)}
+            maxLength={FULL_NAME_MAX_LENGTH}
           />
           {/* Future: Avatar Upload */}
           <Button onClick={handleSaveProfile} loading={saving} color="violet" fullWidth>

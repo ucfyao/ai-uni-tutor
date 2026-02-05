@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export type ActionState = {
@@ -12,7 +13,16 @@ export type ActionState = {
 const updateProfileSchema = z.object({
   fullName: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().min(1).max(100).optional(),
+    z
+      .string()
+      .trim()
+      .min(FULL_NAME_MIN_LENGTH, {
+        message: `Name must be at least ${FULL_NAME_MIN_LENGTH} character(s).`,
+      })
+      .max(FULL_NAME_MAX_LENGTH, {
+        message: `Name must be at most ${FULL_NAME_MAX_LENGTH} characters.`,
+      })
+      .optional(),
   ),
 });
 
@@ -29,7 +39,8 @@ export async function updateProfile(
   const supabase = await createClient();
   const parsed = updateProfileSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    return { message: 'Invalid input', status: 'error' };
+    const first = parsed.error.issues[0];
+    return { message: first?.message ?? 'Invalid input', status: 'error' };
   }
 
   const { fullName } = parsed.data;

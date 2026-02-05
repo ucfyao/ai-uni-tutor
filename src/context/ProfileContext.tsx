@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
 import { createClient } from '@/lib/supabase/client';
 
 interface Profile {
@@ -75,10 +76,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         } = await supabase.auth.getUser();
         if (!user) throw new Error('Unauthorized');
 
+        // Validate full_name length (create/update)
+        if (updates.full_name !== undefined) {
+          const trimmed = updates.full_name.trim();
+          if (trimmed.length < FULL_NAME_MIN_LENGTH) {
+            throw new Error(`Name must be at least ${FULL_NAME_MIN_LENGTH} character(s).`);
+          }
+          if (trimmed.length > FULL_NAME_MAX_LENGTH) {
+            throw new Error(`Name must be at most ${FULL_NAME_MAX_LENGTH} characters.`);
+          }
+        }
+
         // Update database
         const dbUpdates: Record<string, unknown> = {};
         if (updates.full_name !== undefined) {
-          dbUpdates.full_name = updates.full_name;
+          dbUpdates.full_name = updates.full_name.trim();
         }
         if (updates.subscription_status !== undefined) {
           dbUpdates.subscription_status = updates.subscription_status;
