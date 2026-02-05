@@ -160,10 +160,7 @@ const KnowledgeCardItem = memo(
         </Group>
 
         {/* Content */}
-        {/* Remove Collapse animation to test if it helps with lag? User complained about 'waiting a bit'. */}
-        {/* Actually, user said 'waits a bit then expands'. Collapse has delay. */}
-        {/* But logic lag is worse. Let's keep Collapse for now but it should be smoother with memo. */}
-        <Collapse in={isActive} transitionDuration={200}>
+        <Collapse in={isActive} transitionDuration={100}>
           <Box px={14} pb={14}>
             <Box
               p={12}
