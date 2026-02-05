@@ -172,8 +172,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
       {/* Header */}
       <Group
         gap={8}
-        px="md"
-        py={10}
+        px="lg"
+        py="md"
         justify="space-between"
         style={{
           borderBottom: '1px solid #e5e7eb',
@@ -237,7 +237,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
             viewport: { height: '100%', minHeight: 0 },
           }}
         >
-          <Stack gap={6} p="sm">
+          <Stack gap={6} p="lg">
             {cards.length === 0 && (
               <Stack gap="sm" py="48px" px="lg" align="center">
                 {/* Icon */}
