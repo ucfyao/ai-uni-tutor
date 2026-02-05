@@ -18,6 +18,7 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core';
+import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useProfile } from '@/context/ProfileContext';
 import { showNotification } from '@/lib/notifications';
 import type { AccessLimits } from '@/lib/services/QuotaService';
@@ -138,9 +139,10 @@ export default function SettingsPage() {
             <Group align="flex-end">
               <TextInput
                 label="Display Name"
-                description="This name will be displayed in the sidebar and chat."
+                description={`This name will be displayed in the sidebar and chat (max ${FULL_NAME_MAX_LENGTH} characters).`}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                maxLength={FULL_NAME_MAX_LENGTH}
                 style={{ flex: 1 }}
               />
               <Button onClick={handleSaveProfile} loading={saving} variant="filled" color="dark">
