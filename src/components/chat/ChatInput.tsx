@@ -84,17 +84,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         )}
 
         <Box
-          p={8}
+          p={4}
           style={{
             borderRadius: '24px',
             display: 'flex',
             alignItems: 'flex-end',
             border: '1px solid var(--mantine-color-gray-3)',
-            backgroundColor: 'rgba(255, 255, 255, 1)',
+            backgroundColor: isTyping ? 'var(--mantine-color-gray-1)' : 'rgba(255, 255, 255, 1)',
             transition: 'all 0.2s ease',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+            opacity: isTyping ? 0.7 : 1,
+            cursor: isTyping ? 'not-allowed' : 'text',
           }}
-          className="group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 focus-within:shadow-lg"
+          className={`group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 focus-within:shadow-lg ${
+            isTyping ? 'pointer-events-none' : ''
+          }`}
         >
           <input
             ref={fileInputRef}
@@ -110,8 +114,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               variant="subtle"
               c="gray.6"
               radius="xl"
-              size={36}
-              mb={6}
+              size={32}
+              mb={4}
               ml={2}
               className="hover:bg-gray-100 hover:text-indigo-600 transition-all duration-200"
               aria-label="Attach file"
@@ -121,7 +125,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
-              <Paperclip size={18} strokeWidth={2} />
+              <Paperclip size={16} strokeWidth={2} />
             </ActionIcon>
           </Tooltip>
 
@@ -141,8 +145,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             px="xs"
             styles={{
               input: {
-                paddingTop: '10px',
-                paddingBottom: '10px',
+                paddingTop: '8px',
+                paddingBottom: '8px',
                 fontWeight: 450,
                 fontSize: '15px',
                 color: 'var(--mantine-color-dark-9)',
@@ -152,14 +156,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           <ActionIcon
-            size={36}
+            size={32}
             radius="xl"
             variant="filled"
             color={input.trim() || attachedFiles.length > 0 ? 'indigo' : 'gray.4'}
             onClick={onSend}
             disabled={(!input.trim() && attachedFiles.length === 0) || isTyping}
             mr={2}
-            mb={6}
+            mb={4}
             className="transition-all duration-200"
             style={{
               opacity: !input.trim() && attachedFiles.length === 0 ? 0.4 : 1,

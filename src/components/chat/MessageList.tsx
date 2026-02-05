@@ -65,7 +65,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <ScrollArea viewportRef={viewport} flex={1} scrollbarSize={8} type="auto">
-      <Box pt="md" pb="md">
+      <Box pt="sm" pb="sm">
         {/* Max-width container for optimal line length */}
         <Box
           style={{
@@ -73,9 +73,9 @@ export const MessageList: React.FC<MessageListProps> = ({
             margin: '0 auto',
             width: '100%',
           }}
-          px={isKnowledgeMode ? 'xl' : 'md'}
+          px="md"
         >
-          <Stack gap="xl">
+          <Stack gap="sm">
             {mainMessages.map((msg) => {
               // Clean content if assistant (remove knowledge cards markup)
               const displayText =

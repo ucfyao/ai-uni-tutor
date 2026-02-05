@@ -175,7 +175,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       wrap="nowrap"
       gap="sm"
       px="md"
-      my={6}
     >
       {!isUser && (
         <Box mt={4}>

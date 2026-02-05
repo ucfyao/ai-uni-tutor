@@ -23,10 +23,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   onUpdateSession,
   openDrawerTrigger,
 }) => {
-  const { session, setSession, addMessage, updateLastMessage, removeLastMessage } = useChatSession({
-    initialSession,
-    onSessionUpdate: onUpdateSession,
-  });
+  const { session, setSession, addMessage, updateLastMessage, removeLastMessage, removeMessages } =
+    useChatSession({
+      initialSession,
+      onSessionUpdate: onUpdateSession,
+    });
 
   const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse } = useChatStream();
   const isLargeScreen = useMediaQuery('(min-width: 75em)'); // Matches Mantine 'lg' breakpoint
@@ -170,8 +171,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           updateLastMessage(accumulatedContent, aiMsgId);
         },
         onError: (error, isLimitError) => {
-          removeLastMessage(); // Remove AI placeholder
-          removeLastMessage(); // Remove user message (never persisted when quota/429)
+          removeMessages(2); // Remove both AI placeholder AND user message atomically
           isSendingRef.current = false;
 
           if (isLimitError) {
@@ -345,7 +345,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}
       >
         {/* Left: Chat - minHeight: 0 so MessageList ScrollArea gets bounded height */}
-        <Stack gap={0} h="100%" pt={24} style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+        <Stack gap={0} h="100%" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           <MessageList
             messages={session.messages}
             isTyping={isStreaming}
@@ -361,22 +361,24 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onPromptSelect={(prompt) => handleSend(prompt)}
           />
 
-          <Box bg="white" px="md" pb="md" pt={0} style={{ flexShrink: 0, zIndex: 5 }}>
-            <ChatInput
-              input={input}
-              setInput={setInput}
-              isTyping={isStreaming}
-              onSend={handleSend}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              attachedFiles={attachedFiles}
-              imagePreviews={imagePreviews}
-              onRemoveFile={handleRemoveFile}
-              onFileClick={() => fileInputRef.current?.click()}
-              isKnowledgeMode={true}
-              fileInputRef={fileInputRef}
-              onFileSelect={handleFileSelect}
-            />
+          <Box bg="white" px={0} pb="sm" pt={0} style={{ flexShrink: 0, zIndex: 5 }}>
+            <Box style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+              <ChatInput
+                input={input}
+                setInput={setInput}
+                isTyping={isStreaming}
+                onSend={handleSend}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                attachedFiles={attachedFiles}
+                imagePreviews={imagePreviews}
+                onRemoveFile={handleRemoveFile}
+                onFileClick={() => fileInputRef.current?.click()}
+                isKnowledgeMode={true}
+                fileInputRef={fileInputRef}
+                onFileSelect={handleFileSelect}
+              />
+            </Box>
           </Box>
         </Stack>
 
