@@ -1,7 +1,6 @@
 'use client';
 
 import { AlertCircle, Check, Lock, Mail } from 'lucide-react';
-import Image from 'next/image';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -19,6 +18,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
+import { Logo } from '@/components/ui/Logo';
 import { login, signup } from './actions';
 
 export default function LoginPage() {
@@ -80,7 +80,7 @@ export default function LoginPage() {
       <Container size={460} w="100%">
         <Stack align="center" gap="xl" mb="xl">
           <Box mb={6} className="animate-in fade-in zoom-in duration-500">
-            <Image src="/assets/logo.png" alt="AI Uni Tutor Logo" width={80} height={80} />
+            <Logo size={80} alt="AI Uni Tutor Logo" />
           </Box>
 
           <Box ta="center">

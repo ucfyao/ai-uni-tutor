@@ -39,7 +39,7 @@ const chatMessageSchema = z.object({
 
 const generateChatSchema = z.object({
   course: courseSchema,
-  mode: tutoringModeSchema.nullable(),
+  mode: tutoringModeSchema,
   history: z.array(chatMessageSchema),
   userInput: z.string().min(1),
 });
@@ -111,9 +111,14 @@ export async function generateChatResponse(
   userInput: string,
 ): Promise<ChatActionResponse> {
   try {
-    // Validation
+    // Validation (Zod)
     const parsed = generateChatSchema.safeParse({ course, mode, history, userInput });
     if (!parsed.success) {
+      // Provide a specific error when mode is missing/invalid
+      const hasModeError = parsed.error.issues.some((issue) => issue.path[0] === 'mode');
+      if (hasModeError) {
+        throw new Error('Tutoring Mode must be selected');
+      }
       throw new Error('Validation Failed: Invalid chat request payload.');
     }
 
@@ -128,10 +133,10 @@ export async function generateChatResponse(
     // Delegate to ChatService (uses Strategy pattern internally)
     const chatService = getChatService();
     const response = await chatService.generateResponse({
-      course,
-      mode: mode!,
-      history,
-      userInput,
+      course: parsed.data.course,
+      mode: parsed.data.mode,
+      history: parsed.data.history,
+      userInput: parsed.data.userInput,
     });
 
     return { success: true, data: response };
