@@ -23,11 +23,17 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   onUpdateSession,
   openDrawerTrigger,
 }) => {
-  const { session, setSession, addMessage, updateLastMessage, removeLastMessage, removeMessages } =
-    useChatSession({
-      initialSession,
-      onSessionUpdate: onUpdateSession,
-    });
+  const {
+    session,
+    setSession,
+    addMessage,
+    updateLastMessage,
+    removeLastMessage: _removeLastMessage,
+    removeMessages,
+  } = useChatSession({
+    initialSession,
+    onSessionUpdate: onUpdateSession,
+  });
 
   const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse } = useChatStream();
   const isLargeScreen = useMediaQuery('(min-width: 75em)'); // Matches Mantine 'lg' breakpoint

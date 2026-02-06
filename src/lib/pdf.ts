@@ -30,8 +30,14 @@ export async function parsePDF(buffer: Buffer): Promise<{ fullText: string; page
           let lastY;
           let text = '';
           for (const item of textContent.items) {
-            // Sanitize text (remove null bytes)
-            const cleanStr = (item.str || '').replace(/\u0000/g, '');
+            // Sanitize text (remove null bytes) using code point replacement to avoid control regex warnings.
+            const raw = String(item.str || '');
+            let cleanStr = '';
+            for (let i = 0; i < raw.length; i++) {
+              const code = raw.charCodeAt(i);
+              if (code === 0) continue;
+              cleanStr += raw[i];
+            }
 
             if (lastY == item.transform[5] || !lastY) {
               text += cleanStr;

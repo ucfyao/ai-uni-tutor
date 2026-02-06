@@ -23,6 +23,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const { sessions, addSession, removeSession, updateSessionLocal, refreshSessions } =
+    useSessions();
+  const { refreshProfile } = useProfile();
+  const { mobileOpened, toggleMobile } = useSidebar();
+
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   useEffect(() => {
     const id = pathname?.match(/^\/(lecture|assignment|exam)\/([^/]+)/)?.[2] ?? null;
@@ -33,12 +38,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshSessions();
     refreshProfile();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const { sessions, addSession, removeSession, updateSessionLocal, refreshSessions } =
-    useSessions();
-  const { refreshProfile } = useProfile();
-  const { mobileOpened, toggleMobile } = useSidebar();
+  }, [refreshProfile, refreshSessions]);
 
   const { headerContent } = useHeader();
 

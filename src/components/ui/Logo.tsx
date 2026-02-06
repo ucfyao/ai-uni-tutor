@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import React from 'react';
 
 const LOGO_SRC = '/assets/logo.png';
 

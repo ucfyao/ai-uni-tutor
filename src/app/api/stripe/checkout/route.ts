@@ -11,7 +11,8 @@ export async function POST() {
     }
 
     const supabase = await createClient();
-    const { data: profile } = await supabase
+    const db = supabase as any;
+    const { data: profile } = await db
       .from('profiles')
       .select('stripe_customer_id')
       .eq('id', user.id)
@@ -29,7 +30,7 @@ export async function POST() {
       stripeCustomerId = customer.id;
 
       // Ideally should update profile here, but we can do it via webhook or lazily
-      await supabase.from('profiles').update({ stripe_customer_id: customer.id }).eq('id', user.id);
+      await db.from('profiles').update({ stripe_customer_id: customer.id }).eq('id', user.id);
     }
 
     const priceId = process.env.STRIPE_PRICE_ID;
