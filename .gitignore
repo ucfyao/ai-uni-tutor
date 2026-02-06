@@ -26,3 +26,6 @@ dist-ssr
 .env
 next-env.d.ts
 *.tsbuildinfo
+
+# Ignore txt files
+*.txt
