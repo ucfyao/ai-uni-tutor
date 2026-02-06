@@ -8,9 +8,10 @@ export async function retrieveContext(
 ) {
   const embedding = await generateEmbedding(query);
   const supabase = await createClient();
+  const db = supabase as any;
 
   // Hybrid Search: combines vector similarity + keyword rank (RRF)
-  const { data, error } = await supabase.rpc('hybrid_search', {
+  const { data, error } = await db.rpc('hybrid_search', {
     query_text: query,
     query_embedding: embedding,
     match_threshold: 0.5,
