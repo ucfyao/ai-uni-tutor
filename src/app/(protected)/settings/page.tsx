@@ -278,24 +278,24 @@ export default function SettingsPage() {
                 <Text
                   size="sm"
                   c={
-                    usage >= (isPro ? limits?.dailyLimitPro || 100 : limits?.dailyLimitFree || 10)
+                    usage >= (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3)
                       ? 'red'
                       : 'dimmed'
                   }
                 >
-                  {usage} / {isPro ? limits?.dailyLimitPro || 100 : limits?.dailyLimitFree || 10}
+                  {usage} / {isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3}
                 </Text>
               </Group>
               <Progress
                 value={
-                  (usage / (isPro ? limits?.dailyLimitPro || 100 : limits?.dailyLimitFree || 10)) *
+                  (usage / (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3)) *
                   100
                 }
                 color={
-                  usage >= (isPro ? limits?.dailyLimitPro || 100 : limits?.dailyLimitFree || 10)
+                  usage >= (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3)
                     ? 'red'
                     : usage >=
-                        (isPro ? limits?.dailyLimitPro || 100 : limits?.dailyLimitFree || 10) * 0.7
+                        (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3) * 0.7
                       ? 'yellow'
                       : 'indigo'
                 }

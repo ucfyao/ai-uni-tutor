@@ -1,12 +1,13 @@
 /**
  * Quota Service
  *
- * Business logic for rate limiting and quota management.
- * Wraps the existing limits functionality with a cleaner interface.
+ * LLM-related access limits only: daily quota + per-window rate limit for chat/LLM endpoints.
+ * DDoS (proxy) limits are separate; see proxy.ts and redis.ts.
+ * Config from env with fallbacks. See .env.example.
  */
 
 import { QuotaExceededError } from '@/lib/errors';
-import { checkLLMUsage, getLLMUsage } from '@/lib/redis';
+import { checkLLMUsage, getLLMUsage, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export interface QuotaStatus {
@@ -20,10 +21,12 @@ export interface QuotaStatus {
 export interface AccessLimits {
   dailyLimitFree: number;
   dailyLimitPro: number;
-  rateLimitFreeRequests: number;
-  rateLimitFreeWindow: string;
-  rateLimitProRequests: number;
-  rateLimitProWindow: string;
+  /** LLM: per-window requests (free tier) */
+  rateLimitLlmFreeRequests: number;
+  rateLimitLlmFreeWindow: string;
+  /** LLM: per-window requests (pro tier) */
+  rateLimitLlmProRequests: number;
+  rateLimitLlmProWindow: string;
   maxFileSizeMB: number;
 }
 
@@ -60,13 +63,13 @@ export class QuotaService {
    */
   getSystemLimits(): AccessLimits {
     return {
-      dailyLimitFree: parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10', 10),
-      dailyLimitPro: parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100', 10),
-      rateLimitFreeRequests: parseInt(process.env.RATE_LIMIT_FREE_REQUESTS || '20', 10),
-      rateLimitFreeWindow: process.env.RATE_LIMIT_FREE_WINDOW || '10 s',
-      rateLimitProRequests: parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100', 10),
-      rateLimitProWindow: process.env.RATE_LIMIT_PRO_WINDOW || '10 s',
-      maxFileSizeMB: parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5', 10),
+      dailyLimitFree: parseInt(process.env.LLM_LIMIT_DAILY_FREE || '3', 10),
+      dailyLimitPro: parseInt(process.env.LLM_LIMIT_DAILY_PRO || '30', 10),
+      rateLimitLlmFreeRequests: parseInt(process.env.RATE_LIMIT_LLM_FREE_REQUESTS || '3', 10),
+      rateLimitLlmFreeWindow: process.env.RATE_LIMIT_LLM_FREE_WINDOW || '60 s',
+      rateLimitLlmProRequests: parseInt(process.env.RATE_LIMIT_LLM_PRO_REQUESTS || '60', 10),
+      rateLimitLlmProWindow: process.env.RATE_LIMIT_LLM_PRO_WINDOW || '60 s',
+      maxFileSizeMB: parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10', 10),
     };
   }
 
@@ -99,18 +102,40 @@ export class QuotaService {
         };
       }
 
-      const limit = this.getDailyLimit(isPro);
-      const { success, count, remaining } = await checkLLMUsage(user.id, limit);
+      // 1. LLM daily quota
+      const dailyLimit = this.getDailyLimit(isPro);
+      const { success: dailyOk, count, remaining } = await checkLLMUsage(user.id, dailyLimit);
+      if (!dailyOk) {
+        return {
+          allowed: false,
+          usage: count,
+          limit: dailyLimit,
+          remaining,
+          isPro,
+          error: `Daily limit reached (${count}/${dailyLimit}). Please upgrade to Pro for more.`,
+        };
+      }
+
+      // 2. LLM per-window rate limit (chat/LLM endpoints only)
+      const llmLimiter = isPro ? llmProRatelimit : llmFreeRatelimit;
+      const { success: windowOk } = await llmLimiter.limit(user.id);
+      if (!windowOk) {
+        return {
+          allowed: false,
+          usage: count,
+          limit: dailyLimit,
+          remaining,
+          isPro,
+          error: 'Too many LLM requests in this time window. Please try again later.',
+        };
+      }
 
       return {
-        allowed: success,
+        allowed: true,
         usage: count,
-        limit,
+        limit: dailyLimit,
         remaining,
         isPro,
-        error: success
-          ? undefined
-          : `Daily limit reached (${count}/${limit}). Please upgrade to Pro for more.`,
       };
     } catch (error) {
       console.error('[QuotaService] Check failed:', error);
@@ -162,8 +187,8 @@ export class QuotaService {
 
   private getDailyLimit(isPro: boolean): number {
     return isPro
-      ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '100')
-      : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '10');
+      ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '30', 10)
+      : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '3', 10);
   }
 }
 
