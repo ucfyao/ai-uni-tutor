@@ -1,7 +1,7 @@
 'use client';
 
 import { Bell, Globe, Moon, Sun, User } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Avatar,
   Box,
@@ -32,11 +32,7 @@ export default function PersonalizationPage() {
   const [opened, { open, close }] = useDisclosure(false);
   const { profile, loading, updateProfile } = useProfile();
   const [saving, setSaving] = useState(false);
-  const [fullName, setFullName] = useState('');
-
-  useEffect(() => {
-    if (profile?.full_name) setFullName(profile.full_name);
-  }, [profile]);
+  const [fullName, setFullName] = useState(profile?.full_name ?? '');
 
   const handleSaveProfile = async () => {
     setSaving(true);

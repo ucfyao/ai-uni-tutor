@@ -52,63 +52,69 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [fetchSessions, supabase]);
 
   // Sort Helper
-  const sortSessions = (list: ChatSession[]) => {
+  const sortSessions = useCallback((list: ChatSession[]) => {
     return [...list].sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       return b.lastUpdated - a.lastUpdated;
     });
-  };
+  }, []);
 
-  const addSession = async (course: Course, mode: TutoringMode | null): Promise<string | null> => {
-    const tempId = `temp_${Date.now()}`;
-    const title = mode ? `${course.code} - ${mode}` : `${course.code} - New Session`;
-    const newSessionPayload: ChatSession = {
-      id: tempId,
-      course,
-      mode,
-      title,
-      messages: [],
-      lastUpdated: Date.now(),
-      isPinned: false,
-    };
+  const addSession = useCallback(
+    async (course: Course, mode: TutoringMode | null): Promise<string | null> => {
+      const tempId = `temp_${Date.now()}`;
+      const title = mode ? `${course.code} - ${mode}` : `${course.code} - New Session`;
+      const newSessionPayload: ChatSession = {
+        id: tempId,
+        course,
+        mode,
+        title,
+        messages: [],
+        lastUpdated: Date.now(),
+        isPinned: false,
+      };
 
-    // Optimistic
-    setSessions((prev) => sortSessions([newSessionPayload, ...prev]));
+      // Optimistic
+      setSessions((prev) => sortSessions([newSessionPayload, ...prev]));
 
-    try {
-      const created = await createChatSession(newSessionPayload);
-      setSessions((prev) => {
-        const replaced = prev.map((s) => (s.id === tempId ? created : s));
-        return sortSessions(replaced);
-      });
-      return created.id;
-    } catch (e) {
-      console.error('Failed to create session', e);
-      // Revert
-      setSessions((prev) => prev.filter((s) => s.id !== tempId));
-      return null;
-    }
-  };
+      try {
+        const created = await createChatSession(newSessionPayload);
+        setSessions((prev) => {
+          const replaced = prev.map((s) => (s.id === tempId ? created : s));
+          return sortSessions(replaced);
+        });
+        return created.id;
+      } catch (e) {
+        console.error('Failed to create session', e);
+        // Revert
+        setSessions((prev) => prev.filter((s) => s.id !== tempId));
+        return null;
+      }
+    },
+    [sortSessions],
+  );
 
-  const removeSession = async (id: string) => {
+  const removeSession = useCallback(async (id: string) => {
     setSessions((prev) => prev.filter((s) => s.id !== id));
     try {
       await deleteChatSession(id);
     } catch (e) {
       console.error('Failed to delete', e);
     }
-  };
+  }, []);
 
-  const updateSessionLocal = (updated: ChatSession) => {
-    setSessions((prev) => {
-      const list = prev.map((s) => (s.id === updated.id ? updated : s));
-      return sortSessions(list);
-    });
-  };
+  const updateSessionLocal = useCallback(
+    (updated: ChatSession) => {
+      setSessions((prev) => {
+        const list = prev.map((s) => (s.id === updated.id ? updated : s));
+        return sortSessions(list);
+      });
+    },
+    [sortSessions],
+  );
 
-  const refreshSessions = async () => {
+  const refreshSessions = useCallback(async () => {
     await fetchSessions();
-  };
+  }, [fetchSessions]);
 
   return (
     <SessionContext.Provider

@@ -73,7 +73,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     },
-    [supabase, fetchProfile],
+    [fetchProfile],
   );
 
   const refreshProfile = useCallback(async () => {

@@ -49,7 +49,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // Store latest callback in ref to avoid stale closures
   const onAddCardRef = useRef(onAddCard);
-  onAddCardRef.current = onAddCard;
+
+  useEffect(() => {
+    onAddCardRef.current = onAddCard;
+  }, [onAddCard]);
 
   // Handle quick add with visual feedback
   const handleQuickAdd = useCallback(() => {

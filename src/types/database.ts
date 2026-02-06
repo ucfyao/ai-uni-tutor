@@ -3,6 +3,114 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          full_name: string | null;
+          email: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          full_name?: string | null;
+          email?: string | null;
+          subscription_status?: string | null;
+          current_period_end?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string | null;
+          email?: string | null;
+          subscription_status?: string | null;
+          current_period_end?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      chat_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          course: {
+            id: string;
+            universityId: string;
+            code: string;
+            name: string;
+          };
+          mode: string | null;
+          title: string;
+          is_pinned: boolean;
+          is_shared: boolean;
+          share_expires_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          course: {
+            id: string;
+            universityId: string;
+            code: string;
+            name: string;
+          };
+          mode?: string | null;
+          title: string;
+          is_pinned?: boolean;
+          is_shared?: boolean;
+          share_expires_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          course?: {
+            id: string;
+            universityId: string;
+            code: string;
+            name: string;
+          };
+          mode?: string | null;
+          title?: string;
+          is_pinned?: boolean;
+          is_shared?: boolean;
+          share_expires_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          session_id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          card_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          card_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          role?: 'user' | 'assistant';
+          content?: string;
+          card_id?: string | null;
+          created_at?: string;
+        };
+      };
       documents: {
         Row: {
           id: string;
@@ -37,7 +145,7 @@ export interface Database {
           id: string;
           document_id: string;
           content: string;
-          embedding: string | null; // pgvector returns string representation usually or we handle it specially
+          embedding: number[] | null;
           metadata: Json;
           created_at: string;
         };
@@ -45,7 +153,7 @@ export interface Database {
           id?: string;
           document_id: string;
           content: string;
-          embedding?: string | null;
+          embedding?: number[] | null;
           metadata?: Json;
           created_at?: string;
         };
@@ -53,7 +161,7 @@ export interface Database {
           id?: string;
           document_id?: string;
           content?: string;
-          embedding?: string | null;
+          embedding?: number[] | null;
           metadata?: Json;
           created_at?: string;
         };
@@ -89,8 +197,6 @@ export interface Database {
         }[];
       };
     };
-    Enums: {
-      [_ in never]: never;
-    };
+    Enums: Record<string, never>;
   };
 }

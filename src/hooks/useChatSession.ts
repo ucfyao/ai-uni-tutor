@@ -13,8 +13,11 @@ interface UseChatSessionOptions {
 
 export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessionOptions = {}) {
   const [session, setSession] = useState<ChatSession | null>(initialSession || null);
-  const sessionRef = useRef<ChatSession | null>(session);
-  sessionRef.current = session;
+  const sessionRef = useRef<ChatSession | null>(initialSession || null);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   // Sync with parent when initialSession changes (e.g. page loaded session, or navigated to different session)
   useEffect(() => {
