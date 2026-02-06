@@ -1,5 +1,6 @@
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata } from 'next';
+import React from 'react';
 import { ColorSchemeScript, MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { Providers } from '@/components/Providers';

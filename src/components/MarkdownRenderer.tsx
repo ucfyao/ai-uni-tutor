@@ -4,7 +4,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import React from 'react';
-import { Blockquote, Box, Code, Divider, Image, List, Paper, Text, Title } from '@mantine/core';
+import { Blockquote, Code, Divider, Image, Paper, Text, Title } from '@mantine/core';
 
 interface MarkdownRendererProps {
   content: string;

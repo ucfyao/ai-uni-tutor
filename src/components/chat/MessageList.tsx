@@ -31,7 +31,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   knowledgeCards = [],
   onHighlightClick,
   onAddCard,
-  isKnowledgeMode = false,
+  isKnowledgeMode: _isKnowledgeMode = false,
   courseCode,
   onPromptSelect,
 }) => {

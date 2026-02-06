@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import React from 'react';
 import Shell from '@/app/Shell';
 import { getCurrentUser } from '@/lib/supabase/server';
 

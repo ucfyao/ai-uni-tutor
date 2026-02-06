@@ -118,8 +118,7 @@ export async function uploadDocument(
             chunksData.push({
               document_id: doc.id,
               content: chunk.content,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              embedding: embedding as any,
+              embedding,
               metadata: chunk.metadata, // Store page number
             });
           } catch (err) {
