@@ -1,5 +1,3 @@
-'use client';
-
 import { createTheme, rem } from '@mantine/core';
 
 /** System + Outfit stack; no next/font so build works offline/CI. Load Outfit via layout <link> if desired. */
