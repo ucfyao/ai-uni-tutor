@@ -86,21 +86,22 @@ export default function LoginPage() {
     <Box
       className="login-page-bg"
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16,
+        padding: 'clamp(16px, 3vw, 32px)',
+        overflowY: 'auto',
       }}
     >
-      <Container size={360} w="100%" style={{ position: 'relative', zIndex: 1 }}>
+      <Container size={420} w="100%" px={0} style={{ position: 'relative', zIndex: 1 }}>
         <Stack align="center" gap="xs" mb="md">
           <Logo size={48} alt="AI Uni Tutor" />
           <Title
             order={1}
             fw={700}
             className="login-page-title"
-            style={{ fontSize: 22, lineHeight: 1.3 }}
+            style={{ fontSize: 'clamp(22px, 2.2vw, 28px)', lineHeight: 1.2 }}
           >
             {isSignUp ? 'Join AI Tutor' : 'Welcome Back'}
           </Title>
