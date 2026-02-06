@@ -120,7 +120,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     // Optimistic provided by Context removeSession
     await removeSession(id);
     if (activeSessionId === id || pathname.includes(id)) {
-      router.push('/');
+      router.push('/study');
     }
   };
 
@@ -184,7 +184,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               setDeleteModalOpen(true);
             }}
             onShareSession={handleShareSession}
-            onGoHome={() => router.push('/')}
+            onGoHome={() => router.push('/study')}
             opened={isMobile ? true : desktopOpened}
           />
         </AppShell.Navbar>

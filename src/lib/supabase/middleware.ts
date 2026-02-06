@@ -45,12 +45,16 @@ export async function handleRequest(
   } = await supabase.auth.getUser();
   const userId = user?.id ?? null;
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    !request.nextUrl.pathname.startsWith('/share')
-  ) {
+  // If user is NOT logged in, and tries to visit a protected route, redirect to login.
+  // We allow '/', '/zh', '/login', '/auth', '/share' for unauthenticated users.
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname === '/zh' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/share');
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return { response: NextResponse.redirect(url), userId };

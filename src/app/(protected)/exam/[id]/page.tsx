@@ -55,7 +55,7 @@ export default function ExamPage({ params }: ExamPageProps) {
       if (fromList && fromList.mode === 'Exam Prep') {
         const messages = await getChatMessages(id);
         if (messages === null) {
-          router.push('/');
+          router.push('/study');
           return;
         }
         const data: ChatSession = { ...fromList, messages };
@@ -67,11 +67,11 @@ export default function ExamPage({ params }: ExamPageProps) {
 
       const data = await getChatSession(id);
       if (!data) {
-        router.push('/');
+        router.push('/study');
         return;
       }
       if (data.mode && data.mode !== 'Exam Prep') {
-        router.push('/');
+        router.push('/study');
         return;
       }
       savedMsgIdsRef.current = new Set(data.messages.map((m) => m.id));
@@ -158,7 +158,7 @@ export default function ExamPage({ params }: ExamPageProps) {
   const handleDelete = async (id: string) => {
     try {
       await deleteChatSession(id);
-      router.push('/');
+      router.push('/study');
     } catch (e) {
       console.error('Failed to delete:', e);
     }
