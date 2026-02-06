@@ -1,15 +1,16 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
+import type { ProfileData } from '@/app/actions/user';
+import { getProfile, updateProfileFields } from '@/app/actions/user';
 import { createClient } from '@/lib/supabase/client';
 
-interface Profile {
+type Profile = {
   full_name?: string;
   email?: string;
   subscription_status?: string;
   current_period_end?: string;
-}
+};
 
 interface ProfileContextType {
   profile: Profile | null;
@@ -27,27 +28,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      const data = await getProfile();
+      if (!data) {
         setProfile(null);
-        setLoading(false);
         return;
       }
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name, email, subscription_status, current_period_end')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      setProfile({
-        full_name: data?.full_name || undefined,
-        email: user.email || undefined,
-        subscription_status: data?.subscription_status || undefined,
-        current_period_end: data?.current_period_end || undefined,
-      });
+      setProfile(profileDataToContext(data));
     } catch (error) {
       console.error('Failed to fetch profile', error);
     } finally {
@@ -71,39 +57,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = useCallback(
     async (updates: Partial<Profile>) => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) throw new Error('Unauthorized');
-
-        // Validate full_name length (create/update)
         if (updates.full_name !== undefined) {
-          const trimmed = updates.full_name.trim();
-          if (trimmed.length < FULL_NAME_MIN_LENGTH) {
-            throw new Error(`Name must be at least ${FULL_NAME_MIN_LENGTH} character(s).`);
-          }
-          if (trimmed.length > FULL_NAME_MAX_LENGTH) {
-            throw new Error(`Name must be at most ${FULL_NAME_MAX_LENGTH} characters.`);
-          }
+          const result = await updateProfileFields({ fullName: updates.full_name });
+          if (!result.ok) throw new Error(result.message);
+          setProfile(profileDataToContext(result.profile));
+          return;
         }
 
-        // Update database
-        const dbUpdates: Record<string, unknown> = {};
-        if (updates.full_name !== undefined) {
-          dbUpdates.full_name = updates.full_name.trim();
-        }
-        if (updates.subscription_status !== undefined) {
-          dbUpdates.subscription_status = updates.subscription_status;
-        }
-
-        if (Object.keys(dbUpdates).length > 0) {
-          const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
-
-          if (error) throw error;
-        }
-
-        // Optimistically update local state
-        setProfile((prev) => (prev ? { ...prev, ...updates } : null));
+        // Any future mutable fields should also go through server actions for consistency.
+        throw new Error('Unsupported profile update field(s).');
       } catch (error) {
         console.error('Failed to update profile', error);
         // Refresh on error to get correct state
@@ -131,4 +93,13 @@ export function useProfile() {
     throw new Error('useProfile must be used within a ProfileProvider');
   }
   return context;
+}
+
+function profileDataToContext(data: ProfileData): Profile {
+  return {
+    full_name: data.full_name ?? undefined,
+    email: data.email ?? undefined,
+    subscription_status: data.subscription_status ?? undefined,
+    current_period_end: data.current_period_end ?? undefined,
+  };
 }

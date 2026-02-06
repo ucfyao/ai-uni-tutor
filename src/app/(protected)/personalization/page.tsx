@@ -21,52 +21,38 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { getProfile, updateProfile } from '@/app/actions/user';
 import { PLACEHOLDERS } from '@/constants/placeholders';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
+import { useProfile } from '@/context/ProfileContext';
 import { showNotification } from '@/lib/notifications';
 
 export default function PersonalizationPage() {
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const [opened, { open, close }] = useDisclosure(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { profile, loading, updateProfile } = useProfile();
   const [saving, setSaving] = useState(false);
   const [fullName, setFullName] = useState('');
 
   useEffect(() => {
-    async function loadProfile() {
-      const data = await getProfile();
-      if (data) {
-        setProfile(data);
-        setFullName(data.full_name || '');
-      }
-      setLoading(false);
-    }
-    loadProfile();
-  }, []);
+    if (profile?.full_name) setFullName(profile.full_name);
+  }, [profile]);
 
   const handleSaveProfile = async () => {
     setSaving(true);
-    const formData = new FormData();
-    formData.append('fullName', fullName);
-
-    const result = await updateProfile({ message: '', status: 'idle' }, formData);
-
-    if (result.status === 'success') {
+    try {
+      await updateProfile({ full_name: fullName });
       showNotification({
         title: 'Success',
         message: 'Profile updated successfully',
         color: 'green',
       });
-      setProfile({ ...profile, full_name: fullName });
       close();
-    } else {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
       showNotification({
         title: 'Error',
-        message: result.message,
+        message,
         color: 'red',
       });
     }
