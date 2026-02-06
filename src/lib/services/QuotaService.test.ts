@@ -3,10 +3,12 @@ import * as redisLib from '@/lib/redis';
 import * as supabaseServer from '@/lib/supabase/server';
 import { QuotaService } from './QuotaService';
 
-// Mock dependencies
+// Mock dependencies (LLM daily + per-window)
 vi.mock('@/lib/redis', () => ({
   checkLLMUsage: vi.fn(),
   getLLMUsage: vi.fn(),
+  llmFreeRatelimit: { limit: vi.fn().mockResolvedValue({ success: true }) },
+  llmProRatelimit: { limit: vi.fn().mockResolvedValue({ success: true }) },
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -27,9 +29,14 @@ describe('QuotaService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     quotaService = new QuotaService();
-    // Use stubEnv to safely mock process.env
+    // Required env (no code defaults). See .env.example
     vi.stubEnv('LLM_LIMIT_DAILY_FREE', '10');
     vi.stubEnv('LLM_LIMIT_DAILY_PRO', '100');
+    vi.stubEnv('RATE_LIMIT_LLM_FREE_REQUESTS', '3');
+    vi.stubEnv('RATE_LIMIT_LLM_FREE_WINDOW', '60 s');
+    vi.stubEnv('RATE_LIMIT_LLM_PRO_REQUESTS', '60');
+    vi.stubEnv('RATE_LIMIT_LLM_PRO_WINDOW', '60 s');
+    vi.stubEnv('NEXT_PUBLIC_MAX_FILE_SIZE_MB', '10');
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('ENABLE_RATELIMIT', 'true');
   });
@@ -102,7 +109,7 @@ describe('QuotaService', () => {
     expect(result.isPro).toBe(true);
   });
 
-  it('should fail when quota exceeded', async () => {
+  it('should fail when daily quota exceeded', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-limit' } as any);
 
@@ -127,6 +134,35 @@ describe('QuotaService', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.error).toContain('Daily limit reached');
+  });
+
+  it('should fail when LLM per-window rate limit exceeded', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-window' } as any);
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: { subscription_status: 'inactive' } }),
+    } as unknown as MockSupabaseClient;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(supabaseServer.createClient).mockResolvedValue(mockSupabase as any);
+
+    vi.mocked(redisLib.checkLLMUsage).mockResolvedValue({
+      success: true,
+      count: 5,
+      remaining: 5,
+    });
+
+    const redisModule = await import('@/lib/redis');
+    vi.mocked(redisModule.llmFreeRatelimit.limit).mockResolvedValueOnce({ success: false });
+
+    const result = await quotaService.checkAndConsume();
+
+    expect(result.allowed).toBe(false);
+    expect(result.error).toContain('Too many LLM requests');
   });
 
   it('should fail open if redis fails', async () => {

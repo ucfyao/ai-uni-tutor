@@ -6,15 +6,15 @@ AI-powered university tutoring system built with Next.js 16, Supabase, and Googl
 
 ## Tech Stack
 
-| Category | Technology |
-|----------|------------|
-| Framework | Next.js 16 (App Router) |
-| UI | React 19 + Mantine UI v8 |
-| Auth & Database | Supabase |
-| AI | Google Gemini (gemini-2.5-flash, text-embedding-004) |
-| Payments | Stripe |
-| Caching | Redis (Upstash) |
-| Language | TypeScript 5.8 |
+| Category        | Technology                                           |
+| --------------- | ---------------------------------------------------- |
+| Framework       | Next.js 16 (App Router)                              |
+| UI              | React 19 + Mantine UI v8                             |
+| Auth & Database | Supabase                                             |
+| AI              | Google Gemini (gemini-2.5-flash, text-embedding-004) |
+| Payments        | Stripe                                               |
+| Caching         | Redis (Upstash)                                      |
+| Language        | TypeScript 5.8                                       |
 
 ## Architecture
 
@@ -69,6 +69,7 @@ src/
 ## Database Schema
 
 Key tables:
+
 - `profiles` - User profiles and subscription info
 - `chat_sessions` - Chat conversations
 - `chat_messages` - Individual messages
@@ -78,11 +79,21 @@ Key tables:
 ## Environment Variables
 
 Required environment variables (see `.env.example`):
+
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
 - `GEMINI_API_KEY` - Google Gemini API key
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `UPSTASH_REDIS_REST_URL` - Redis URL for rate limiting
+
+### Rate limits (see `.env.example`)
+
+Two layers, both configurable via env:
+
+1. **DDoS (proxy)** — applies to all requests (pages, API, RSC). Anonymous: by IP (e.g. 60/60s). Logged-in: by userId (e.g. 100/10s). Implemented in `proxy.ts` + `src/lib/redis.ts`.
+2. **LLM** — chat/LLM endpoints only. Daily quota (e.g. Free 3/day, Pro 30/day) + per-window (e.g. Free 20/60s, Pro 60/60s). Implemented in `QuotaService` + `src/lib/redis.ts`.
+
+Defaults align with `.env.example`; adjust for cost or capacity.
 
 ## Development Workflow
 
@@ -97,53 +108,57 @@ Required environment variables (see `.env.example`):
 ### Server Action Pattern
 
 ```typescript
-'use server'
+'use server';
 
-import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 
 const schema = z.object({
   // ... validation schema
-})
+});
 
 export async function myAction(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
-    return { status: 'error', message: 'Unauthorized' }
+    return { status: 'error', message: 'Unauthorized' };
   }
-  
-  const validated = schema.safeParse(Object.fromEntries(formData))
+
+  const validated = schema.safeParse(Object.fromEntries(formData));
   if (!validated.success) {
-    return { status: 'error', message: 'Invalid input' }
+    return { status: 'error', message: 'Invalid input' };
   }
-  
+
   // ... perform action
-  return { status: 'success', data: result }
+  return { status: 'success', data: result };
 }
 ```
 
 ### API Route Pattern
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  
+
   try {
-    const body = await request.json()
+    const body = await request.json();
     // ... validate and process
-    return NextResponse.json({ data: result })
+    return NextResponse.json({ data: result });
   } catch (error) {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 ```

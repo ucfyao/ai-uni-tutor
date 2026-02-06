@@ -11,9 +11,9 @@ function getClientIp(request: NextRequest): string {
 }
 
 /**
- * Proxy: rate limit (when production or ENABLE_RATELIMIT=true) then Supabase session refresh.
- * Uses a single handleRequest() so getUser() is only called once per request.
- * Anonymous: ratelimit (default 10 req/10s). Logged-in: proRatelimit (default 100 req/10s).
+ * Proxy: DDoS rate limit (all requests) + Supabase session refresh.
+ * Anonymous: ratelimit (60/60s). Logged-in: proRatelimit (100/10s).
+ * LLM limits (daily + per-window) are in QuotaService for chat/LLM endpoints only.
  */
 export async function proxy(request: NextRequest) {
   const ip = getClientIp(request);

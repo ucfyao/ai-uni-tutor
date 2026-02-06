@@ -1,10 +1,23 @@
+/**
+ * Redis + rate limiters.
+ *
+ * - DDoS (proxy): ratelimit (anonymous), proRatelimit (logged-in). Used in proxy.ts for all requests.
+ * - LLM: llmFreeRatelimit, llmProRatelimit (per-window); checkLLMUsage/getLLMUsage (daily). Used in QuotaService for chat/LLM endpoints only.
+ *
+ * Config from env with fallbacks. See .env.example.
+ */
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
 let _redis: Redis | null = null;
-let _ratelimit: Ratelimit | null = null;
-let _freeRatelimit: Ratelimit | null = null;
-let _proRatelimit: Ratelimit | null = null;
+
+// --- DDoS (proxy): general request rate limit per IP/user ---
+let _ratelimit: Ratelimit | null = null; // anonymous
+let _proRatelimit: Ratelimit | null = null; // logged-in
+
+// --- LLM: per-window rate limit for chat/LLM endpoints only ---
+let _llmFreeRatelimit: Ratelimit | null = null;
+let _llmProRatelimit: Ratelimit | null = null;
 
 function getRedis(): Redis {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -30,13 +43,14 @@ export const redis = new Proxy({} as Redis, {
   },
 });
 
+/** DDoS: anonymous requests (proxy) */
 function getRatelimit(): Ratelimit {
   if (!_ratelimit) {
     _ratelimit = new Ratelimit({
       redis: getRedis(),
       limiter: Ratelimit.slidingWindow(
-        parseInt(process.env.RATE_LIMIT_PUBLIC_REQUESTS || '10'),
-        (process.env.RATE_LIMIT_PUBLIC_WINDOW || '10 s') as Parameters<
+        parseInt(process.env.RATE_LIMIT_PUBLIC_REQUESTS || '60', 10),
+        (process.env.RATE_LIMIT_PUBLIC_WINDOW || '60 s') as Parameters<
           typeof Ratelimit.slidingWindow
         >[1],
       ),
@@ -47,29 +61,13 @@ function getRatelimit(): Ratelimit {
   return _ratelimit;
 }
 
-function getFreeRatelimit(): Ratelimit {
-  if (!_freeRatelimit) {
-    _freeRatelimit = new Ratelimit({
-      redis: getRedis(),
-      limiter: Ratelimit.slidingWindow(
-        parseInt(process.env.RATE_LIMIT_FREE_REQUESTS || '20'),
-        (process.env.RATE_LIMIT_FREE_WINDOW || '10 s') as Parameters<
-          typeof Ratelimit.slidingWindow
-        >[1],
-      ),
-      analytics: true,
-      prefix: '@upstash/ratelimit/free',
-    });
-  }
-  return _freeRatelimit;
-}
-
+/** DDoS: logged-in requests (proxy) */
 function getProRatelimit(): Ratelimit {
   if (!_proRatelimit) {
     _proRatelimit = new Ratelimit({
       redis: getRedis(),
       limiter: Ratelimit.slidingWindow(
-        parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100'),
+        parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100', 10),
         (process.env.RATE_LIMIT_PRO_WINDOW || '10 s') as Parameters<
           typeof Ratelimit.slidingWindow
         >[1],
@@ -81,7 +79,43 @@ function getProRatelimit(): Ratelimit {
   return _proRatelimit;
 }
 
-/** Lazy: validated on first use. */
+/** LLM: chat/LLM API per-window limit (free tier) */
+function getLlmFreeRatelimit(): Ratelimit {
+  if (!_llmFreeRatelimit) {
+    _llmFreeRatelimit = new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(
+        parseInt(process.env.RATE_LIMIT_LLM_FREE_REQUESTS || '3', 10),
+        (process.env.RATE_LIMIT_LLM_FREE_WINDOW || '60 s') as Parameters<
+          typeof Ratelimit.slidingWindow
+        >[1],
+      ),
+      analytics: true,
+      prefix: '@upstash/ratelimit/llm-free',
+    });
+  }
+  return _llmFreeRatelimit;
+}
+
+/** LLM: chat/LLM API per-window limit (pro tier) */
+function getLlmProRatelimit(): Ratelimit {
+  if (!_llmProRatelimit) {
+    _llmProRatelimit = new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(
+        parseInt(process.env.RATE_LIMIT_LLM_PRO_REQUESTS || '60', 10),
+        (process.env.RATE_LIMIT_LLM_PRO_WINDOW || '60 s') as Parameters<
+          typeof Ratelimit.slidingWindow
+        >[1],
+      ),
+      analytics: true,
+      prefix: '@upstash/ratelimit/llm-pro',
+    });
+  }
+  return _llmProRatelimit;
+}
+
+/** Lazy: validated on first use. DDoS proxy (anonymous). */
 export const ratelimit = new Proxy({} as Ratelimit, {
   get(_, prop) {
     const r = getRatelimit();
@@ -90,19 +124,28 @@ export const ratelimit = new Proxy({} as Ratelimit, {
   },
 });
 
-/** Lazy: validated on first use. */
-export const freeRatelimit = new Proxy({} as Ratelimit, {
+/** Lazy: validated on first use. DDoS proxy (logged-in). */
+export const proRatelimit = new Proxy({} as Ratelimit, {
   get(_, prop) {
-    const r = getFreeRatelimit();
+    const r = getProRatelimit();
     const v = (r as unknown as Record<string, unknown>)[prop as string];
     return typeof v === 'function' ? (v as (...args: unknown[]) => unknown).bind(r) : v;
   },
 });
 
-/** Lazy: validated on first use. */
-export const proRatelimit = new Proxy({} as Ratelimit, {
+/** Lazy: validated on first use. LLM endpoints only (free tier). */
+export const llmFreeRatelimit = new Proxy({} as Ratelimit, {
   get(_, prop) {
-    const r = getProRatelimit();
+    const r = getLlmFreeRatelimit();
+    const v = (r as unknown as Record<string, unknown>)[prop as string];
+    return typeof v === 'function' ? (v as (...args: unknown[]) => unknown).bind(r) : v;
+  },
+});
+
+/** Lazy: validated on first use. LLM endpoints only (pro tier). */
+export const llmProRatelimit = new Proxy({} as Ratelimit, {
+  get(_, prop) {
+    const r = getLlmProRatelimit();
     const v = (r as unknown as Record<string, unknown>)[prop as string];
     return typeof v === 'function' ? (v as (...args: unknown[]) => unknown).bind(r) : v;
   },
