@@ -48,7 +48,7 @@ export default async function KnowledgePage() {
               Upload documents to personalize your AI tutor.
             </Text>
           </Box>
-          <Link href="/" style={{ textDecoration: 'none' }}>
+          <Link href="/study" style={{ textDecoration: 'none' }}>
             <Button component="div" variant="subtle" leftSection={<BookOpen size={16} />}>
               Back to Chat
             </Button>
