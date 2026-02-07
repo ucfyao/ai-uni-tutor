@@ -24,10 +24,15 @@ export async function proxy(request: NextRequest) {
     const limiter = userId ? proRatelimit : ratelimit;
     const key = userId ?? ip;
 
-    const { success } = await limiter.limit(key);
-
-    if (!success) {
-      return new NextResponse('Too Many Requests', { status: 429 });
+    try {
+      const { success } = await limiter.limit(key);
+      if (!success) {
+        return new NextResponse('Too Many Requests', { status: 429 });
+      }
+    } catch (error) {
+      // Fail open: avoid taking down the whole app if Upstash/Redis is misconfigured or unreachable.
+      // QuotaService already fails open for LLM limits; this keeps proxy-level DDoS limiting consistent.
+      console.error('[proxy] ratelimit failed:', error);
     }
   }
 

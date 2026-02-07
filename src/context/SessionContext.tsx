@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createChatSession, deleteChatSession, getChatSessions } from '@/app/actions/chat';
 import { createClient } from '@/lib/supabase/client';
 import { ChatSession, Course, TutoringMode } from '@/types/index';
@@ -21,16 +21,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
-  const fetchSessions = useCallback(async () => {
-    try {
-      const data = await getChatSessions();
-      setSessions(data);
-    } catch (error) {
-      console.error('Failed to fetch sessions', error);
-    } finally {
-      setLoading(false);
-    }
+  const fetchSessions = useCallback((): Promise<void> => {
+    if (fetchInFlightRef.current) return fetchInFlightRef.current;
+
+    fetchInFlightRef.current = (async () => {
+      try {
+        const data = await getChatSessions();
+        setSessions(data);
+      } catch (error) {
+        console.error('Failed to fetch sessions', error);
+      } finally {
+        setLoading(false);
+      }
+    })().finally(() => {
+      fetchInFlightRef.current = null;
+    });
+
+    return fetchInFlightRef.current;
   }, []);
 
   useEffect(() => {

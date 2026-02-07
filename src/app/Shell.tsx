@@ -34,7 +34,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     setActiveSessionId(id);
   }, [pathname]);
 
-  // Force refresh data when entering the protected shell
+  // Ensure client-side providers refresh after server-side auth transitions (e.g. login via server action).
   useEffect(() => {
     refreshSessions();
     refreshProfile();
