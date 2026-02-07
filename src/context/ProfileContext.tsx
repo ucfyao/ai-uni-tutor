@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ProfileData } from '@/app/actions/user';
 import { getProfile, updateProfileFields } from '@/app/actions/user';
 import { createClient } from '@/lib/supabase/client';
@@ -25,20 +25,29 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
-  const fetchProfile = useCallback(async () => {
-    try {
-      const data = await getProfile();
-      if (!data) {
-        setProfile(null);
-        return;
+  const fetchProfile = useCallback((): Promise<void> => {
+    if (fetchInFlightRef.current) return fetchInFlightRef.current;
+
+    fetchInFlightRef.current = (async () => {
+      try {
+        const data = await getProfile();
+        if (!data) {
+          setProfile(null);
+          return;
+        }
+        setProfile(profileDataToContext(data));
+      } catch (error) {
+        console.error('Failed to fetch profile', error);
+      } finally {
+        setLoading(false);
       }
-      setProfile(profileDataToContext(data));
-    } catch (error) {
-      console.error('Failed to fetch profile', error);
-    } finally {
-      setLoading(false);
-    }
+    })().finally(() => {
+      fetchInFlightRef.current = null;
+    });
+
+    return fetchInFlightRef.current;
   }, []);
 
   useEffect(() => {
@@ -48,8 +57,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      fetchProfile();
+    } = supabase.auth.onAuthStateChange((event: string) => {
+      if (event === 'SIGNED_OUT') {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        fetchProfile();
+      }
     });
     return () => subscription.unsubscribe();
   }, [supabase, fetchProfile]);
