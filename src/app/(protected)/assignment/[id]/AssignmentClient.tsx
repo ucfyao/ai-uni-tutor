@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Center, Loader, Stack, Text } from '@mantine/core';
 import {
-  deleteChatSession,
   getChatMessages,
   getChatSession,
   saveChatMessage,
@@ -39,7 +38,7 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [knowledgeDrawerTrigger, setKnowledgeDrawerTrigger] = useState(0);
 
-  const { updateSessionLocal, sessions } = useSessions();
+  const { removeSession, updateSessionLocal, sessions } = useSessions();
   const sessionsRef = useRef(sessions);
 
   useEffect(() => {
@@ -180,7 +179,7 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
   // Handle delete
   const handleDelete = async (id: string) => {
     try {
-      await deleteChatSession(id);
+      await removeSession(id);
       router.push('/study');
     } catch (e) {
       console.error('Failed to delete:', e);
