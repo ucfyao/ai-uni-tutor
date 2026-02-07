@@ -65,14 +65,13 @@ export async function updateProfileFields(input: {
   }
 
   const supabase = await createClient();
-  const db = supabase as any;
-  const { error } = await db.from('profiles').update(updates).eq('id', user.id);
+  const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
   if (error) {
     console.error('Profile update error:', error);
     return { ok: false, message: 'Failed to update profile' };
   }
 
-  const { data, error: readError } = await db
+  const { data, error: readError } = await supabase
     .from('profiles')
     .select('id, full_name, email, subscription_status, current_period_end')
     .eq('id', user.id)
@@ -107,8 +106,7 @@ export async function getProfile(): Promise<ProfileData | null> {
   if (!user) return null;
 
   const supabase = await createClient();
-  const db = supabase as any;
-  const { data } = await db
+  const { data } = await supabase
     .from('profiles')
     .select('id, full_name, email, subscription_status, current_period_end')
     .eq('id', user.id)

@@ -12,6 +12,7 @@ import type {
   UpdateSessionDTO,
 } from '@/lib/domain/models/Session';
 import { createClient } from '@/lib/supabase/server';
+import type { Database } from '@/types/database';
 
 // Database row type (matches Supabase schema)
 interface SessionRow {
@@ -53,8 +54,7 @@ export class SessionRepository implements ISessionRepository {
 
   async findById(id: string): Promise<SessionEntity | null> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { data, error } = await db.from('chat_sessions').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('chat_sessions').select('*').eq('id', id).single();
 
     if (error || !data) return null;
     return this.mapToEntity(data as SessionRow);
@@ -62,8 +62,7 @@ export class SessionRepository implements ISessionRepository {
 
   async findByIdAndUserId(id: string, userId: string): Promise<SessionEntity | null> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('chat_sessions')
       .select('*')
       .eq('id', id)
@@ -76,8 +75,7 @@ export class SessionRepository implements ISessionRepository {
 
   async findAllByUserId(userId: string): Promise<SessionEntity[]> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('chat_sessions')
       .select('*')
       .eq('user_id', userId)
@@ -90,10 +88,9 @@ export class SessionRepository implements ISessionRepository {
 
   async findSharedById(id: string): Promise<SessionEntity | null> {
     const supabase = await createClient();
-    const db = supabase as any;
     const now = new Date().toISOString();
 
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('chat_sessions')
       .select('*')
       .eq('id', id)
@@ -107,8 +104,7 @@ export class SessionRepository implements ISessionRepository {
 
   async create(dto: CreateSessionDTO): Promise<SessionEntity> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('chat_sessions')
       .insert({
         user_id: dto.userId,
@@ -127,9 +123,7 @@ export class SessionRepository implements ISessionRepository {
 
   async update(id: string, dto: UpdateSessionDTO): Promise<void> {
     const supabase = await createClient();
-    const db = supabase as any;
-
-    const updates: Record<string, unknown> = {
+    const updates: Database['public']['Tables']['chat_sessions']['Update'] = {
       updated_at: new Date().toISOString(),
     };
 
@@ -141,15 +135,14 @@ export class SessionRepository implements ISessionRepository {
       updates.share_expires_at = dto.shareExpiresAt?.toISOString() ?? null;
     }
 
-    const { error } = await db.from('chat_sessions').update(updates).eq('id', id);
+    const { error } = await supabase.from('chat_sessions').update(updates).eq('id', id);
 
     if (error) throw new Error(`Failed to update session: ${error.message}`);
   }
 
   async delete(id: string): Promise<void> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { error } = await db.from('chat_sessions').delete().eq('id', id);
+    const { error } = await supabase.from('chat_sessions').delete().eq('id', id);
 
     if (error) throw new Error(`Failed to delete session: ${error.message}`);
   }

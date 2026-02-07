@@ -8,7 +8,7 @@ import { deleteDocument } from '@/app/actions/documents';
 import { showNotification } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/client';
 
-interface Document {
+export interface KnowledgeDocument {
   id: string;
   name: string;
   status: string; // 'processing' | 'ready' | 'error'
@@ -23,11 +23,11 @@ interface Document {
 }
 
 interface KnowledgeTableProps {
-  documents: Document[];
+  documents: KnowledgeDocument[];
 }
 
 export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTableProps) {
-  const [documents, setDocuments] = useState<Document[]>(initialDocuments);
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>(initialDocuments);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const supabase = createClient();
   const isMobile = useMediaQuery('(max-width: 48em)'); // 768px
@@ -50,10 +50,10 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            const newDoc = payload.new as Document;
+            const newDoc = payload.new as KnowledgeDocument;
             setDocuments((prev) => [newDoc, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
-            const updatedDoc = payload.new as Document;
+            const updatedDoc = payload.new as KnowledgeDocument;
             setDocuments((prev) =>
               prev.map((doc) => (doc.id === updatedDoc.id ? updatedDoc : doc)),
             );
@@ -100,7 +100,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
     }
   };
 
-  const renderStatusBadge = (doc: Document) => {
+  const renderStatusBadge = (doc: KnowledgeDocument) => {
     if (doc.status === 'ready') {
       return (
         <Badge color="green" variant="light" leftSection={<CheckCircle size={12} />}>

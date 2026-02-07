@@ -13,7 +13,7 @@ import {
   Title,
 } from '@mantine/core';
 import { FileUploader } from '@/components/rag/FileUploader';
-import { KnowledgeTable } from '@/components/rag/KnowledgeTable';
+import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 
 export default async function KnowledgePage() {
@@ -35,6 +35,14 @@ export default async function KnowledgePage() {
     .select('id, name, status, status_message, created_at, metadata')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
+
+  const documentsForTable: KnowledgeDocument[] = (documents ?? []).map((doc) => ({
+    ...doc,
+    metadata:
+      doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
+        ? (doc.metadata as KnowledgeDocument['metadata'])
+        : null,
+  }));
 
   return (
     <Container size="md" py={48}>
@@ -73,9 +81,9 @@ export default async function KnowledgePage() {
           <Title order={3} fw={700} mb="md">
             My Documents
           </Title>
-          {documents && documents.length > 0 ? (
+          {documentsForTable.length > 0 ? (
             <Card withBorder radius="lg" p={0}>
-              <KnowledgeTable documents={documents} />
+              <KnowledgeTable documents={documentsForTable} />
             </Card>
           ) : (
             <Alert variant="light" color="blue" icon={<AlertCircle size={16} />}>

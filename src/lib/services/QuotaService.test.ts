@@ -157,7 +157,13 @@ describe('QuotaService', () => {
     });
 
     const redisModule = await import('@/lib/redis');
-    vi.mocked(redisModule.llmFreeRatelimit.limit).mockResolvedValueOnce({ success: false });
+    vi.mocked(redisModule.llmFreeRatelimit.limit).mockResolvedValueOnce({
+      success: false,
+      limit: 20,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+      pending: Promise.resolve(),
+    });
 
     const result = await quotaService.checkAndConsume();
 

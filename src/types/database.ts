@@ -8,6 +8,9 @@ export interface Database {
           id: string;
           full_name: string | null;
           email: string | null;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          stripe_price_id: string | null;
           subscription_status: string | null;
           current_period_end: string | null;
           created_at: string;
@@ -17,6 +20,9 @@ export interface Database {
           id?: string;
           full_name?: string | null;
           email?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
           created_at?: string;
@@ -26,11 +32,15 @@ export interface Database {
           id?: string;
           full_name?: string | null;
           email?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       chat_sessions: {
         Row: {
@@ -84,6 +94,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       chat_messages: {
         Row: {
@@ -110,6 +121,7 @@ export interface Database {
           card_id?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       documents: {
         Row: {
@@ -139,6 +151,7 @@ export interface Database {
           created_at?: string;
           metadata?: Json;
         };
+        Relationships: [];
       };
       document_chunks: {
         Row: {
@@ -165,14 +178,17 @@ export interface Database {
           metadata?: Json;
           created_at?: string;
         };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
     Functions: {
       match_documents: {
         Args: {
-          query_embedding: string;
+          query_embedding: number[];
           match_threshold: number;
           match_count: number;
+          filter?: Json;
         };
         Returns: {
           id: string;
@@ -184,10 +200,11 @@ export interface Database {
       hybrid_search: {
         Args: {
           query_text: string;
-          query_embedding: string;
+          query_embedding: number[];
           match_threshold: number;
           match_count: number;
           rrf_k?: number;
+          filter?: Json;
         };
         Returns: {
           id: string;
@@ -198,5 +215,6 @@ export interface Database {
       };
     };
     Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }

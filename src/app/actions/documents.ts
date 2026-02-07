@@ -6,7 +6,7 @@ import { parsePDF } from '@/lib/pdf';
 // import { chunkText } from "@/lib/rag/chunking";
 import { generateEmbedding } from '@/lib/rag/embedding';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
-import { Database } from '@/types/database';
+import type { Database } from '@/types/database';
 
 export type UploadState = {
   status: 'idle' | 'success' | 'error';
@@ -51,13 +51,8 @@ export async function uploadDocument(
     }
 
     const supabase = await createClient();
-    // NOTE: Temporarily relax typings for Supabase operations on documents-related
-    // tables to avoid overly-strict `never` insert/update types from the generated
-    // Database definition. This keeps runtime behavior unchanged while allowing
-    // the Next.js build (and pre-push hook) to pass.
-    const db = supabase as any;
     // Check for duplicates
-    const { data: existingDoc } = await db
+    const { data: existingDoc } = await supabase
       .from('documents')
       .select('id')
       .eq('user_id', user.id)
@@ -69,7 +64,7 @@ export async function uploadDocument(
     }
 
     // 1. Create Document Entry (Processing)
-    const { data: doc, error: docError } = await db
+    const { data: doc, error: docError } = await supabase
       .from('documents')
       .insert({
         user_id: user.id,
@@ -99,7 +94,7 @@ export async function uploadDocument(
       pdfData = await parsePDF(buffer);
     } catch (e) {
       console.error('Error parsing PDF:', e);
-      await db
+      await supabase
         .from('documents')
         .update({ status: 'error', status_message: 'Failed to parse PDF' })
         .eq('id', doc.id);
@@ -135,10 +130,10 @@ export async function uploadDocument(
     }
 
     if (chunksData.length > 0) {
-      const { error: chunksError } = await db.from('document_chunks').insert(chunksData);
+      const { error: chunksError } = await supabase.from('document_chunks').insert(chunksData);
       if (chunksError) {
         console.error('Error inserting chunks:', chunksError);
-        await db
+        await supabase
           .from('documents')
           .update({ status: 'error', status_message: 'Failed to save chunks' })
           .eq('id', doc.id);
@@ -148,7 +143,7 @@ export async function uploadDocument(
     }
 
     // 5. Update Document Status
-    await db.from('documents').update({ status: 'ready' }).eq('id', doc.id);
+    await supabase.from('documents').update({ status: 'ready' }).eq('id', doc.id);
 
     revalidatePath('/knowledge');
     return { status: 'success', message: 'Document processed successfully' };
@@ -165,8 +160,7 @@ export async function deleteDocument(documentId: string) {
   }
 
   const supabase = await createClient();
-  const db = supabase as any;
-  const { data: existingDoc, error: fetchError } = await db
+  const { data: existingDoc, error: fetchError } = await supabase
     .from('documents')
     .select('id')
     .eq('id', documentId)
@@ -177,7 +171,11 @@ export async function deleteDocument(documentId: string) {
     throw new Error('Unauthorized');
   }
 
-  const { error } = await db.from('documents').delete().eq('id', documentId).eq('user_id', user.id);
+  const { error } = await supabase
+    .from('documents')
+    .delete()
+    .eq('id', documentId)
+    .eq('user_id', user.id);
 
   if (error) {
     console.error('Error deleting document:', error);
