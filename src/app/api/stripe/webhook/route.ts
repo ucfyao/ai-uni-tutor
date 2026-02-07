@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
   const session = event.data.object as any;
 
   const supabase = await createClient();
-  const db = supabase as any;
 
   if (event.type === 'checkout.session.completed') {
     const subscription = (await stripe.subscriptions.retrieve(
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('User ID is required', { status: 400 });
     }
 
-    await db
+    await supabase
       .from('profiles')
       .update({
         stripe_subscription_id: subscription.id,
@@ -59,7 +58,7 @@ export async function POST(req: NextRequest) {
       invoice.subscription as string,
     )) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-    await db
+    await supabase
       .from('profiles')
       .update({
         subscription_status: subscription.status,
@@ -72,7 +71,7 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscription = event.data.object as any;
 
-    await db
+    await supabase
       .from('profiles')
       .update({
         subscription_status: subscription.status,
@@ -86,7 +85,7 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscription = event.data.object as any;
 
-    await db
+    await supabase
       .from('profiles')
       .update({
         subscription_status: 'canceled', // or subscription.status which should be 'canceled'

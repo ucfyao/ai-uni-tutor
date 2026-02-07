@@ -173,8 +173,7 @@ export class QuotaService {
     }
 
     const supabase = await createClient();
-    const db = supabase as any;
-    const { data: profile } = await db
+    const { data: profile } = await supabase
       .from('profiles')
       .select('subscription_status')
       .eq('id', user.id)

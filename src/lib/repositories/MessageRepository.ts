@@ -36,8 +36,7 @@ export class MessageRepository implements IMessageRepository {
 
   async findBySessionId(sessionId: string): Promise<MessageEntity[]> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('chat_messages')
       .select('id, session_id, role, content, card_id, created_at')
       .eq('session_id', sessionId)
@@ -49,8 +48,7 @@ export class MessageRepository implements IMessageRepository {
 
   async findByCardId(cardId: string): Promise<MessageEntity[]> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('chat_messages')
       .select('id, session_id, role, content, card_id, created_at')
       .eq('card_id', cardId)
@@ -62,9 +60,8 @@ export class MessageRepository implements IMessageRepository {
 
   async create(dto: CreateMessageDTO): Promise<MessageEntity> {
     const supabase = await createClient();
-    const db = supabase as any;
 
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('chat_messages')
       .insert({
         session_id: dto.sessionId,
@@ -79,7 +76,7 @@ export class MessageRepository implements IMessageRepository {
     if (error) throw new Error(`Failed to create message: ${error.message}`);
 
     // Update session's updated_at timestamp
-    await db
+    await supabase
       .from('chat_sessions')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', dto.sessionId);
@@ -89,8 +86,7 @@ export class MessageRepository implements IMessageRepository {
 
   async deleteBySessionId(sessionId: string): Promise<void> {
     const supabase = await createClient();
-    const db = supabase as any;
-    const { error } = await db.from('chat_messages').delete().eq('session_id', sessionId);
+    const { error } = await supabase.from('chat_messages').delete().eq('session_id', sessionId);
 
     if (error) throw new Error(`Failed to delete messages: ${error.message}`);
   }
