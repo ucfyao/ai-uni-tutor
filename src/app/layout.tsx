@@ -29,6 +29,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <ColorSchemeScript />
+        <link
+          rel="preload"
+          href="/fonts/Outfit-VariableFont_wght.ttf"
+          as="font"
+          type="font/ttf"
+          crossOrigin="anonymous"
+        />
       </head>
       <body suppressHydrationWarning>
         <MantineProvider theme={theme}>
