@@ -262,13 +262,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   }, [mode, isUser]);
 
   return (
-    <Group
-      align="flex-start"
-      justify={isUser ? 'flex-end' : 'flex-start'}
-      wrap="nowrap"
-      gap="sm"
-      px="md"
-    >
+    <Group align="flex-start" justify={isUser ? 'flex-end' : 'flex-start'} wrap="nowrap" gap="sm">
       {!isUser && (
         <Box mt={4}>
           <Box
@@ -293,12 +287,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       <Box style={{ maxWidth: '85%' }}>
         <Box
-          p={isUser ? '10px 18px' : 0}
+          p={isUser ? '10px 18px' : '12px 16px'}
           onMouseUp={handleMouseUp} // Listen for selection
           style={{
-            borderRadius: isUser ? '18px' : 0,
-            background: isUser ? 'var(--mantine-color-gray-1)' : 'none',
-            boxShadow: 'none',
+            borderRadius: '18px',
+            background: isUser ? 'var(--mantine-color-gray-1)' : 'rgba(255, 255, 255, 0.96)',
+            border: isUser
+              ? '1px solid var(--mantine-color-gray-2)'
+              : '1px solid var(--mantine-color-gray-2)',
+            boxShadow: isUser ? 'none' : '0 2px 12px rgba(0, 0, 0, 0.04)',
             color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
             position: 'relative',
           }}
@@ -334,7 +331,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           <Box className="markdown-content" c={isUser ? 'dark.9' : 'dark.8'}>
             {isUser ? (
-              <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.6}>
+              <Text style={{ whiteSpace: 'pre-wrap' }} fz="15px" lh={1.65}>
                 {message.content}
               </Text>
             ) : (

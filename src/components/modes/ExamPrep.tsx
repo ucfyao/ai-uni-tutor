@@ -229,7 +229,7 @@ export const ExamPrep: React.FC<ExamPrepProps> = ({ session: initialSession, onU
   if (!session) return null;
 
   return (
-    <Stack gap={0} h="100%" w="100%" pt={24}>
+    <Stack gap={0} h="100%" w="100%" style={{ minHeight: 0, overflow: 'hidden' }}>
       <Group
         flex={1}
         gap={0}
@@ -248,7 +248,15 @@ export const ExamPrep: React.FC<ExamPrepProps> = ({ session: initialSession, onU
             isKnowledgeMode={false}
           />
 
-          <Box bg="white" px={0} pb={0} pt={0} style={{ flexShrink: 0, zIndex: 5 }}>
+          <Box
+            style={{
+              flexShrink: 0,
+              zIndex: 5,
+              background:
+                'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 28%, rgba(255,255,255,1) 60%)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
             <ChatInput
               input={input}
               setInput={setInput}

@@ -208,21 +208,22 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        background: '#fff',
+        background: 'white',
       }}
     >
       {/* Header */}
       <Group
         gap={8}
-        px="lg"
-        py="md"
+        px="md"
+        py="sm"
         justify="space-between"
         style={{
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: '1px solid var(--mantine-color-gray-2)',
+          backgroundColor: 'white',
         }}
       >
         <Group gap={8}>
-          <ThemeIcon size="md" radius="md" variant="light" color="indigo">
+          <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
             <BookOpen size={16} />
           </ThemeIcon>
           <Text size="sm" fw={600} c="gray.8">
@@ -276,7 +277,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         >
           <Stack gap={6} p="lg">
             {cards.length === 0 && (
-              <Paper withBorder radius="md" p="lg" bg="gray.0">
+              <Paper withBorder radius="md" p="lg" bg="white">
                 <Center>
                   <Stack gap="sm" align="center">
                     <ThemeIcon size={56} radius="md" variant="light" color="indigo">
@@ -297,6 +298,18 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                 onChange={setOpenedSections}
                 variant="separated"
                 radius="md"
+                styles={{
+                  item: {
+                    backgroundColor: 'white',
+                    border: '1px solid var(--mantine-color-gray-2)',
+                  },
+                  control: {
+                    backgroundColor: 'white',
+                  },
+                  panel: {
+                    backgroundColor: 'white',
+                  },
+                }}
               >
                 {officialCards.length > 0 && (
                   <Accordion.Item value="official">

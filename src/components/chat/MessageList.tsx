@@ -61,7 +61,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   // Use full height for empty state to center Welcome Screen
   if (isNewChat && mode && courseCode && onPromptSelect) {
     return (
-      <Box h="100%" px="md">
+      <Box h="100%" px="md" bg="white">
         <ScrollArea h="100%" scrollbarSize={8} type="auto">
           <WelcomeScreen mode={mode} courseCode={courseCode} onPromptSelect={onPromptSelect} />
         </ScrollArea>
@@ -70,89 +70,91 @@ export const MessageList: React.FC<MessageListProps> = ({
   }
 
   return (
-    <ScrollArea viewportRef={viewport} flex={1} scrollbarSize={8} type="auto">
-      <Box pt="sm" pb="sm">
-        {/* Max-width container for optimal line length */}
-        <Box
-          style={{
-            maxWidth: '900px',
-            margin: '0 auto',
-            width: '100%',
-          }}
-          px="md"
-        >
-          <Stack gap="sm">
-            {mainMessages.map((msg) => {
-              // Clean content if assistant (remove knowledge cards markup)
-              const displayText =
-                msg.role === 'assistant' ? extractCards(msg.content).cleanContent : msg.content;
+    <Box bg="white" style={{ flex: 1, minHeight: 0 }}>
+      <ScrollArea viewportRef={viewport} h="100%" scrollbarSize={8} type="auto">
+        <Box pt="md" pb="md">
+          {/* Max-width container for optimal line length */}
+          <Box
+            style={{
+              maxWidth: '900px',
+              margin: '0 auto',
+              width: '100%',
+            }}
+            px="md"
+          >
+            <Stack gap="sm">
+              {mainMessages.map((msg) => {
+                // Clean content if assistant (remove knowledge cards markup)
+                const displayText =
+                  msg.role === 'assistant' ? extractCards(msg.content).cleanContent : msg.content;
 
-              return (
-                <MessageBubble
-                  key={msg.id}
-                  message={{ ...msg, content: displayText }}
-                  isStreaming={msg.id === streamingMsgId}
-                  onStreamingComplete={() => {}}
-                  mode={mode}
-                  knowledgeCards={knowledgeCards}
-                  onHighlightClick={onHighlightClick}
-                  onAddCard={onAddCard}
-                />
-              );
-            })}
+                return (
+                  <MessageBubble
+                    key={msg.id}
+                    message={{ ...msg, content: displayText }}
+                    isStreaming={msg.id === streamingMsgId}
+                    onStreamingComplete={() => {}}
+                    mode={mode}
+                    knowledgeCards={knowledgeCards}
+                    onHighlightClick={onHighlightClick}
+                    onAddCard={onAddCard}
+                  />
+                );
+              })}
 
-            {/* Loading state */}
-            {isTyping && streamingMsgId === null && (
-              <Group gap="md">
-                <Avatar radius="xl" size="md" color="indigo">
-                  <Bot size={20} />
-                </Avatar>
-                <Box>
-                  <Skeleton height={12} width={200} radius="md" mb={6} />
-                  <Skeleton height={12} width={300} radius="md" mb={6} />
-                  <Skeleton height={12} width={250} radius="md" />
-                </Box>
-              </Group>
-            )}
-
-            {/* Error state */}
-            {lastError && (
-              <Box
-                p="md"
-                style={{
-                  borderRadius: 8,
-                  backgroundColor: '#fee',
-                  border: '1px solid #fcc',
-                }}
-              >
-                <Group gap="sm" align="flex-start">
-                  <AlertCircle size={20} color="#c00" />
-                  <Box style={{ flex: 1 }}>
-                    <Text size="sm" c="red.8" fw={500}>
-                      Error
-                    </Text>
-                    <Text size="sm" c="red.7">
-                      {lastError.message}
-                    </Text>
-                    {lastError.canRetry && (
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        color="red"
-                        leftSection={<RefreshCw size={14} />}
-                        onClick={onRetry}
-                        mt="xs"
-                      >
-                        Retry
-                      </Button>
-                    )}
+              {/* Loading state */}
+              {isTyping && streamingMsgId === null && (
+                <Group gap="md">
+                  <Avatar radius="xl" size="md" color="indigo">
+                    <Bot size={20} />
+                  </Avatar>
+                  <Box>
+                    <Skeleton height={12} width={200} radius="md" mb={6} />
+                    <Skeleton height={12} width={300} radius="md" mb={6} />
+                    <Skeleton height={12} width={250} radius="md" />
                   </Box>
                 </Group>
-              </Box>
-            )}
-          </Stack>
+              )}
+
+              {/* Error state */}
+              {lastError && (
+                <Box
+                  p="md"
+                  style={{
+                    borderRadius: 8,
+                    backgroundColor: '#fee',
+                    border: '1px solid #fcc',
+                  }}
+                >
+                  <Group gap="sm" align="flex-start">
+                    <AlertCircle size={20} color="#c00" />
+                    <Box style={{ flex: 1 }}>
+                      <Text size="sm" c="red.8" fw={500}>
+                        Error
+                      </Text>
+                      <Text size="sm" c="red.7">
+                        {lastError.message}
+                      </Text>
+                      {lastError.canRetry && (
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          leftSection={<RefreshCw size={14} />}
+                          onClick={onRetry}
+                          mt="xs"
+                        >
+                          Retry
+                        </Button>
+                      )}
+                    </Box>
+                  </Group>
+                </Box>
+              )}
+            </Stack>
+          </Box>
         </Box>
-      </Box>
-    </ScrollArea>
+      </ScrollArea>
+    </Box>
   );
 };

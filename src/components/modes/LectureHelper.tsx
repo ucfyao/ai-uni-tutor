@@ -395,7 +395,16 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onPromptSelect={(prompt) => handleSend(prompt)}
           />
 
-          <Box bg="white" px={0} pb="sm" pt={0} style={{ flexShrink: 0, zIndex: 5 }}>
+          <Box
+            px={0}
+            style={{
+              flexShrink: 0,
+              zIndex: 5,
+              background:
+                'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 28%, rgba(255,255,255,1) 60%)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
             <Box style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
               <ChatInput
                 input={input}
@@ -424,7 +433,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           h="100%"
           w={380}
           style={{
-            borderLeft: '1px solid #e2e8f0',
+            borderLeft: '1px solid var(--mantine-color-gray-2)',
             flexShrink: 0,
             minHeight: 0,
           }}

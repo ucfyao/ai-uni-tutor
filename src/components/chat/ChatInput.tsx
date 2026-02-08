@@ -47,8 +47,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onFileSelect,
 }) => {
   return (
-    <Container size={isKnowledgeMode ? '100%' : '48rem'} px={isKnowledgeMode ? 'md' : 0} w="100%">
-      <Stack gap={8}>
+    <Container
+      size={isKnowledgeMode ? '100%' : '56.25rem'} // 900px, matches MessageList maxWidth
+      px={isKnowledgeMode ? 'md' : 0}
+      w="100%"
+    >
+      <Stack gap={6}>
         {/* Image Previews */}
         {imagePreviews.length > 0 && (
           <Group gap={8} px={4}>
@@ -88,17 +92,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <Box
           p={4}
           style={{
-            borderRadius: '24px',
+            borderRadius: '20px',
             display: 'flex',
             alignItems: 'flex-end',
             border: '1px solid var(--mantine-color-gray-3)',
-            backgroundColor: isTyping ? 'var(--mantine-color-gray-1)' : 'rgba(255, 255, 255, 1)',
+            backgroundColor: isTyping ? 'var(--mantine-color-gray-1)' : 'rgba(255, 255, 255, 0.92)',
             transition: 'all 0.2s ease',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+            boxShadow: '0 1px 6px rgba(0, 0, 0, 0.04)',
             opacity: isTyping ? 0.7 : 1,
             cursor: isTyping ? 'not-allowed' : 'text',
           }}
-          className={`group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 focus-within:shadow-lg ${
+          className={`group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 ${
             isTyping ? 'pointer-events-none' : ''
           }`}
         >
@@ -177,7 +181,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </ActionIcon>
         </Box>
 
-        <Group justify="center" gap="xl" visibleFrom="sm" opacity={0.6}>
+        <Group justify="center" gap="xs" visibleFrom="sm" opacity={0.55}>
           <Text size="xs" c="dimmed" fw={500} ta="center">
             AI can make mistakes. Please verify important information.
           </Text>

@@ -137,7 +137,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           breakpoint: 'sm',
           collapsed: { mobile: !mobileOpened },
         }}
-        header={{ height: 50, collapsed: !isMobile }} // Enable header only on mobile
+        header={{ height: 52, collapsed: !isMobile }} // Enable header only on mobile
         padding={0}
         bg="gray.0"
       >
@@ -189,7 +189,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           />
         </AppShell.Navbar>
 
-        <AppShell.Main h="100dvh" bg="white" pt={isMobile ? 50 : 0} pb={0}>
+        <AppShell.Main h="100dvh" bg="white" pt={isMobile ? 52 : 0} pb={0}>
           {children}
         </AppShell.Main>
       </AppShell>

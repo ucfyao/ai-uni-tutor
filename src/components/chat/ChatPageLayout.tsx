@@ -44,9 +44,11 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
           align="center"
           wrap="nowrap"
           style={{ cursor: 'pointer', flex: 1, minWidth: 0 }}
-          className="hover:bg-gray-50 p-2 rounded-lg transition-colors"
+          px={isMobile ? 6 : 8}
+          py={isMobile ? 4 : 6}
+          className="hover:bg-gray-50 rounded-lg transition-colors"
         >
-          <Text fw={600} size="lg" c="dark.8" truncate>
+          <Text fw={650} size={isMobile ? 'md' : 'lg'} c="dark.8" truncate>
             {session.course.code}
           </Text>
           <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
@@ -55,12 +57,12 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
           </Text>
           {session.mode && MODES_METADATA[session.mode] && (
             <ThemeIcon
-              size={20}
+              size={isMobile ? 18 : 20}
               radius="md"
               variant="light"
               color={MODES_METADATA[session.mode].color}
             >
-              {React.createElement(MODES_METADATA[session.mode].icon, { size: 12 })}
+              {React.createElement(MODES_METADATA[session.mode].icon, { size: isMobile ? 11 : 12 })}
             </ThemeIcon>
           )}
           <Text
@@ -83,7 +85,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
               variant={mobileKnowledgeOpened ? 'light' : 'subtle'}
               color="indigo"
               radius="xl"
-              size="lg"
+              size={isMobile ? 'md' : 'lg'}
               onClick={() => {
                 setMobileKnowledgeOpened(true);
                 onKnowledgePanelToggle?.();
@@ -91,18 +93,18 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
               aria-label="Open knowledge panel"
               aria-expanded={mobileKnowledgeOpened}
             >
-              <BookOpen size={20} strokeWidth={1.5} />
+              <BookOpen size={isMobile ? 18 : 20} strokeWidth={1.5} />
             </ActionIcon>
           )}
           <ActionIcon
             variant="subtle"
             c="dimmed"
             radius="xl"
-            size="lg"
+            size={isMobile ? 'md' : 'lg'}
             onClick={onShare}
             aria-label="Share conversation"
           >
-            <Share2 size={20} strokeWidth={1.5} />
+            <Share2 size={isMobile ? 18 : 20} strokeWidth={1.5} />
           </ActionIcon>
 
           <Menu position="bottom-end" withArrow>
@@ -111,10 +113,10 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
                 variant="subtle"
                 c="dimmed"
                 radius="xl"
-                size="lg"
+                size={isMobile ? 'md' : 'lg'}
                 aria-label="More options"
               >
-                <MoreHorizontal size={20} strokeWidth={1.5} />
+                <MoreHorizontal size={isMobile ? 18 : 20} strokeWidth={1.5} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
@@ -145,6 +147,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
       session.isPinned,
       showKnowledgePanel,
       isCompact,
+      isMobile,
       mobileKnowledgeOpened,
       onShare,
       onRename,
@@ -172,8 +175,10 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
       {!isMobile && (
         <Box
           px="md"
-          py="sm"
+          h={52}
           style={{
+            display: 'flex',
+            alignItems: 'center',
             borderBottom: '1px solid var(--mantine-color-gray-2)',
             backgroundColor: 'white',
           }}
