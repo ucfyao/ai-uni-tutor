@@ -26,9 +26,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         h1: ({ children }) => (
           <Title
             order={2}
-            size={compact ? 20 : 32}
-            mt={compact ? 16 : 32}
-            mb={compact ? 8 : 16}
+            size={compact ? 18 : 24}
+            mt={compact ? 14 : 20}
+            mb={compact ? 6 : 10}
             c="slate.9"
             fw={700}
           >
@@ -38,9 +38,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         h2: ({ children }) => (
           <Title
             order={3}
-            size={compact ? 18 : 26}
-            mt={compact ? 12 : 24}
-            mb={compact ? 6 : 12}
+            size={compact ? 16 : 20}
+            mt={compact ? 12 : 18}
+            mb={compact ? 6 : 8}
             c="slate.9"
             fw={600}
           >
@@ -50,9 +50,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         h3: ({ children }) => (
           <Title
             order={4}
-            size={compact ? 16 : 22}
-            mt={compact ? 10 : 20}
-            mb={compact ? 4 : 8}
+            size={compact ? 15 : 18}
+            mt={compact ? 10 : 16}
+            mb={compact ? 4 : 6}
             c="slate.9"
             fw={600}
           >
@@ -61,10 +61,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ),
         p: ({ children }) => (
           <Text
-            size={compact ? 'xs' : 'xl'}
+            size={compact ? 'xs' : 'sm'}
             c="slate.8"
             mb={compact ? 'xs' : 'sm'}
-            style={{ lineHeight: compact ? 1.5 : 1.8, fontSize: compact ? '13px' : '18px' }}
+            style={{ lineHeight: compact ? 1.5 : 1.7, fontSize: compact ? '13px' : '15px' }}
           >
             {children}
           </Text>
@@ -113,12 +113,19 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               {children}
             </Code>
           ) : (
-            <Paper p="md" bg="slate.0" withBorder radius="md" my="md" style={{ overflow: 'auto' }}>
+            <Paper
+              p={compact ? 'sm' : 'md'}
+              bg="slate.0"
+              withBorder
+              radius="md"
+              my="md"
+              style={{ overflow: 'auto' }}
+            >
               <Code
                 block
                 c="slate.9"
                 bg="transparent"
-                style={{ fontSize: compact ? '13px' : '16px', lineHeight: '1.6' }}
+                style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
               >
                 {children}
               </Code>
@@ -163,8 +170,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         li: ({ children }) => (
           <li
             style={{
-              fontSize: compact ? 13 : 18,
-              lineHeight: compact ? '20px' : '30px',
+              fontSize: compact ? 13 : 15,
+              lineHeight: compact ? '20px' : '24px',
               color: 'var(--mantine-color-slate-7)',
               marginBottom: compact ? 2 : 4,
             }}

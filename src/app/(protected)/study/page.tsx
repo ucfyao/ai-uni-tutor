@@ -35,35 +35,46 @@ export default function HomePage() {
 
   return (
     <>
-      <Center h="100%">
-        <Container size="xl" w="100%">
-          <Stack align="center" gap={48} ta="center">
-            <Stack align="center" gap={0}>
-              <Box mb={24} className="animate-in fade-in zoom-in duration-700 ease-out">
-                <Logo size={120} alt="AI Uni Tutor" />
-              </Box>
+      <Box
+        h="100%"
+        className="hero-radial"
+        style={{
+          background: 'var(--gradient-hero)',
+        }}
+      >
+        <Center h="100%">
+          <Container size="xl" w="100%" py={48}>
+            <Stack align="center" gap={40} ta="center">
+              <Stack align="center" gap={0}>
+                <Box mb={20} className="animate-in fade-in zoom-in duration-700 ease-out">
+                  <Logo size={112} alt="AI Uni Tutor" />
+                </Box>
 
-              <Stack gap={12} align="center" mb={16}>
-                <Title
-                  order={1}
-                  fw={800}
-                  c="dark.9"
-                  style={{ fontSize: '36px', letterSpacing: '-1.5px' }}
-                >
-                  AI Uni Tutor
-                </Title>
-                <Text c="dark.5" size="lg" fw={500} maw={560} mx="auto">
-                  Choose your learning mode to start your personalized study session.
-                </Text>
+                <Stack gap={10} align="center" mb={12}>
+                  <Title
+                    order={1}
+                    fw={850}
+                    c="dark.9"
+                    style={{
+                      fontSize: 'clamp(30px, 3.6vw, 40px)',
+                      letterSpacing: '-1.5px',
+                      lineHeight: 1.1,
+                      textWrap: 'balance',
+                    }}
+                  >
+                    AI Uni Tutor
+                  </Title>
+                  <Text c="dark.5" size="md" fw={500} maw={560} mx="auto" lh={1.6}>
+                    Choose your learning mode to start your personalized study session.
+                  </Text>
+                </Stack>
               </Stack>
-            </Stack>
 
-            <Container size="50rem" w="100%">
               <ModeSelectionGrid onModeSelect={handleModeClick} />
-            </Container>
-          </Stack>
-        </Container>
-      </Center>
+            </Stack>
+          </Container>
+        </Center>
+      </Box>
 
       <NewSessionModal
         opened={modalOpened}

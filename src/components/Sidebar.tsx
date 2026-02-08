@@ -87,7 +87,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   // === COLLAPSED STATE ===
   if (!opened) {
     return (
-      <Stack h="100%" bg="white" align="center" gap={0}>
+      <Stack
+        h="100%"
+        bg="gray.0"
+        align="center"
+        gap={0}
+        style={{ borderRight: '1px solid var(--mantine-color-gray-2)' }}
+      >
         {/* Header area - 52px height to match expanded */}
         <Box h={52} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Tooltip label="Open sidebar" position="right" color="dark" radius="md">
@@ -196,7 +202,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // === EXPANDED STATE ===
   return (
-    <Stack h="100%" gap={0} bg="white">
+    <Stack
+      h="100%"
+      gap={0}
+      bg="gray.0"
+      style={{ borderRight: '1px solid var(--mantine-color-gray-2)' }}
+    >
       {/* Header: 52px height, Logo and Toggle aligned */}
       <Group justify="space-between" align="center" h={52} px={8}>
         <UnstyledButton

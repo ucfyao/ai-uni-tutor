@@ -26,6 +26,8 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
   onUpdateSession,
   onModeSelect,
 }) => {
+  const isStandalone = !session;
+
   const handleModeSelect = (mode: ModeMetadata) => {
     // If onModeSelect provided (homepage), use that
     if (onModeSelect) {
@@ -50,9 +52,15 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
   };
 
   return (
-    <Stack flex={1} px="md" justify="center" gap={64} style={{ overflowY: 'auto' }}>
+    <Stack
+      flex={isStandalone ? undefined : 1}
+      px={isStandalone ? 0 : 'md'}
+      justify={isStandalone ? undefined : 'center'}
+      gap={isStandalone ? 40 : 64}
+      style={isStandalone ? undefined : { overflowY: 'auto' }}
+    >
       <Container size="50rem" w="100%">
-        <Stack gap={64}>
+        <Stack gap={isStandalone ? 40 : 64}>
           {/* Welcome Hero Section - Only show if in session */}
           {session && (
             <Stack align="center" gap={32} ta="center">
@@ -137,8 +145,10 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
                       position: 'relative',
                       transition: 'all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)',
                       minHeight: '140px',
+                      // Used by globals.css to style hover/focus states without dynamic Tailwind classes.
+                      ['--mode-accent' as any]: `var(--mantine-color-${mode.color}-7)`,
                     }}
-                    className={`group ${mode.hoverClass} hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2`}
+                    className={`mode-card group ${mode.hoverClass} hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2`}
                     onClick={() => handleModeSelect(mode)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -178,7 +188,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
                           c="dark.9"
                           lh={1.2}
                           mb={4}
-                          className={`group-hover:text-${mode.color === 'indigo' ? 'indigo-700' : 'dark-9'} transition-colors`}
+                          className="mode-card-title transition-colors"
                         >
                           {mode.label}
                         </Text>
