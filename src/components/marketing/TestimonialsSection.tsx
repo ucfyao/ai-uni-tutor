@@ -5,13 +5,13 @@ const TestimonialsSection = () => {
   const { t } = useLanguage();
 
   return (
-    <section id="testimonials" className="py-24 relative">
+    <section id="testimonials" className="py-16 md:py-20 relative scroll-mt-24">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/10 to-background" />
 
       <div className="container mx-auto px-6 relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 md:mb-14">
           <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
             {t.testimonials.title}{' '}
             <span className="gradient-text">{t.testimonials.titleHighlight}</span>
@@ -22,11 +22,11 @@ const TestimonialsSection = () => {
         </div>
 
         {/* Testimonials Grid */}
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-6 md:gap-8">
           {t.testimonials.items.map((testimonial, index) => (
             <div
               key={index}
-              className="glass-card p-8 relative group hover:scale-[1.02] transition-all duration-300"
+              className="glass-card p-6 md:p-8 relative group hover:scale-[1.02] transition-all duration-300"
             >
               {/* Quote Icon */}
               <Quote className="absolute top-6 right-6 w-10 h-10 text-primary/20" />

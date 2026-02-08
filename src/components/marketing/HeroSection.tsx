@@ -7,9 +7,9 @@ const HeroSection = () => {
   const { t } = useLanguage();
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16 bg-background">
+    <section className="relative min-h-[100svh] flex items-start justify-center overflow-hidden pt-24 md:pt-28 pb-16 bg-background">
       {/* Background Effects */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_hsl(220_85%_55%_/_0.08),_transparent_50%)]" />
+      <div className="absolute inset-0 hero-radial" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pulse-glow" />
       <div
         className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-accent/10 rounded-full blur-[100px] pulse-glow"
@@ -17,7 +17,7 @@ const HeroSection = () => {
       />
 
       {/* Grid Pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(220_15%_88%_/_0.5)_1px,transparent_1px),linear-gradient(to_bottom,hsl(220_15%_88%_/_0.5)_1px,transparent_1px)] bg-[size:60px_60px]" />
+      <div className="absolute inset-0 hero-grid" />
 
       <div className="container mx-auto px-6 relative z-10">
         <div className="max-w-4xl mx-auto text-center">
@@ -28,7 +28,7 @@ const HeroSection = () => {
           </div>
 
           {/* Main Heading */}
-          <h1 className="font-display text-5xl md:text-7xl font-bold leading-tight mb-6 animate-fade-in-up opacity-0 animate-delay-100 text-foreground">
+          <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold leading-tight mb-6 animate-fade-in-up opacity-0 animate-delay-100 text-foreground">
             {t.hero.title}
             <span className="gradient-text">{t.hero.titleHighlight}</span>
           </h1>
@@ -52,17 +52,17 @@ const HeroSection = () => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-8 mt-16 pt-16 border-t border-border/30 animate-fade-in-up opacity-0 animate-delay-400">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-12 sm:mt-16 pt-12 sm:pt-16 border-t border-border/30 animate-fade-in-up opacity-0 animate-delay-400">
             <div>
-              <div className="font-display text-4xl font-bold gradient-text">50K+</div>
+              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">50K+</div>
               <div className="text-muted-foreground mt-1">{t.hero.stats.students}</div>
             </div>
             <div>
-              <div className="font-display text-4xl font-bold gradient-text">98%</div>
+              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">98%</div>
               <div className="text-muted-foreground mt-1">{t.hero.stats.satisfaction}</div>
             </div>
             <div>
-              <div className="font-display text-4xl font-bold gradient-text">200+</div>
+              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">200+</div>
               <div className="text-muted-foreground mt-1">{t.hero.stats.subjects}</div>
             </div>
           </div>
