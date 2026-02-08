@@ -176,6 +176,22 @@ const KnowledgeCardItem = memo(
             >
               {isExplaining ? (
                 <Stack gap={10}>
+                  {card.source?.kind === 'selection' && card.source.excerpt.trim().length > 0 && (
+                    <Box
+                      px={12}
+                      py={10}
+                      style={{
+                        background: 'var(--mantine-color-gray-0)',
+                        borderRadius: 8,
+                        border: '1px solid var(--mantine-color-gray-2)',
+                        borderLeft: '3px solid var(--mantine-color-indigo-4)',
+                      }}
+                    >
+                      <Text size="xs" c="gray.7" style={{ whiteSpace: 'pre-wrap' }} lineClamp={6}>
+                        {card.source.excerpt}
+                      </Text>
+                    </Box>
+                  )}
                   <Group gap={8}>
                     <Loader size={12} color="indigo" />
                     <Text size="xs" c="gray.5" fw={500}>
@@ -187,7 +203,30 @@ const KnowledgeCardItem = memo(
                   <Skeleton height={8} width="60%" radius={4} animate />
                 </Stack>
               ) : (
-                <MarkdownRenderer content={card.content} compact />
+                <>
+                  {card.source?.kind === 'selection' && card.source.excerpt.trim().length > 0 && (
+                    <Box
+                      mb={10}
+                      px={12}
+                      py={10}
+                      style={{
+                        background: 'var(--mantine-color-gray-0)',
+                        borderRadius: 8,
+                        border: '1px solid var(--mantine-color-gray-2)',
+                        borderLeft: '3px solid var(--mantine-color-indigo-4)',
+                      }}
+                    >
+                      <Text size="xs" c="gray.7" style={{ whiteSpace: 'pre-wrap' }} lineClamp={8}>
+                        {card.source.excerpt}
+                      </Text>
+                    </Box>
+                  )}
+                  {(!card.source ||
+                    card.source.kind !== 'selection' ||
+                    card.content.trim() !== card.source.excerpt.trim()) && (
+                    <MarkdownRenderer content={card.content} compact />
+                  )}
+                </>
               )}
             </Box>
 

@@ -26,6 +26,7 @@ interface ChatInputProps {
   onFileClick: () => void;
   isKnowledgeMode: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
@@ -42,6 +43,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onFileClick,
   isKnowledgeMode,
   fileInputRef,
+  inputRef,
   onFileSelect,
 }) => {
   return (
@@ -130,6 +132,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </Tooltip>
 
           <Textarea
+            ref={inputRef}
             autosize
             minRows={1}
             maxRows={8}

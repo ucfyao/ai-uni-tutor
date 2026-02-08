@@ -41,7 +41,13 @@ interface ChatLayoutProps {
   loadingCardId?: string | null;
   explainingCardIds?: Set<string>;
   onHighlightClick?: (cardId: string) => void;
-  onAddCard?: (title: string, content: string) => Promise<void>;
+  onAddCard?: (
+    title: string,
+    content: string,
+    options?: {
+      source?: { messageId: string; role: 'user' | 'assistant' };
+    },
+  ) => Promise<void>;
 
   // Custom header (optional)
   header?: ReactNode;
