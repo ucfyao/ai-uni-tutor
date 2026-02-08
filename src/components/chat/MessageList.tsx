@@ -15,7 +15,13 @@ interface MessageListProps {
   mode: TutoringMode | null;
   knowledgeCards?: KnowledgeCard[];
   onHighlightClick?: (cardId: string) => void;
-  onAddCard?: (title: string, content: string) => Promise<void>;
+  onAddCard?: (
+    title: string,
+    content: string,
+    options?: {
+      source?: { messageId: string; role: 'user' | 'assistant' };
+    },
+  ) => Promise<void>;
   isKnowledgeMode?: boolean;
   courseCode?: string; // Added for WelcomeScreen
   onPromptSelect?: (prompt: string) => void; // Added for WelcomeScreen interaction

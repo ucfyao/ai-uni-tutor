@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { explainConcept } from '@/app/actions/chat';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
+import type { KnowledgeCardSource } from '@/types/knowledge';
 
 interface UseKnowledgeCardsOptions {
   sessionId: string;
@@ -13,7 +13,7 @@ interface UseKnowledgeCardsOptions {
 export function useKnowledgeCards({
   sessionId,
   messages,
-  courseCode,
+  courseCode: _courseCode,
   enabled,
 }: UseKnowledgeCardsOptions) {
   // User-managed cards (persisted to localStorage)
@@ -21,7 +21,9 @@ export function useKnowledgeCards({
     if (typeof window === 'undefined' || !enabled) return [];
     try {
       const stored = localStorage.getItem(`knowledge-cards-${sessionId}`);
-      return stored ? JSON.parse(stored) : [];
+      const parsed = stored ? (JSON.parse(stored) as KnowledgeCard[]) : [];
+      // Back-compat: ensure persisted cards are marked as user-created
+      return parsed.map((c) => ({ ...c, origin: c.origin ?? 'user' }));
     } catch {
       return [];
     }
@@ -38,22 +40,23 @@ export function useKnowledgeCards({
     }
   });
 
-  // Track cards being explained by AI
-  const [explainingCardIds, setExplainingCardIds] = useState<Set<string>>(new Set());
+  // Track cards being explained by AI (reserved for future use)
+  const [explainingCardIds] = useState<Set<string>>(new Set());
 
   // Save to localStorage when cards change
   useEffect(() => {
     if (typeof window === 'undefined' || !enabled) return;
-    localStorage.setItem(`knowledge-cards-${sessionId}`, JSON.stringify(manualCards));
+    // Ensure we persist user-created cards with the right origin marker.
+    localStorage.setItem(
+      `knowledge-cards-${sessionId}`,
+      JSON.stringify(manualCards.map((c) => ({ ...c, origin: c.origin ?? 'user' }))),
+    );
   }, [manualCards, sessionId, enabled]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !enabled) return;
     localStorage.setItem(`deleted-cards-${sessionId}`, JSON.stringify([...deletedCardIds]));
   }, [deletedCardIds, sessionId, enabled]);
-
-  // Cache for card extraction to avoid re-parsing same messages
-  const extractionCache = useRef<Record<string, { content: string; cards: KnowledgeCard[] }>>({});
 
   const autoCards = useMemo(() => {
     if (!enabled) return [];
@@ -65,19 +68,10 @@ export function useKnowledgeCards({
       (msg) => msg.role === 'assistant' && !msg.cardId && msg.content,
     );
 
-    assistantMessages.forEach((msg) => {
-      // Check cache first
-      const cached = extractionCache.current[msg.id];
-      if (cached && cached.content === msg.content) {
-        allCards.push(...cached.cards);
-        return;
-      }
-
-      // Cache miss or content changed - re-extract
+    for (const msg of assistantMessages) {
       const { cards } = extractCards(msg.content);
-      extractionCache.current[msg.id] = { content: msg.content, cards };
-      allCards.push(...cards);
-    });
+      allCards.push(...cards.map((c) => ({ ...c, origin: c.origin ?? 'official' })));
+    }
 
     // Deduplicate by title
     return Array.from(new Map(allCards.map((c) => [c.title, c])).values());
@@ -97,54 +91,24 @@ export function useKnowledgeCards({
 
   // Add manual card with AI explanation
   const addManualCard = useCallback(
-    async (
-      title: string,
-      content: string,
-    ): Promise<{ success: boolean; error?: string; cardId?: string }> => {
-      if (!enabled) return { success: false, error: 'Knowledge cards not enabled for this mode' };
+    (title: string, content: string, source?: KnowledgeCardSource): string => {
+      if (!enabled) {
+        return '';
+      }
 
       const cardId = `manual-${Date.now()}`;
       const newCard: KnowledgeCard = {
         id: cardId,
         title: title.trim(),
         content: content.trim(),
+        source,
+        origin: 'user',
       };
 
-      // Add card immediately with original content
       setManualCards((prev) => [...prev, newCard]);
-
-      // Mark as explaining
-      setExplainingCardIds((prev) => new Set(prev).add(cardId));
-
-      try {
-        const result = await explainConcept(title.trim(), content.trim(), courseCode);
-
-        if (result.success) {
-          // Update card with AI explanation
-          setManualCards((prev) =>
-            prev.map((card) =>
-              card.id === cardId ? { ...card, content: result.explanation } : card,
-            ),
-          );
-          return { success: true, cardId };
-        } else if (result.error?.includes('Daily limit reached')) {
-          return { success: false, error: 'limit' };
-        } else {
-          // Keep original content on other errors (silent fail)
-          return { success: true, cardId }; // Still considered success since card was added
-        }
-      } catch (e) {
-        console.error('Failed to explain concept:', e);
-        return { success: true, cardId }; // Still considered success since card was added
-      } finally {
-        setExplainingCardIds((prev) => {
-          const next = new Set(prev);
-          next.delete(cardId);
-          return next;
-        });
-      }
+      return cardId;
     },
-    [courseCode, enabled],
+    [enabled],
   );
 
   // Delete card

@@ -94,11 +94,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   );
 
   const removeSession = useCallback(async (id: string) => {
-    setSessions((prev) => prev.filter((s) => s.id !== id));
+    let previousSessions: ChatSession[] | null = null;
+    setSessions((prev) => {
+      previousSessions = prev;
+      return prev.filter((s) => s.id !== id);
+    });
     try {
       await deleteChatSession(id);
     } catch (e) {
       console.error('Failed to delete', e);
+      if (previousSessions) {
+        setSessions(previousSessions);
+      }
     }
   }, []);
 

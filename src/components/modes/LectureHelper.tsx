@@ -60,6 +60,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Knowledge Panel drawer state for responsive screens
   const [knowledgePanelDrawerOpened, setKnowledgePanelDrawerOpened] = useState(false);
@@ -252,17 +253,44 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     setScrollTrigger((prev) => prev + 1); // Ensure useEffect fires even for same cardId
   };
 
-  const handleAddCard = async (title: string, content: string) => {
-    const result = await addManualCard(title, content);
-    if (result.error === 'limit') {
-      setLimitModalOpen(true);
-    } else if (result.success && result.cardId) {
-      const newCardId = result.cardId;
-      setActiveCardId(newCardId); // Expand the new card
-      setKnowledgePanelDrawerOpened(true); // Open drawer on mobile so user sees the new card
-      setPendingScrollToCardId(newCardId); // useEffect will scroll once the card is rendered
-      setScrollTrigger((prev) => prev + 1); // Ensure useEffect fires
-    }
+  const handleAddCard = async (
+    title: string,
+    content: string,
+    options?: {
+      source?: { messageId: string; role: 'user' | 'assistant' };
+    },
+  ) => {
+    if (!session) return;
+
+    const excerpt = content.trim();
+    const normalizedTitle = title.trim();
+
+    const source = {
+      kind: 'selection' as const,
+      excerpt,
+      createdAt: Date.now(),
+      sessionId: session.id,
+      messageId: options?.source?.messageId,
+      role: options?.source?.role,
+    };
+
+    const cardId = addManualCard(normalizedTitle, excerpt, source);
+    if (!cardId) return;
+
+    // Immediate UX: focus the new user card and show loading while explanation is generating.
+    setActiveCardId(cardId);
+    setKnowledgePanelDrawerOpened(true);
+    setPendingScrollToCardId(cardId);
+    setScrollTrigger((prev) => prev + 1);
+
+    // Insert prompt into chat input for user to edit/send (saves tokens vs auto-calling a separate explain action).
+    const quoted = excerpt
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+    const prompt = `Explain this:\n\n${quoted}`;
+    setInput((prev) => (prev.trim().length ? `${prev.trim()}\n\n${prompt}` : prompt));
+    requestAnimationFrame(() => chatInputRef.current?.focus());
   };
 
   const handleRetry = () => {
@@ -382,6 +410,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 onFileClick={() => fileInputRef.current?.click()}
                 isKnowledgeMode={true}
                 fileInputRef={fileInputRef}
+                inputRef={chatInputRef}
                 onFileSelect={handleFileSelect}
               />
             </Box>

@@ -1,7 +1,15 @@
+import type { KnowledgeCardSource } from '@/types/knowledge';
+
 export interface KnowledgeCard {
   id: string;
   title: string;
   content: string;
+  source?: KnowledgeCardSource;
+  /**
+   * `official`: cards generated/extracted from assistant output (default).
+   * `user`: cards explicitly created by the user (manual / selection saves).
+   */
+  origin?: 'official' | 'user';
 }
 
 // Shared helper to create a normalized card id and push to list

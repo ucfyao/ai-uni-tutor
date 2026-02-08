@@ -1,6 +1,20 @@
-import { BookOpen, Sparkles } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionIcon, Box, Button, Group, Modal, ScrollArea, Stack, Text } from '@mantine/core';
+import {
+  Accordion,
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Center,
+  Group,
+  Modal,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+  ThemeIcon,
+} from '@mantine/core';
 import { KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
 import KnowledgeCardItem from './KnowledgeCardItem';
@@ -42,6 +56,16 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const officialCards = React.useMemo(
+    () => cards.filter((c) => (c.origin ?? 'official') !== 'user'),
+    [cards],
+  );
+  const userCards = React.useMemo(() => cards.filter((c) => c.origin === 'user'), [cards]);
+  const [openedSections, setOpenedSections] = useState<string[]>(() => {
+    if (officialCards.length > 0) return ['official'];
+    if (userCards.length > 0) return ['mine'];
+    return [];
+  });
 
   // Memoize input change handler
   const handleInputChange = useCallback((cardId: string, value: string) => {
@@ -65,6 +89,20 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   useEffect(() => {
     if (!scrollToCardId || !onScrolledToCard) return;
 
+    const targetSection = (() => {
+      const card = cards.find((c) => c.id === scrollToCardId);
+      if (!card) return null;
+      return (card.origin ?? 'official') === 'user' ? 'mine' : 'official';
+    })();
+
+    if (targetSection) {
+      // UX: when focusing a user-created card, collapse official to reduce distraction.
+      setOpenedSections((prev) => {
+        if (targetSection === 'mine') return ['mine'];
+        return prev.includes(targetSection) ? prev : [...prev, targetSection];
+      });
+    }
+
     let attempts = 0;
     const maxAttempts = 30; // Try for ~1.5s max
     let hasScrolled = false;
@@ -74,13 +112,6 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
 
       const el = cardRefs.current[scrollToCardId];
       const viewport = viewportRef.current;
-
-      console.log(`[KnowledgePanel] Scroll attempt ${attempts + 1}:`, {
-        scrollToCardId,
-        scrollTrigger,
-        elExists: !!el,
-        viewportExists: !!viewport,
-      });
 
       if (!el || !viewport) {
         // Element not ready yet, retry
@@ -96,7 +127,6 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
 
       const viewportRect = viewport.getBoundingClientRect();
       if (viewportRect.width <= 0 || viewportRect.height <= 0) {
-        console.log('[KnowledgePanel] Panel hidden, skipping scroll');
         onScrolledToCard();
         return;
       }
@@ -115,27 +145,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         return;
       }
 
-      // Calculate element's offset relative to the scrollable viewport
-      // Walk up the DOM to find the element's position relative to the viewport
-      let offsetTop = 0;
-      let currentEl: HTMLElement | null = el;
-      while (currentEl && currentEl !== viewport) {
-        offsetTop += currentEl.offsetTop;
-        currentEl = currentEl.offsetParent as HTMLElement | null;
-        // Stop if we reach the scroll container or a positioned parent
-        if (currentEl && (currentEl === viewport || !viewport.contains(currentEl))) {
-          break;
-        }
-      }
-
-      const targetScroll = Math.max(0, offsetTop - 8); // 8px padding from top
-
-      console.log('[KnowledgePanel] Scrolling:', {
-        elOffsetTop: el.offsetTop,
-        calculatedOffset: offsetTop,
-        currentScrollTop: viewport.scrollTop,
-        targetScroll,
-      });
+      // Robust: compute offset via bounding rects (works through Accordions / nested containers)
+      const targetScroll = Math.max(0, viewport.scrollTop + (elRect.top - viewportRect.top) - 8);
 
       hasScrolled = true;
       viewport.scrollTo({ top: targetScroll, behavior: 'smooth' });
@@ -145,7 +156,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
     // Start trying after a small delay to allow React to render
     const timeoutId = setTimeout(() => {
       tryScroll();
-    }, 100); // Give time for expansion animation
+    }, 180); // Allow accordion/card expansion layout to settle
 
     return () => {
       clearTimeout(timeoutId);
@@ -211,17 +222,12 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         }}
       >
         <Group gap={8}>
-          <BookOpen size={16} color="#6366f1" />
+          <ThemeIcon size="md" radius="md" variant="light" color="indigo">
+            <BookOpen size={16} />
+          </ThemeIcon>
           <Text size="sm" fw={600} c="gray.8">
             Knowledge Cards
           </Text>
-          {cards.length > 0 && (
-            <Box px={6} py={2} style={{ background: '#6366f1', borderRadius: 10 }}>
-              <Text size="xs" fw={600} c="white" lh={1}>
-                {cards.length}
-              </Text>
-            </Box>
-          )}
         </Group>
         {onClose && (
           <ActionIcon
@@ -270,62 +276,99 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         >
           <Stack gap={6} p="lg">
             {cards.length === 0 && (
-              <Stack gap="sm" py="48px" px="lg" align="center">
-                {/* Icon */}
-                <Box
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '14px',
-                    background: 'linear-gradient(135deg, #f3f4ff 0%, #e8e4ff 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <BookOpen size={24} color="#6366f1" strokeWidth={1.5} />
-                </Box>
-
-                {/* Text */}
-                <Text size="sm" fw={600} c="gray.7" ta="center">
-                  No cards yet
-                </Text>
-
-                {/* Yellow Tip Box */}
-                <Box
-                  px="md"
-                  py={8}
-                  style={{
-                    background: '#fffbeb',
-                    borderRadius: 8,
-                  }}
-                >
-                  <Group gap={6} wrap="nowrap">
-                    <Sparkles size={14} color="#f59e0b" strokeWidth={2} />
-                    <Text size="xs" c="gray.6" fw={500}>
-                      Select text to explain
+              <Paper withBorder radius="md" p="lg" bg="gray.0">
+                <Center>
+                  <Stack gap="sm" align="center">
+                    <ThemeIcon size={56} radius="md" variant="light" color="indigo">
+                      <BookOpen size={24} strokeWidth={1.5} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={600} c="gray.7" ta="center">
+                      No cards yet
                     </Text>
-                  </Group>
-                </Box>
-              </Stack>
+                  </Stack>
+                </Center>
+              </Paper>
             )}
 
-            {cards.map((card) => (
-              <KnowledgeCardItem
-                key={card.id}
-                card={card}
-                isActive={activeCardId === card.id}
-                isExplaining={explainingCardIds.has(card.id)}
-                chats={cardChats[card.id] || []}
-                isLoading={loadingCardId === card.id}
-                inputValue={inputs[card.id] || ''}
-                onCardClick={onCardClick}
-                onAsk={handleAskWrapper}
-                onDelete={setDeleteCardId}
-                onInputChange={handleInputChange}
-                setRef={getRefCallback(card.id)}
-              />
-            ))}
+            {(officialCards.length > 0 || userCards.length > 0) && (
+              <Accordion
+                multiple
+                value={openedSections}
+                onChange={setOpenedSections}
+                variant="separated"
+                radius="md"
+              >
+                {officialCards.length > 0 && (
+                  <Accordion.Item value="official">
+                    <Accordion.Control>
+                      <Group gap={10} wrap="nowrap">
+                        <Text size="sm" fw={700} c="gray.7">
+                          Official cards
+                        </Text>
+                        <Badge color="indigo" variant="light" size="sm" radius="xl">
+                          {officialCards.length}
+                        </Badge>
+                      </Group>
+                    </Accordion.Control>
+                    <Accordion.Panel>
+                      <Stack gap={6}>
+                        {officialCards.map((card) => (
+                          <KnowledgeCardItem
+                            key={card.id}
+                            card={card}
+                            isActive={activeCardId === card.id}
+                            isExplaining={explainingCardIds.has(card.id)}
+                            chats={cardChats[card.id] || []}
+                            isLoading={loadingCardId === card.id}
+                            inputValue={inputs[card.id] || ''}
+                            onCardClick={onCardClick}
+                            onAsk={handleAskWrapper}
+                            onDelete={setDeleteCardId}
+                            onInputChange={handleInputChange}
+                            setRef={getRefCallback(card.id)}
+                          />
+                        ))}
+                      </Stack>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                )}
+
+                {userCards.length > 0 && (
+                  <Accordion.Item value="mine">
+                    <Accordion.Control>
+                      <Group gap={10} wrap="nowrap">
+                        <Text size="sm" fw={700} c="gray.7">
+                          My cards
+                        </Text>
+                        <Badge color="violet" variant="light" size="sm" radius="xl">
+                          {userCards.length}
+                        </Badge>
+                      </Group>
+                    </Accordion.Control>
+                    <Accordion.Panel>
+                      <Stack gap={6}>
+                        {userCards.map((card) => (
+                          <KnowledgeCardItem
+                            key={card.id}
+                            card={card}
+                            isActive={activeCardId === card.id}
+                            isExplaining={explainingCardIds.has(card.id)}
+                            chats={cardChats[card.id] || []}
+                            isLoading={loadingCardId === card.id}
+                            inputValue={inputs[card.id] || ''}
+                            onCardClick={onCardClick}
+                            onAsk={handleAskWrapper}
+                            onDelete={setDeleteCardId}
+                            onInputChange={handleInputChange}
+                            setRef={getRefCallback(card.id)}
+                          />
+                        ))}
+                      </Stack>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                )}
+              </Accordion>
+            )}
           </Stack>
         </ScrollArea>
       </Box>
