@@ -1,6 +1,6 @@
-import { Bot, Compass, FileQuestion, Presentation, Sparkles, Zap } from 'lucide-react';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Group, Image, SimpleGrid, Text } from '@mantine/core';
+import { Bot, Compass, FileQuestion, Presentation, Quote } from 'lucide-react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Box, Button, Group, Image, Portal, SimpleGrid, Text } from '@mantine/core';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -30,7 +30,13 @@ interface MessageBubbleProps {
   mode?: TutoringMode | null;
   knowledgeCards?: KnowledgeCard[];
   onHighlightClick?: (cardId: string) => void;
-  onAddCard?: (title: string, content: string) => void;
+  onAddCard?: (
+    title: string,
+    content: string,
+    options?: {
+      source?: { messageId: string; role: 'user' | 'assistant' };
+    },
+  ) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -44,8 +50,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onAddCard,
 }) => {
   const isUser = message.role === 'user';
-  const [selection, setSelection] = useState<{ text: string; x: number; y: number } | null>(null);
-  const [addedFeedback, setAddedFeedback] = useState(false);
+  const [selection, setSelection] = useState<{
+    text: string;
+    toolbar: { x: number; y: number; placement: 'top' | 'bottom' };
+  } | null>(null);
+  const selectionRangeRef = useRef<Range | null>(null);
 
   // Store latest callback in ref to avoid stale closures
   const onAddCardRef = useRef(onAddCard);
@@ -54,25 +63,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     onAddCardRef.current = onAddCard;
   }, [onAddCard]);
 
-  // Handle quick add with visual feedback
-  const handleQuickAdd = useCallback(() => {
+  const handleExplainSelection = useCallback(() => {
     if (!selection || !onAddCardRef.current) return;
 
     const title = generateSmartTitle(selection.text);
-    onAddCardRef.current(title, selection.text);
+    onAddCardRef.current(title, selection.text, {
+      source: { messageId: message.id, role: message.role },
+    });
 
-    // Show success feedback
-    setAddedFeedback(true);
-    window.getSelection()?.removeAllRanges();
-
-    setTimeout(() => {
-      setAddedFeedback(false);
-      setSelection(null);
-    }, 600);
-  }, [selection]);
+    setSelection(null);
+  }, [selection, message.id, message.role]);
 
   // Handle Text Selection
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (isUser || !onAddCard) return;
 
     const windowSelection = window.getSelection();
@@ -80,23 +83,46 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       const text = windowSelection.toString().trim();
       const range = windowSelection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
+      const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+      const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+      const centerX = rect.left + rect.width / 2;
+      const margin = 16;
+      const preferredX = Number.isFinite(centerX) ? centerX : e.clientX;
+      const x = Math.min(Math.max(preferredX, margin), Math.max(margin, viewportW - margin));
+      const showAbove = rect.top > 72;
+      const preferredY = Number.isFinite(showAbove ? rect.top : rect.bottom)
+        ? showAbove
+          ? rect.top
+          : rect.bottom
+        : e.clientY;
+      const y = Math.min(Math.max(preferredY, margin), Math.max(margin, viewportH - margin));
+      selectionRangeRef.current = range.cloneRange();
 
-      setSelection({
+      const selectionData = {
         text: text,
-        x: rect.left + rect.width / 2,
-        y: rect.top - 8,
-      });
+        toolbar: { x, y, placement: showAbove ? 'top' : 'bottom' },
+      };
+
+      // Delay UI mount to the next frame so the browser can finish the selection interaction
+      // without the newly-rendered floating button interfering with the active selection.
+      requestAnimationFrame(() => setSelection(selectionData));
     }
   }, [isUser, onAddCard]);
 
-  // Keyboard shortcut: Enter to quick add, Escape to cancel
+  // Keyboard shortcut: Enter to explain, Escape to cancel
   useEffect(() => {
     if (!selection) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active) {
+        const tag = active.tagName;
+        if (tag === 'TEXTAREA' || tag === 'INPUT' || active.isContentEditable) return;
+      }
+
       if (e.key === 'Enter') {
         e.preventDefault();
-        handleQuickAdd();
+        handleExplainSelection();
       } else if (e.key === 'Escape') {
         setSelection(null);
         window.getSelection()?.removeAllRanges();
@@ -105,7 +131,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selection, handleQuickAdd]);
+  }, [selection, handleExplainSelection]);
 
   // Clear selection on outside click
   useEffect(() => {
@@ -121,6 +147,63 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return () => document.removeEventListener('mousedown', clearSelection);
   }, []);
 
+  // Preserve native selection highlight after rendering the floating action.
+  // Force-restore the selection range to keep the active highlight visible.
+  useLayoutEffect(() => {
+    if (!selection) return;
+
+    const active = document.activeElement as HTMLElement | null;
+    if (active) {
+      const tag = active.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT' || active.isContentEditable) return;
+    }
+
+    const range = selectionRangeRef.current;
+    const current = window.getSelection();
+    if (!range || !current) return;
+    try {
+      current.removeAllRanges();
+      current.addRange(range);
+    } catch {
+      // ignore
+    }
+  }, [selection]);
+
+  // Safari/Chrome can still drop the highlight after the next paint if the DOM reflows.
+  // Re-assert the selection on the next frame if the selected text disappears.
+  useEffect(() => {
+    if (!selection) return;
+
+    const id = requestAnimationFrame(() => {
+      const current = window.getSelection();
+      const currentText = (current?.toString() ?? '').trim();
+      if (currentText && currentText === selection.text) return;
+
+      const range = selectionRangeRef.current;
+      if (!range || !current) return;
+      try {
+        current.removeAllRanges();
+        current.addRange(range);
+      } catch {
+        // ignore
+      }
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [selection]);
+
+  // Clear selection on scroll/resize (prevents floating UI from drifting)
+  useEffect(() => {
+    if (!selection) return;
+    const clear = () => setSelection(null);
+    window.addEventListener('scroll', clear, true);
+    window.addEventListener('resize', clear);
+    return () => {
+      window.removeEventListener('scroll', clear, true);
+      window.removeEventListener('resize', clear);
+    };
+  }, [selection]);
+
   // Process content to add links for knowledge cards
   const processedContent = React.useMemo(() => {
     if (isUser || !knowledgeCards.length || isStreaming) return message.content;
@@ -128,12 +211,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return injectLinks(message.content, knowledgeCards);
   }, [message.content, knowledgeCards, isUser, isStreaming]);
 
-  const handleLinkClick = (href: string) => {
-    if (href.startsWith('#card-') && onHighlightClick) {
-      const cardId = href.replace('#card-', '');
-      onHighlightClick(cardId);
-    }
-  };
+  const handleLinkClickStable = useCallback(
+    (href: string) => {
+      if (href.startsWith('#card-') && onHighlightClick) {
+        const cardId = href.replace('#card-', '');
+        onHighlightClick(cardId);
+      }
+    },
+    [onHighlightClick],
+  );
 
   // Bot Configuration based on Mode
   const botConfig = React.useMemo(() => {
@@ -251,7 +337,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <>
                 <MarkdownRenderer
                   content={isStreaming ? message.content : processedContent}
-                  onLinkClick={handleLinkClick}
+                  onLinkClick={handleLinkClickStable}
                 />
                 {isStreaming && (
                   <Box
@@ -273,66 +359,50 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             )}
           </Box>
 
-          {/* Explain Tooltip */}
+          {/* Selection Toolbar */}
           {selection && !isUser && onAddCard && (
-            <Box
-              data-quick-add-btn
-              onClick={handleQuickAdd}
-              style={{
-                position: 'fixed',
-                top: selection.y - 44,
-                left: Math.max(16, Math.min(selection.x - 80, window.innerWidth - 180)),
-                zIndex: 1000,
-                cursor: 'pointer',
-                animation: 'fadeIn 0.15s ease-out',
-              }}
-            >
-              {addedFeedback ? (
-                <Group
-                  gap={6}
-                  px={12}
-                  py={8}
-                  style={{
-                    background: '#fff',
-                    borderRadius: 8,
-                    border: '1px solid #10b981',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <Zap size={14} color="#10b981" />
-                  <Text size="xs" c="#10b981" fw={600}>
-                    Added to cards
-                  </Text>
-                </Group>
-              ) : (
-                <Box
-                  px={12}
-                  py={8}
-                  style={{
-                    background: '#fff',
-                    borderRadius: 8,
-                    border: '1px solid #e5e7eb',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                    transition: 'all 0.15s ease',
-                  }}
-                  className="hover:border-indigo-300 hover:shadow-lg"
-                >
-                  <Group gap={8} mb={4}>
-                    <Sparkles size={14} color="#6366f1" />
-                    <Text size="xs" fw={600} c="gray.7">
-                      Explain this
-                    </Text>
-                    <Text size="xs" c="gray.4" style={{ marginLeft: 'auto' }}>
-                      ↵
-                    </Text>
-                  </Group>
-                  <Text size="xs" c="gray.5" lineClamp={1} style={{ maxWidth: 160 }}>
-                    &quot;{selection.text.slice(0, 30)}
-                    {selection.text.length > 30 ? '...' : ''}&quot;
-                  </Text>
+            <Portal>
+              <Box
+                data-quick-add-btn
+                style={{
+                  position: 'fixed',
+                  top: selection.toolbar.placement === 'top' ? selection.toolbar.y - 12 : selection.toolbar.y + 12,
+                  left: selection.toolbar.x,
+                  zIndex: 1000,
+                  cursor: 'default',
+                  transform:
+                    selection.toolbar.placement === 'top'
+                      ? 'translate(-50%, -100%)'
+                      : 'translate(-50%, 0)',
+                }}
+              >
+                <Box style={{ animation: 'fadeIn 0.15s ease-out' }}>
+                  <Button
+                    size="compact-sm"
+                    radius="xl"
+                    variant="white"
+                    leftSection={<Quote size={16} />}
+                    onMouseDown={(e) => e.preventDefault()} // keep selection stable until click
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExplainSelection();
+                    }}
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.92)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid var(--mantine-color-gray-2)',
+                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.12)',
+                    }}
+                    styles={{
+                      root: { height: 34, paddingInline: 14 },
+                      label: { fontWeight: 650 },
+                    }}
+                  >
+                    Explain
+                  </Button>
                 </Box>
-              )}
-            </Box>
+              </Box>
+            </Portal>
           )}
         </Box>
       </Box>
