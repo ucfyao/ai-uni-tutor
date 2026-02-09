@@ -69,7 +69,7 @@ export function StudyPageClient() {
           w="100%"
           style={{ position: 'relative', zIndex: 1 }}
         >
-          <Stack align="center" gap={{ base: 16, sm: 44 }} ta="center" w="100%">
+          <Stack align="center" gap={{ base: '16px', sm: '44px' }} ta="center" w="100%">
             {/* Hero */}
             <Stack align="center" gap={0} className="study-hero-content" w="100%" maw={640}>
               <Box
