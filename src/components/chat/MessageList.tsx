@@ -1,6 +1,16 @@
 import { AlertCircle, Bot, RefreshCw } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
-import { Avatar, Box, Button, Group, ScrollArea, Skeleton, Stack, Text } from '@mantine/core';
+import {
+  Avatar,
+  Box,
+  Button,
+  Container,
+  Group,
+  ScrollArea,
+  Skeleton,
+  Stack,
+  Text,
+} from '@mantine/core';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MessageBubble } from './MessageBubble';
@@ -61,7 +71,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   // Use full height for empty state to center Welcome Screen
   if (isNewChat && mode && courseCode && onPromptSelect) {
     return (
-      <Box h="100%" px="md" bg="white">
+      <Box bg="white" style={{ flex: 1, minHeight: 0 }}>
         <ScrollArea h="100%" scrollbarSize={8} type="auto">
           <WelcomeScreen mode={mode} courseCode={courseCode} onPromptSelect={onPromptSelect} />
         </ScrollArea>
@@ -74,14 +84,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       <ScrollArea viewportRef={viewport} h="100%" scrollbarSize={8} type="auto">
         <Box pt="md" pb="md">
           {/* Max-width container for optimal line length */}
-          <Box
-            style={{
-              maxWidth: '900px',
-              margin: '0 auto',
-              width: '100%',
-            }}
-            px="md"
-          >
+          <Container size="56.25rem" w="100%" px="md">
             <Stack gap="sm">
               {mainMessages.map((msg) => {
                 // Clean content if assistant (remove knowledge cards markup)
@@ -89,16 +92,23 @@ export const MessageList: React.FC<MessageListProps> = ({
                   msg.role === 'assistant' ? extractCards(msg.content).cleanContent : msg.content;
 
                 return (
-                  <MessageBubble
+                  <Box
                     key={msg.id}
-                    message={{ ...msg, content: displayText }}
-                    isStreaming={msg.id === streamingMsgId}
-                    onStreamingComplete={() => {}}
-                    mode={mode}
-                    knowledgeCards={knowledgeCards}
-                    onHighlightClick={onHighlightClick}
-                    onAddCard={onAddCard}
-                  />
+                    style={{
+                      display: 'flex',
+                      justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    <MessageBubble
+                      message={{ ...msg, content: displayText }}
+                      isStreaming={msg.id === streamingMsgId}
+                      onStreamingComplete={() => {}}
+                      mode={mode}
+                      knowledgeCards={knowledgeCards}
+                      onHighlightClick={onHighlightClick}
+                      onAddCard={onAddCard}
+                    />
+                  </Box>
                 );
               })}
 
@@ -152,7 +162,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 </Box>
               )}
             </Stack>
-          </Box>
+          </Container>
         </Box>
       </ScrollArea>
     </Box>
