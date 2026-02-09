@@ -36,8 +36,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   return (
     <Container size="md" h="100%">
-      {/* Reduced from pb=80 to pb=60, gap=40 to gap=24 */}
-      <Center h="100%" pb={60}>
+      {/* Keep symmetric vertical padding so the hero doesn't hug the header */}
+      <Center h="100%" py={{ base: 48, sm: 64 }}>
         <Stack align="center" gap={24} w="100%" maw={700}>
           {/* 1. Hero Section - Compact: icon 64px, gaps reduced */}
           <Transition

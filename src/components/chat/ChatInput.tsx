@@ -41,15 +41,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   imagePreviews,
   onRemoveFile,
   onFileClick,
-  isKnowledgeMode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  isKnowledgeMode: _isKnowledgeMode,
   fileInputRef,
   inputRef,
   onFileSelect,
 }) => {
   return (
     <Container
-      size={isKnowledgeMode ? '100%' : '56.25rem'} // 900px, matches MessageList maxWidth
-      px={isKnowledgeMode ? 'md' : 0}
+      size="56.25rem" // 900px, matches MessageList maxWidth
+      px="md"
       w="100%"
     >
       <Stack gap={6}>
@@ -181,7 +182,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </ActionIcon>
         </Box>
 
-        <Group justify="center" gap="xs" visibleFrom="sm" opacity={0.55}>
+        <Group justify="center" gap="xs" opacity={0.55} px="xs">
           <Text size="xs" c="dimmed" fw={500} ta="center">
             AI can make mistakes. Please verify important information.
           </Text>

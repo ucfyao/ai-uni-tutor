@@ -10,14 +10,21 @@ interface MarkdownRendererProps {
   content: string;
   onLinkClick?: (href: string) => void;
   compact?: boolean;
+  /**
+   * Tightens vertical rhythm (margins/paddings) without shrinking font sizes.
+   * Useful for chat UIs where large markdown spacing feels detached.
+   */
+  tight?: boolean;
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   onLinkClick,
   compact = false,
+  tight = false,
 }) => {
   const safeContent = content ?? '';
+  const isTightSpacing = compact || tight;
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
@@ -27,8 +34,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Title
             order={2}
             size={compact ? 18 : 24}
-            mt={compact ? 14 : 20}
-            mb={compact ? 6 : 10}
+            mt={compact ? 14 : isTightSpacing ? 16 : 20}
+            mb={compact ? 6 : isTightSpacing ? 8 : 10}
             c="slate.9"
             fw={700}
           >
@@ -39,8 +46,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Title
             order={3}
             size={compact ? 16 : 20}
-            mt={compact ? 12 : 18}
-            mb={compact ? 6 : 8}
+            mt={compact ? 12 : isTightSpacing ? 14 : 18}
+            mb={compact ? 6 : isTightSpacing ? 6 : 8}
             c="slate.9"
             fw={600}
           >
@@ -51,8 +58,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Title
             order={4}
             size={compact ? 15 : 18}
-            mt={compact ? 10 : 16}
-            mb={compact ? 4 : 6}
+            mt={compact ? 10 : isTightSpacing ? 12 : 16}
+            mb={compact ? 4 : isTightSpacing ? 5 : 6}
             c="slate.9"
             fw={600}
           >
@@ -63,7 +70,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Text
             size={compact ? 'xs' : 'sm'}
             c="slate.8"
-            mb={compact ? 'xs' : 'sm'}
+            mb={compact ? 'xs' : isTightSpacing ? 6 : 'sm'}
             style={{ lineHeight: compact ? 1.5 : 1.7, fontSize: compact ? '13px' : '15px' }}
           >
             {children}
@@ -118,7 +125,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               bg="slate.0"
               withBorder
               radius="md"
-              my="md"
+              my={isTightSpacing ? 'sm' : 'md'}
               style={{ overflow: 'auto' }}
             >
               <Code
@@ -136,8 +143,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Blockquote
             color="gray"
             p={compact ? 'xs' : 'md'}
-            mt="sm"
-            mb="md"
+            mt={isTightSpacing ? 10 : 'sm'}
+            mb={isTightSpacing ? 12 : 'md'}
             radius="md"
             bg="gray.0"
             style={{ border: 'none', borderLeft: '4px solid var(--mantine-color-gray-4)' }}
@@ -151,7 +158,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <ul
             style={{
               paddingLeft: compact ? 18 : 22,
-              marginBottom: compact ? 8 : 12,
+              marginBottom: compact ? 8 : isTightSpacing ? 10 : 12,
             }}
           >
             {children}
@@ -161,7 +168,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <ol
             style={{
               paddingLeft: compact ? 18 : 22,
-              marginBottom: compact ? 8 : 12,
+              marginBottom: compact ? 8 : isTightSpacing ? 10 : 12,
             }}
           >
             {children}
@@ -179,7 +186,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             {children}
           </li>
         ),
-        hr: () => <Divider my="xl" color="slate.2" />,
+        hr: () => <Divider my={isTightSpacing ? 'md' : 'xl'} color="slate.2" />,
         img: ({ src, alt }) => (
           <Paper p="xs" withBorder radius="md" my="md">
             <Image src={src} alt={alt} radius="sm" />

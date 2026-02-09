@@ -1,6 +1,6 @@
-import { Bot, Compass, FileQuestion, Presentation, Quote } from 'lucide-react';
+import { Quote } from 'lucide-react';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Box, Button, Group, Image, Portal, SimpleGrid, Text } from '@mantine/core';
+import { Box, Button, Image, Portal, SimpleGrid, Text } from '@mantine/core';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -44,7 +44,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isStreaming = false,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onStreamingComplete,
-  mode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  mode: _mode,
   knowledgeCards = [],
   onHighlightClick,
   onAddCard,
@@ -225,191 +226,136 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     [onHighlightClick],
   );
 
-  // Bot Configuration based on Mode
-  const botConfig = React.useMemo(() => {
-    if (isUser) return {};
-    // const defaultConfig = { icon: Bot, color: 'gray', gradient: 'from-gray-100 to-gray-200' };
-    switch (mode) {
-      case 'Lecture Helper':
-        return {
-          icon: Presentation,
-          color: 'indigo',
-          gradient: 'var(--mantine-color-indigo-1)',
-          iconColor: 'var(--mantine-color-indigo-6)',
-        };
-      case 'Assignment Coach':
-        return {
-          icon: Compass,
-          color: 'violet',
-          gradient: 'var(--mantine-color-violet-1)',
-          iconColor: 'var(--mantine-color-violet-6)',
-        };
-      case 'Exam Prep':
-        return {
-          icon: FileQuestion,
-          color: 'grape',
-          gradient: 'var(--mantine-color-grape-1)',
-          iconColor: 'var(--mantine-color-grape-6)',
-        };
-      default:
-        return {
-          icon: Bot,
-          color: 'dark',
-          gradient: 'var(--mantine-color-gray-1)',
-          iconColor: 'var(--mantine-color-dark-4)',
-        };
-    }
-  }, [mode, isUser]);
-
   return (
-    <Group align="flex-start" justify={isUser ? 'flex-end' : 'flex-start'} wrap="nowrap" gap="sm">
-      {!isUser && (
-        <Box mt={4}>
-          <Box
-            bg={botConfig.gradient}
-            w={36}
-            h={36}
-            style={{
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-              border: `1px solid ${botConfig.iconColor}15`,
-            }}
-          >
-            {botConfig.icon && (
-              <botConfig.icon size={20} color={botConfig.iconColor} strokeWidth={2} />
-            )}
-          </Box>
-        </Box>
-      )}
-
-      <Box style={{ maxWidth: '85%' }}>
-        <Box
-          p={isUser ? '10px 18px' : '12px 16px'}
-          onMouseUp={handleMouseUp} // Listen for selection
-          style={{
-            borderRadius: '18px',
-            background: isUser ? 'var(--mantine-color-gray-1)' : 'rgba(255, 255, 255, 0.96)',
-            border: isUser
-              ? '1px solid var(--mantine-color-gray-2)'
-              : '1px solid var(--mantine-color-gray-2)',
-            boxShadow: isUser ? 'none' : '0 2px 12px rgba(0, 0, 0, 0.04)',
-            color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
-            position: 'relative',
-          }}
-        >
-          {/* Display images if present */}
-          {message.images && message.images.length > 0 && (
-            <Box mb={message.content ? 12 : 0}>
-              <SimpleGrid
-                cols={message.images.length === 1 ? 1 : 2}
-                spacing={8}
-                style={{ maxWidth: message.images.length === 1 ? '320px' : '400px' }}
-              >
-                {message.images.map((img, index) => (
-                  <Image
-                    key={index}
-                    src={`data:${img.mimeType};base64,${img.data}`}
-                    alt={`Attachment ${index + 1}`}
-                    radius="md"
-                    style={{
-                      maxHeight: (message.images?.length ?? 0) === 1 ? '400px' : '200px',
-                      objectFit: 'cover',
-                      border: '1px solid var(--mantine-color-gray-3)',
-                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
-                      transition: 'all 0.2s ease',
-                      cursor: 'pointer',
-                    }}
-                    className="hover:shadow-lg hover:scale-[1.02]"
-                  />
-                ))}
-              </SimpleGrid>
-            </Box>
-          )}
-
-          <Box className="markdown-content" c={isUser ? 'dark.9' : 'dark.8'}>
-            {isUser ? (
-              <Text style={{ whiteSpace: 'pre-wrap' }} fz="15px" lh={1.65}>
-                {message.content}
-              </Text>
-            ) : (
-              <>
-                <MarkdownRenderer
-                  content={isStreaming ? message.content : processedContent}
-                  onLinkClick={handleLinkClickStable}
+    <Box
+      style={{
+        width: isUser ? 'auto' : '100%',
+        maxWidth: isUser ? '85%' : '100%',
+      }}
+    >
+      <Box
+        w="100%"
+        p="12px 16px"
+        onMouseUp={handleMouseUp} // Listen for selection
+        style={{
+          borderRadius: '16px',
+          background: isUser ? 'var(--mantine-color-gray-0)' : 'transparent',
+          border: isUser ? '1px solid var(--mantine-color-gray-2)' : 'none',
+          boxShadow: isUser ? '0 1px 6px rgba(0, 0, 0, 0.03)' : 'none',
+          color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
+          position: 'relative',
+        }}
+      >
+        {/* Display images if present */}
+        {message.images && message.images.length > 0 && (
+          <Box mb={message.content ? 12 : 0}>
+            <SimpleGrid
+              cols={message.images.length === 1 ? 1 : 2}
+              spacing={8}
+              style={{ maxWidth: message.images.length === 1 ? '320px' : '400px' }}
+            >
+              {message.images.map((img, index) => (
+                <Image
+                  key={index}
+                  src={`data:${img.mimeType};base64,${img.data}`}
+                  alt={`Attachment ${index + 1}`}
+                  radius="md"
+                  style={{
+                    maxHeight: (message.images?.length ?? 0) === 1 ? '400px' : '200px',
+                    objectFit: 'cover',
+                    border: '1px solid var(--mantine-color-gray-3)',
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                  }}
+                  className="hover:shadow-lg hover:scale-[1.02]"
                 />
-                {isStreaming && (
-                  <Box
-                    component="span"
-                    style={{
-                      display: 'inline-block',
-                      width: '8px',
-                      height: '18px',
-                      backgroundColor: 'var(--mantine-color-indigo-5)',
-                      marginLeft: '4px',
-                      borderRadius: '3px',
-                      verticalAlign: 'text-bottom',
-                      animation: 'cursorBlink 1s ease-in-out infinite',
-                      boxShadow: '0 0 8px var(--mantine-color-indigo-3)',
-                    }}
-                  />
-                )}
-              </>
-            )}
+              ))}
+            </SimpleGrid>
           </Box>
+        )}
 
-          {/* Selection Toolbar */}
-          {selection && !isUser && onAddCard && (
-            <Portal>
-              <Box
-                data-quick-add-btn
-                style={{
-                  position: 'fixed',
-                  top:
-                    selection.toolbar.placement === 'top'
-                      ? selection.toolbar.y - 12
-                      : selection.toolbar.y + 12,
-                  left: selection.toolbar.x,
-                  zIndex: 1000,
-                  cursor: 'default',
-                  transform:
-                    selection.toolbar.placement === 'top'
-                      ? 'translate(-50%, -100%)'
-                      : 'translate(-50%, 0)',
-                }}
-              >
-                <Box style={{ animation: 'fadeIn 0.15s ease-out' }}>
-                  <Button
-                    size="compact-sm"
-                    radius="xl"
-                    variant="white"
-                    leftSection={<Quote size={16} />}
-                    onMouseDown={(e) => e.preventDefault()} // keep selection stable until click
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleExplainSelection();
-                    }}
-                    style={{
-                      backgroundColor: 'rgba(255,255,255,0.92)',
-                      backdropFilter: 'blur(10px)',
-                      border: '1px solid var(--mantine-color-gray-2)',
-                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.12)',
-                    }}
-                    styles={{
-                      root: { height: 34, paddingInline: 14 },
-                      label: { fontWeight: 650 },
-                    }}
-                  >
-                    Explain
-                  </Button>
-                </Box>
-              </Box>
-            </Portal>
+        <Box className="markdown-content" c={isUser ? 'dark.9' : 'dark.8'}>
+          {isUser ? (
+            <Text style={{ whiteSpace: 'pre-wrap' }} fz="15px" lh={1.65}>
+              {message.content}
+            </Text>
+          ) : (
+            <>
+              <MarkdownRenderer
+                content={isStreaming ? message.content : processedContent}
+                onLinkClick={handleLinkClickStable}
+                tight
+              />
+              {isStreaming && (
+                <Box
+                  component="span"
+                  style={{
+                    display: 'inline-block',
+                    width: '8px',
+                    height: '18px',
+                    backgroundColor: 'var(--mantine-color-indigo-5)',
+                    marginLeft: '4px',
+                    borderRadius: '3px',
+                    verticalAlign: 'text-bottom',
+                    animation: 'cursorBlink 1s ease-in-out infinite',
+                    boxShadow: '0 0 8px var(--mantine-color-indigo-3)',
+                  }}
+                />
+              )}
+            </>
           )}
         </Box>
+
+        {/* Selection Toolbar */}
+        {selection && !isUser && onAddCard && (
+          <Portal>
+            <Box
+              data-quick-add-btn
+              style={{
+                position: 'fixed',
+                top:
+                  selection.toolbar.placement === 'top'
+                    ? selection.toolbar.y - 12
+                    : selection.toolbar.y + 12,
+                left: selection.toolbar.x,
+                zIndex: 1000,
+                cursor: 'default',
+                transform:
+                  selection.toolbar.placement === 'top'
+                    ? 'translate(-50%, -100%)'
+                    : 'translate(-50%, 0)',
+              }}
+            >
+              <Box style={{ animation: 'fadeIn 0.15s ease-out' }}>
+                <Button
+                  size="compact-sm"
+                  radius="xl"
+                  variant="white"
+                  leftSection={<Quote size={16} />}
+                  onMouseDown={(e) => e.preventDefault()} // keep selection stable until click
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleExplainSelection();
+                  }}
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.92)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid var(--mantine-color-gray-2)',
+                    boxShadow: '0 12px 30px rgba(0, 0, 0, 0.12)',
+                  }}
+                  styles={{
+                    root: { height: 34, paddingInline: 14 },
+                    label: { fontWeight: 650 },
+                  }}
+                >
+                  Explain
+                </Button>
+              </Box>
+            </Box>
+          </Portal>
+        )}
       </Box>
-    </Group>
+    </Box>
   );
 };
