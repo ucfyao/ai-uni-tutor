@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
-import { AppShell, Box, Burger, Group, Text } from '@mantine/core';
+import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
@@ -136,7 +136,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
         navbar={{
           width: desktopOpened ? 260 : 60,
           breakpoint: 'sm',
-          collapsed: { mobile: !mobileOpened },
+          collapsed: { mobile: true }, // Always collapse navbar on mobile, use Drawer instead
         }}
         header={{ height: 52, collapsed: !isMobile }} // Enable header only on mobile
         padding={0}
@@ -165,16 +165,14 @@ export default function ShellClient({ children }: { children: React.ReactNode })
           </Group>
         </AppShell.Header>
 
-        <AppShell.Navbar bg="transparent">
+        {/* Desktop Sidebar - Navbar */}
+        <AppShell.Navbar bg="transparent" hiddenFrom="base" visibleFrom="sm">
           <Sidebar
             sessions={sessions}
             activeSessionId={activeSessionId}
             onSelectSession={handleSelectSession}
-            onNewChat={() => {
-              openModal();
-              if (isMobile) toggleMobile();
-            }}
-            onToggleSidebar={toggleSidebar}
+            onNewChat={openModal}
+            onToggleSidebar={toggleDesktop}
             onTogglePin={handleTogglePin}
             onRenameSession={(id) => {
               setRenameId(id);
@@ -186,7 +184,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
             }}
             onShareSession={handleShareSession}
             onGoHome={() => router.push('/study')}
-            opened={isMobile ? true : desktopOpened}
+            opened={desktopOpened}
           />
         </AppShell.Navbar>
 
@@ -194,6 +192,46 @@ export default function ShellClient({ children }: { children: React.ReactNode })
           {children}
         </AppShell.Main>
       </AppShell>
+
+      {/* Mobile Sidebar - Drawer with swipe support */}
+      <Drawer
+        opened={mobileOpened}
+        onClose={toggleMobile}
+        size={260}
+        padding={0}
+        withCloseButton={false}
+        hiddenFrom="sm"
+        styles={{
+          body: { padding: 0, height: '100%' },
+          content: { height: '100%' },
+        }}
+      >
+        <Sidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSelectSession={handleSelectSession}
+          onNewChat={() => {
+            openModal();
+            toggleMobile();
+          }}
+          onToggleSidebar={toggleMobile}
+          onTogglePin={handleTogglePin}
+          onRenameSession={(id) => {
+            setRenameId(id);
+            setRenameModalOpen(true);
+          }}
+          onDeleteSession={(id) => {
+            setDeleteId(id);
+            setDeleteModalOpen(true);
+          }}
+          onShareSession={handleShareSession}
+          onGoHome={() => {
+            router.push('/study');
+            toggleMobile(); // Close sidebar on mobile after navigation
+          }}
+          opened={true}
+        />
+      </Drawer>
 
       <NewSessionModal
         opened={modalOpened}
