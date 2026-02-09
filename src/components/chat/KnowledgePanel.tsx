@@ -1,12 +1,12 @@
-import { BookOpen } from 'lucide-react';
+import { BookOpen, ChevronDown } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Accordion,
-  ActionIcon,
   Badge,
   Box,
   Button,
   Center,
+  CloseButton,
   Group,
   Modal,
   Paper,
@@ -61,11 +61,31 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
     [cards],
   );
   const userCards = React.useMemo(() => cards.filter((c) => c.origin === 'user'), [cards]);
+  const totalCards = cards.length;
   const [openedSections, setOpenedSections] = useState<string[]>(() => {
     if (officialCards.length > 0) return ['official'];
     if (userCards.length > 0) return ['mine'];
     return [];
   });
+
+  // Keep opened sections valid when card categories appear/disappear
+  useEffect(() => {
+    setOpenedSections((prev) =>
+      prev.filter((v) => (v === 'official' ? officialCards.length > 0 : userCards.length > 0)),
+    );
+  }, [officialCards.length, userCards.length]);
+
+  // If cards load after mount and nothing is open, open the most relevant section
+  const prevCardsCountRef = useRef(cards.length);
+  useEffect(() => {
+    const prev = prevCardsCountRef.current;
+    prevCardsCountRef.current = cards.length;
+
+    if (prev === 0 && cards.length > 0 && openedSections.length === 0) {
+      if (officialCards.length > 0) setOpenedSections(['official']);
+      else if (userCards.length > 0) setOpenedSections(['mine']);
+    }
+  }, [cards.length, openedSections.length, officialCards.length, userCards.length]);
 
   // Memoize input change handler
   const handleInputChange = useCallback((cardId: string, value: string) => {
@@ -165,30 +185,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
 
   // When a card finishes thinking/loading, clear its input
   useEffect(() => {
-    // We can't easily track "finished" here without previous state,
-    // but we can clear input when loading starts? No, probably want to clear after send.
-    // The previous implementation cleared input inside handleAsk which is fine.
-    // But if we want to clear input from parent when response comes back, we'd need more logic.
-    // Current logic in KnowledgeCardItem clears on ask.
-    // Wait, let's check legacy handleAsk:
-    // const handleAsk = (card) => { onAsk(card, q); setInputs(p => ({...p, [card.id]: ''})); }
-    // In KnowledgeCardItem I used: handleAsk calls onAsk. But I didn't clear input!
-    // I need to intercept onAsk in the KnowledgeCardItem props?
-    // Or simpler: handleAsk in KnowledgeCardItem calls onInputChange(id, '')
+    // Intentionally left as a placeholder: input is cleared on send via handleAskWrapper.
   }, []);
-
-  // FIX: The previous handleAsk wrapper cleared the input.
-  // I must replicate this behavior.
-  // I will pass a wrapped onAsk to KnowledgeCardItem or handle it inside KnowledgeCardItem.
-  // In KnowledgeCardItem I implemented:
-  // const handleAsk = () => { onAsk(card, q); }
-  // It does NOT clear input.
-  // I should update KnowledgeCardItem to clear input, OR pass a wrapper.
-  // Passing a wrapper is better to keep logic here?
-  // Wrapper: (card, q) => { onAsk(card, q); setInputs(prev => ({...prev, [card.id]: ''})); }
-  // THIS wrapper is what I should pass as 'onAsk' to KnowledgeCardItem.
-  // BUT KnowledgeCardItem takes `onAsk: (card, question) => void`.
-  // So yes.
 
   const handleAskWrapper = useCallback(
     (card: KnowledgeCard, question: string) => {
@@ -208,49 +206,45 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        background: 'white',
+        background: 'var(--mantine-color-gray-0)',
       }}
     >
-      {/* Header */}
+      {/* Header - 52px to match app header */}
       <Group
         gap={8}
         px="md"
-        py="sm"
+        h={52}
         justify="space-between"
+        align="center"
+        wrap="nowrap"
         style={{
           borderBottom: '1px solid var(--mantine-color-gray-2)',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--mantine-color-gray-0)',
+          backdropFilter: 'blur(10px)',
         }}
       >
-        <Group gap={8}>
+        <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
           <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
             <BookOpen size={16} />
           </ThemeIcon>
-          <Text size="sm" fw={600} c="gray.8">
+          <Text size="sm" fw={600} c="gray.8" lineClamp={1} style={{ lineHeight: 1.1 }}>
             Knowledge Cards
           </Text>
+          {totalCards > 0 && (
+            <Badge
+              variant="light"
+              color="gray"
+              size="xs"
+              radius="xl"
+              style={{ flexShrink: 0 }}
+              styles={{ root: { height: 18, padding: '0 8px', fontSize: 10 } }}
+            >
+              {totalCards}
+            </Badge>
+          )}
         </Group>
         {onClose && (
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="sm"
-            onClick={onClose}
-            aria-label="Close panel"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </ActionIcon>
+          <CloseButton onClick={onClose} size="sm" variant="subtle" style={{ flexShrink: 0 }} />
         )}
       </Group>
 
@@ -275,7 +269,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
             viewport: { height: '100%', minHeight: 0 },
           }}
         >
-          <Stack gap={6} p="lg">
+          <Stack gap={10} p="md">
             {cards.length === 0 && (
               <Paper withBorder radius="md" p="lg" bg="white">
                 <Center>
@@ -298,33 +292,80 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                 onChange={setOpenedSections}
                 variant="separated"
                 radius="md"
+                chevron={<ChevronDown size={14} />}
+                chevronPosition="right"
+                classNames={{ control: 'knowledge-accordion__control' }}
                 styles={{
+                  root: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  },
                   item: {
-                    backgroundColor: 'white',
+                    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+                    WebkitBackdropFilter: 'blur(10px) saturate(1.05)',
+                    backdropFilter: 'blur(10px) saturate(1.05)',
                     border: '1px solid var(--mantine-color-gray-2)',
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    margin: 0,
+                    boxShadow:
+                      '0 10px 24px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.03)',
                   },
                   control: {
-                    backgroundColor: 'white',
+                    backgroundColor: 'transparent',
+                    padding: '10px 12px',
+                    minHeight: 44,
+                    borderRadius: 14,
+                  },
+                  label: { padding: 0 },
+                  chevron: {
+                    color: 'var(--mantine-color-gray-5)',
                   },
                   panel: {
-                    backgroundColor: 'white',
+                    backgroundColor: 'transparent',
+                    padding: '4px 12px 12px 12px',
+                  },
+                  // Flatten Mantine's `.mantine-Accordion-content` wrapper
+                  // (the div is still in the DOM, but it does not create a box).
+                  content: {
+                    display: 'contents',
                   },
                 }}
               >
                 {officialCards.length > 0 && (
                   <Accordion.Item value="official">
                     <Accordion.Control>
-                      <Group gap={10} wrap="nowrap">
-                        <Text size="sm" fw={700} c="gray.7">
-                          Official cards
-                        </Text>
-                        <Badge color="indigo" variant="light" size="sm" radius="xl">
+                      <Group gap={8} wrap="nowrap" justify="space-between" w="100%">
+                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                          <Box
+                            w={6}
+                            h={6}
+                            style={{
+                              borderRadius: 99,
+                              background: 'var(--mantine-color-indigo-6)',
+                              boxShadow: '0 0 0 2px rgba(99, 102, 241, 0.12)',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <Text size="sm" fw={600} c="gray.8" lineClamp={1}>
+                            Official cards
+                          </Text>
+                        </Group>
+                        <Badge
+                          color="indigo"
+                          variant="light"
+                          size="xs"
+                          radius="xl"
+                          style={{ flexShrink: 0 }}
+                          styles={{ root: { height: 16, padding: '0 6px', fontSize: 9 } }}
+                        >
                           {officialCards.length}
                         </Badge>
                       </Group>
                     </Accordion.Control>
                     <Accordion.Panel>
-                      <Stack gap={6}>
+                      <Stack gap={12} pt={10}>
                         {officialCards.map((card) => (
                           <KnowledgeCardItem
                             key={card.id}
@@ -349,17 +390,42 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                 {userCards.length > 0 && (
                   <Accordion.Item value="mine">
                     <Accordion.Control>
-                      <Group gap={10} wrap="nowrap">
-                        <Text size="sm" fw={700} c="gray.7">
-                          My cards
-                        </Text>
-                        <Badge color="violet" variant="light" size="sm" radius="xl">
+                      <Group
+                        gap={8}
+                        wrap="nowrap"
+                        justify="space-between"
+                        w="100%"
+                        style={{ minWidth: 0 }}
+                      >
+                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                          <Box
+                            w={6}
+                            h={6}
+                            style={{
+                              borderRadius: 99,
+                              background: 'var(--mantine-color-violet-6)',
+                              boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.12)',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <Text size="sm" fw={600} c="gray.8" lineClamp={1}>
+                            My cards
+                          </Text>
+                        </Group>
+                        <Badge
+                          color="violet"
+                          variant="light"
+                          size="xs"
+                          radius="xl"
+                          style={{ flexShrink: 0 }}
+                          styles={{ root: { height: 16, padding: '0 6px', fontSize: 9 } }}
+                        >
                           {userCards.length}
                         </Badge>
                       </Group>
                     </Accordion.Control>
                     <Accordion.Panel>
-                      <Stack gap={6}>
+                      <Stack gap={12} pt={10}>
                         {userCards.map((card) => (
                           <KnowledgeCardItem
                             key={card.id}
