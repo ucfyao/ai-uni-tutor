@@ -91,9 +91,9 @@ export function StudyPageClient() {
               </Box>
 
               <Stack
-                gap={{ base: '10px', sm: '14px' }}
                 align="center"
                 mb={{ base: '20px', sm: '28px' }}
+                className="gap-2.5 sm:gap-3.5"
               >
                 <Title
                   order={1}
