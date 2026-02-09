@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertCircle, CheckCircle, Clock, FileText, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Badge, Box, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument } from '@/app/actions/documents';
@@ -29,7 +29,7 @@ interface KnowledgeTableProps {
 export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTableProps) {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(initialDocuments);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const isMobile = useMediaQuery('(max-width: 48em)'); // 768px
 
   // Sync initialDocuments prop with local state when it changes (e.g. after refresh)
@@ -37,7 +37,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
     setDocuments(initialDocuments);
   }, [initialDocuments]);
 
-  // Realtime subscription
+  // Realtime subscription (mount-only; supabase is stable via useMemo)
   useEffect(() => {
     const channel = supabase
       .channel('realtime-documents')
@@ -67,7 +67,8 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase is stable (useMemo)
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this document?')) return;

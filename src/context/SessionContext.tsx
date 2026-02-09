@@ -1,7 +1,17 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import type { AuthChangeEvent } from '@supabase/supabase-js';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createChatSession, deleteChatSession, getChatSessions } from '@/app/actions/chat';
+import { showNotification } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/client';
 import { ChatSession, Course, TutoringMode } from '@/types/index';
 
@@ -26,7 +36,7 @@ export function SessionProvider({
   const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
 
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
   const fetchSessions = useCallback((): Promise<void> => {
@@ -49,11 +59,9 @@ export function SessionProvider({
   }, []);
 
   useEffect(() => {
-    // fetchSessions(); // Initial fetch (Removed)
-
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event: string) => {
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         fetchSessions();
       } else if (event === 'SIGNED_OUT') {
@@ -64,7 +72,9 @@ export function SessionProvider({
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchSessions, supabase]);
+    // supabase is referentially stable (useMemo), so omitted from deps to avoid redundant effect runs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchSessions]);
 
   // Sort Helper
   const sortSessions = useCallback((list: ChatSession[]) => {
@@ -121,14 +131,24 @@ export function SessionProvider({
       if (previousSessions) {
         setSessions(previousSessions);
       }
+      showNotification({
+        title: 'Delete failed',
+        message: 'Could not delete the chat session. Please try again.',
+        color: 'red',
+      });
     }
   }, []);
 
   const updateSessionLocal = useCallback(
     (updated: ChatSession) => {
       setSessions((prev) => {
+        const prevSession = prev.find((s) => s.id === updated.id);
         const list = prev.map((s) => (s.id === updated.id ? updated : s));
-        return sortSessions(list);
+        const orderChanged =
+          prevSession &&
+          (prevSession.isPinned !== updated.isPinned ||
+            prevSession.lastUpdated !== updated.lastUpdated);
+        return orderChanged ? sortSessions(list) : list;
       });
     },
     [sortSessions],

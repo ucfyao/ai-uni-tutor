@@ -4,7 +4,8 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import type { Database } from '@/types/database';
 
-export async function createClient(): Promise<SupabaseClient<Database>> {
+/** Per-request cached Supabase server client; deduplicates instances when multiple server code paths call createClient() in the same request. */
+export const createClient = cache(async (): Promise<SupabaseClient<Database>> => {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
@@ -28,7 +29,7 @@ export async function createClient(): Promise<SupabaseClient<Database>> {
       },
     },
   );
-}
+});
 
 /** Per-request cached user; deduplicates getUser() when multiple actions/components need it in the same request. */
 export const getCurrentUser = cache(async () => {

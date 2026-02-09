@@ -1,6 +1,15 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import type { AuthChangeEvent } from '@supabase/supabase-js';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ProfileData } from '@/app/actions/user';
 import { getProfile, updateProfileFields } from '@/app/actions/user';
 import { createClient } from '@/lib/supabase/client';
@@ -32,7 +41,7 @@ export function ProfileProvider({
     initialProfile ? profileDataToContext(initialProfile) : null,
   );
   const [loading, setLoading] = useState(initialProfile != null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
   const fetchProfile = useCallback((): Promise<void> => {
@@ -65,7 +74,7 @@ export function ProfileProvider({
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event: string) => {
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
       if (event === 'SIGNED_OUT') {
         setProfile(null);
         setLoading(false);
@@ -77,7 +86,9 @@ export function ProfileProvider({
       }
     });
     return () => subscription.unsubscribe();
-  }, [supabase, fetchProfile]);
+    // supabase is referentially stable (useMemo), so omitted from deps to avoid redundant effect runs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchProfile]);
 
   const updateProfile = useCallback(
     async (updates: Partial<Profile>) => {
