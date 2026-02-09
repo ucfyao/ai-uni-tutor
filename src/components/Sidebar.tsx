@@ -21,7 +21,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActionIcon,
   Avatar,
@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   opened,
 }) => {
   const { profile, loading } = useProfile();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [chatsExpanded, { toggle: toggleChats }] = useDisclosure(true);
 
