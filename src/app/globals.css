@@ -74,21 +74,6 @@
   --sidebar-ring: var(--primary);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    /* Updated from original */
-    --background-end-rgb: 0, 0, 0;
-
-    /* Shadcn/UI Dark Mode Overrides (Optional - keeping consistent with Mantine or using default Shadcn dark tokens if available, but for now using Light Theme as primary or check if Index.css has dark mode?)
-       The new homepage seems to use light mode primarily based on the variables provided. 
-       If dark mode is needed, we need the dark mode values. 
-       Just ensuring variables exist to prevent crashes.
-    */
-  }
-}
-
 body {
   color: rgb(var(--foreground-rgb));
 }
@@ -257,6 +242,7 @@ body {
     opacity: 0.5;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.8;
     transform: scale(1.05);
@@ -266,12 +252,15 @@ body {
 .animate-delay-100 {
   animation-delay: 0.1s;
 }
+
 .animate-delay-200 {
   animation-delay: 0.2s;
 }
+
 .animate-delay-300 {
   animation-delay: 0.3s;
 }
+
 .animate-delay-400 {
   animation-delay: 0.4s;
 }

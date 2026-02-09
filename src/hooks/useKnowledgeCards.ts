@@ -17,41 +17,53 @@ export function useKnowledgeCards({
   enabled,
 }: UseKnowledgeCardsOptions) {
   // User-managed cards (persisted to localStorage)
-  const [manualCards, setManualCards] = useState<KnowledgeCard[]>(() => {
-    if (typeof window === 'undefined' || !enabled) return [];
+  const [manualCards, setManualCards] = useState<KnowledgeCard[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load manual cards from local storage after mount
+  useEffect(() => {
+    if (!enabled) return;
     try {
       const stored = localStorage.getItem(`knowledge-cards-${sessionId}`);
-      const parsed = stored ? (JSON.parse(stored) as KnowledgeCard[]) : [];
-      // Back-compat: ensure persisted cards are marked as user-created
-      return parsed.map((c) => ({ ...c, origin: c.origin ?? 'user' }));
-    } catch {
-      return [];
+      if (stored) {
+        const parsed = JSON.parse(stored) as KnowledgeCard[];
+        setManualCards(parsed.map((c) => ({ ...c, origin: c.origin ?? 'user' })));
+      }
+    } catch (e) {
+      console.error('Failed to load manual cards', e);
+    } finally {
+      setIsLoaded(true);
     }
-  });
+  }, [sessionId, enabled]);
 
   // Track deleted card IDs
-  const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined' || !enabled) return new Set();
+  const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(new Set());
+
+  // Load deleted card IDs from local storage after mount
+  useEffect(() => {
+    if (!enabled) return;
     try {
       const stored = localStorage.getItem(`deleted-cards-${sessionId}`);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
+      if (stored) {
+        setDeletedCardIds(new Set(JSON.parse(stored)));
+      }
+    } catch (e) {
+      console.error('Failed to load deleted cards', e);
     }
-  });
+  }, [sessionId, enabled]);
 
   // Track cards being explained by AI (reserved for future use)
   const [explainingCardIds] = useState<Set<string>>(new Set());
 
   // Save to localStorage when cards change
   useEffect(() => {
-    if (typeof window === 'undefined' || !enabled) return;
+    if (typeof window === 'undefined' || !enabled || !isLoaded) return;
     // Ensure we persist user-created cards with the right origin marker.
     localStorage.setItem(
       `knowledge-cards-${sessionId}`,
       JSON.stringify(manualCards.map((c) => ({ ...c, origin: c.origin ?? 'user' }))),
     );
-  }, [manualCards, sessionId, enabled]);
+  }, [manualCards, sessionId, enabled, isLoaded]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !enabled) return;

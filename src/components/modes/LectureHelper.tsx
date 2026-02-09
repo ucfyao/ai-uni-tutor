@@ -1,16 +1,37 @@
+import dynamic from 'next/dynamic';
 import React, { useRef, useState } from 'react';
-import { Box, Drawer, Group, Stack } from '@mantine/core';
+import { Box, Drawer, Group, Loader, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { generateChatResponse } from '@/app/actions/chat';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
-import { MessageList } from '@/components/chat/MessageList';
+// import { MessageList } from '@/components/chat/MessageList'; // Dynamically imported
 import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useKnowledgeCards } from '@/hooks/useKnowledgeCards';
 import { showNotification } from '@/lib/notifications';
 import { ChatMessage, ChatSession } from '@/types';
+
+const MessageList = dynamic(
+  () => import('@/components/chat/MessageList').then((mod) => mod.MessageList),
+  {
+    loading: () => (
+      <Box
+        bg="white"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Loader size="sm" />
+      </Box>
+    ),
+  },
+);
 
 interface LectureHelperProps {
   session: ChatSession;
@@ -464,6 +485,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         padding={0}
         hiddenFrom="lg"
         lockScroll={false}
+        withOverlay={false}
         styles={{
           header: { display: 'none' },
           body: {

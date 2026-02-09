@@ -1,12 +1,33 @@
+import dynamic from 'next/dynamic';
 import React, { useRef, useState } from 'react';
-import { Box, Group, Stack } from '@mantine/core';
+import { Box, Group, Loader, Stack } from '@mantine/core';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { MessageList } from '@/components/chat/MessageList';
+// import { MessageList } from '@/components/chat/MessageList'; // Dynamically imported
 import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { showNotification } from '@/lib/notifications';
 import { ChatMessage, ChatSession } from '@/types';
+
+const MessageList = dynamic(
+  () => import('@/components/chat/MessageList').then((mod) => mod.MessageList),
+  {
+    loading: () => (
+      <Box
+        bg="white"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Loader size="sm" />
+      </Box>
+    ),
+  },
+);
 
 interface ExamPrepProps {
   session: ChatSession;

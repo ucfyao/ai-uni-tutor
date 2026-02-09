@@ -21,13 +21,14 @@ import { ChatSession } from '@/types';
 
 interface ExamClientProps {
   id: string;
+  initialSession: ChatSession;
 }
 
-export default function ExamClient({ id }: ExamClientProps) {
+export default function ExamClient({ id, initialSession }: ExamClientProps) {
   const router = useRouter();
   const routerRef = useRef(router);
-  const [session, setSession] = useState<ChatSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<ChatSession | null>(initialSession);
+  const [loading, setLoading] = useState(false);
 
   // Track saved message IDs to prevent duplicate saves
   const savedMsgIdsRef = useRef<Set<string>>(new Set());
@@ -48,9 +49,16 @@ export default function ExamClient({ id }: ExamClientProps) {
     routerRef.current = router;
   }, [router]);
 
-  // Load session: use metadata from list when available, only fetch messages. Run once per id to avoid double load when sessions context updates.
+  // Load session: use initialSession if matches id, otherwise use logic
   useEffect(() => {
     if (!id) return;
+
+    if (initialSession && initialSession.id === id) {
+      savedMsgIdsRef.current = new Set(initialSession.messages.map((m) => m.id));
+      setSession(initialSession);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setSession(null);
@@ -64,13 +72,11 @@ export default function ExamClient({ id }: ExamClientProps) {
         if (fromList && fromList.mode === 'Exam Prep') {
           const messages = await getChatMessages(id);
           if (cancelled) return;
-
           if (messages === null) {
             setLoading(false);
             routerRef.current.push('/study');
             return;
           }
-
           const data: ChatSession = { ...fromList, messages };
           savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
           setSession(data);
@@ -101,7 +107,7 @@ export default function ExamClient({ id }: ExamClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, initialSession]);
 
   // Handle session updates
   const handleUpdateSession = useCallback(

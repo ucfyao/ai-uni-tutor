@@ -21,13 +21,14 @@ import { ChatSession } from '@/types';
 
 interface AssignmentClientProps {
   id: string;
+  initialSession: ChatSession;
 }
 
-export default function AssignmentClient({ id }: AssignmentClientProps) {
+export default function AssignmentClient({ id, initialSession }: AssignmentClientProps) {
   const router = useRouter();
   const routerRef = useRef(router);
-  const [session, setSession] = useState<ChatSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<ChatSession | null>(initialSession);
+  const [loading, setLoading] = useState(false);
 
   // Track saved message IDs to prevent duplicate saves
   const savedMsgIdsRef = useRef<Set<string>>(new Set());
@@ -49,9 +50,16 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
     routerRef.current = router;
   }, [router]);
 
-  // Load session: use metadata from list when available, only fetch messages. Run once per id to avoid double load when sessions context updates.
+  // Load session: use initialSession if matches id, otherwise use logic
   useEffect(() => {
     if (!id) return;
+
+    if (initialSession && initialSession.id === id) {
+      savedMsgIdsRef.current = new Set(initialSession.messages.map((m) => m.id));
+      setSession(initialSession);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setSession(null);
@@ -65,13 +73,11 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
         if (fromList && fromList.mode === 'Assignment Coach') {
           const messages = await getChatMessages(id);
           if (cancelled) return;
-
           if (messages === null) {
             setLoading(false);
             routerRef.current.push('/study');
             return;
           }
-
           const data: ChatSession = { ...fromList, messages };
           savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
           setSession(data);
@@ -102,7 +108,7 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, initialSession]);
 
   // Handle session updates
   const handleUpdateSession = useCallback(
@@ -219,6 +225,7 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
         onKnowledgePanelToggle={() => setKnowledgeDrawerTrigger((prev) => prev + 1)}
       >
         <AssignmentCoach
+          key={session.id}
           session={session}
           onUpdateSession={handleUpdateSession}
           openDrawerTrigger={knowledgeDrawerTrigger}

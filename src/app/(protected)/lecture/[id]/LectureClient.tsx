@@ -21,13 +21,14 @@ import { ChatSession } from '@/types';
 
 interface LectureClientProps {
   id: string;
+  initialSession: ChatSession;
 }
 
-export default function LectureClient({ id }: LectureClientProps) {
+export default function LectureClient({ id, initialSession }: LectureClientProps) {
   const router = useRouter();
   const routerRef = useRef(router);
-  const [session, setSession] = useState<ChatSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<ChatSession | null>(initialSession);
+  const [loading, setLoading] = useState(false);
 
   // Track saved message IDs to prevent duplicate saves
   const savedMsgIdsRef = useRef<Set<string>>(new Set());
@@ -49,14 +50,26 @@ export default function LectureClient({ id }: LectureClientProps) {
     routerRef.current = router;
   }, [router]);
 
-  // Load session: use metadata from list when available, only fetch messages. Run once per id to avoid double load when sessions context updates.
+  // Load session: use initialSession if matches id, otherwise use logic
   useEffect(() => {
     if (!id) return;
+
+    // If initialSession matches the current id, we don't need to fetch
+    if (initialSession && initialSession.id === id) {
+      // Check if we need to update messages from sidebar list?
+      // For now, assume initialSession is fresh from server.
+      // But we still want to respect savedMsgIdsRef initialization
+      savedMsgIdsRef.current = new Set(initialSession.messages.map((m) => m.id));
+      setSession(initialSession);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setSession(null);
     savedMsgIdsRef.current = new Set();
 
+    // ... existing fetch logic for client-side navigation fallback ...
     let cancelled = false;
 
     (async () => {
@@ -102,7 +115,7 @@ export default function LectureClient({ id }: LectureClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, initialSession]);
 
   // Handle session updates (messages, mode changes, etc.)
   const handleUpdateSession = useCallback(
@@ -231,6 +244,7 @@ export default function LectureClient({ id }: LectureClientProps) {
         onKnowledgePanelToggle={() => setKnowledgeDrawerTrigger((prev) => prev + 1)}
       >
         <LectureHelper
+          key={session.id}
           session={session}
           onUpdateSession={handleUpdateSession}
           openDrawerTrigger={knowledgeDrawerTrigger}

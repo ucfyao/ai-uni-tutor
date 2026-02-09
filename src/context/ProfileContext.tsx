@@ -21,9 +21,17 @@ interface ProfileContextType {
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
-export function ProfileProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+export function ProfileProvider({
+  children,
+  initialProfile = null,
+}: {
+  children: React.ReactNode;
+  initialProfile?: ProfileData | null;
+}) {
+  const [profile, setProfile] = useState<Profile | null>(
+    initialProfile ? profileDataToContext(initialProfile) : null,
+  );
+  const [loading, setLoading] = useState(initialProfile != null);
   const supabase = createClient();
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -51,7 +59,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchProfile();
+    // fetchProfile(); // Initial fetch (Removed)
   }, [fetchProfile]);
 
   useEffect(() => {
