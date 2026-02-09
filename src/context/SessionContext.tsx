@@ -16,10 +16,16 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+export function SessionProvider({
+  children,
+  initialSessions = [],
+}: {
+  children: React.ReactNode;
+  initialSessions?: ChatSession[];
+}) {
+  const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const supabase = createClient();
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -43,7 +49,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchSessions(); // Initial fetch
+    // fetchSessions(); // Initial fetch (Removed)
 
     const {
       data: { subscription },

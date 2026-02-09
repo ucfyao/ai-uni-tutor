@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import React from 'react';
-import Shell from '@/app/Shell';
+import ShellServer from '@/app/ShellServer';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -8,5 +8,5 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   if (!user) {
     redirect('/login');
   }
-  return <Shell>{children}</Shell>;
+  return <ShellServer>{children}</ShellServer>;
 }

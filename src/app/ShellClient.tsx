@@ -19,7 +19,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import { showNotification } from '@/lib/notifications';
 import { Course, TutoringMode } from '@/types/index';
 
-export default function Shell({ children }: { children: React.ReactNode }) {
+export default function ShellClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -36,6 +36,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   // Ensure client-side providers refresh after server-side auth transitions (e.g. login via server action).
   useEffect(() => {
+    // These might be redundant if data is passed from server, but nice for re-validation on focus/nav
     refreshSessions();
     refreshProfile();
   }, [refreshProfile, refreshSessions]);
