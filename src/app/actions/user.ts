@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getProfileService } from '@/lib/services/ProfileService';
+import { getCurrentUser } from '@/lib/supabase/server';
 
 export type ActionState = {
   message: string;
@@ -41,7 +42,7 @@ export type UpdateProfileResult =
 /**
  * Canonical profile update path.
  * - Validates on server (Zod)
- * - Updates via server supabase client (RLS + cookie session)
+ * - Updates via ProfileService
  * - Returns fresh profile data for consistent UI updates
  */
 export async function updateProfileFields(input: {
@@ -57,34 +58,35 @@ export async function updateProfileFields(input: {
   }
 
   const { fullName } = parsed.data;
-  const updates: { full_name?: string; updated_at: string } = {
-    updated_at: new Date().toISOString(),
-  };
-  if (fullName !== undefined) {
-    updates.full_name = fullName;
-  }
+  const profileService = getProfileService();
 
-  const supabase = await createClient();
-  const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-  if (error) {
+  try {
+    if (fullName !== undefined) {
+      await profileService.updateProfile(user.id, { fullName });
+    }
+  } catch (error) {
     console.error('Profile update error:', error);
     return { ok: false, message: 'Failed to update profile' };
   }
 
-  const { data, error: readError } = await supabase
-    .from('profiles')
-    .select('id, full_name, email, subscription_status, current_period_end')
-    .eq('id', user.id)
-    .single();
-
-  if (readError) {
-    console.error('Profile reload error:', readError);
+  const profile = await profileService.getProfile(user.id);
+  if (!profile) {
     return { ok: false, message: 'Failed to reload profile' };
   }
 
   revalidatePath('/personalization');
   revalidatePath('/settings');
-  return { ok: true, profile: data as ProfileData };
+
+  return {
+    ok: true,
+    profile: {
+      id: profile.id,
+      full_name: profile.fullName,
+      email: profile.email,
+      subscription_status: profile.subscriptionStatus,
+      current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
+    },
+  };
 }
 
 export async function updateProfile(
@@ -105,12 +107,16 @@ export async function getProfile(): Promise<ProfileData | null> {
 
   if (!user) return null;
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('profiles')
-    .select('id, full_name, email, subscription_status, current_period_end')
-    .eq('id', user.id)
-    .single();
+  const profileService = getProfileService();
+  const profile = await profileService.getProfile(user.id);
 
-  return (data ?? null) as ProfileData | null;
+  if (!profile) return null;
+
+  return {
+    id: profile.id,
+    full_name: profile.fullName,
+    email: profile.email,
+    subscription_status: profile.subscriptionStatus,
+    current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
+  };
 }
