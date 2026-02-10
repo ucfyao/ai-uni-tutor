@@ -36,3 +36,12 @@ export interface ChatSession {
   isPinned?: boolean;
   isShared?: boolean;
 }
+
+export type {
+  ExamPaper,
+  ExamQuestion,
+  MockExam,
+  MockExamQuestion,
+  MockExamResponse,
+  PaperFilters,
+} from './exam';
