@@ -8,7 +8,9 @@
 
 import { QuotaExceededError } from '@/lib/errors';
 import { checkLLMUsage, getLLMUsage, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getProfileRepository } from '@/lib/repositories';
+import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
+import { getCurrentUser } from '@/lib/supabase/server';
 
 export interface QuotaStatus {
   canSend: boolean;
@@ -40,6 +42,12 @@ export interface QuotaCheckResult {
 }
 
 export class QuotaService {
+  private readonly profileRepo: ProfileRepository;
+
+  constructor(profileRepo?: ProfileRepository) {
+    this.profileRepo = profileRepo ?? getProfileRepository();
+  }
+
   /**
    * Check quota status without consuming (for UI display)
    */
@@ -172,15 +180,7 @@ export class QuotaService {
       return { user: null, isPro: false };
     }
 
-    const supabase = await createClient();
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('subscription_status')
-      .eq('id', user.id)
-      .single();
-
-    const isPro =
-      profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
+    const { isPro } = await this.profileRepo.getSubscriptionInfo(user.id);
 
     return { user, isPro };
   }
