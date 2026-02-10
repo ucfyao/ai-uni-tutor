@@ -13,6 +13,7 @@ export interface Database {
           stripe_price_id: string | null;
           subscription_status: string | null;
           current_period_end: string | null;
+          role: string;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +26,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
+          role?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -37,6 +39,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
+          role?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,6 +179,135 @@ export interface Database {
           content?: string;
           embedding?: number[] | null;
           metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      exam_papers: {
+        Row: {
+          id: string;
+          user_id: string;
+          document_id: string | null;
+          title: string;
+          visibility: 'public' | 'private';
+          school: string | null;
+          course: string | null;
+          year: string | null;
+          question_types: string[];
+          status: 'parsing' | 'ready' | 'error';
+          status_message: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          document_id?: string | null;
+          title: string;
+          visibility?: 'public' | 'private';
+          school?: string | null;
+          course?: string | null;
+          year?: string | null;
+          question_types?: string[];
+          status?: 'parsing' | 'ready' | 'error';
+          status_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          document_id?: string | null;
+          title?: string;
+          visibility?: 'public' | 'private';
+          school?: string | null;
+          course?: string | null;
+          year?: string | null;
+          question_types?: string[];
+          status?: 'parsing' | 'ready' | 'error';
+          status_message?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      exam_questions: {
+        Row: {
+          id: string;
+          paper_id: string;
+          order_num: number;
+          type: string;
+          content: string;
+          options: Json;
+          answer: string;
+          explanation: string;
+          points: number;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          paper_id: string;
+          order_num: number;
+          type: string;
+          content: string;
+          options?: Json;
+          answer: string;
+          explanation: string;
+          points?: number;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          paper_id?: string;
+          order_num?: number;
+          type?: string;
+          content?: string;
+          options?: Json;
+          answer?: string;
+          explanation?: string;
+          points?: number;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      mock_exams: {
+        Row: {
+          id: string;
+          user_id: string;
+          paper_id: string;
+          title: string;
+          questions: Json;
+          responses: Json;
+          score: number | null;
+          total_points: number;
+          current_index: number;
+          status: 'in_progress' | 'completed';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          paper_id: string;
+          title: string;
+          questions?: Json;
+          responses?: Json;
+          score?: number | null;
+          total_points?: number;
+          current_index?: number;
+          status?: 'in_progress' | 'completed';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          paper_id?: string;
+          title?: string;
+          questions?: Json;
+          responses?: Json;
+          score?: number | null;
+          total_points?: number;
+          current_index?: number;
+          status?: 'in_progress' | 'completed';
           created_at?: string;
         };
         Relationships: [];
