@@ -163,12 +163,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 : 'rgba(255, 255, 255, 0.92)',
             transition: 'all 0.15s ease',
             boxShadow: '0 1px 6px rgba(0, 0, 0, 0.04)',
-            opacity: isTyping ? 0.7 : 1,
-            cursor: isTyping ? 'not-allowed' : 'text',
+            opacity: isTyping && !isStreaming ? 0.7 : 1,
+            cursor: isTyping && !isStreaming ? 'not-allowed' : 'text',
             position: 'relative',
           }}
           className={`group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 ${
-            isTyping ? 'pointer-events-none' : ''
+            isTyping && !isStreaming ? 'pointer-events-none' : ''
           }`}
         >
           {/* Drag overlay */}
