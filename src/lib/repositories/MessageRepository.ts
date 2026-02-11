@@ -7,6 +7,7 @@
 
 import type { IMessageRepository } from '@/lib/domain/interfaces/IMessageRepository';
 import type { CreateMessageDTO, MessageEntity } from '@/lib/domain/models/Message';
+import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 
 // Database row type
@@ -42,8 +43,8 @@ export class MessageRepository implements IMessageRepository {
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
-    if (error || !data) return [];
-    return (data as MessageRow[]).map((row) => this.mapToEntity(row));
+    if (error) throw new DatabaseError(`Failed to fetch messages: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row as MessageRow));
   }
 
   async findByCardId(cardId: string): Promise<MessageEntity[]> {
@@ -54,7 +55,7 @@ export class MessageRepository implements IMessageRepository {
       .eq('card_id', cardId)
       .order('created_at', { ascending: true });
 
-    if (error || !data) return [];
+    if (error) throw new DatabaseError(`Failed to fetch messages: ${error.message}`, error);
     return (data as MessageRow[]).map((row) => this.mapToEntity(row));
   }
 
@@ -73,7 +74,7 @@ export class MessageRepository implements IMessageRepository {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to create message: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to create message: ${error.message}`, error);
 
     // Update session's updated_at timestamp
     await supabase
@@ -88,7 +89,7 @@ export class MessageRepository implements IMessageRepository {
     const supabase = await createClient();
     const { error } = await supabase.from('chat_messages').delete().eq('session_id', sessionId);
 
-    if (error) throw new Error(`Failed to delete messages: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to delete messages: ${error.message}`, error);
   }
 }
 

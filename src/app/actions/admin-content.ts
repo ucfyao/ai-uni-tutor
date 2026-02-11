@@ -4,10 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { parsePDF } from '@/lib/pdf';
-import { generateEmbedding } from '@/lib/rag/embedding';
+import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { createClient, getCurrentUser, requireAdmin } from '@/lib/supabase/server';
+import type { FormActionState } from '@/types/actions';
 import type { Database } from '@/types/database';
 import type { ExamPaper } from '@/types/exam';
 
@@ -17,10 +18,7 @@ import type { ExamPaper } from '@/types/exam';
 
 export type AdminDocument = Database['public']['Tables']['documents']['Row'];
 
-export type AdminUploadState = {
-  status: 'idle' | 'success' | 'error';
-  message: string;
-};
+export type AdminUploadState = FormActionState;
 
 /* ------------------------------------------------------------------ */
 /*  Read helpers                                                       */
@@ -169,7 +167,7 @@ export async function uploadAdminContent(
       const batch = chunks.slice(i, i + BATCH_SIZE);
       await Promise.all(
         batch.map(async (chunk) => {
-          const embedding = await generateEmbedding(chunk.content);
+          const embedding = await generateEmbeddingWithRetry(chunk.content);
           chunksData.push({
             documentId: doc.id,
             content: chunk.content,

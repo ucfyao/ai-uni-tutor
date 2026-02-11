@@ -1,9 +1,10 @@
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { RAG_CONFIG } from './config';
 
 export async function chunkText(
   text: string,
-  chunkSize: number = 1000,
-  chunkOverlap: number = 200,
+  chunkSize: number = RAG_CONFIG.chunkSize,
+  chunkOverlap: number = RAG_CONFIG.chunkOverlap,
 ): Promise<string[]> {
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize,
@@ -28,8 +29,8 @@ export type ChunkWithMetadata = {
 
 export async function chunkPages(
   pages: PageContent[],
-  chunkSize: number = 1000,
-  chunkOverlap: number = 200,
+  chunkSize: number = RAG_CONFIG.chunkSize,
+  chunkOverlap: number = RAG_CONFIG.chunkOverlap,
 ): Promise<ChunkWithMetadata[]> {
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize,

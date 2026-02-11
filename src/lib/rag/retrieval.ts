@@ -1,8 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
+import { RAG_CONFIG } from './config';
 import { generateEmbedding } from './embedding';
 
-export async function retrieveContext(query: string, filter: Json = {}, matchCount: number = 5) {
+export async function retrieveContext(
+  query: string,
+  filter: Json = {},
+  matchCount: number = RAG_CONFIG.matchCount,
+) {
   const embedding = await generateEmbedding(query);
   const supabase = await createClient();
 
@@ -10,9 +15,9 @@ export async function retrieveContext(query: string, filter: Json = {}, matchCou
   const { data, error } = await supabase.rpc('hybrid_search', {
     query_text: query,
     query_embedding: embedding,
-    match_threshold: 0.5,
+    match_threshold: RAG_CONFIG.matchThreshold,
     match_count: matchCount,
-    rrf_k: 60,
+    rrf_k: RAG_CONFIG.rrfK,
     filter: filter,
   });
 

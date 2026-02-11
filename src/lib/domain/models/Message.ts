@@ -10,6 +10,7 @@ export interface MessageEntity {
   role: 'user' | 'assistant';
   content: string;
   cardId: string | null;
+  /** Ephemeral: used in-memory for AI context only, not persisted to DB. */
   images?: {
     data: string;
     mimeType: string;

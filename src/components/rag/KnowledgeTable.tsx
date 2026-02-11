@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   BookOpen,
@@ -12,11 +13,12 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ActionIcon, Badge, Box, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, retryDocument } from '@/app/actions/documents';
 import { showNotification } from '@/lib/notifications';
+import { queryKeys } from '@/lib/query-keys';
 import { createClient } from '@/lib/supabase/client';
 
 const DOC_TYPE_CONFIG: Record<string, { label: string; color: string; icon: typeof FileText }> = {
@@ -46,18 +48,20 @@ interface KnowledgeTableProps {
 }
 
 export function KnowledgeTable({ documents: initialDocuments, readOnly }: KnowledgeTableProps) {
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(initialDocuments);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const supabase = useMemo(() => createClient(), []);
   const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
   const router = useRouter();
 
-  // Sync initialDocuments prop with local state when it changes (e.g. after refresh)
+  // Seed the query cache with server-rendered data
   useEffect(() => {
-    setDocuments(initialDocuments);
-  }, [initialDocuments]);
+    queryClient.setQueryData(queryKeys.documents.all, initialDocuments);
+  }, [initialDocuments, queryClient]);
 
-  // Realtime subscription (mount-only; supabase is stable via useMemo)
+  const documents: KnowledgeDocument[] =
+    queryClient.getQueryData(queryKeys.documents.all) ?? initialDocuments;
+
+  // Realtime subscription — updates the query cache directly
   useEffect(() => {
     const channel = supabase
       .channel('realtime-documents')
@@ -69,17 +73,20 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
           table: 'documents',
         },
         (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newDoc = payload.new as KnowledgeDocument;
-            setDocuments((prev) => [newDoc, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedDoc = payload.new as KnowledgeDocument;
-            setDocuments((prev) =>
-              prev.map((doc) => (doc.id === updatedDoc.id ? updatedDoc : doc)),
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setDocuments((prev) => prev.filter((doc) => doc.id !== payload.old.id));
-          }
+          queryClient.setQueryData<KnowledgeDocument[]>(queryKeys.documents.all, (prev) => {
+            if (!prev) return prev;
+            if (payload.eventType === 'INSERT') {
+              return [payload.new as KnowledgeDocument, ...prev];
+            }
+            if (payload.eventType === 'UPDATE') {
+              const updated = payload.new as KnowledgeDocument;
+              return prev.map((doc) => (doc.id === updated.id ? updated : doc));
+            }
+            if (payload.eventType === 'DELETE') {
+              return prev.filter((doc) => doc.id !== payload.old.id);
+            }
+            return prev;
+          });
         },
       )
       .subscribe();
@@ -87,38 +94,37 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase is stable (useMemo)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase & queryClient are stable
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return;
-
-    // Optimistic Update
-    setDeletingId(id);
-    const previousDocs = [...documents];
-    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
-
-    try {
-      await deleteDocument(id);
+  // Delete mutation with optimistic update
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteDocument(id),
+    onMutate: async (id) => {
+      const previous = queryClient.getQueryData<KnowledgeDocument[]>(queryKeys.documents.all);
+      queryClient.setQueryData<KnowledgeDocument[]>(queryKeys.documents.all, (old) =>
+        old?.filter((doc) => doc.id !== id),
+      );
+      return { previous };
+    },
+    onSuccess: () => {
       showNotification({
         title: 'Deleted',
         message: 'Document deleted successfully',
         color: 'green',
       });
-      // We don't need to refresh here if we trust the optimistic update + realtime
-      // But revalidatePath on server is good for next hard nav.
-      // Also realtime DELETE event will confirm it.
-    } catch {
-      // Revert on error
-      setDocuments(previousDocs);
-      showNotification({
-        title: 'Error',
-        message: 'Failed to delete document',
-        color: 'red',
-      });
-    } finally {
-      setDeletingId(null);
-    }
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.documents.all, context.previous);
+      }
+      showNotification({ title: 'Error', message: 'Failed to delete document', color: 'red' });
+    },
+  });
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+    deleteMutation.mutate(id);
   };
 
   const handleRetry = async (id: string) => {
@@ -211,7 +217,7 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
                       e.stopPropagation();
                       handleDelete(doc.id);
                     }}
-                    loading={deletingId === doc.id}
+                    loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
                     aria-label="Delete document"
                   >
                     <Trash2 size={16} />
@@ -332,7 +338,7 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
                       variant="subtle"
                       color="red"
                       onClick={() => handleDelete(doc.id)}
-                      loading={deletingId === doc.id}
+                      loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
                       aria-label="Delete document"
                     >
                       <Trash2 size={16} />

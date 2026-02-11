@@ -3,47 +3,15 @@
  *
  * Business logic layer for AI-powered exam paper parsing and management.
  * Handles PDF parsing, AI question extraction via Gemini, and CRUD operations.
+ * Uses ExamPaperRepository for data access.
  */
 
 import { getGenAI } from '@/lib/gemini';
 import { parsePDF } from '@/lib/pdf';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
+import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
+import { getCurrentUser } from '@/lib/supabase/server';
 import type { ExamPaper, ExamQuestion, PaperFilters } from '@/types/exam';
-
-// ---------- DB row → domain mappers ----------
-
-function mapPaperRow(row: Record<string, unknown>, questionCount?: number): ExamPaper {
-  return {
-    id: row.id as string,
-    userId: row.user_id as string,
-    documentId: (row.document_id as string) ?? null,
-    title: row.title as string,
-    visibility: row.visibility as 'public' | 'private',
-    school: (row.school as string) ?? null,
-    course: (row.course as string) ?? null,
-    year: (row.year as string) ?? null,
-    questionTypes: (row.question_types as string[]) ?? [],
-    status: row.status as 'parsing' | 'ready' | 'error',
-    statusMessage: (row.status_message as string) ?? null,
-    questionCount,
-    createdAt: row.created_at as string,
-  };
-}
-
-function mapQuestionRow(row: Record<string, unknown>): ExamQuestion {
-  return {
-    id: row.id as string,
-    paperId: row.paper_id as string,
-    orderNum: row.order_num as number,
-    type: row.type as string,
-    content: row.content as string,
-    options: (row.options as Record<string, string>) ?? null,
-    answer: row.answer as string,
-    explanation: row.explanation as string,
-    points: row.points as number,
-    metadata: (row.metadata as { knowledge_point?: string; difficulty?: string }) ?? {},
-  };
-}
 
 // ---------- Gemini prompt ----------
 
@@ -81,6 +49,12 @@ Exam paper text:
 // ---------- Service class ----------
 
 export class ExamPaperService {
+  private readonly repo: ExamPaperRepository;
+
+  constructor(repo?: ExamPaperRepository) {
+    this.repo = repo ?? getExamPaperRepository();
+  }
+
   /**
    * Parse an exam paper PDF using AI to extract structured questions.
    */
@@ -92,29 +66,17 @@ export class ExamPaperService {
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
-
     // Create paper entry with parsing status
-    const { data: paper, error: insertError } = await supabase
-      .from('exam_papers')
-      .insert({
-        user_id: user.id,
-        title: fileName.replace(/\.pdf$/i, ''),
-        school: options.school ?? null,
-        course: options.course ?? null,
-        year: options.year ?? null,
-        visibility: options.visibility ?? 'private',
-        status: 'parsing',
-        question_types: [],
-      })
-      .select('id')
-      .single();
-
-    if (insertError || !paper) {
-      throw new Error(`Failed to create exam paper record: ${insertError?.message}`);
-    }
-
-    const paperId = paper.id as string;
+    const paperId = await this.repo.create({
+      userId: user.id,
+      title: fileName.replace(/\.pdf$/i, ''),
+      school: options.school,
+      course: options.course,
+      year: options.year,
+      visibility: options.visibility ?? 'private',
+      status: 'parsing',
+      questionTypes: [],
+    });
 
     try {
       // Extract text from PDF
@@ -157,54 +119,41 @@ export class ExamPaperService {
       }
 
       // Batch insert questions
-      const questionRows = questions.map((q) => ({
-        paper_id: paperId,
-        order_num: q.order_num,
-        type: q.type,
-        content: q.content,
-        options: q.options ?? null,
-        answer: q.answer ?? '',
-        explanation: q.explanation ?? '',
-        points: q.points ?? 0,
-        metadata: {
-          knowledge_point: q.knowledge_point ?? null,
-          difficulty: q.difficulty ?? null,
-        },
-      }));
-
-      const { error: questionsError } = await supabase.from('exam_questions').insert(questionRows);
-
-      if (questionsError) {
-        throw new Error(`Failed to insert questions: ${questionsError.message}`);
-      }
+      await this.repo.insertQuestions(
+        questions.map((q) => ({
+          paperId,
+          orderNum: q.order_num,
+          type: q.type,
+          content: q.content,
+          options: q.options ?? null,
+          answer: q.answer ?? '',
+          explanation: q.explanation ?? '',
+          points: q.points ?? 0,
+          metadata: {
+            knowledge_point: q.knowledge_point ?? null,
+            difficulty: q.difficulty ?? null,
+          },
+        })),
+      );
 
       // Collect unique question types
       const questionTypes = [...new Set(questions.map((q) => q.type))];
 
       // Update paper to ready
-      const { error: updateError } = await supabase
-        .from('exam_papers')
-        .update({
-          title: parsed.title || fileName.replace(/\.pdf$/i, ''),
-          status: 'ready',
-          question_types: questionTypes,
-        })
-        .eq('id', paperId);
-
-      if (updateError) {
-        throw new Error(`Failed to update paper status: ${updateError.message}`);
-      }
+      await this.repo.updateStatus(paperId, 'ready');
+      await this.repo.updatePaper(paperId, {
+        title: parsed.title || fileName.replace(/\.pdf$/i, ''),
+        questionTypes,
+      });
 
       return { paperId };
     } catch (error) {
       // Set paper status to error
-      await supabase
-        .from('exam_papers')
-        .update({
-          status: 'error',
-          status_message: error instanceof Error ? error.message : 'Unknown parsing error',
-        })
-        .eq('id', paperId);
+      await this.repo.updateStatus(
+        paperId,
+        'error',
+        error instanceof Error ? error.message : 'Unknown parsing error',
+      );
 
       throw error;
     }
@@ -214,35 +163,7 @@ export class ExamPaperService {
    * Get exam papers with optional filters. RLS handles visibility.
    */
   async getPapers(filters?: PaperFilters): Promise<ExamPaper[]> {
-    const supabase = await createClient();
-
-    let query = supabase
-      .from('exam_papers')
-      .select('*, exam_questions(count)')
-      .eq('status', 'ready')
-      .order('created_at', { ascending: false });
-
-    if (filters?.school) {
-      query = query.eq('school', filters.school);
-    }
-    if (filters?.course) {
-      query = query.eq('course', filters.course);
-    }
-    if (filters?.year) {
-      query = query.eq('year', filters.year);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(`Failed to fetch papers: ${error.message}`);
-    }
-
-    return (data ?? []).map((row: Record<string, unknown>) => {
-      const countArr = row.exam_questions as Array<{ count: number }> | undefined;
-      const questionCount = countArr?.[0]?.count ?? 0;
-      return mapPaperRow(row, questionCount);
-    });
+    return this.repo.findWithFilters(filters);
   }
 
   /**
@@ -251,30 +172,12 @@ export class ExamPaperService {
   async getPaperWithQuestions(
     paperId: string,
   ): Promise<{ paper: ExamPaper; questions: ExamQuestion[] } | null> {
-    const supabase = await createClient();
+    const paper = await this.repo.findById(paperId);
+    if (!paper) return null;
 
-    const { data: paperRow, error: paperError } = await supabase
-      .from('exam_papers')
-      .select('*')
-      .eq('id', paperId)
-      .single();
+    const questions = await this.repo.findQuestionsByPaperId(paperId);
 
-    if (paperError || !paperRow) return null;
-
-    const { data: questionRows, error: questionsError } = await supabase
-      .from('exam_questions')
-      .select('*')
-      .eq('paper_id', paperId)
-      .order('order_num', { ascending: true });
-
-    if (questionsError) {
-      throw new Error(`Failed to fetch questions: ${questionsError.message}`);
-    }
-
-    return {
-      paper: mapPaperRow(paperRow as Record<string, unknown>),
-      questions: (questionRows ?? []).map((r: Record<string, unknown>) => mapQuestionRow(r)),
-    };
+    return { paper, questions };
   }
 
   /**
@@ -284,28 +187,18 @@ export class ExamPaperService {
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
-
     // Verify ownership
-    const { data: paper, error: fetchError } = await supabase
-      .from('exam_papers')
-      .select('user_id')
-      .eq('id', paperId)
-      .single();
+    const ownerId = await this.repo.findOwner(paperId);
 
-    if (fetchError || !paper) {
+    if (!ownerId) {
       throw new Error('Paper not found');
     }
 
-    if ((paper.user_id as string) !== user.id) {
+    if (ownerId !== user.id) {
       throw new Error('Unauthorized: you do not own this paper');
     }
 
-    const { error: deleteError } = await supabase.from('exam_papers').delete().eq('id', paperId);
-
-    if (deleteError) {
-      throw new Error(`Failed to delete paper: ${deleteError.message}`);
-    }
+    await this.repo.delete(paperId);
   }
 
   /**
@@ -317,26 +210,7 @@ export class ExamPaperService {
       Pick<ExamQuestion, 'content' | 'options' | 'answer' | 'explanation' | 'points' | 'type'>
     >,
   ): Promise<void> {
-    const supabase = await createClient();
-
-    const updatePayload: Record<string, unknown> = {};
-    if (data.content !== undefined) updatePayload.content = data.content;
-    if (data.options !== undefined) updatePayload.options = data.options;
-    if (data.answer !== undefined) updatePayload.answer = data.answer;
-    if (data.explanation !== undefined) updatePayload.explanation = data.explanation;
-    if (data.points !== undefined) updatePayload.points = data.points;
-    if (data.type !== undefined) updatePayload.type = data.type;
-
-    if (Object.keys(updatePayload).length === 0) return;
-
-    const { error } = await supabase
-      .from('exam_questions')
-      .update(updatePayload)
-      .eq('id', questionId);
-
-    if (error) {
-      throw new Error(`Failed to update question: ${error.message}`);
-    }
+    await this.repo.updateQuestion(questionId, data);
   }
 }
 

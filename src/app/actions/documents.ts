@@ -5,16 +5,14 @@ import { z } from 'zod';
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
-import { generateEmbedding } from '@/lib/rag/embedding';
+import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { FormActionState } from '@/types/actions';
 import type { Json } from '@/types/database';
 
-export type UploadState = {
-  status: 'idle' | 'success' | 'error';
-  message: string;
-};
+export type UploadState = FormActionState;
 
 const uploadSchema = z.object({
   file: z.instanceof(File),
@@ -133,7 +131,7 @@ export async function uploadDocument(
           ]
             .filter(Boolean)
             .join('\n');
-          const embedding = await generateEmbedding(content);
+          const embedding = await generateEmbeddingWithRetry(content);
           chunksData.push({
             documentId: doc.id,
             content,
@@ -154,7 +152,7 @@ export async function uploadDocument(
           ]
             .filter(Boolean)
             .join('\n');
-          const embedding = await generateEmbedding(content);
+          const embedding = await generateEmbeddingWithRetry(content);
           chunksData.push({
             documentId: doc.id,
             content,
@@ -266,7 +264,7 @@ export async function regenerateEmbeddings(
   try {
     const chunks = await documentService.getChunks(documentId);
     for (const chunk of chunks) {
-      const embedding = await generateEmbedding(chunk.content);
+      const embedding = await generateEmbeddingWithRetry(chunk.content);
       await documentService.updateChunkEmbedding(chunk.id, embedding);
     }
     await documentService.updateStatus(doc.id, 'ready');

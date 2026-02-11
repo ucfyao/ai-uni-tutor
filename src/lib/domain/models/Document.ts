@@ -9,6 +9,8 @@ import type { Json } from '@/types/database';
 
 export type DocumentStatus = 'processing' | 'ready' | 'error';
 
+export type DocumentType = 'lecture' | 'exam' | 'assignment';
+
 export interface DocumentEntity {
   id: string;
   userId: string;
@@ -16,6 +18,8 @@ export interface DocumentEntity {
   status: DocumentStatus;
   statusMessage: string | null;
   metadata: Json;
+  docType: DocumentType | null;
+  courseId: string | null;
   createdAt: Date;
 }
 
