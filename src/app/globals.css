@@ -489,6 +489,11 @@ body {
   animation: fade-in-up 0.5s ease-out forwards;
 }
 
+/* Message action bar - show on hover */
+[data-message-bubble]:hover .message-actions {
+  opacity: 1 !important;
+}
+
 /* Code block copy button - show on hover */
 .group\/code:hover .code-copy-btn {
   opacity: 1 !important;

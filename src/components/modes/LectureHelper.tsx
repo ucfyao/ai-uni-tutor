@@ -321,6 +321,23 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   };
 
+  const handleRegenerate = async (messageId: string) => {
+    if (!session || isStreaming) return;
+
+    const msgIndex = session.messages.findIndex((m) => m.id === messageId);
+    if (msgIndex < 1) return;
+
+    const userMsg = session.messages[msgIndex - 1];
+    if (userMsg.role !== 'user') return;
+
+    // Remove from the user message onwards
+    const messagesToRemove = session.messages.length - msgIndex + 1;
+    removeMessages(messagesToRemove);
+
+    // Re-send with the original user input
+    handleSend(userMsg.content);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -414,6 +431,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             isKnowledgeMode={true}
             courseCode={session.course.code}
             onPromptSelect={(prompt) => handleSend(prompt)}
+            onRegenerate={handleRegenerate}
           />
 
           <Box

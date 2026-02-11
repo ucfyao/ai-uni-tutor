@@ -1,6 +1,16 @@
-import { Quote } from 'lucide-react';
+import { Check, Copy, Quote, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Box, Button, Image, Portal, SimpleGrid, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Group,
+  Image,
+  Portal,
+  SimpleGrid,
+  Text,
+  Tooltip,
+} from '@mantine/core';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import MarkdownRenderer from '../MarkdownRenderer';
@@ -37,7 +47,62 @@ interface MessageBubbleProps {
       source?: { messageId: string; role: 'user' | 'assistant' };
     },
   ) => void;
+  onRegenerate?: (messageId: string) => void;
 }
+
+const MessageActionBar: React.FC<{
+  isUser: boolean;
+  content: string;
+  messageId: string;
+  onRegenerate?: (messageId: string) => void;
+}> = ({ isUser, content, messageId, onRegenerate }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard
+      .writeText(content)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
+  }, [content]);
+
+  return (
+    <Group
+      gap={2}
+      mt={6}
+      className="message-actions"
+      style={{ opacity: 0, transition: 'opacity 0.15s ease' }}
+    >
+      <Tooltip label={copied ? 'Copied!' : 'Copy'} position="bottom" withArrow>
+        <ActionIcon
+          variant="subtle"
+          color={copied ? 'teal' : 'gray'}
+          size={28}
+          radius="md"
+          onClick={handleCopy}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </ActionIcon>
+      </Tooltip>
+
+      {!isUser && onRegenerate && (
+        <Tooltip label="Regenerate" position="bottom" withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size={28}
+            radius="md"
+            onClick={() => onRegenerate(messageId)}
+          >
+            <RefreshCw size={14} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </Group>
+  );
+};
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -49,6 +114,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   knowledgeCards = [],
   onHighlightClick,
   onAddCard,
+  onRegenerate,
 }) => {
   const isUser = message.role === 'user';
   const [selection, setSelection] = useState<{
@@ -228,6 +294,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   return (
     <Box
+      data-message-bubble
       style={{
         width: isUser ? 'auto' : '100%',
         maxWidth: isUser ? '85%' : '100%',
@@ -306,6 +373,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </>
           )}
         </Box>
+
+        {/* Message Action Bar */}
+        {!isStreaming && (
+          <MessageActionBar
+            isUser={isUser}
+            content={message.content}
+            messageId={message.id}
+            onRegenerate={onRegenerate}
+          />
+        )}
 
         {/* Selection Toolbar */}
         {selection && !isUser && onAddCard && (

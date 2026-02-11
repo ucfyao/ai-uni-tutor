@@ -35,6 +35,7 @@ interface MessageListProps {
   isKnowledgeMode?: boolean;
   courseCode?: string; // Added for WelcomeScreen
   onPromptSelect?: (prompt: string) => void; // Added for WelcomeScreen interaction
+  onRegenerate?: (messageId: string) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -50,6 +51,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   isKnowledgeMode: _isKnowledgeMode = false,
   courseCode,
   onPromptSelect,
+  onRegenerate,
 }) => {
   const viewport = useRef<HTMLDivElement>(null);
 
@@ -107,6 +109,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                       knowledgeCards={knowledgeCards}
                       onHighlightClick={onHighlightClick}
                       onAddCard={onAddCard}
+                      onRegenerate={onRegenerate}
                     />
                   </Box>
                 );
