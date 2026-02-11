@@ -64,6 +64,24 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   // Filter out card-specific messages (only show main chat)
   const mainMessages = messages.filter((m) => !m.cardId);
+
+  const initialMsgIdsRef = useRef<Set<string>>(new Set(mainMessages.map((m) => m.id)));
+  const [animatedIds, setAnimatedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const newIds = mainMessages
+      .filter((m) => !initialMsgIdsRef.current.has(m.id) && !animatedIds.has(m.id))
+      .map((m) => m.id);
+
+    if (newIds.length > 0) {
+      setAnimatedIds((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }, [mainMessages, animatedIds]);
+
   const prevMessageCountRef = useRef(mainMessages.length);
 
   // Auto-scroll to bottom when messages change (double rAF ensures layout is complete)
@@ -123,6 +141,13 @@ export const MessageList: React.FC<MessageListProps> = ({
                       display: 'flex',
                       justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                     }}
+                    className={
+                      animatedIds.has(msg.id)
+                        ? msg.role === 'user'
+                          ? 'msg-enter-right'
+                          : 'msg-enter-left'
+                        : undefined
+                    }
                   >
                     <MessageBubble
                       message={{ ...msg, content: displayText }}

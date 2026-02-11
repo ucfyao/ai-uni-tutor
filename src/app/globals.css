@@ -688,6 +688,37 @@ body {
   letter-spacing: -0.03em;
 }
 
+/* Message entry animations */
+@keyframes msgEnterLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes msgEnterRight {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.msg-enter-left {
+  animation: msgEnterLeft 0.25s ease-out;
+}
+
+.msg-enter-right {
+  animation: msgEnterRight 0.25s ease-out;
+}
+
 /* Scroll to bottom button entrance */
 @keyframes scrollBtnIn {
   from {
