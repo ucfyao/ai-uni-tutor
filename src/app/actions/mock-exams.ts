@@ -1,9 +1,23 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { QuotaExceededError } from '@/lib/errors';
 import { getMockExamService } from '@/lib/services/MockExamService';
-import { getCurrentUser } from '@/lib/supabase/server';
+import { getQuotaService } from '@/lib/services/QuotaService';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { BatchSubmitResult, MockExam, MockExamResponse } from '@/types/exam';
+
+/** Verify the mock exam belongs to the current user. */
+async function verifyMockOwnership(mockId: string, userId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('mock_exams')
+    .select('id')
+    .eq('id', mockId)
+    .eq('user_id', userId)
+    .single();
+  return data !== null;
+}
 
 /**
  * Start a mock exam session: find an exam paper for the course, generate a mock, link to session.
@@ -16,6 +30,8 @@ export async function startMockExamSession(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    await getQuotaService().enforce();
+
     const service = getMockExamService();
     const result = await service.startFromCourse(sessionId, courseCode);
 
@@ -23,6 +39,9 @@ export async function startMockExamSession(
     revalidatePath('/exam/history');
     return { success: true, mockId: result.mockId };
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
     console.error('Mock exam session start error:', error);
     return {
       success: false,
@@ -49,6 +68,8 @@ export async function generateMockFromTopic(
       return { success: false, error: 'Invalid difficulty level' };
     }
 
+    await getQuotaService().enforce();
+
     const service = getMockExamService();
     const { mockId } = await service.generateFromTopic({
       topic: topic.trim(),
@@ -61,6 +82,9 @@ export async function generateMockFromTopic(
     revalidatePath('/exam/history');
     return { success: true, mockId };
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
     console.error('Topic-based mock exam generation error:', error);
     return {
       success: false,
@@ -76,6 +100,8 @@ export async function generateMockExam(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    await getQuotaService().enforce();
+
     const service = getMockExamService();
     const { mockId } = await service.generateMock(paperId);
 
@@ -83,6 +109,9 @@ export async function generateMockExam(
     revalidatePath('/exam/history');
     return { success: true, mockId };
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
     console.error('Mock exam generation error:', error);
     return {
       success: false,
@@ -99,6 +128,10 @@ export async function submitMockAnswer(
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!(await verifyMockOwnership(mockId, user.id))) {
+      return { success: false, error: 'Mock exam not found' };
+    }
 
     const service = getMockExamService();
     const feedback = await service.submitAnswer(mockId, questionIndex, userAnswer);
@@ -120,6 +153,10 @@ export async function batchSubmitMockAnswers(
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!(await verifyMockOwnership(mockId, user.id))) {
+      return { success: false, error: 'Mock exam not found' };
+    }
 
     const service = getMockExamService();
     const result = await service.batchSubmitAnswers(mockId, answers);
@@ -145,6 +182,8 @@ export async function getMockExamIdBySessionId(sessionId: string): Promise<strin
 export async function getMockExamDetail(mockId: string): Promise<MockExam | null> {
   const user = await getCurrentUser();
   if (!user) return null;
+
+  if (!(await verifyMockOwnership(mockId, user.id))) return null;
 
   const service = getMockExamService();
   return service.getMock(mockId);

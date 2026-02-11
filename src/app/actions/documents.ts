@@ -3,9 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
+import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
 import { generateEmbedding } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
+import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export type UploadState = {
@@ -53,6 +55,9 @@ export async function uploadDocument(
     }
 
     const documentService = getDocumentService();
+
+    // Enforce AI quota before processing (embedding generation uses Gemini)
+    await getQuotaService().enforce();
 
     // Check for duplicates
     const isDuplicate = await documentService.checkDuplicate(user.id, file.name);
@@ -130,6 +135,9 @@ export async function uploadDocument(
     revalidatePath('/knowledge');
     return { status: 'success', message: 'Document processed successfully' };
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { status: 'error', message: error.message };
+    }
     console.error('Upload error:', error);
     return { status: 'error', message: 'Internal server error during upload' };
   }

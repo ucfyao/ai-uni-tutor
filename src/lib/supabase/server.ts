@@ -39,3 +39,21 @@ export const getCurrentUser = cache(async () => {
   } = await supabase.auth.getUser();
   return user;
 });
+
+/** Require authenticated user or throw UnauthorizedError. */
+export async function requireUser() {
+  const { UnauthorizedError } = await import('@/lib/errors');
+  const user = await getCurrentUser();
+  if (!user) throw new UnauthorizedError();
+  return user;
+}
+
+/** Require admin role or throw ForbiddenError. */
+export async function requireAdmin() {
+  const { ForbiddenError } = await import('@/lib/errors');
+  const user = await requireUser();
+  const { getProfileRepository } = await import('@/lib/repositories');
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'admin') throw new ForbiddenError('Admin access required');
+  return user;
+}

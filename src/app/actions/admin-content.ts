@@ -7,7 +7,7 @@ import { parsePDF } from '@/lib/pdf';
 import { generateEmbedding } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { createClient, getCurrentUser, requireAdmin } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import type { ExamPaper } from '@/types/exam';
 
@@ -28,7 +28,7 @@ export type AdminUploadState = {
 
 /** Fetch ALL documents (admin – no user_id filter). */
 export async function getAdminDocuments(): Promise<AdminDocument[]> {
-  const user = await getCurrentUser();
+  const user = await requireAdmin().catch(() => null);
   if (!user) return [];
 
   const supabase = await createClient();
@@ -46,7 +46,7 @@ export async function getAdminDocuments(): Promise<AdminDocument[]> {
 
 /** Fetch ALL exam papers (admin). */
 export async function getAdminExamPapers(): Promise<ExamPaper[]> {
-  const user = await getCurrentUser();
+  const user = await requireAdmin().catch(() => null);
   if (!user) return [];
 
   const service = getExamPaperService();
@@ -97,9 +97,9 @@ export async function uploadAdminContent(
       return { status: 'error', message: 'Only PDF files are supported' };
     }
 
-    const user = await getCurrentUser();
+    const user = await requireAdmin().catch(() => null);
     if (!user) {
-      return { status: 'error', message: 'Unauthorized' };
+      return { status: 'error', message: 'Admin access required' };
     }
 
     /* ---- If it is an exam paper, delegate to the exam paper service ---- */
@@ -208,8 +208,7 @@ export async function uploadAdminContent(
 /* ------------------------------------------------------------------ */
 
 export async function deleteAdminContent(id: string, type: 'document' | 'exam') {
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
+  await requireAdmin();
 
   const supabase = await createClient();
 

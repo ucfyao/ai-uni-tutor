@@ -1,4 +1,5 @@
 import { Quote, Star } from 'lucide-react';
+import { Avatar, Box, Container, Group, SimpleGrid } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const TestimonialsSection = () => {
@@ -9,7 +10,7 @@ const TestimonialsSection = () => {
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/10 to-background" />
 
-      <div className="container mx-auto px-6 relative z-10">
+      <Container size="lg" px={24} className="relative z-10">
         {/* Section Header */}
         <div className="text-center mb-10 md:mb-14">
           <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
@@ -22,9 +23,9 @@ const TestimonialsSection = () => {
         </div>
 
         {/* Testimonials Grid */}
-        <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+        <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 24, md: 32 }}>
           {t.testimonials.items.map((testimonial, index) => (
-            <div
+            <Box
               key={index}
               className="glass-card p-6 md:p-8 relative group hover:scale-[1.02] transition-all duration-300"
             >
@@ -46,21 +47,25 @@ const TestimonialsSection = () => {
               </p>
 
               {/* Author */}
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                  <span className="font-display font-bold text-primary-foreground">
-                    {testimonial.avatar}
-                  </span>
-                </div>
+              <Group gap="md">
+                <Avatar
+                  size={48}
+                  color="indigo"
+                  variant="gradient"
+                  gradient={{ from: 'indigo', to: 'grape' }}
+                  radius="xl"
+                >
+                  {testimonial.avatar}
+                </Avatar>
                 <div>
                   <div className="font-semibold">{testimonial.name}</div>
                   <div className="text-sm text-muted-foreground">{testimonial.role}</div>
                 </div>
-              </div>
-            </div>
+              </Group>
+            </Box>
           ))}
-        </div>
-      </div>
+        </SimpleGrid>
+      </Container>
     </section>
   );
 };

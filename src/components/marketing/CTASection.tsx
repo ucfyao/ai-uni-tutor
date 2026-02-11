@@ -1,6 +1,6 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Box, Button, Container } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const CTASection = () => {
@@ -12,8 +12,8 @@ const CTASection = () => {
       <div className="absolute inset-0 bg-gradient-to-b from-background to-secondary/20" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/10 rounded-full blur-[100px]" />
 
-      <div className="container mx-auto px-6 relative z-10">
-        <div className="glass-card max-w-4xl mx-auto p-8 md:p-12 text-center">
+      <Container size="lg" px={24} className="relative z-10">
+        <Box className="glass-card max-w-4xl mx-auto p-8 md:p-12 text-center">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -29,20 +29,28 @@ const CTASection = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">{t.cta.subtitle}</p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button variant="hero" size="xl" asChild>
-              <Link href="/login">
-                {t.cta.startTrial}
-                <ArrowRight className="w-5 h-5" />
-              </Link>
+            <Button
+              className="btn-hero"
+              size="xl"
+              component={Link}
+              href="/login"
+              rightSection={<ArrowRight className="w-5 h-5" />}
+            >
+              {t.cta.startTrial}
             </Button>
-            <Button variant="heroOutline" size="xl" asChild>
-              <a href="mailto:ucfyao@gmail.com">{t.cta.contactUs}</a>
+            <Button
+              className="btn-hero-outline"
+              size="xl"
+              component="a"
+              href="mailto:ucfyao@gmail.com"
+            >
+              {t.cta.contactUs}
             </Button>
           </div>
 
           <p className="text-sm text-muted-foreground mt-6">{t.cta.note}</p>
-        </div>
-      </div>
+        </Box>
+      </Container>
     </section>
   );
 };

@@ -1,4 +1,5 @@
 import { BookOpen, Brain, Clock, MessageSquare, Target, Zap } from 'lucide-react';
+import { Box, Container, SimpleGrid } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const featureIcons = [Brain, BookOpen, Clock, MessageSquare, Target, Zap];
@@ -11,7 +12,7 @@ const FeaturesSection = () => {
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/20 to-background" />
 
-      <div className="container mx-auto px-6 relative z-10">
+      <Container size="lg" px={24} className="relative z-10">
         {/* Section Header */}
         <div className="text-center mb-10 md:mb-14">
           <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
@@ -21,11 +22,11 @@ const FeaturesSection = () => {
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing={24}>
           {t.features.items.map((feature, index) => {
             const Icon = featureIcons[index];
             return (
-              <div
+              <Box
                 key={index}
                 className="glass-card p-6 md:p-8 hover:scale-[1.02] transition-all duration-300 group"
               >
@@ -34,11 +35,11 @@ const FeaturesSection = () => {
                 </div>
                 <h3 className="font-display text-xl font-semibold mb-3">{feature.title}</h3>
                 <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
-              </div>
+              </Box>
             );
           })}
-        </div>
-      </div>
+        </SimpleGrid>
+      </Container>
     </section>
   );
 };

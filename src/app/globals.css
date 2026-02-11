@@ -630,6 +630,33 @@ body {
   animation-delay: 0.4s;
 }
 
+/* Marketing homepage: hero buttons (Mantine-compatible) */
+.btn-hero {
+  background: var(--gradient-primary) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-weight: 600;
+  box-shadow: var(--shadow-button);
+  transition: all 0.3s;
+}
+.btn-hero:hover {
+  box-shadow: var(--shadow-button-hover);
+  transform: scale(1.05);
+}
+.btn-hero:active {
+  transform: scale(1);
+}
+
+.btn-hero-outline {
+  border: 2px solid hsl(var(--primary) / 0.5) !important;
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  transition: all 0.3s;
+}
+.btn-hero-outline:hover {
+  background: hsl(var(--primary) / 0.1) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
 /* Marketing homepage: glass card (from hub) */
 .glass-card {
   background: hsl(var(--card) / 0.8);

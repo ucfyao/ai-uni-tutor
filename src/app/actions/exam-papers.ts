@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { QuotaExceededError } from '@/lib/errors';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
-import { getCurrentUser } from '@/lib/supabase/server';
+import { getQuotaService } from '@/lib/services/QuotaService';
+import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { ExamPaper, PaperFilters } from '@/types/exam';
 
 export type ExamPaperUploadState = {
@@ -48,6 +50,9 @@ export async function uploadAndParseExamPaper(
       return { status: 'error', message: 'Unauthorized' };
     }
 
+    // Enforce AI quota before calling Gemini
+    await getQuotaService().enforce();
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const service = getExamPaperService();
     const { paperId } = await service.parsePaper(buffer, file.name, options);
@@ -55,6 +60,9 @@ export async function uploadAndParseExamPaper(
     revalidatePath('/exam');
     return { status: 'success', message: 'Exam paper parsed successfully', paperId };
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { status: 'error', message: error.message };
+    }
     console.error('Exam paper upload error:', error);
     return {
       status: 'error',
@@ -74,6 +82,17 @@ export async function getExamPaperList(filters?: PaperFilters): Promise<ExamPape
 export async function getExamPaperDetail(paperId: string) {
   const user = await getCurrentUser();
   if (!user) return null;
+
+  // Verify user owns the paper or the paper is public
+  const supabase = await createClient();
+  const { data: paper } = await supabase
+    .from('exam_papers')
+    .select('id, user_id, visibility')
+    .eq('id', paperId)
+    .single();
+
+  if (!paper) return null;
+  if (paper.visibility !== 'public' && paper.user_id !== user.id) return null;
 
   const service = getExamPaperService();
   return service.getPaperWithQuestions(paperId);
