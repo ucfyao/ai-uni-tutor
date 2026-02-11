@@ -56,7 +56,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     onSessionUpdate: onUpdateSession,
   });
 
-  const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse } = useChatStream();
+  const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse, cancelStream } =
+    useChatStream();
   const isLargeScreen = useMediaQuery('(min-width: 75em)'); // Matches Mantine 'lg' breakpoint
 
   // Knowledge cards management
@@ -460,6 +461,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 fileInputRef={fileInputRef}
                 inputRef={chatInputRef}
                 onFileSelect={handleFileSelect}
+                onStop={cancelStream}
+                isStreaming={isStreaming}
               />
             </Box>
           </Box>

@@ -1,4 +1,4 @@
-import { ArrowUp, Paperclip } from 'lucide-react';
+import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import React from 'react';
 import {
   ActionIcon,
@@ -28,6 +28,8 @@ interface ChatInputProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onStop?: () => void;
+  isStreaming?: boolean;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -46,6 +48,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   fileInputRef,
   inputRef,
   onFileSelect,
+  onStop,
+  isStreaming,
 }) => {
   return (
     <Container
@@ -163,23 +167,41 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             }}
           />
 
-          <ActionIcon
-            size={32}
-            radius="xl"
-            variant="filled"
-            color={input.trim() || attachedFiles.length > 0 ? 'indigo' : 'gray.4'}
-            onClick={onSend}
-            disabled={(!input.trim() && attachedFiles.length === 0) || isTyping}
-            mr={2}
-            mb={4}
-            className="transition-all duration-200"
-            style={{
-              opacity: !input.trim() && attachedFiles.length === 0 ? 0.4 : 1,
-            }}
-            aria-label="Send message"
-          >
-            <ArrowUp size={18} strokeWidth={2.5} />
-          </ActionIcon>
+          {isStreaming ? (
+            <Tooltip label="Stop generating" position="top" withArrow>
+              <ActionIcon
+                size={32}
+                radius="xl"
+                variant="filled"
+                color="gray.7"
+                onClick={onStop}
+                mr={2}
+                mb={4}
+                className="transition-all duration-200"
+                aria-label="Stop generating"
+              >
+                <Square size={14} fill="currentColor" />
+              </ActionIcon>
+            </Tooltip>
+          ) : (
+            <ActionIcon
+              size={32}
+              radius="xl"
+              variant="filled"
+              color={input.trim() || attachedFiles.length > 0 ? 'indigo' : 'gray.4'}
+              onClick={onSend}
+              disabled={(!input.trim() && attachedFiles.length === 0) || isTyping}
+              mr={2}
+              mb={4}
+              className="transition-all duration-200"
+              style={{
+                opacity: !input.trim() && attachedFiles.length === 0 ? 0.4 : 1,
+              }}
+              aria-label="Send message"
+            >
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </ActionIcon>
+          )}
         </Box>
 
         <Group justify="center" gap="xs" opacity={0.55} px="xs">
