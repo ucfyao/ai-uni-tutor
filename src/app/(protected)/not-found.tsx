@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { Button, Center, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Button, Center, Stack, Text, Title } from '@mantine/core';
 
 export default function NotFound() {
   return (
@@ -12,9 +11,11 @@ export default function NotFound() {
         <Text c="dimmed" maw={400}>
           The session you are looking for does not exist or you do not have permission to view it.
         </Text>
-        <Button component={Link} href="/study" variant="light" color="indigo" mt="md">
-          Back to Study
-        </Button>
+        <Anchor href="/study" underline="never">
+          <Button variant="light" color="indigo" mt="md">
+            Back to Study
+          </Button>
+        </Anchor>
       </Stack>
     </Center>
   );

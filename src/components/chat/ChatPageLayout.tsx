@@ -31,8 +31,8 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
   onKnowledgePanelToggle,
   children,
 }) => {
-  const isMobile = useMediaQuery('(max-width: 48em)'); // 768px
-  const isCompact = useMediaQuery('(max-width: 75em)'); // 1200px (lg breakpoint)
+  const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
+  const isCompact = useMediaQuery('(max-width: 75em)', false); // 1200px (lg breakpoint)
   const { setHeaderContent } = useHeader();
   const [mobileKnowledgeOpened, setMobileKnowledgeOpened] = useState(false);
 

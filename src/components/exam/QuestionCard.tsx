@@ -1,6 +1,7 @@
 'use client';
 
-import { Badge, Card, Group, Radio, Stack, Textarea, TextInput } from '@mantine/core';
+import { IconCircleCheck } from '@tabler/icons-react';
+import { Badge, Card, Group, Paper, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import type { MockExamQuestion } from '@/types/exam';
 
@@ -31,15 +32,47 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
 
         <MarkdownRenderer content={question.content} />
 
-        {/* Dynamic input based on question type */}
+        {/* Clickable option cards for choice questions */}
         {question.type === 'choice' && question.options ? (
-          <Radio.Group value={value} onChange={(v) => onChange(v)}>
-            <Stack gap="xs">
-              {Object.entries(question.options).map(([key, text]) => (
-                <Radio key={key} value={key} label={`${key}. ${text}`} disabled={disabled} />
-              ))}
-            </Stack>
-          </Radio.Group>
+          <Stack gap="xs">
+            {Object.entries(question.options).map(([key, text]) => {
+              const isSelected = value === key;
+              return (
+                <Paper
+                  key={key}
+                  withBorder
+                  radius="md"
+                  p="sm"
+                  onClick={disabled ? undefined : () => onChange(key)}
+                  style={{
+                    cursor: disabled ? 'default' : 'pointer',
+                    borderColor: isSelected
+                      ? 'var(--mantine-color-violet-5)'
+                      : 'var(--mantine-color-gray-3)',
+                    backgroundColor: isSelected ? 'var(--mantine-color-violet-0)' : undefined,
+                    transition: 'all 150ms ease',
+                  }}
+                >
+                  <Group gap="sm" wrap="nowrap">
+                    <Badge
+                      size="lg"
+                      circle
+                      variant={isSelected ? 'filled' : 'light'}
+                      color={isSelected ? 'violet' : 'gray'}
+                    >
+                      {key}
+                    </Badge>
+                    <Text size="sm" style={{ flex: 1 }}>
+                      {text}
+                    </Text>
+                    {isSelected && (
+                      <IconCircleCheck size={20} color="var(--mantine-color-violet-5)" />
+                    )}
+                  </Group>
+                </Paper>
+              );
+            })}
+          </Stack>
         ) : question.type === 'fill_blank' || question.type === 'true_false' ? (
           <TextInput
             placeholder="Enter your answer..."

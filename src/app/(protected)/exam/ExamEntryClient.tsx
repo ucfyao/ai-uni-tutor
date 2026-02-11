@@ -1,30 +1,39 @@
 'use client';
 
 import {
+  IconBolt,
   IconClock,
   IconFileText,
+  IconLoader2,
   IconLock,
   IconPlus,
   IconSparkles,
   IconTrophy,
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useCallback, useState, useTransition } from 'react';
 import {
   Badge,
+  Box,
   Button,
   Card,
   Container,
   Group,
+  Loader,
+  Modal,
+  MultiSelect,
   Progress,
   ScrollArea,
-  SimpleGrid,
+  Select,
   Stack,
   Text,
+  TextInput,
   Title,
+  UnstyledButton,
 } from '@mantine/core';
-import { generateMockExam } from '@/app/actions/mock-exams';
-import type { ExamPaper, MockExam } from '@/types/exam';
+import { getExamPaperDetail } from '@/app/actions/exam-papers';
+import { generateMockExam, generateMockFromTopic } from '@/app/actions/mock-exams';
+import type { ExamPaper, ExamQuestion, MockExam } from '@/types/exam';
 import { ExamPaperUploadModal } from './ExamPaperUploadModal';
 
 interface Props {
@@ -38,6 +47,37 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const [quickGenOpen, setQuickGenOpen] = useState(false);
+  const [quickGenTopic, setQuickGenTopic] = useState('');
+  const [quickGenNum, setQuickGenNum] = useState<string>('10');
+  const [quickGenDifficulty, setQuickGenDifficulty] = useState<string>('mixed');
+  const [quickGenTypes, setQuickGenTypes] = useState<string[]>([]);
+  const [quickGenLoading, setQuickGenLoading] = useState(false);
+  const [quickGenError, setQuickGenError] = useState<string | null>(null);
+
+  const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
+  const [paperDetail, setPaperDetail] = useState<{
+    paper: ExamPaper;
+    questions: ExamQuestion[];
+  } | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const handleSelectPaper = useCallback(
+    async (paperId: string) => {
+      if (paperId === selectedPaperId) return;
+      setSelectedPaperId(paperId);
+      setLoadingDetail(true);
+      setPaperDetail(null);
+      try {
+        const detail = await getExamPaperDetail(paperId);
+        setPaperDetail(detail);
+      } finally {
+        setLoadingDetail(false);
+      }
+    },
+    [selectedPaperId],
+  );
+
   const handleGenerate = (paperId: string) => {
     setGeneratingId(paperId);
     startTransition(async () => {
@@ -49,8 +89,45 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
     });
   };
 
+  const handleQuickGenerate = async () => {
+    if (!quickGenTopic.trim()) return;
+    setQuickGenLoading(true);
+    setQuickGenError(null);
+    try {
+      const result = await generateMockFromTopic(
+        quickGenTopic,
+        Number(quickGenNum),
+        quickGenDifficulty as 'easy' | 'medium' | 'hard' | 'mixed',
+        quickGenTypes,
+      );
+      if (result.success) {
+        setQuickGenOpen(false);
+        router.push(`/exam/mock/${result.mockId}`);
+      } else {
+        setQuickGenError(result.error);
+      }
+    } catch {
+      setQuickGenError('An unexpected error occurred');
+    } finally {
+      setQuickGenLoading(false);
+    }
+  };
+
+  const questionTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      choice: 'Choice',
+      fill_blank: 'Fill Blank',
+      true_false: 'True/False',
+      short_answer: 'Short Answer',
+      essay: 'Essay',
+      calculation: 'Calculation',
+      proof: 'Proof',
+    };
+    return labels[type] || type;
+  };
+
   return (
-    <Container size="md" py={48}>
+    <Container size="xl" py={48}>
       <Stack gap="xl">
         {/* Header */}
         <Group justify="space-between" align="flex-start">
@@ -63,6 +140,14 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
             </Text>
           </div>
           <Group>
+            <Button
+              leftSection={<IconBolt size={16} />}
+              variant="gradient"
+              gradient={{ from: 'teal', to: 'cyan' }}
+              onClick={() => setQuickGenOpen(true)}
+            >
+              Quick Generate
+            </Button>
             <Button
               leftSection={<IconPlus size={16} />}
               variant="gradient"
@@ -77,77 +162,192 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
           </Group>
         </Group>
 
-        {/* Paper Bank */}
+        {/* Paper Bank — Two-Column Layout */}
         <div>
           <Title order={4} mb="md">
             Paper Bank
           </Title>
           {papers.length === 0 ? (
             <Card withBorder radius="lg" p="xl" ta="center">
-              <IconFileText size={48} style={{ opacity: 0.3 }} />
+              <IconFileText size={48} style={{ opacity: 0.3, margin: '0 auto' }} />
               <Text c="dimmed" mt="sm">
-                No exam papers yet. Upload one to get started.
+                No exam papers yet. Upload one or generate from a topic.
               </Text>
+              <Group justify="center" mt="md">
+                <Button
+                  leftSection={<IconBolt size={16} />}
+                  variant="gradient"
+                  gradient={{ from: 'teal', to: 'cyan' }}
+                  onClick={() => setQuickGenOpen(true)}
+                >
+                  Generate from Topic
+                </Button>
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  variant="light"
+                  onClick={() => setUploadOpen(true)}
+                >
+                  Upload Paper
+                </Button>
+              </Group>
             </Card>
           ) : (
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-              {papers.map((paper) => (
-                <Card key={paper.id} withBorder radius="lg" p="lg">
-                  <Group justify="space-between" mb="xs">
-                    <Text fw={600} lineClamp={1}>
-                      {paper.title}
-                    </Text>
-                    {paper.visibility === 'private' && (
-                      <IconLock size={14} style={{ opacity: 0.5 }} />
-                    )}
-                  </Group>
+            <Group align="flex-start" gap={0} wrap="nowrap" style={{ minHeight: 400 }}>
+              {/* Left sidebar — Paper list */}
+              <Box
+                w={280}
+                style={{
+                  flexShrink: 0,
+                  borderRight: '1px solid var(--mantine-color-gray-3)',
+                }}
+              >
+                <ScrollArea h={480}>
+                  <Stack gap={0}>
+                    {papers.map((paper) => {
+                      const isActive = selectedPaperId === paper.id;
+                      return (
+                        <UnstyledButton
+                          key={paper.id}
+                          onClick={() => handleSelectPaper(paper.id)}
+                          p="sm"
+                          style={{
+                            borderLeft: isActive
+                              ? '3px solid var(--mantine-color-violet-5)'
+                              : '3px solid transparent',
+                            backgroundColor: isActive ? 'var(--mantine-color-violet-0)' : undefined,
+                            transition: 'all 150ms ease',
+                          }}
+                        >
+                          <Group justify="space-between" mb={4} wrap="nowrap">
+                            <Text
+                              size="sm"
+                              fw={isActive ? 600 : 500}
+                              lineClamp={1}
+                              style={{ flex: 1 }}
+                            >
+                              {paper.title}
+                            </Text>
+                            {paper.visibility === 'private' && (
+                              <IconLock size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                            )}
+                          </Group>
+                          <Group gap={4} mb={4}>
+                            {paper.school && (
+                              <Badge size="xs" variant="light">
+                                {paper.school}
+                              </Badge>
+                            )}
+                            {paper.course && (
+                              <Badge size="xs" variant="light" color="violet">
+                                {paper.course}
+                              </Badge>
+                            )}
+                            {paper.year && (
+                              <Badge size="xs" variant="light" color="gray">
+                                {paper.year}
+                              </Badge>
+                            )}
+                          </Group>
+                          <Text size="xs" c="dimmed">
+                            {paper.questionCount ?? 0} questions
+                          </Text>
+                        </UnstyledButton>
+                      );
+                    })}
+                  </Stack>
+                </ScrollArea>
+              </Box>
 
-                  <Group gap="xs" mb="sm">
-                    {paper.school && (
-                      <Badge size="xs" variant="light">
-                        {paper.school}
-                      </Badge>
-                    )}
-                    {paper.course && (
-                      <Badge size="xs" variant="light" color="violet">
-                        {paper.course}
-                      </Badge>
-                    )}
-                    {paper.year && (
-                      <Badge size="xs" variant="light" color="gray">
-                        {paper.year}
-                      </Badge>
-                    )}
-                  </Group>
-
-                  <Group gap="xs" mb="md">
-                    <Text size="xs" c="dimmed">
-                      {paper.questionCount ?? 0} questions
+              {/* Right panel — Paper detail */}
+              <Box style={{ flex: 1, minWidth: 0 }} p="lg">
+                {!selectedPaperId ? (
+                  <Stack align="center" justify="center" h={400} gap="sm">
+                    <IconFileText size={48} style={{ opacity: 0.2 }} />
+                    <Text c="dimmed">Select a paper to view details</Text>
+                  </Stack>
+                ) : loadingDetail ? (
+                  <Stack align="center" justify="center" h={400}>
+                    <Loader size="md" />
+                    <Text size="sm" c="dimmed">
+                      Loading paper details...
                     </Text>
-                    <Text size="xs" c="dimmed">
-                      ·
-                    </Text>
-                    {paper.questionTypes.slice(0, 3).map((t) => (
-                      <Badge key={t} size="xs" variant="dot">
-                        {t}
-                      </Badge>
-                    ))}
-                  </Group>
+                  </Stack>
+                ) : paperDetail ? (
+                  <Stack gap="lg">
+                    <div>
+                      <Title order={3} mb="xs">
+                        {paperDetail.paper.title}
+                      </Title>
+                      <Group gap="xs">
+                        {paperDetail.paper.school && (
+                          <Badge variant="light">{paperDetail.paper.school}</Badge>
+                        )}
+                        {paperDetail.paper.course && (
+                          <Badge variant="light" color="violet">
+                            {paperDetail.paper.course}
+                          </Badge>
+                        )}
+                        {paperDetail.paper.year && (
+                          <Badge variant="light" color="gray">
+                            {paperDetail.paper.year}
+                          </Badge>
+                        )}
+                        <Badge variant="light" color="indigo">
+                          {paperDetail.questions.length} questions
+                        </Badge>
+                      </Group>
+                    </div>
 
-                  <Button
-                    fullWidth
-                    variant="gradient"
-                    gradient={{ from: 'indigo', to: 'violet' }}
-                    leftSection={<IconSparkles size={16} />}
-                    loading={generatingId === paper.id}
-                    disabled={isPending}
-                    onClick={() => handleGenerate(paper.id)}
-                  >
-                    Generate Mock Exam
-                  </Button>
-                </Card>
-              ))}
-            </SimpleGrid>
+                    {/* Questions preview */}
+                    <Stack gap="xs">
+                      <Text size="sm" fw={600} c="dimmed">
+                        Questions Preview
+                      </Text>
+                      {paperDetail.questions.slice(0, 5).map((q, i) => (
+                        <Group key={q.id} gap="sm" wrap="nowrap" align="flex-start">
+                          <Badge size="sm" variant="light" color="indigo" style={{ flexShrink: 0 }}>
+                            Q{i + 1}
+                          </Badge>
+                          <Badge size="xs" variant="dot" style={{ flexShrink: 0 }}>
+                            {questionTypeLabel(q.type)}
+                          </Badge>
+                          <Text size="sm" lineClamp={1} c="dimmed" style={{ flex: 1 }}>
+                            {q.content.replace(/[#*_`$\\]/g, '').slice(0, 80)}
+                          </Text>
+                        </Group>
+                      ))}
+                      {paperDetail.questions.length > 5 && (
+                        <Text size="xs" c="dimmed" fs="italic">
+                          ... and {paperDetail.questions.length - 5} more questions
+                        </Text>
+                      )}
+                    </Stack>
+
+                    <Button
+                      variant="gradient"
+                      gradient={{ from: 'indigo', to: 'violet' }}
+                      leftSection={
+                        generatingId === selectedPaperId ? (
+                          <IconLoader2 size={16} className="animate-spin" />
+                        ) : (
+                          <IconSparkles size={16} />
+                        )
+                      }
+                      loading={generatingId === selectedPaperId}
+                      disabled={isPending}
+                      onClick={() => handleGenerate(selectedPaperId)}
+                      size="md"
+                    >
+                      Generate Mock Exam
+                    </Button>
+                  </Stack>
+                ) : (
+                  <Stack align="center" justify="center" h={400}>
+                    <Text c="dimmed">Failed to load paper details</Text>
+                  </Stack>
+                )}
+              </Box>
+            </Group>
           )}
         </div>
 
@@ -208,6 +408,86 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
         )}
 
         <ExamPaperUploadModal opened={uploadOpen} onClose={() => setUploadOpen(false)} />
+
+        {/* Quick Generate Modal */}
+        <Modal
+          opened={quickGenOpen}
+          onClose={() => {
+            setQuickGenOpen(false);
+            setQuickGenError(null);
+          }}
+          title="Quick Generate Mock Exam"
+          size="md"
+          centered
+        >
+          <Stack gap="md">
+            <TextInput
+              label="Topic / Course"
+              placeholder="e.g. Linear Algebra, Organic Chemistry"
+              required
+              value={quickGenTopic}
+              onChange={(e) => setQuickGenTopic(e.currentTarget.value)}
+            />
+            <Select
+              label="Number of Questions"
+              data={[
+                { value: '5', label: '5 questions' },
+                { value: '10', label: '10 questions' },
+                { value: '15', label: '15 questions' },
+                { value: '20', label: '20 questions' },
+              ]}
+              value={quickGenNum}
+              onChange={(v) => setQuickGenNum(v ?? '10')}
+            />
+            <Select
+              label="Difficulty"
+              data={[
+                { value: 'mixed', label: 'Mixed' },
+                { value: 'easy', label: 'Easy' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'hard', label: 'Hard' },
+              ]}
+              value={quickGenDifficulty}
+              onChange={(v) => setQuickGenDifficulty(v ?? 'mixed')}
+            />
+            <MultiSelect
+              label="Question Types (optional)"
+              placeholder="Leave empty for auto"
+              data={[
+                { value: 'choice', label: 'Multiple Choice' },
+                { value: 'true_false', label: 'True / False' },
+                { value: 'fill_blank', label: 'Fill in the Blank' },
+                { value: 'short_answer', label: 'Short Answer' },
+                { value: 'calculation', label: 'Calculation' },
+                { value: 'essay', label: 'Essay' },
+              ]}
+              value={quickGenTypes}
+              onChange={setQuickGenTypes}
+            />
+            {quickGenError && (
+              <Text size="sm" c="red">
+                {quickGenError}
+              </Text>
+            )}
+            <Button
+              variant="gradient"
+              gradient={{ from: 'teal', to: 'cyan' }}
+              leftSection={
+                quickGenLoading ? (
+                  <IconLoader2 size={16} className="animate-spin" />
+                ) : (
+                  <IconBolt size={16} />
+                )
+              }
+              loading={quickGenLoading}
+              disabled={!quickGenTopic.trim()}
+              onClick={handleQuickGenerate}
+              fullWidth
+            >
+              Generate Exam
+            </Button>
+          </Stack>
+        </Modal>
       </Stack>
     </Container>
   );

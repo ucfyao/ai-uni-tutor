@@ -49,7 +49,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
-  const isMobile = useMediaQuery('(max-width: 48em)');
+  const isMobile = useMediaQuery('(max-width: 48em)', false);
 
   // Shared Modal State
   const [renameId, setRenameId] = useState<string | null>(null);

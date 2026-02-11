@@ -41,7 +41,7 @@ export interface MockExamQuestion {
   answer: string;
   explanation: string;
   points: number;
-  sourceQuestionId: string;
+  sourceQuestionId: string | null;
 }
 
 export interface MockExamResponse {
@@ -70,4 +70,12 @@ export interface PaperFilters {
   school?: string;
   course?: string;
   year?: string;
+}
+
+export type ExamMode = 'practice' | 'exam';
+
+export interface BatchSubmitResult {
+  responses: MockExamResponse[];
+  score: number;
+  totalPoints: number;
 }

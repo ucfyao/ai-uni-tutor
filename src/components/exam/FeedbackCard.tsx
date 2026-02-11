@@ -1,16 +1,17 @@
 'use client';
 
 import { IconCheck, IconX } from '@tabler/icons-react';
-import { Card, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Card, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import type { MockExamResponse } from '@/types/exam';
 
 interface Props {
   feedback: MockExamResponse;
   explanation: string;
+  correctAnswer?: string;
 }
 
-export function FeedbackCard({ feedback, explanation }: Props) {
+export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
   return (
     <Card
       withBorder
@@ -24,7 +25,7 @@ export function FeedbackCard({ feedback, explanation }: Props) {
       }}
     >
       <Stack gap="sm">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Group gap={8}>
           <ThemeIcon
             size="sm"
             radius="xl"
@@ -36,16 +37,43 @@ export function FeedbackCard({ feedback, explanation }: Props) {
           <Text fw={600} c={feedback.isCorrect ? 'green' : 'red'}>
             {feedback.isCorrect ? 'Correct!' : 'Incorrect'} ({feedback.score} pts)
           </Text>
-        </div>
+        </Group>
 
-        <Text size="sm">{feedback.aiFeedback}</Text>
+        {/* Answer comparison when incorrect */}
+        {!feedback.isCorrect && correctAnswer && (
+          <Group grow gap="sm">
+            <Paper withBorder radius="md" p="sm" bg="red.0">
+              <Text size="xs" fw={600} c="red.7" mb={4}>
+                Your Answer
+              </Text>
+              <Text size="sm" c="red.8">
+                {feedback.userAnswer || '(no answer)'}
+              </Text>
+            </Paper>
+            <Paper withBorder radius="md" p="sm" bg="green.0">
+              <Text size="xs" fw={600} c="green.7" mb={4}>
+                Correct Answer
+              </Text>
+              <Text size="sm" c="green.8">
+                {correctAnswer}
+              </Text>
+            </Paper>
+          </Group>
+        )}
 
         <div>
+          <Text size="xs" fw={600} c="dimmed" mb={4}>
+            AI Feedback:
+          </Text>
+          <Text size="sm">{feedback.aiFeedback}</Text>
+        </div>
+
+        <Paper withBorder radius="md" p="sm" bg="white">
           <Text size="xs" fw={600} c="dimmed" mb={4}>
             Detailed Explanation:
           </Text>
           <MarkdownRenderer content={explanation} />
-        </div>
+        </Paper>
       </Stack>
     </Card>
   );

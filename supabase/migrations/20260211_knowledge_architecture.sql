@@ -4,7 +4,7 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS doc_type text NOT NULL DEFAULT 'l
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS course_id text;
 
 -- Add session_id to mock_exams to link with chat_sessions
-ALTER TABLE mock_exams ADD COLUMN IF NOT EXISTS session_id text REFERENCES chat_sessions(id) ON DELETE SET NULL;
+ALTER TABLE mock_exams ADD COLUMN IF NOT EXISTS session_id uuid REFERENCES chat_sessions(id) ON DELETE SET NULL;
 
 -- Index for efficient course-based knowledge lookups
 CREATE INDEX IF NOT EXISTS idx_documents_course_id ON documents(course_id);
