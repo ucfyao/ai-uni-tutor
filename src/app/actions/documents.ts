@@ -35,6 +35,7 @@ export async function uploadDocument(
   prevState: UploadState,
   formData: FormData,
 ): Promise<UploadState> {
+  let docId: string | undefined;
   try {
     const parsed = uploadSchema.safeParse({
       file: formData.get('file'),
@@ -76,6 +77,7 @@ export async function uploadDocument(
       },
       doc_type,
     );
+    docId = doc.id;
 
     revalidatePath('/knowledge');
 
@@ -93,8 +95,22 @@ export async function uploadDocument(
       return { status: 'error', message: 'Failed to parse PDF content' };
     }
 
+    // Check for empty PDF
+    const totalText = pdfData.pages.reduce((acc, p) => acc + p.text.trim(), '');
+    if (totalText.length === 0) {
+      await documentService.updateStatus(doc.id, 'error', 'PDF contains no extractable text');
+      revalidatePath('/knowledge');
+      return { status: 'error', message: 'PDF contains no extractable text' };
+    }
+
+    await documentService.updateStatus(doc.id, 'processing', 'Parsing PDF...');
+    revalidatePath('/knowledge');
+
     // 3. Parse content based on doc_type
     const chunksData: CreateDocumentChunkDTO[] = [];
+
+    await documentService.updateStatus(doc.id, 'processing', 'Extracting content...');
+    revalidatePath('/knowledge');
 
     try {
       if (doc_type === 'lecture') {
@@ -156,6 +172,9 @@ export async function uploadDocument(
     }
 
     // 4. Save chunks
+    await documentService.updateStatus(doc.id, 'processing', 'Generating embeddings & saving...');
+    revalidatePath('/knowledge');
+
     if (chunksData.length > 0) {
       try {
         await documentService.saveChunks(chunksData);
@@ -173,6 +192,16 @@ export async function uploadDocument(
     return { status: 'success', message: 'Document processed successfully' };
   } catch (error) {
     console.error('Upload error:', error);
+    if (docId) {
+      try {
+        const documentService = getDocumentService();
+        await documentService.deleteChunksByDocumentId(docId);
+        await documentService.updateStatus(docId, 'error', 'Upload failed unexpectedly');
+        revalidatePath('/knowledge');
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
     return { status: 'error', message: 'Internal server error during upload' };
   }
 }
@@ -241,6 +270,23 @@ export async function regenerateEmbeddings(
   revalidatePath(`/knowledge/${documentId}`);
   revalidatePath('/knowledge');
   return { status: 'success', message: 'Embeddings regenerated' };
+}
+
+export async function retryDocument(
+  documentId: string,
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  await documentService.deleteChunksByDocumentId(documentId);
+  await documentService.deleteDocument(documentId, user.id);
+
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Document removed. Please re-upload.' };
 }
 
 export async function updateDocumentMeta(

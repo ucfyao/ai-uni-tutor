@@ -8,13 +8,14 @@ import {
   Clock,
   Eye,
   FileText,
+  RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Badge, Box, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { deleteDocument } from '@/app/actions/documents';
+import { deleteDocument, retryDocument } from '@/app/actions/documents';
 import { showNotification } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/client';
 
@@ -120,6 +121,19 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
     }
   };
 
+  const handleRetry = async (id: string) => {
+    try {
+      const result = await retryDocument(id);
+      if (result.status === 'success') {
+        showNotification({ title: 'Removed', message: result.message, color: 'green' });
+      } else {
+        showNotification({ title: 'Error', message: result.message, color: 'red' });
+      }
+    } catch {
+      showNotification({ title: 'Error', message: 'Failed to retry', color: 'red' });
+    }
+  };
+
   const renderStatusBadge = (doc: KnowledgeDocument) => {
     if (doc.status === 'ready') {
       return (
@@ -131,7 +145,7 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
     if (doc.status === 'processing') {
       return (
         <Badge color="blue" variant="light" leftSection={<Clock size={12} />}>
-          Processing
+          {doc.status_message || 'Processing'}
         </Badge>
       );
     }
@@ -144,6 +158,18 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
           {doc.status_message && (
             <Tooltip label={doc.status_message}>
               <AlertCircle size={14} className="text-red-500 cursor-help" />
+            </Tooltip>
+          )}
+          {!readOnly && (
+            <Tooltip label="Remove and re-upload">
+              <ActionIcon
+                variant="subtle"
+                color="orange"
+                size="sm"
+                onClick={() => handleRetry(doc.id)}
+              >
+                <RefreshCw size={14} />
+              </ActionIcon>
             </Tooltip>
           )}
         </Group>
