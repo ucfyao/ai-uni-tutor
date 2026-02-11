@@ -1,13 +1,12 @@
-import { Menu, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Anchor, Box, Burger, Button, Collapse, Container, Group, Stack } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [opened, { toggle }] = useDisclosure(false);
   const { t } = useLanguage();
 
   const navLinkClassName =
@@ -15,11 +14,11 @@ const Navbar = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
+      <Container size="lg" px="md">
+        <Group justify="space-between" h={64}>
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 flex items-center justify-center">
+            <Box className="w-10 h-10 flex items-center justify-center">
               <Image
                 src="/assets/logo.png"
                 alt="AI UniTutor"
@@ -28,72 +27,70 @@ const Navbar = () => {
                 className="w-10 h-10 object-contain"
                 priority
               />
-            </div>
+            </Box>
             <span className="font-display font-bold text-xl">AI UniTutor</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className={navLinkClassName}>
+          <Group gap="lg" visibleFrom="md">
+            <Anchor href="#features" className={navLinkClassName} underline="never">
               {t.nav.features}
-            </a>
-            <a href="#how-it-works" className={navLinkClassName}>
+            </Anchor>
+            <Anchor href="#how-it-works" className={navLinkClassName} underline="never">
               {t.nav.howItWorks}
-            </a>
-            <a href="#testimonials" className={navLinkClassName}>
+            </Anchor>
+            <Anchor href="#testimonials" className={navLinkClassName} underline="never">
               {t.nav.testimonials}
-            </a>
-            <a href="#pricing" className={navLinkClassName}>
+            </Anchor>
+            <Anchor href="#pricing" className={navLinkClassName} underline="never">
               {t.nav.pricing}
-            </a>
-          </div>
+            </Anchor>
+          </Group>
 
           {/* CTA Buttons */}
-          <div className="hidden md:flex items-center gap-2">
+          <Group gap="xs" visibleFrom="md">
             <LanguageSwitcher />
-            <Button variant="ghost" asChild>
-              <Link href="/login">{t.nav.login}</Link>
+            <Button variant="subtle" component={Link} href="/login">
+              {t.nav.login}
             </Button>
-            <Button variant="hero" size="default" asChild>
-              <Link href="/login">{t.nav.freeTrial}</Link>
+            <Button className="btn-hero" component={Link} href="/login">
+              {t.nav.freeTrial}
             </Button>
-          </div>
+          </Group>
 
           {/* Mobile Menu Button */}
-          <button className="md:hidden p-2" onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
+          <Burger opened={opened} onClick={toggle} hiddenFrom="md" />
+        </Group>
 
         {/* Mobile Menu */}
-        {isOpen && (
-          <div className="md:hidden py-4 border-t border-border/50">
-            <div className="flex flex-col gap-4">
-              <a href="#features" className={`${navLinkClassName} py-2`}>
+        <Collapse in={opened} hiddenFrom="md">
+          <Box className="py-4 border-t border-border/50">
+            <Stack gap="md">
+              <Anchor href="#features" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.features}
-              </a>
-              <a href="#how-it-works" className={`${navLinkClassName} py-2`}>
+              </Anchor>
+              <Anchor href="#how-it-works" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.howItWorks}
-              </a>
-              <a href="#testimonials" className={`${navLinkClassName} py-2`}>
+              </Anchor>
+              <Anchor href="#testimonials" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.testimonials}
-              </a>
-              <a href="#pricing" className={`${navLinkClassName} py-2`}>
+              </Anchor>
+              <Anchor href="#pricing" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.pricing}
-              </a>
-              <div className="flex flex-col gap-2 pt-4">
+              </Anchor>
+              <Stack gap="xs" className="pt-4">
                 <LanguageSwitcher />
-                <Button variant="ghost" className="w-full" asChild>
-                  <Link href="/login">{t.nav.login}</Link>
+                <Button variant="subtle" fullWidth component={Link} href="/login">
+                  {t.nav.login}
                 </Button>
-                <Button variant="hero" className="w-full" asChild>
-                  <Link href="/login">{t.nav.freeTrial}</Link>
+                <Button className="btn-hero" fullWidth component={Link} href="/login">
+                  {t.nav.freeTrial}
                 </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+              </Stack>
+            </Stack>
+          </Box>
+        </Collapse>
+      </Container>
     </nav>
   );
 };

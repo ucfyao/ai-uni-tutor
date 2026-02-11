@@ -1,22 +1,23 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { Anchor, Box, Container, Group, SimpleGrid, Stack, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const Footer = () => {
   const { t } = useLanguage();
 
   const footerLinkClassName =
-    'inline-flex cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground hover:underline hover:decoration-primary/50 hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm';
+    'inline-flex cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground hover:decoration-primary/50 hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm text-sm';
 
   return (
     <footer className="py-10 md:py-12 border-t border-border/50">
-      <div className="container mx-auto px-6">
-        <div className="grid md:grid-cols-4 gap-8 mb-10 md:mb-12">
+      <Container size="lg" px="md">
+        <SimpleGrid cols={{ base: 1, md: 4 }} spacing="lg" className="mb-10 md:mb-12">
           {/* Brand */}
-          <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
+          <Box className="md:col-span-1">
+            <Box className="flex items-center gap-2 mb-4">
               <Link href="/" className="flex items-center gap-2">
-                <div className="w-10 h-10 flex items-center justify-center">
+                <Box className="w-10 h-10 flex items-center justify-center">
                   <Image
                     src="/assets/logo.png"
                     alt="AI UniTutor"
@@ -24,104 +25,99 @@ const Footer = () => {
                     height={40}
                     className="w-10 h-10 object-contain"
                   />
-                </div>
+                </Box>
                 <span className="font-display font-bold text-xl">AI UniTutor</span>
               </Link>
-            </div>
-            <p className="text-muted-foreground text-sm">{t.footer.tagline}</p>
-          </div>
+            </Box>
+            <Text size="sm" c="dimmed">
+              {t.footer.tagline}
+            </Text>
+          </Box>
 
           {/* Links */}
-          <div>
-            <h4 className="font-semibold mb-4">{t.footer.product.title}</h4>
-            <ul className="space-y-2 text-muted-foreground text-sm">
-              <li>
-                <a href="#features" className={footerLinkClassName}>
-                  {t.footer.product.features}
-                </a>
-              </li>
-              <li>
-                <a href="/pricing" className={footerLinkClassName}>
-                  {t.footer.product.pricing}
-                </a>
-              </li>
-              <li>
-                <a href="#how-it-works" className={footerLinkClassName}>
-                  {t.footer.product.changelog}
-                </a>
-              </li>
-              <li>
-                <a href="/login" className={footerLinkClassName}>
-                  {t.footer.product.api}
-                </a>
-              </li>
-            </ul>
-          </div>
+          <Box>
+            <Text fw={600} mb="md">
+              {t.footer.product.title}
+            </Text>
+            <Stack gap="xs">
+              <Anchor href="#features" className={footerLinkClassName} underline="never">
+                {t.footer.product.features}
+              </Anchor>
+              <Anchor href="/pricing" className={footerLinkClassName} underline="never">
+                {t.footer.product.pricing}
+              </Anchor>
+              <Anchor href="#how-it-works" className={footerLinkClassName} underline="never">
+                {t.footer.product.changelog}
+              </Anchor>
+              <Anchor href="/login" className={footerLinkClassName} underline="never">
+                {t.footer.product.api}
+              </Anchor>
+            </Stack>
+          </Box>
 
-          <div>
-            <h4 className="font-semibold mb-4">{t.footer.support.title}</h4>
-            <ul className="space-y-2 text-muted-foreground text-sm">
-              <li>
-                <a href="/help" className={footerLinkClassName}>
-                  {t.footer.support.help}
-                </a>
-              </li>
-              <li>
-                <a href="#how-it-works" className={footerLinkClassName}>
-                  {t.footer.support.tutorials}
-                </a>
-              </li>
-              <li>
-                <a href="mailto:ucfyao@gmail.com" className={footerLinkClassName}>
-                  {t.footer.support.contact}
-                </a>
-              </li>
-              <li>
-                <a href="/help" className={footerLinkClassName}>
-                  {t.footer.support.faq}
-                </a>
-              </li>
-            </ul>
-          </div>
+          <Box>
+            <Text fw={600} mb="md">
+              {t.footer.support.title}
+            </Text>
+            <Stack gap="xs">
+              <Anchor href="/help" className={footerLinkClassName} underline="never">
+                {t.footer.support.help}
+              </Anchor>
+              <Anchor href="#how-it-works" className={footerLinkClassName} underline="never">
+                {t.footer.support.tutorials}
+              </Anchor>
+              <Anchor
+                href="mailto:ucfyao@gmail.com"
+                className={footerLinkClassName}
+                underline="never"
+              >
+                {t.footer.support.contact}
+              </Anchor>
+              <Anchor href="/help" className={footerLinkClassName} underline="never">
+                {t.footer.support.faq}
+              </Anchor>
+            </Stack>
+          </Box>
 
-          <div>
-            <h4 className="font-semibold mb-4">{t.footer.legal.title}</h4>
-            <ul className="space-y-2 text-muted-foreground text-sm">
-              <li>
-                <a href="#" className={footerLinkClassName}>
-                  {t.footer.legal.terms}
-                </a>
-              </li>
-              <li>
-                <a href="#" className={footerLinkClassName}>
-                  {t.footer.legal.privacy}
-                </a>
-              </li>
-              <li>
-                <a href="#" className={footerLinkClassName}>
-                  {t.footer.legal.cookies}
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
+          <Box>
+            <Text fw={600} mb="md">
+              {t.footer.legal.title}
+            </Text>
+            <Stack gap="xs">
+              <Anchor href="#" className={footerLinkClassName} underline="never">
+                {t.footer.legal.terms}
+              </Anchor>
+              <Anchor href="#" className={footerLinkClassName} underline="never">
+                {t.footer.legal.privacy}
+              </Anchor>
+              <Anchor href="#" className={footerLinkClassName} underline="never">
+                {t.footer.legal.cookies}
+              </Anchor>
+            </Stack>
+          </Box>
+        </SimpleGrid>
 
         {/* Bottom */}
-        <div className="pt-6 md:pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">{t.footer.copyright}</p>
-          <div className="flex items-center gap-6 text-muted-foreground">
-            <a href="#" className={`${footerLinkClassName} text-sm`}>
+        <Group
+          justify="space-between"
+          className="pt-6 md:pt-8 border-t border-border/50 flex-col md:flex-row gap-4"
+        >
+          <Text size="sm" c="dimmed">
+            {t.footer.copyright}
+          </Text>
+          <Group gap="lg">
+            <Anchor href="#" className={footerLinkClassName} underline="never">
               {t.footer.social.item1}
-            </a>
-            <a href="#" className={`${footerLinkClassName} text-sm`}>
+            </Anchor>
+            <Anchor href="#" className={footerLinkClassName} underline="never">
               {t.footer.social.item2}
-            </a>
-            <a href="#" className={`${footerLinkClassName} text-sm`}>
+            </Anchor>
+            <Anchor href="#" className={footerLinkClassName} underline="never">
               {t.footer.social.item3}
-            </a>
-          </div>
-        </div>
-      </div>
+            </Anchor>
+          </Group>
+        </Group>
+      </Container>
     </footer>
   );
 };
