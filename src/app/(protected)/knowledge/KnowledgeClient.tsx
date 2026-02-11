@@ -11,6 +11,7 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
   ThemeIcon,
 } from '@mantine/core';
@@ -32,6 +33,7 @@ export function UploadButton() {
   const [docType, setDocType] = useState<string | null>(null);
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [hasAnswers, setHasAnswers] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const filteredCourses = selectedUniId
@@ -49,6 +51,7 @@ export function UploadButton() {
     formData.append('doc_type', docType);
     formData.append('school', uniObj?.shortName ?? '');
     formData.append('course', courseObj?.code ?? '');
+    formData.append('has_answers', String(hasAnswers));
 
     setUploading(true);
     try {
@@ -72,6 +75,7 @@ export function UploadButton() {
     setDocType(null);
     setSelectedUniId(null);
     setSelectedCourseId(null);
+    setHasAnswers(false);
   };
 
   const isFormValid = selectedFile && docType && selectedUniId && selectedCourseId;
@@ -185,6 +189,14 @@ export function UploadButton() {
             onChange={setDocType}
             required
           />
+
+          {(docType === 'exam' || docType === 'assignment') && (
+            <Switch
+              label="Document contains answers"
+              checked={hasAnswers}
+              onChange={(event) => setHasAnswers(event.currentTarget.checked)}
+            />
+          )}
 
           <SimpleGrid cols={2} spacing="md">
             <Select

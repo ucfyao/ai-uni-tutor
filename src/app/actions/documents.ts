@@ -24,6 +24,10 @@ const uploadSchema = z.object({
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().max(100).optional(),
   ),
+  has_answers: z.preprocess(
+    (value) => value === 'true' || value === true,
+    z.boolean().optional().default(false),
+  ),
 });
 
 export async function uploadDocument(
@@ -36,12 +40,13 @@ export async function uploadDocument(
       doc_type: formData.get('doc_type') || undefined,
       school: formData.get('school'),
       course: formData.get('course'),
+      has_answers: formData.get('has_answers'),
     });
     if (!parsed.success) {
       return { status: 'error', message: 'Invalid upload data' };
     }
 
-    const { file, doc_type, school, course } = parsed.data;
+    const { file, doc_type, school, course, has_answers } = parsed.data;
 
     if (file.type !== 'application/pdf') {
       return { status: 'error', message: 'Only PDF files are supported currently' };
