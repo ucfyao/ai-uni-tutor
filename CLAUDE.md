@@ -1,116 +1,72 @@
-# AI UniTutor - Development Guide
+# AI UniTutor
 
 ## Commands
 
 - Build: `npm run build`
 - Dev: `npm run dev`
 - Test: `npx vitest run`
+- Test single: `npx vitest run path/to/file.test.ts`
 - Lint: `npm run lint`
 - Format: `npm run format`
 - Type check: `npx tsc --noEmit`
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 (App Router, React 19, Turbopack)
-- **UI**: Mantine v8 (primary) + Tailwind CSS v4 (utility/micro-adjustments)
-- **Auth**: Supabase SSR (`src/lib/supabase/middleware.ts`)
-- **Database**: Supabase (PostgreSQL)
-- **AI**: Google Gemini (`src/lib/gemini.ts`)
-- **Payments**: Stripe (`src/lib/stripe.ts`)
-- **State**: React Context + TanStack Query
-- **i18n**: Custom context (`src/i18n/`) — English + Chinese
+- Next.js 16 (App Router, React 19) + Mantine v8 + Tailwind CSS v4
+- Supabase (auth SSR + PostgreSQL) + Google Gemini + Stripe
+- TanStack Query for async state, React Context for app state
+- i18n: `useLanguage()` hook — English + Chinese
 
-## Architecture
+## Data Flow
 
 ```
-src/
-├── app/(public)/          # Unauthenticated: /, /zh, /login, /auth, /share
-├── app/(protected)/       # Authenticated: /study, /exam, /knowledge, /admin, ...
-├── app/api/               # API routes: chat/stream, quota, stripe
-├── app/actions/           # Server actions
-├── lib/services/          # Business logic (ChatService, ExamPaperService, etc.)
-├── lib/repositories/      # Data access (SessionRepository, DocumentRepository, etc.)
-├── lib/domain/            # Domain models and interfaces
-├── lib/rag/               # RAG pipeline: chunking, embedding, retrieval
-├── components/marketing/  # Landing page sections
-├── components/chat/       # Chat interface
-├── components/exam/       # Exam components
-├── components/ui/         # Shadcn/ui primitives (legacy, still used by some features)
-└── components/modes/      # Study mode components
+Component → Server Action → Service → Repository → Supabase
 ```
 
-**Pattern**: Service/Repository — Services handle business logic, Repositories handle DB queries. Never call Supabase directly from components or API routes.
+- **Server Actions** (`app/actions/`): thin wrappers, handle auth + validation + error mapping
+- **Services** (`lib/services/`): business logic, orchestrate repositories
+- **Repositories** (`lib/repositories/`): data access, raw Supabase queries
+- Never call Supabase directly from components or API routes
+- Auth helpers: `requireUser()` / `requireAdmin()` from `lib/supabase/server.ts`
 
-## CSS & Styling Rules
+## CSS & Styling
 
-Mantine is the primary UI library. Tailwind is only for micro-adjustments.
+Mantine is the primary UI library. Tailwind only for micro-adjustments.
 
-**CSS Specificity (critical)**:
+**Specificity rule**: Mantine runtime CSS loads AFTER globals.css → at equal specificity, Mantine wins.
 
-- Mantine runtime CSS (`MantineProvider` injects `<style>`) loads AFTER `globals.css`
-- At equal specificity, Mantine always wins over Tailwind
-- `.mantine-Text-root` and `.mantine-Title-root` reset `margin`, `padding`, and `color`
-- Tailwind color/margin/padding utilities on Mantine components will be overridden silently
+| Want to set...         | Do this                           | Not this                    |
+| ---------------------- | --------------------------------- | --------------------------- |
+| Text color/size/weight | `c="dimmed"` `fz="sm"` `fw={600}` | `className="text-gray-500"` |
+| Spacing                | `mb="md"` `p="lg"`                | `className="mb-4 p-6"`      |
+| Override Mantine       | `style={{ color: 'red' }}`        | `className="text-red-500"`  |
+| Global CSS var         | `!important` in globals.css       | Without !important          |
 
-**How to handle**:
+**Breakpoint mapping**: Tailwind `sm:`(640) = Mantine `xs` · Tailwind `md:`(768) = Mantine `sm` · Tailwind `lg:`(1024) ≈ Mantine `md`(992)
 
-- Use Mantine props (`c="dimmed"`, `fz="sm"`, `fw={600}`, `mb="md"`) instead of Tailwind classes for typography
-- For values Mantine can't express, use `style={{}}` (inline styles beat all CSS classes)
-- In `globals.css`, use `!important` to override Mantine runtime variables
-- `--mantine-color-text`, `--mantine-color-dimmed`, `--mantine-color-body` are aligned to our design tokens in `globals.css` with `!important`
+**Font**: Outfit loaded via `next/font` → CSS var `--font-outfit`. Never add `@font-face` (causes FOUT).
 
-**Gradient text**: `.gradient-text` uses `-webkit-text-fill-color: transparent` with `!important` to beat Mantine's `color` override.
+## Components
 
-**Breakpoint mapping**:
+- New UI: Mantine (`Box`, `Text`, `Title`, `Button`, `Group`, `Stack`, `SimpleGrid`)
+- `components/ui/`: Shadcn legacy — don't add new ones, keep existing for sidebar/pagination/carousel
+- Icons: `lucide-react` (marketing), `@tabler/icons-react` (app)
+- All user-facing text via `useLanguage()` — never hardcode strings
 
-- Tailwind `sm:` (640px) = Mantine `xs`
-- Tailwind `md:` (768px) = Mantine `sm`
-- Tailwind `lg:` (1024px) ~ Mantine `md` (992px)
+## Commit
 
-**Font loading**: Outfit is loaded via `next/font/local` in `layout.tsx` with CSS variable `--font-outfit`. Do NOT add `@font-face` in `globals.css` — it causes FOUT (flash of unstyled text).
+`type(scope): subject` — enforced by commitlint hook.
 
-## Component Guidelines
+Scopes (required): `chat` `rag` `api` `ui` `auth` `stripe` `db` `deps` `config`
 
-- New components: use Mantine (`Box`, `Text`, `Title`, `Button`, `Group`, `Stack`, `SimpleGrid`, `Container`)
-- `components/ui/` (Shadcn): legacy, still used by sidebar, pagination, carousel — do not add new Shadcn components
-- Marketing sections: all use Mantine + custom CSS classes (`glass-card`, `gradient-text`, `btn-hero`)
-- Icons: `lucide-react` for marketing, `@tabler/icons-react` for app UI
-- All user-facing text must go through `useLanguage()` hook — never hardcode Chinese or English strings
+Git hooks: pre-commit (lint-staged) · pre-push (build) · commit-msg (commitlint). Main branch is protected — must go through PR with Vercel check.
 
-## Commit Convention
+## Gotchas
 
-Format: `type(scope): subject`
-
-**Types**: feat, fix, docs, style, refactor, perf, test, chore, revert, build, ci
-**Scopes** (required): chat, rag, api, ui, auth, stripe, db, deps, config
-
-Enforced by commitlint via Husky `commit-msg` hook.
-
-## Git Hooks (Husky)
-
-- `pre-commit`: lint-staged (ESLint --fix + Prettier on staged files)
-- `pre-push`: `npm run build` (full build must pass before push)
-- `commit-msg`: commitlint (validates conventional commit format)
-
-## Import Order
-
-Enforced by Prettier plugin — do not manually reorder:
-
-1. `react`
-2. `@mantine/*`
-3. `@/*` (project aliases)
-4. `./` (relative imports)
-
-## Auth & Routing
-
-- Public routes: `/`, `/zh`, `/login`, `/auth/callback`, `/share/[id]`
-- All other routes require Supabase auth (enforced in middleware)
-- Auth check: `src/lib/supabase/middleware.ts` → `handleRequest()`
-
-## Known Gotchas
-
-- `Container size={1280}` not `size="lg"` — we use explicit pixel width for consistency
-- Mantine `visibleFrom="md"` = 992px, use for desktop-only elements (not `"sm"`)
-- `min-width: 0` on flex/grid children prevents overflow — already set on `.glass-card`
-- `box-sizing: border-box` is NOT default on all custom CSS classes — add it explicitly
-- `@supports` fallback exists for `.gradient-text` in browsers without `background-clip: text`
+- `.mantine-Text-root` silently resets `margin`, `padding`, `color` — Tailwind utilities on Mantine components get overridden
+- `.gradient-text` needs `-webkit-text-fill-color: transparent !important` to beat Mantine color
+- `Container size={1280}` not `size="lg"` — explicit pixel width for consistency
+- Mantine `visibleFrom="md"` = 992px (not 768px) — use for desktop-only elements
+- `min-width: 0` on flex/grid children prevents overflow (set on `.glass-card`)
+- Public routes: `/`, `/zh`, `/login`, `/auth/callback`, `/share/[id]` — all others require auth
+- Import order auto-enforced by Prettier: react → @mantine → @/ → ./
