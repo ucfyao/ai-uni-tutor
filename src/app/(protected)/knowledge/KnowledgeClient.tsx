@@ -1,25 +1,28 @@
 'use client';
 
-import { FileText, Plus, Upload, X } from 'lucide-react';
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { FileText, Play, Upload, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import {
   Box,
   Button,
+  Card,
   Group,
-  Modal,
   rem,
   Select,
   SimpleGrid,
   Stack,
   Switch,
+  Tabs,
   Text,
-  ThemeIcon,
 } from '@mantine/core';
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
-import { useDisclosure } from '@mantine/hooks';
-import { uploadDocument } from '@/app/actions/documents';
+import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
+import { ParsePanel } from '@/components/rag/ParsePanel';
 import { COURSES, UNIVERSITIES } from '@/constants/index';
+import { useStreamingParse } from '@/hooks/useStreamingParse';
 import { showNotification } from '@/lib/notifications';
+import { queryKeys } from '@/lib/query-keys';
 
 const DOC_TYPES = [
   { value: 'lecture', label: 'Lecture' },
@@ -27,178 +30,109 @@ const DOC_TYPES = [
   { value: 'assignment', label: 'Assignment' },
 ];
 
-export function UploadButton() {
-  const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
+type PageMode = 'list' | 'parsing';
+
+interface KnowledgeClientProps {
+  documents: KnowledgeDocument[];
+}
+
+export function KnowledgeClient({ documents }: KnowledgeClientProps) {
+  const [mode, setMode] = useState<PageMode>('list');
+  const [activeTab, setActiveTab] = useState<string>('all');
+
+  // Upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<string | null>(null);
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [hasAnswers, setHasAnswers] = useState(false);
-  const [uploading, setUploading] = useState(false);
+
+  const parseState = useStreamingParse();
+  const queryClient = useQueryClient();
 
   const filteredCourses = selectedUniId
     ? COURSES.filter((c) => c.universityId === selectedUniId)
     : [];
 
-  const handleUpload = async () => {
-    if (!selectedFile || !docType || !selectedUniId || !selectedCourseId) return;
+  // Filter documents by active tab
+  const filteredDocs =
+    activeTab === 'all' ? documents : documents.filter((d) => d.doc_type === activeTab);
 
-    const uniObj = UNIVERSITIES.find((u) => u.id === selectedUniId);
-    const courseObj = COURSES.find((c) => c.id === selectedCourseId);
+  const isFormValid = selectedFile && docType && selectedUniId && selectedCourseId;
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('doc_type', docType);
-    formData.append('school', uniObj?.shortName ?? '');
-    formData.append('course', courseObj?.code ?? '');
-    formData.append('has_answers', String(hasAnswers));
-
-    setUploading(true);
-    try {
-      const result = await uploadDocument({ status: 'idle', message: '' }, formData);
-      if (result.status === 'success') {
-        showNotification({ title: 'Success', message: 'Document uploaded!', color: 'green' });
-        closeModal();
-        resetForm();
-      } else {
-        showNotification({ title: 'Error', message: result.message, color: 'red' });
-      }
-    } catch {
-      showNotification({ title: 'Error', message: 'Upload failed.', color: 'red' });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setSelectedFile(null);
     setDocType(null);
     setSelectedUniId(null);
     setSelectedCourseId(null);
     setHasAnswers(false);
+  }, []);
+
+  const handleStartParse = () => {
+    if (!selectedFile || !docType || !selectedUniId || !selectedCourseId) return;
+
+    const uniObj = UNIVERSITIES.find((u) => u.id === selectedUniId);
+    const courseObj = COURSES.find((c) => c.id === selectedCourseId);
+
+    parseState.startParse(selectedFile, {
+      docType,
+      school: uniObj?.shortName ?? '',
+      course: courseObj?.code ?? '',
+      hasAnswers,
+    });
+
+    setMode('parsing');
   };
 
-  const isFormValid = selectedFile && docType && selectedUniId && selectedCourseId;
+  const handleBackToList = () => {
+    setMode('list');
+    resetForm();
+    parseState.reset();
+    // Invalidate to refresh list with new document
+    queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+  };
 
+  // ── Parsing Mode ──
+  if (mode === 'parsing') {
+    return (
+      <ParsePanel
+        parseState={parseState}
+        fileName={selectedFile?.name ?? 'Document'}
+        onBack={handleBackToList}
+      />
+    );
+  }
+
+  // ── List Mode ──
   return (
-    <>
-      <Button leftSection={<Plus size={16} />} size="sm" onClick={openModal}>
-        Upload
-      </Button>
+    <Stack gap="lg">
+      {/* ── Tab Bar ── */}
+      <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? 'all')}>
+        <Tabs.List>
+          <Tabs.Tab value="all">All</Tabs.Tab>
+          <Tabs.Tab value="lecture">Lecture</Tabs.Tab>
+          <Tabs.Tab value="exam">Exam</Tabs.Tab>
+          <Tabs.Tab value="assignment">Assignment</Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
 
-      <Modal
-        opened={modalOpened}
-        onClose={() => {
-          closeModal();
-          resetForm();
-        }}
-        title={
-          <Group gap="xs">
-            <ThemeIcon size={28} radius="md" variant="light" color="indigo">
-              <Upload size={14} />
-            </ThemeIcon>
-            <Text fw={600}>Upload Document</Text>
-          </Group>
-        }
-        size="lg"
-        radius="lg"
-      >
-        <Stack gap="lg" mt="xs">
-          {/* Dropzone */}
-          <Dropzone
-            onDrop={(files) => setSelectedFile(files[0])}
-            onReject={() =>
-              showNotification({
-                title: 'File rejected',
-                message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`,
-                color: 'red',
-              })
-            }
-            maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5') * 1024 * 1024}
-            accept={PDF_MIME_TYPE}
-            multiple={false}
-            disabled={uploading}
-            styles={{
-              root: {
-                borderColor: selectedFile ? 'var(--mantine-color-green-5)' : undefined,
-                backgroundColor: selectedFile ? 'var(--mantine-color-green-0)' : undefined,
-              },
-            }}
-          >
-            <Group justify="center" gap="xl" style={{ minHeight: rem(160), pointerEvents: 'none' }}>
-              <Dropzone.Accept>
-                <Upload
-                  size={48}
-                  color="var(--mantine-color-indigo-6)"
-                  style={{ width: rem(48), height: rem(48) }}
-                />
-              </Dropzone.Accept>
-              <Dropzone.Reject>
-                <X
-                  size={48}
-                  color="var(--mantine-color-red-6)"
-                  style={{ width: rem(48), height: rem(48) }}
-                />
-              </Dropzone.Reject>
-              <Dropzone.Idle>
-                {selectedFile ? (
-                  <FileText
-                    size={48}
-                    color="var(--mantine-color-green-6)"
-                    style={{ width: rem(48), height: rem(48) }}
-                  />
-                ) : (
-                  <Upload
-                    size={48}
-                    color="var(--mantine-color-dimmed)"
-                    style={{ width: rem(48), height: rem(48) }}
-                  />
-                )}
-              </Dropzone.Idle>
-
-              <Box>
-                {selectedFile ? (
-                  <>
-                    <Text size="lg" fw={600} c="green.7" inline>
-                      {selectedFile.name}
-                    </Text>
-                    <Text size="sm" c="dimmed" inline mt={7}>
-                      Click or drag to replace
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text size="lg" fw={500} inline>
-                      Drag a PDF here or click to select
-                    </Text>
-                    <Text size="sm" c="dimmed" inline mt={7}>
-                      Upload course materials, lecture slides, or past exams
-                    </Text>
-                  </>
-                )}
-              </Box>
-            </Group>
-          </Dropzone>
+      {/* ── Upload Area ── */}
+      <Card withBorder radius="lg" p="lg">
+        <Stack gap="md">
+          <Text fw={600} size="sm" c="dimmed" tt="uppercase" lts={0.5}>
+            Upload New Document
+          </Text>
 
           {/* Metadata fields */}
-          <Select
-            label="Document Type"
-            placeholder="Select type"
-            data={DOC_TYPES}
-            value={docType}
-            onChange={setDocType}
-            required
-          />
-
-          {(docType === 'exam' || docType === 'assignment') && (
-            <Switch
-              label="Document contains answers"
-              checked={hasAnswers}
-              onChange={(event) => setHasAnswers(event.currentTarget.checked)}
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+            <Select
+              label="Document Type"
+              placeholder="Select type"
+              data={DOC_TYPES}
+              value={docType}
+              onChange={setDocType}
+              size="sm"
             />
-          )}
-
-          <SimpleGrid cols={2} spacing="md">
             <Select
               label="University"
               placeholder="Select university"
@@ -209,7 +143,7 @@ export function UploadButton() {
                 setSelectedCourseId(null);
               }}
               searchable
-              required
+              size="sm"
             />
             <Select
               label="Course"
@@ -222,22 +156,100 @@ export function UploadButton() {
               onChange={setSelectedCourseId}
               disabled={!selectedUniId}
               searchable
-              required
+              size="sm"
             />
           </SimpleGrid>
 
-          <Button
-            fullWidth
-            size="md"
-            onClick={handleUpload}
-            loading={uploading}
-            disabled={!isFormValid}
-            leftSection={<Upload size={16} />}
-          >
-            Upload Document
-          </Button>
+          {(docType === 'exam' || docType === 'assignment') && (
+            <Switch
+              label="Document contains answers"
+              checked={hasAnswers}
+              onChange={(event) => setHasAnswers(event.currentTarget.checked)}
+              size="sm"
+            />
+          )}
+
+          {/* Dropzone + Start Parse button */}
+          <Group align="flex-end" gap="md" wrap="nowrap">
+            <Box style={{ flex: 1 }}>
+              <Dropzone
+                onDrop={(files) => setSelectedFile(files[0])}
+                onReject={() =>
+                  showNotification({
+                    title: 'File rejected',
+                    message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`,
+                    color: 'red',
+                  })
+                }
+                maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5') * 1024 * 1024}
+                accept={PDF_MIME_TYPE}
+                multiple={false}
+                styles={{
+                  root: {
+                    borderColor: selectedFile ? 'var(--mantine-color-green-5)' : undefined,
+                    backgroundColor: selectedFile ? 'var(--mantine-color-green-0)' : undefined,
+                    padding: rem(12),
+                  },
+                }}
+              >
+                <Group
+                  justify="center"
+                  gap="md"
+                  style={{ minHeight: rem(60), pointerEvents: 'none' }}
+                >
+                  <Dropzone.Accept>
+                    <Upload size={28} color="var(--mantine-color-indigo-6)" />
+                  </Dropzone.Accept>
+                  <Dropzone.Reject>
+                    <X size={28} color="var(--mantine-color-red-6)" />
+                  </Dropzone.Reject>
+                  <Dropzone.Idle>
+                    {selectedFile ? (
+                      <FileText size={28} color="var(--mantine-color-green-6)" />
+                    ) : (
+                      <Upload size={28} color="var(--mantine-color-dimmed)" />
+                    )}
+                  </Dropzone.Idle>
+
+                  <Box>
+                    {selectedFile ? (
+                      <Text size="sm" fw={600} c="green.7" inline>
+                        {selectedFile.name}
+                      </Text>
+                    ) : (
+                      <Text size="sm" fw={500} inline>
+                        Drag a PDF here or click to select
+                      </Text>
+                    )}
+                  </Box>
+                </Group>
+              </Dropzone>
+            </Box>
+
+            <Button
+              size="md"
+              leftSection={<Play size={16} />}
+              disabled={!isFormValid}
+              onClick={handleStartParse}
+            >
+              Start Parse
+            </Button>
+          </Group>
         </Stack>
-      </Modal>
-    </>
+      </Card>
+
+      {/* ── Document List ── */}
+      {filteredDocs.length > 0 ? (
+        <Card withBorder radius="lg" p={0}>
+          <KnowledgeTable documents={filteredDocs} />
+        </Card>
+      ) : (
+        <Text c="dimmed" ta="center" py="xl">
+          {activeTab === 'all'
+            ? 'No documents uploaded yet. Upload your first document to get started.'
+            : `No ${activeTab} documents found.`}
+        </Text>
+      )}
+    </Stack>
   );
 }
