@@ -57,29 +57,6 @@ export default function SettingsPage() {
     fetchLimits();
   }, []);
 
-  /* const handleUpgrade = async () => {
-    setUpgrading(true);
-    try {
-      const response = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-      });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error(data.error || 'Failed to create checkout session');
-      }
-    } catch (error: any) {
-      notifications.show({
-        title: 'Error',
-        message: error.message,
-        color: 'red',
-      });
-    } finally {
-      setUpgrading(false);
-    }
-  }; */
-
   const handleSaveProfile = async () => {
     if (!profile) return;
     setSaving(true);
