@@ -8,6 +8,7 @@
 import type { IDocumentChunkRepository } from '@/lib/domain/interfaces/IDocumentChunkRepository';
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { createClient } from '@/lib/supabase/server';
+import type { Json } from '@/types/database';
 
 export class DocumentChunkRepository implements IDocumentChunkRepository {
   async createBatch(chunks: CreateDocumentChunkDTO[]): Promise<void> {
@@ -31,6 +32,37 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
     const { error } = await supabase.from('document_chunks').delete().eq('document_id', documentId);
 
     if (error) throw new Error(`Failed to delete document chunks: ${error.message}`);
+  }
+
+  async findByDocumentId(documentId: string) {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('document_chunks')
+      .select('id, content, metadata, embedding')
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: true });
+    if (error) throw new Error(`Failed to fetch chunks: ${error.message}`);
+    return data ?? [];
+  }
+
+  async updateChunk(id: string, content: string, metadata?: Json): Promise<void> {
+    const supabase = await createClient();
+    const updates: Record<string, unknown> = { content };
+    if (metadata !== undefined) updates.metadata = metadata;
+    const { error } = await supabase.from('document_chunks').update(updates).eq('id', id);
+    if (error) throw new Error(`Failed to update chunk: ${error.message}`);
+  }
+
+  async deleteChunk(id: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.from('document_chunks').delete().eq('id', id);
+    if (error) throw new Error(`Failed to delete chunk: ${error.message}`);
+  }
+
+  async updateEmbedding(id: string, embedding: number[]): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.from('document_chunks').update({ embedding }).eq('id', id);
+    if (error) throw new Error(`Failed to update embedding: ${error.message}`);
   }
 }
 

@@ -9,6 +9,7 @@ import { generateEmbedding } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { Json } from '@/types/database';
 
 export type UploadState = {
   status: 'idle' | 'success' | 'error';
@@ -26,24 +27,30 @@ const uploadSchema = z.object({
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().max(100).optional(),
   ),
+  has_answers: z.preprocess(
+    (value) => value === 'true' || value === true,
+    z.boolean().optional().default(false),
+  ),
 });
 
 export async function uploadDocument(
   prevState: UploadState,
   formData: FormData,
 ): Promise<UploadState> {
+  let docId: string | undefined;
   try {
     const parsed = uploadSchema.safeParse({
       file: formData.get('file'),
       doc_type: formData.get('doc_type') || undefined,
       school: formData.get('school'),
       course: formData.get('course'),
+      has_answers: formData.get('has_answers'),
     });
     if (!parsed.success) {
       return { status: 'error', message: 'Invalid upload data' };
     }
 
-    const { file, doc_type, school, course } = parsed.data;
+    const { file, doc_type, school, course, has_answers } = parsed.data;
 
     if (file.type !== 'application/pdf') {
       return { status: 'error', message: 'Only PDF files are supported currently' };
@@ -75,6 +82,7 @@ export async function uploadDocument(
       },
       doc_type,
     );
+    docId = doc.id;
 
     revalidatePath('/knowledge');
 
@@ -92,32 +100,85 @@ export async function uploadDocument(
       return { status: 'error', message: 'Failed to parse PDF content' };
     }
 
-    // 3. Chunk Text with Metadata
-    const { chunkPages } = await import('@/lib/rag/chunking');
-    const chunks = await chunkPages(pdfData.pages);
-
-    // 4. Generate Embeddings & Store Chunks
-    const chunksData: CreateDocumentChunkDTO[] = [];
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-      const batch = chunks.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (chunk) => {
-          try {
-            const embedding = await generateEmbedding(chunk.content);
-            chunksData.push({
-              documentId: doc.id,
-              content: chunk.content,
-              embedding,
-              metadata: chunk.metadata, // Store page number
-            });
-          } catch (err) {
-            console.error('Error generating embedding for chunk:', err);
-            throw err;
-          }
-        }),
-      );
+    // Check for empty PDF
+    const totalText = pdfData.pages.reduce((acc, p) => acc + p.text.trim(), '');
+    if (totalText.length === 0) {
+      await documentService.updateStatus(doc.id, 'error', 'PDF contains no extractable text');
+      revalidatePath('/knowledge');
+      return { status: 'error', message: 'PDF contains no extractable text' };
     }
+
+    await documentService.updateStatus(doc.id, 'processing', 'Parsing PDF...');
+    revalidatePath('/knowledge');
+
+    // 3. Parse content based on doc_type
+    const chunksData: CreateDocumentChunkDTO[] = [];
+
+    await documentService.updateStatus(doc.id, 'processing', 'Extracting content...');
+    revalidatePath('/knowledge');
+
+    try {
+      if (doc_type === 'lecture') {
+        // Lecture: Extract structured knowledge points via LLM
+        const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
+        const knowledgePoints = await parseLecture(pdfData.pages);
+
+        for (const kp of knowledgePoints) {
+          const content = [
+            kp.title,
+            kp.definition,
+            kp.keyFormulas?.length ? `Formulas: ${kp.keyFormulas.join('; ')}` : '',
+            kp.keyConcepts?.length ? `Concepts: ${kp.keyConcepts.join(', ')}` : '',
+            kp.examples?.length ? `Examples: ${kp.examples.join('; ')}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+          const embedding = await generateEmbedding(content);
+          chunksData.push({
+            documentId: doc.id,
+            content,
+            embedding,
+            metadata: { type: 'knowledge_point', ...kp },
+          });
+        }
+      } else {
+        // Exam / Assignment: Extract structured questions via LLM
+        const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
+        const questions = await parseQuestions(pdfData.pages, has_answers);
+
+        for (const q of questions) {
+          const content = [
+            `Q${q.questionNumber}: ${q.content}`,
+            q.options?.length ? `Options: ${q.options.join(' | ')}` : '',
+            q.referenceAnswer ? `Answer: ${q.referenceAnswer}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+          const embedding = await generateEmbedding(content);
+          chunksData.push({
+            documentId: doc.id,
+            content,
+            embedding,
+            metadata: { type: 'question', ...q },
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error during content extraction:', e);
+      // Clean up any partially created chunks
+      try {
+        await documentService.deleteChunksByDocumentId(doc.id);
+      } catch {
+        /* ignore cleanup errors */
+      }
+      await documentService.updateStatus(doc.id, 'error', 'Failed to extract content from PDF');
+      revalidatePath('/knowledge');
+      return { status: 'error', message: 'Failed to extract content from PDF' };
+    }
+
+    // 4. Save chunks
+    await documentService.updateStatus(doc.id, 'processing', 'Generating embeddings & saving...');
+    revalidatePath('/knowledge');
 
     if (chunksData.length > 0) {
       try {
@@ -139,6 +200,16 @@ export async function uploadDocument(
       return { status: 'error', message: error.message };
     }
     console.error('Upload error:', error);
+    if (docId) {
+      try {
+        const documentService = getDocumentService();
+        await documentService.deleteChunksByDocumentId(docId);
+        await documentService.updateStatus(docId, 'error', 'Upload failed unexpectedly');
+        revalidatePath('/knowledge');
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
     return { status: 'error', message: 'Internal server error during upload' };
   }
 }
@@ -153,4 +224,104 @@ export async function deleteDocument(documentId: string) {
   await documentService.deleteDocument(documentId, user.id);
 
   revalidatePath('/knowledge');
+}
+
+export async function updateDocumentChunks(
+  documentId: string,
+  updates: { id: string; content: string; metadata: Record<string, unknown> }[],
+  deletedIds: string[],
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  for (const id of deletedIds) {
+    await documentService.deleteChunk(id);
+  }
+  for (const update of updates) {
+    await documentService.updateChunk(update.id, update.content, update.metadata as Json);
+  }
+
+  revalidatePath(`/knowledge/${documentId}`);
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Changes saved' };
+}
+
+export async function regenerateEmbeddings(
+  documentId: string,
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  await documentService.updateStatus(doc.id, 'processing', 'Regenerating embeddings...');
+  revalidatePath(`/knowledge/${documentId}`);
+
+  try {
+    const chunks = await documentService.getChunks(documentId);
+    for (const chunk of chunks) {
+      const embedding = await generateEmbedding(chunk.content);
+      await documentService.updateChunkEmbedding(chunk.id, embedding);
+    }
+    await documentService.updateStatus(doc.id, 'ready');
+  } catch (e) {
+    console.error('Error regenerating embeddings:', e);
+    await documentService.updateStatus(doc.id, 'error', 'Failed to regenerate embeddings');
+  }
+
+  revalidatePath(`/knowledge/${documentId}`);
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Embeddings regenerated' };
+}
+
+export async function retryDocument(
+  documentId: string,
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  await documentService.deleteChunksByDocumentId(documentId);
+  await documentService.deleteDocument(documentId, user.id);
+
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Document removed. Please re-upload.' };
+}
+
+export async function updateDocumentMeta(
+  documentId: string,
+  updates: { name?: string; school?: string; course?: string },
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  const metadataUpdates: { name?: string; metadata?: Json; docType?: string } = {};
+  if (updates.name) metadataUpdates.name = updates.name;
+  if (updates.school || updates.course) {
+    const existingMeta = (doc.metadata as Record<string, unknown>) ?? {};
+    metadataUpdates.metadata = {
+      ...existingMeta,
+      ...(updates.school && { school: updates.school }),
+      ...(updates.course && { course: updates.course }),
+    } as Json;
+  }
+
+  await documentService.updateDocumentMetadata(documentId, metadataUpdates);
+
+  revalidatePath(`/knowledge/${documentId}`);
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Document updated' };
 }

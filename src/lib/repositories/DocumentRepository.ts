@@ -12,7 +12,7 @@ import type {
   UpdateDocumentStatusDTO,
 } from '@/lib/domain/models/Document';
 import { createClient } from '@/lib/supabase/server';
-import type { Database } from '@/types/database';
+import type { Database, Json } from '@/types/database';
 
 type DocumentRow = Database['public']['Tables']['documents']['Row'];
 
@@ -27,6 +27,13 @@ export class DocumentRepository implements IDocumentRepository {
       metadata: row.metadata,
       createdAt: new Date(row.created_at),
     };
+  }
+
+  async findById(id: string): Promise<DocumentEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('documents').select('*').eq('id', id).single();
+    if (error || !data) return null;
+    return this.mapToEntity(data);
   }
 
   async findByUserIdAndName(userId: string, name: string): Promise<DocumentEntity | null> {
@@ -72,6 +79,19 @@ export class DocumentRepository implements IDocumentRepository {
     const { error } = await supabase.from('documents').update(updates).eq('id', id);
 
     if (error) throw new Error(`Failed to update document status: ${error.message}`);
+  }
+
+  async updateMetadata(
+    id: string,
+    updates: { name?: string; metadata?: Json; docType?: string },
+  ): Promise<void> {
+    const supabase = await createClient();
+    const updateData: Database['public']['Tables']['documents']['Update'] = {};
+    if (updates.name) updateData.name = updates.name;
+    if (updates.metadata) updateData.metadata = updates.metadata;
+    if (updates.docType) updateData.doc_type = updates.docType as 'lecture' | 'exam' | 'assignment';
+    const { error } = await supabase.from('documents').update(updateData).eq('id', id);
+    if (error) throw new Error(`Failed to update document: ${error.message}`);
   }
 
   async delete(id: string, userId: string): Promise<void> {
