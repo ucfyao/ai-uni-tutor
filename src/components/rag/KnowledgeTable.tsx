@@ -1,6 +1,14 @@
 'use client';
 
-import { AlertCircle, CheckCircle, Clock, FileText, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle,
+  ClipboardCheck,
+  Clock,
+  FileText,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Badge, Box, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
@@ -8,12 +16,19 @@ import { deleteDocument } from '@/app/actions/documents';
 import { showNotification } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/client';
 
+const DOC_TYPE_CONFIG: Record<string, { label: string; color: string; icon: typeof FileText }> = {
+  lecture: { label: 'Lecture', color: 'indigo', icon: BookOpen },
+  exam: { label: 'Exam', color: 'orange', icon: FileText },
+  assignment: { label: 'Assignment', color: 'violet', icon: ClipboardCheck },
+};
+
 export interface KnowledgeDocument {
   id: string;
   name: string;
   status: string; // 'processing' | 'ready' | 'error'
   status_message: string | null;
   created_at: string;
+  doc_type?: string; // 'lecture' | 'exam' | 'assignment'
   metadata: {
     school?: string;
     course?: string;
@@ -31,7 +46,7 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(initialDocuments);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
-  const isMobile = useMediaQuery('(max-width: 48em)'); // 768px
+  const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
 
   // Sync initialDocuments prop with local state when it changes (e.g. after refresh)
   useEffect(() => {
@@ -166,6 +181,14 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
               </Group>
 
               <Group gap="xs" mb="xs">
+                {(() => {
+                  const config = DOC_TYPE_CONFIG[doc.doc_type ?? ''];
+                  return config ? (
+                    <Badge variant="light" color={config.color} size="xs">
+                      {config.label}
+                    </Badge>
+                  ) : null;
+                })()}
                 <Text size="xs" c="dimmed">
                   {doc.metadata?.school || '-'}
                 </Text>
@@ -197,6 +220,7 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Name</Table.Th>
+            <Table.Th>Type</Table.Th>
             <Table.Th>University</Table.Th>
             <Table.Th>Course</Table.Th>
             <Table.Th>Date</Table.Th>
@@ -214,6 +238,25 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
                     {doc.name}
                   </Text>
                 </Group>
+              </Table.Td>
+              <Table.Td>
+                {(() => {
+                  const config = DOC_TYPE_CONFIG[doc.doc_type ?? ''];
+                  return config ? (
+                    <Badge
+                      variant="light"
+                      color={config.color}
+                      size="sm"
+                      leftSection={<config.icon size={12} />}
+                    >
+                      {config.label}
+                    </Badge>
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      -
+                    </Text>
+                  );
+                })()}
               </Table.Td>
               <Table.Td>
                 <Text size="sm">{doc.metadata?.school || '-'}</Text>
@@ -246,7 +289,7 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
           ))}
           {documents.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={readOnly ? 5 : 6} align="center">
+              <Table.Td colSpan={readOnly ? 6 : 7} align="center">
                 <Text c="dimmed" size="sm" py="xl">
                   No documents uploaded yet
                 </Text>

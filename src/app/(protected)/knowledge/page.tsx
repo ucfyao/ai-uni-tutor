@@ -1,8 +1,9 @@
 import { AlertCircle } from 'lucide-react';
 import { redirect } from 'next/navigation';
-import { Alert, Box, Container, Stack, Text, Title } from '@mantine/core';
+import { Alert, Box, Card, Container, Group, Stack, Text, Title } from '@mantine/core';
+import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
-import { KnowledgeClient, type KnowledgeDoc } from './KnowledgeClient';
+import { UploadButton } from './KnowledgeClient';
 
 export default async function KnowledgePage() {
   const user = await getCurrentUser();
@@ -30,33 +31,64 @@ export default async function KnowledgePage() {
     redirect('/admin/content');
   }
 
-  // Fetch all ready documents
-  const { data: rows } = await supabase
+  // Fetch only documents uploaded by this user
+  // Try with doc_type first; fall back to without it if column doesn't exist yet
+  let rows: Record<string, unknown>[] | null = null;
+  const { data: rowsWithType, error } = await supabase
     .from('documents')
-    .select('id, name, doc_type, course_id')
-    .eq('status', 'ready')
+    .select('id, name, status, status_message, created_at, metadata, doc_type')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
-  const documents: KnowledgeDoc[] = (rows ?? []).map((r) => ({
-    id: r.id,
-    name: r.name,
-    doc_type: (r as { doc_type?: string }).doc_type ?? 'lecture',
-    course_id: (r as { course_id?: string | null }).course_id ?? null,
+  if (error) {
+    // doc_type column may not exist yet — query without it
+    const { data: rowsBasic } = await supabase
+      .from('documents')
+      .select('id, name, status, status_message, created_at, metadata')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    rows = rowsBasic as Record<string, unknown>[] | null;
+  } else {
+    rows = rowsWithType as Record<string, unknown>[] | null;
+  }
+
+  const documents: KnowledgeDocument[] = (rows ?? []).map((doc) => ({
+    id: doc.id as string,
+    name: doc.name as string,
+    status: doc.status as string,
+    status_message: (doc.status_message as string) ?? null,
+    created_at: doc.created_at as string,
+    doc_type: (doc.doc_type as string) ?? 'lecture',
+    metadata:
+      doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
+        ? (doc.metadata as KnowledgeDocument['metadata'])
+        : null,
   }));
 
   return (
     <Container size="md" py={48}>
       <Stack gap="xl">
-        <Box>
-          <Title order={1} fw={800} mb={4}>
-            Knowledge Base
-          </Title>
-          <Text c="dimmed" size="lg">
-            Course materials available for your studies.
-          </Text>
-        </Box>
+        <Group justify="space-between" align="flex-start">
+          <Box>
+            <Title order={1} fw={800} mb={4}>
+              Knowledge Base
+            </Title>
+            <Text c="dimmed" size="lg">
+              Course materials and documents for your studies.
+            </Text>
+          </Box>
+          <UploadButton />
+        </Group>
 
-        <KnowledgeClient documents={documents} />
+        {documents.length > 0 ? (
+          <Card withBorder radius="lg" p={0}>
+            <KnowledgeTable documents={documents} />
+          </Card>
+        ) : (
+          <Alert variant="light" color="blue" icon={<AlertCircle size={16} />}>
+            No documents available yet. Upload your first document to get started.
+          </Alert>
+        )}
       </Stack>
     </Container>
   );

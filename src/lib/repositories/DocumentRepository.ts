@@ -44,16 +44,16 @@ export class DocumentRepository implements IDocumentRepository {
 
   async create(dto: CreateDocumentDTO): Promise<DocumentEntity> {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('documents')
-      .insert({
-        user_id: dto.userId,
-        name: dto.name,
-        status: dto.status ?? 'processing',
-        metadata: dto.metadata ?? {},
-      })
-      .select()
-      .single();
+    const insertData: Database['public']['Tables']['documents']['Insert'] = {
+      user_id: dto.userId,
+      name: dto.name,
+      status: dto.status ?? 'processing',
+      metadata: dto.metadata ?? {},
+    };
+    if (dto.docType) {
+      insertData.doc_type = dto.docType as 'lecture' | 'exam' | 'assignment';
+    }
+    const { data, error } = await supabase.from('documents').insert(insertData).select().single();
 
     if (error || !data) throw new Error(`Failed to create document: ${error?.message}`);
     return this.mapToEntity(data);

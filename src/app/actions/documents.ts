@@ -15,6 +15,7 @@ export type UploadState = {
 
 const uploadSchema = z.object({
   file: z.instanceof(File),
+  doc_type: z.enum(['lecture', 'exam', 'assignment']).optional().default('lecture'),
   school: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().max(100).optional(),
@@ -32,6 +33,7 @@ export async function uploadDocument(
   try {
     const parsed = uploadSchema.safeParse({
       file: formData.get('file'),
+      doc_type: formData.get('doc_type') || undefined,
       school: formData.get('school'),
       course: formData.get('course'),
     });
@@ -39,7 +41,7 @@ export async function uploadDocument(
       return { status: 'error', message: 'Invalid upload data' };
     }
 
-    const { file, school, course } = parsed.data;
+    const { file, doc_type, school, course } = parsed.data;
 
     if (file.type !== 'application/pdf') {
       return { status: 'error', message: 'Only PDF files are supported currently' };
@@ -59,10 +61,15 @@ export async function uploadDocument(
     }
 
     // 1. Create Document Entry (Processing)
-    const doc = await documentService.createDocument(user.id, file.name, {
-      school: school || 'Unspecified',
-      course: course || 'General',
-    });
+    const doc = await documentService.createDocument(
+      user.id,
+      file.name,
+      {
+        school: school || 'Unspecified',
+        course: course || 'General',
+      },
+      doc_type,
+    );
 
     revalidatePath('/knowledge');
 

@@ -24,6 +24,7 @@ export interface CreateDocumentDTO {
   name: string;
   status?: DocumentStatus;
   metadata?: Json;
+  docType?: string;
 }
 
 export interface UpdateDocumentStatusDTO {

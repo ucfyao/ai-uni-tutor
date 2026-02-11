@@ -8,7 +8,7 @@
 import { getGenAI } from '@/lib/gemini';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
-import type { MockExam, MockExamQuestion, MockExamResponse } from '@/types/exam';
+import type { BatchSubmitResult, MockExam, MockExamQuestion, MockExamResponse } from '@/types/exam';
 
 // ==================== Helper ====================
 
@@ -41,9 +41,190 @@ function mapToMockExam(row: {
   };
 }
 
+// ==================== Prompt ====================
+
+const TOPIC_GENERATION_PROMPT = `You are an expert exam question generator. Given a topic/course, generate a set of exam questions.
+
+For each question, generate:
+- "order_num": sequential question number starting from 1
+- "type": one of "choice", "fill_blank", "short_answer", "calculation", "proof", "essay", "true_false"
+- "content": the question text in Markdown format. Use KaTeX for math (inline: $...$, block: $$...$$)
+- "options": for "choice" or "true_false" questions, an object like {"A": "...", "B": "...", ...}. null for other types
+- "answer": the correct answer
+- "explanation": a clear explanation of the correct answer
+- "points": the point value of the question (typically 1-5 based on difficulty)
+- "knowledge_point": the main topic or concept tested
+- "difficulty": one of "easy", "medium", "hard"
+
+Also generate:
+- "title": a concise title for this exam (e.g. "Linear Algebra - Practice Exam")
+
+Return a JSON object with:
+{
+  "title": "...",
+  "questions": [ { ... }, ... ]
+}
+
+Important:
+- Use KaTeX syntax for all mathematical notation
+- Generate original, pedagogically sound questions
+- Ensure answers and explanations are accurate
+- Vary question styles within each type
+`;
+
+// ==================== Types ====================
+
+interface TopicGenerateOptions {
+  topic: string;
+  numQuestions: number;
+  difficulty: 'easy' | 'medium' | 'hard' | 'mixed';
+  questionTypes: string[];
+}
+
 // ==================== Service ====================
 
 export class MockExamService {
+  /**
+   * Generate a mock exam from a topic using AI.
+   * Creates a virtual exam paper (satisfying FK constraint) and a mock exam.
+   */
+  async generateFromTopic(options: TopicGenerateOptions): Promise<{ mockId: string }> {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const supabase = await createClient();
+    const ai = getGenAI();
+
+    // Build the prompt
+    const typesInstruction =
+      options.questionTypes.length > 0
+        ? `Question types to include: ${options.questionTypes.join(', ')}`
+        : 'Use a mix of question types appropriate for the topic';
+
+    const difficultyInstruction =
+      options.difficulty === 'mixed'
+        ? 'Use a mix of easy, medium, and hard questions'
+        : `All questions should be ${options.difficulty} difficulty`;
+
+    const prompt = `${TOPIC_GENERATION_PROMPT}
+Topic/Course: ${options.topic}
+Number of questions: ${options.numQuestions}
+${difficultyInstruction}
+${typesInstruction}
+`;
+
+    // Single Gemini call
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}') as {
+      title?: string;
+      questions?: Array<{
+        order_num: number;
+        type: string;
+        content: string;
+        options: Record<string, string> | null;
+        answer: string;
+        explanation: string;
+        points: number;
+        knowledge_point?: string;
+        difficulty?: string;
+      }>;
+    };
+
+    const questions = parsed.questions ?? [];
+    if (questions.length === 0) {
+      throw new Error('AI could not generate questions for this topic');
+    }
+
+    const title = parsed.title || `${options.topic} - Practice Exam`;
+
+    // 1. Create virtual exam_paper
+    const questionTypes = [...new Set(questions.map((q) => q.type))];
+    const { data: paper, error: paperErr } = await supabase
+      .from('exam_papers')
+      .insert({
+        user_id: user.id,
+        title,
+        course: options.topic,
+        visibility: 'private',
+        status: 'ready',
+        question_types: questionTypes,
+      })
+      .select('id')
+      .single();
+
+    if (paperErr || !paper) {
+      throw new Error(`Failed to create exam paper: ${paperErr?.message}`);
+    }
+
+    const paperId = paper.id as string;
+
+    // 2. Batch insert exam_questions
+    const questionRows = questions.map((q) => ({
+      paper_id: paperId,
+      order_num: q.order_num,
+      type: q.type,
+      content: q.content,
+      options: q.options ?? null,
+      answer: q.answer ?? '',
+      explanation: q.explanation ?? '',
+      points: q.points ?? 1,
+      metadata: {
+        knowledge_point: q.knowledge_point ?? null,
+        difficulty: q.difficulty ?? null,
+      },
+    }));
+
+    const { error: questionsErr } = await supabase.from('exam_questions').insert(questionRows);
+    if (questionsErr) {
+      throw new Error(`Failed to insert questions: ${questionsErr.message}`);
+    }
+
+    // 3. Build MockExamQuestion[]
+    const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
+      content: q.content,
+      type: q.type,
+      options: (q.options ?? null) as Record<string, string> | null,
+      answer: q.answer ?? '',
+      explanation: q.explanation ?? '',
+      points: q.points ?? 1,
+      sourceQuestionId: null,
+    }));
+
+    const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
+
+    // 4. Create mock_exam
+    const { data: mock, error: mockErr } = await supabase
+      .from('mock_exams')
+      .insert({
+        user_id: user.id,
+        paper_id: paperId,
+        session_id: null,
+        title,
+        questions: mockQuestions as unknown as Json,
+        responses: [] as unknown as Json,
+        score: null,
+        total_points: totalPoints,
+        current_index: 0,
+        status: 'in_progress',
+      })
+      .select('id')
+      .single();
+
+    if (mockErr || !mock) {
+      throw new Error(`Failed to create mock exam: ${mockErr?.message}`);
+    }
+
+    return { mockId: mock.id };
+  }
+
   /**
    * Start a mock exam from a course code.
    * Finds an available exam paper for the course, generates a mock, and links it to the session.
@@ -205,39 +386,13 @@ Return JSON with these exact fields:
   }
 
   /**
-   * Submit and judge a student answer for a specific question in a mock exam.
+   * Judge a single answer using Gemini AI with simple-matching fallback.
    */
-  async submitAnswer(
-    mockId: string,
+  private async judgeAnswer(
+    question: MockExamQuestion,
     questionIndex: number,
     userAnswer: string,
   ): Promise<MockExamResponse> {
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
-
-    const supabase = await createClient();
-
-    // Fetch mock exam (RLS ensures ownership)
-    const { data: row, error } = await supabase
-      .from('mock_exams')
-      .select('*')
-      .eq('id', mockId)
-      .single();
-
-    if (error || !row) throw new Error('Mock exam not found');
-
-    const mock = mapToMockExam(row);
-
-    if (mock.status === 'completed') throw new Error('Mock exam already completed');
-    if (questionIndex < 0 || questionIndex >= mock.questions.length) {
-      throw new Error('Invalid question index');
-    }
-
-    const question = mock.questions[questionIndex];
-
-    // Judge the answer via Gemini
-    let feedback: MockExamResponse;
-
     try {
       const ai = getGenAI();
 
@@ -270,7 +425,7 @@ Return JSON with these exact fields:
 
       const parsed = JSON.parse(response.text || '{}');
 
-      feedback = {
+      return {
         questionIndex,
         userAnswer,
         isCorrect: Boolean(parsed.is_correct),
@@ -280,12 +435,11 @@ Return JSON with these exact fields:
     } catch (err) {
       console.warn('AI judging failed, falling back to simple matching:', err);
 
-      // Simple matching fallback for choice / fill_blank types
       const normalizedUser = userAnswer.trim().toLowerCase();
       const normalizedAnswer = question.answer.trim().toLowerCase();
       const isCorrect = normalizedUser === normalizedAnswer;
 
-      feedback = {
+      return {
         questionIndex,
         userAnswer,
         isCorrect,
@@ -295,6 +449,38 @@ Return JSON with these exact fields:
           : `Incorrect. The correct answer is: ${question.answer}`,
       };
     }
+  }
+
+  /**
+   * Submit and judge a student answer for a specific question in a mock exam.
+   */
+  async submitAnswer(
+    mockId: string,
+    questionIndex: number,
+    userAnswer: string,
+  ): Promise<MockExamResponse> {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const supabase = await createClient();
+
+    const { data: row, error } = await supabase
+      .from('mock_exams')
+      .select('*')
+      .eq('id', mockId)
+      .single();
+
+    if (error || !row) throw new Error('Mock exam not found');
+
+    const mock = mapToMockExam(row);
+
+    if (mock.status === 'completed') throw new Error('Mock exam already completed');
+    if (questionIndex < 0 || questionIndex >= mock.questions.length) {
+      throw new Error('Invalid question index');
+    }
+
+    const question = mock.questions[questionIndex];
+    const feedback = await this.judgeAnswer(question, questionIndex, userAnswer);
 
     // Update mock exam state
     const updatedResponses = [...mock.responses, feedback];
@@ -325,6 +511,74 @@ Return JSON with these exact fields:
     if (updateErr) throw new Error(`Failed to update mock exam: ${updateErr.message}`);
 
     return feedback;
+  }
+
+  /**
+   * Batch submit and judge all answers for exam mode.
+   */
+  async batchSubmitAnswers(
+    mockId: string,
+    answers: Array<{ questionIndex: number; userAnswer: string }>,
+  ): Promise<BatchSubmitResult> {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const supabase = await createClient();
+
+    const { data: row, error } = await supabase
+      .from('mock_exams')
+      .select('*')
+      .eq('id', mockId)
+      .single();
+
+    if (error || !row) throw new Error('Mock exam not found');
+
+    const mock = mapToMockExam(row);
+
+    if (mock.status === 'completed') throw new Error('Mock exam already completed');
+
+    // Judge all answers in batches of 3
+    const allResponses: MockExamResponse[] = [];
+
+    for (let i = 0; i < answers.length; i += 3) {
+      const batch = answers.slice(i, i + 3);
+      const batchResults = await Promise.all(
+        batch.map((a) => {
+          const question = mock.questions[a.questionIndex];
+          if (!question) {
+            return Promise.resolve<MockExamResponse>({
+              questionIndex: a.questionIndex,
+              userAnswer: a.userAnswer,
+              isCorrect: false,
+              score: 0,
+              aiFeedback: 'Invalid question index.',
+            });
+          }
+          return this.judgeAnswer(question, a.questionIndex, a.userAnswer);
+        }),
+      );
+      allResponses.push(...batchResults);
+    }
+
+    const totalScore = allResponses.reduce((sum, r) => sum + r.score, 0);
+
+    const { error: updateErr } = await supabase
+      .from('mock_exams')
+      .update({
+        responses: allResponses as unknown as Json,
+        current_index: mock.questions.length,
+        score: totalScore,
+        status: 'completed',
+      })
+      .eq('id', mockId);
+
+    if (updateErr) throw new Error(`Failed to update mock exam: ${updateErr.message}`);
+
+    return {
+      responses: allResponses,
+      score: totalScore,
+      totalPoints: mock.totalPoints,
+    };
   }
 
   /**

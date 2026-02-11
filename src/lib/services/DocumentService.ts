@@ -29,12 +29,18 @@ export class DocumentService {
     return existing !== null;
   }
 
-  async createDocument(userId: string, name: string, metadata?: Json): Promise<DocumentEntity> {
+  async createDocument(
+    userId: string,
+    name: string,
+    metadata?: Json,
+    docType?: string,
+  ): Promise<DocumentEntity> {
     return this.docRepo.create({
       userId,
       name,
       status: 'processing',
       metadata,
+      docType,
     });
   }
 
