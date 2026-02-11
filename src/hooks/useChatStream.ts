@@ -116,7 +116,11 @@ export function useChatStream() {
 
         if (cancelledRef.current) {
           // User clicked stop - keep partial response
-          await onComplete();
+          try {
+            await onComplete();
+          } catch {
+            // ignore errors during cancel completion
+          }
         } else if (error instanceof Error && error.name === 'AbortError') {
           onError('Request timed out. Please try again.', false, true);
         } else {
@@ -136,8 +140,7 @@ export function useChatStream() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    setIsStreaming(false);
-    setStreamingMsgId(null);
+    // State cleanup is handled by the catch block in streamChatResponse
   }, []);
 
   return {
