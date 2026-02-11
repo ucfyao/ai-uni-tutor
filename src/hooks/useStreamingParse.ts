@@ -91,6 +91,8 @@ export function useStreamingParse(): StreamingParseState {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        // [I1] Persist across chunks so event/data pairs split across reads aren't lost
+        let currentEvent = '';
 
         while (true) {
           const { done, value } = await reader.read();
@@ -102,7 +104,6 @@ export function useStreamingParse(): StreamingParseState {
           const lines = buffer.split('\n');
           buffer = lines.pop() ?? ''; // Keep incomplete line in buffer
 
-          let currentEvent = '';
           for (const line of lines) {
             if (line.startsWith('event: ')) {
               currentEvent = line.slice(7).trim();

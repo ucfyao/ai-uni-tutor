@@ -9,7 +9,13 @@ import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { getCurrentUser } from '@/lib/supabase/server';
 
+// [C2] Ensure this route runs on Node.js runtime and is never statically cached
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const BATCH_SIZE = 3;
+// [C1] Server-side file size limit (bytes)
+const MAX_FILE_SIZE = parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10', 10) * 1024 * 1024;
 
 const uploadSchema = z.object({
   doc_type: z.enum(['lecture', 'exam', 'assignment']).optional().default('lecture'),
@@ -55,6 +61,8 @@ function buildChunkContent(
 
 export async function POST(request: Request) {
   const { stream, send, close } = createSSEStream();
+  // [C3] Capture the request abort signal for client-disconnect awareness
+  const signal = request.signal;
 
   // Start the async pipeline without awaiting (runs in background while streaming)
   const pipeline = (async () => {
@@ -86,6 +94,12 @@ export async function POST(request: Request) {
       const file = formData.get('file');
       if (!(file instanceof File) || file.type !== 'application/pdf') {
         send('error', { message: 'Only PDF files are supported', code: 'INVALID_FILE' });
+        return;
+      }
+
+      // [C1] Enforce server-side file size limit
+      if (file.size > MAX_FILE_SIZE) {
+        send('error', { message: 'File too large', code: 'FILE_TOO_LARGE' });
         return;
       }
 
@@ -123,7 +137,15 @@ export async function POST(request: Request) {
       await documentService.updateStatus(doc.id, 'processing', 'Parsing PDF...');
 
       const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      let buffer: Buffer | null = Buffer.from(arrayBuffer);
+
+      // [I4] Validate PDF magic bytes before passing to parser
+      if (buffer.length < 5 || buffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+        await documentService.updateStatus(doc.id, 'error', 'Invalid PDF file');
+        send('error', { message: 'File is not a valid PDF', code: 'INVALID_FILE' });
+        return;
+      }
+
       let pdfData;
       try {
         pdfData = await parsePDF(buffer);
@@ -132,11 +154,19 @@ export async function POST(request: Request) {
         send('error', { message: 'Failed to parse PDF content', code: 'PDF_PARSE_ERROR' });
         return;
       }
+      // [I5] Release buffer reference to allow GC on large files
+      buffer = null;
 
       const totalText = pdfData.pages.reduce((acc, p) => acc + p.text.trim(), '');
       if (totalText.length === 0) {
         await documentService.updateStatus(doc.id, 'error', 'PDF contains no extractable text');
         send('error', { message: 'PDF contains no extractable text', code: 'EMPTY_PDF' });
+        return;
+      }
+
+      // [C3] Check abort before expensive LLM call
+      if (signal.aborted) {
+        await documentService.updateStatus(doc.id, 'error', 'Client disconnected');
         return;
       }
 
@@ -182,6 +212,15 @@ export async function POST(request: Request) {
       let batchIndex = 0;
 
       for (let i = 0; i < items.length; i++) {
+        // [C3] Check abort at each iteration; save any pending batch before exiting
+        if (signal.aborted) {
+          if (batch.length > 0) {
+            await documentService.saveChunksAndReturn(batch);
+          }
+          await documentService.updateStatus(doc.id, 'ready');
+          return;
+        }
+
         const { type, data } = items[i];
 
         // Send item to client
@@ -215,9 +254,9 @@ export async function POST(request: Request) {
       send('status', { stage: 'complete', message: `Done! ${totalItems} items extracted.` });
     } catch (error) {
       console.error('Parse pipeline error:', error);
+      // [I3] Don't delete saved chunks on unexpected error — honor resilience guarantee
       if (docId) {
         try {
-          await documentService.deleteChunksByDocumentId(docId);
           await documentService.updateStatus(docId, 'error', 'Processing failed unexpectedly');
         } catch {
           /* ignore cleanup errors */
