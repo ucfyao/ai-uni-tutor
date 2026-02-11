@@ -90,12 +90,7 @@ const MessageActionBar: React.FC<{
       gap={2}
       mt={6}
       className="message-actions"
-      style={{
-        opacity: 0,
-        height: 0,
-        overflow: 'hidden',
-        transition: 'opacity 0.15s ease, height 0.15s ease',
-      }}
+      style={{ opacity: 0, transition: 'opacity 0.15s ease' }}
     >
       <Tooltip label={copied ? 'Copied!' : 'Copy'} position="bottom" withArrow>
         <ActionIcon
@@ -408,17 +403,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </Box>
 
-        {/* Message Action Bar */}
-        {!isStreaming && (
-          <MessageActionBar
-            isUser={isUser}
-            content={message.content}
-            messageId={message.id}
-            timestamp={message.timestamp}
-            onRegenerate={onRegenerate}
-          />
-        )}
-
         {/* Selection Toolbar */}
         {selection && !isUser && onAddCard && (
           <Portal>
@@ -468,6 +452,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </Portal>
         )}
       </Box>
+
+      {/* Message Action Bar - outside bubble */}
+      {!isStreaming && (
+        <MessageActionBar
+          isUser={isUser}
+          content={message.content}
+          messageId={message.id}
+          timestamp={message.timestamp}
+          onRegenerate={onRegenerate}
+        />
+      )}
     </Box>
   );
 };

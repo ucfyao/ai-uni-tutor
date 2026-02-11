@@ -525,8 +525,6 @@ body {
 /* Message action bar - show on hover */
 [data-message-bubble]:hover .message-actions {
   opacity: 1 !important;
-  height: auto !important;
-  overflow: visible !important;
 }
 
 /* Code block copy button - show on hover */
