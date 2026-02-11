@@ -7,6 +7,7 @@ import { parsePDF } from '@/lib/pdf';
 import { generateEmbedding } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { Json } from '@/types/database';
 
 export type UploadState = {
   status: 'idle' | 'success' | 'error';
@@ -186,4 +187,87 @@ export async function deleteDocument(documentId: string) {
   await documentService.deleteDocument(documentId, user.id);
 
   revalidatePath('/knowledge');
+}
+
+export async function updateDocumentChunks(
+  documentId: string,
+  updates: { id: string; content: string; metadata: Record<string, unknown> }[],
+  deletedIds: string[],
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  for (const id of deletedIds) {
+    await documentService.deleteChunk(id);
+  }
+  for (const update of updates) {
+    await documentService.updateChunk(update.id, update.content, update.metadata as Json);
+  }
+
+  revalidatePath(`/knowledge/${documentId}`);
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Changes saved' };
+}
+
+export async function regenerateEmbeddings(
+  documentId: string,
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  await documentService.updateStatus(doc.id, 'processing', 'Regenerating embeddings...');
+  revalidatePath(`/knowledge/${documentId}`);
+
+  try {
+    const chunks = await documentService.getChunks(documentId);
+    for (const chunk of chunks) {
+      const embedding = await generateEmbedding(chunk.content);
+      await documentService.updateChunkEmbedding(chunk.id, embedding);
+    }
+    await documentService.updateStatus(doc.id, 'ready');
+  } catch (e) {
+    console.error('Error regenerating embeddings:', e);
+    await documentService.updateStatus(doc.id, 'error', 'Failed to regenerate embeddings');
+  }
+
+  revalidatePath(`/knowledge/${documentId}`);
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Embeddings regenerated' };
+}
+
+export async function updateDocumentMeta(
+  documentId: string,
+  updates: { name?: string; school?: string; course?: string },
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { status: 'error', message: 'Unauthorized' };
+
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+
+  const metadataUpdates: { name?: string; metadata?: Json; docType?: string } = {};
+  if (updates.name) metadataUpdates.name = updates.name;
+  if (updates.school || updates.course) {
+    const existingMeta = (doc.metadata as Record<string, unknown>) ?? {};
+    metadataUpdates.metadata = {
+      ...existingMeta,
+      ...(updates.school && { school: updates.school }),
+      ...(updates.course && { course: updates.course }),
+    } as Json;
+  }
+
+  await documentService.updateDocumentMetadata(documentId, metadataUpdates);
+
+  revalidatePath(`/knowledge/${documentId}`);
+  revalidatePath('/knowledge');
+  return { status: 'success', message: 'Document updated' };
 }

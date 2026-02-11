@@ -20,6 +20,12 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
+import {
+  regenerateEmbeddings,
+  updateDocumentChunks,
+  updateDocumentMeta,
+} from '@/app/actions/documents';
+import { showNotification } from '@/lib/notifications';
 import type { Json } from '@/types/database';
 
 /* ------------------------------------------------------------------ */
@@ -222,7 +228,22 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
                   style={{ flex: 1 }}
                   size="md"
                 />
-                <Button size="sm" onClick={() => setEditingName(false)}>
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (nameValue.trim() && nameValue !== doc.name) {
+                      const result = await updateDocumentMeta(doc.id, { name: nameValue.trim() });
+                      if (result.status === 'success') {
+                        showNotification({
+                          title: 'Updated',
+                          message: 'Document name updated',
+                          color: 'green',
+                        });
+                      }
+                    }
+                    setEditingName(false);
+                  }}
+                >
                   Done
                 </Button>
               </Group>
@@ -334,9 +355,24 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
                 leftSection={<RefreshCw size={16} />}
                 loading={regenerating}
                 disabled={regenerating}
-                onClick={() => {
-                  /* placeholder for Task 6 */
-                  void setRegenerating;
+                onClick={async () => {
+                  setRegenerating(true);
+                  try {
+                    const result = await regenerateEmbeddings(doc.id);
+                    if (result.status === 'success') {
+                      showNotification({ title: 'Done', message: result.message, color: 'green' });
+                    } else {
+                      showNotification({ title: 'Error', message: result.message, color: 'red' });
+                    }
+                  } catch {
+                    showNotification({
+                      title: 'Error',
+                      message: 'Failed to regenerate embeddings',
+                      color: 'red',
+                    });
+                  } finally {
+                    setRegenerating(false);
+                  }
                 }}
               >
                 Regenerate Embeddings
@@ -346,9 +382,35 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
                 leftSection={<Save size={16} />}
                 loading={saving}
                 disabled={pendingChanges === 0 || saving}
-                onClick={() => {
-                  /* placeholder for Task 6 */
-                  void setSaving;
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    const updates = Array.from(editedChunks.entries()).map(([id, data]) => ({
+                      id,
+                      content: data.content,
+                      metadata: data.metadata,
+                    }));
+                    const result = await updateDocumentChunks(
+                      doc.id,
+                      updates,
+                      Array.from(deletedChunkIds),
+                    );
+                    if (result.status === 'success') {
+                      showNotification({ title: 'Saved', message: result.message, color: 'green' });
+                      setEditedChunks(new Map());
+                      setDeletedChunkIds(new Set());
+                    } else {
+                      showNotification({ title: 'Error', message: result.message, color: 'red' });
+                    }
+                  } catch {
+                    showNotification({
+                      title: 'Error',
+                      message: 'Failed to save changes',
+                      color: 'red',
+                    });
+                  } finally {
+                    setSaving(false);
+                  }
                 }}
               >
                 Save Changes
