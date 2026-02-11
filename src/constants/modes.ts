@@ -46,21 +46,15 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
       'Debug this specific error message',
     ],
   },
-  'Exam Prep': {
-    id: 'exam',
-    label: 'Exam Prep',
+  'Mock Exam': {
+    id: 'exam/mock',
+    label: 'Mock Exam',
     icon: FileQuestion,
     color: 'purple',
-    desc: 'Drill & Simulate',
+    desc: 'Practice with real past exams',
     intro:
-      '**Exam Prep Mode Active**\n\nI generate practice questions and simulate exam scenarios to test your knowledge gaps. Ready to drill?',
+      "**Mock Exam Mode Active**\n\nI generate exam variants from real past papers for your course. Let's practice!",
     hoverClass: 'hover:border-purple-300 hover:shadow-[0_8px_30px_rgba(147,51,234,0.15)]',
-    suggestedPrompts: [
-      'Generate a practice question on this topic',
-      'Simulate a short quiz (3 questions)',
-      'Identify my weak spots based on chat history',
-      'Explain why my answer was wrong',
-    ],
   },
 };
 

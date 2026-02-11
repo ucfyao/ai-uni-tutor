@@ -45,9 +45,39 @@ function mapToMockExam(row: {
 
 export class MockExamService {
   /**
+   * Start a mock exam from a course code.
+   * Finds an available exam paper for the course, generates a mock, and links it to the session.
+   */
+  async startFromCourse(sessionId: string, courseCode: string): Promise<{ mockId: string }> {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const supabase = await createClient();
+
+    // Find an exam paper for this course (public or user's own)
+    const { data: papers, error: paperErr } = await supabase
+      .from('exam_papers')
+      .select('id')
+      .or(`course.ilike.%${courseCode}%`)
+      .eq('status', 'ready')
+      .limit(1);
+
+    if (paperErr) throw new Error(`Failed to find exam papers: ${paperErr.message}`);
+    if (!papers || papers.length === 0) {
+      throw new Error(
+        'No exam papers available for this course yet. Ask your admin to upload past exams.',
+      );
+    }
+
+    // Generate mock exam from the found paper
+    const { mockId } = await this.generateMock(papers[0].id, sessionId);
+    return { mockId };
+  }
+
+  /**
    * Generate a mock exam with AI-generated variant questions from a paper.
    */
-  async generateMock(paperId: string): Promise<{ mockId: string }> {
+  async generateMock(paperId: string, sessionId?: string): Promise<{ mockId: string }> {
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
@@ -157,6 +187,7 @@ Return JSON with these exact fields:
       .insert({
         user_id: user.id,
         paper_id: paperId,
+        session_id: sessionId ?? null,
         title,
         questions: generatedQuestions as unknown as Json,
         responses: [] as unknown as Json,
@@ -294,6 +325,23 @@ Return JSON with these exact fields:
     if (updateErr) throw new Error(`Failed to update mock exam: ${updateErr.message}`);
 
     return feedback;
+  }
+
+  /**
+   * Look up a mock exam ID from a chat session ID.
+   */
+  async getMockIdBySessionId(sessionId: string): Promise<string | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('mock_exams')
+      .select('id')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+    return data.id;
   }
 
   /**

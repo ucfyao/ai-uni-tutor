@@ -6,7 +6,6 @@
 
 import { TutoringMode } from '@/types';
 import { AssignmentCoachStrategy } from './AssignmentCoachStrategy';
-import { ExamPrepStrategy } from './ExamPrepStrategy';
 import { ITutoringStrategy } from './ITutoringStrategy';
 import { LectureHelperStrategy } from './LectureHelperStrategy';
 
@@ -32,9 +31,6 @@ export class StrategyFactory {
       case 'Assignment Coach':
         strategy = new AssignmentCoachStrategy();
         break;
-      case 'Exam Prep':
-        strategy = new ExamPrepStrategy();
-        break;
       default:
         throw new Error(`Unknown tutoring mode: ${mode}`);
     }
@@ -48,7 +44,15 @@ export class StrategyFactory {
    * Get all available strategies
    */
   static getAllModes(): TutoringMode[] {
-    return ['Lecture Helper', 'Assignment Coach', 'Exam Prep'];
+    return ['Lecture Helper', 'Assignment Coach', 'Mock Exam'];
+  }
+
+  /**
+   * Chat-based modes that use the strategy pattern for streaming.
+   * Mock Exam uses structured UI, not chat streaming.
+   */
+  static getChatModes(): TutoringMode[] {
+    return ['Lecture Helper', 'Assignment Coach'];
   }
 
   /**

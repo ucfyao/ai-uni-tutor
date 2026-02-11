@@ -27,7 +27,7 @@ const chatStreamSchema = z.object({
     code: z.string().min(1),
     name: z.string().min(1),
   }),
-  mode: z.enum(['Lecture Helper', 'Assignment Coach', 'Exam Prep']),
+  mode: z.enum(['Lecture Helper', 'Assignment Coach', 'Mock Exam']),
   history: z.array(
     z.object({
       id: z.string().optional(),

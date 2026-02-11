@@ -12,7 +12,7 @@ export type Course = {
   name: string;
 };
 
-export type TutoringMode = 'Lecture Helper' | 'Assignment Coach' | 'Exam Prep';
+export type TutoringMode = 'Lecture Helper' | 'Assignment Coach' | 'Mock Exam';
 
 export interface ChatMessage {
   id: string;

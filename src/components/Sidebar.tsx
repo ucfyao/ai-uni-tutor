@@ -2,7 +2,10 @@
 
 import {
   ChevronDown,
+  ChevronRight,
+  Compass,
   Ellipsis,
+  FileQuestion,
   GraduationCap,
   LifeBuoy,
   LogIn,
@@ -13,7 +16,7 @@ import {
   Pin,
   PinOff,
   Plus,
-  Search,
+  Presentation,
   Settings,
   Share,
   Sparkles,
@@ -21,12 +24,13 @@ import {
   Wand2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
   Avatar,
   Badge,
   Box,
+  Divider,
   Group,
   Menu,
   ScrollArea,
@@ -35,17 +39,42 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
 import { Logo } from '@/components/ui/Logo';
 import { useProfile } from '@/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
-import { ChatSession } from '../types/index';
+import { ChatSession, TutoringMode } from '../types/index';
+
+// ============================================================================
+// MODULE CONFIG
+// ============================================================================
+
+const CHAT_MODULES = [
+  {
+    mode: 'Lecture Helper' as TutoringMode,
+    label: 'Lectures',
+    icon: Presentation,
+    color: 'indigo',
+  },
+  {
+    mode: 'Assignment Coach' as TutoringMode,
+    label: 'Assignments',
+    icon: Compass,
+    color: 'violet',
+  },
+  { mode: 'Mock Exam' as TutoringMode, label: 'Mock Exams', icon: FileQuestion, color: 'purple' },
+];
+
+const JUMP_LINKS = [{ label: 'Knowledge Base', icon: GraduationCap, href: '/knowledge' }];
+
+// ============================================================================
+// SIDEBAR
+// ============================================================================
 
 interface SidebarProps {
   sessions: ChatSession[];
   activeSessionId: string | null;
   onSelectSession: (id: string) => void;
-  onNewChat: () => void;
+  onNewChat: (mode: TutoringMode) => void;
   onToggleSidebar: () => void;
   onTogglePin?: (id: string, isPinned: boolean) => void;
   onRenameSession?: (id: string, newTitle: string) => void;
@@ -72,7 +101,38 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { profile, loading } = useProfile();
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [chatsExpanded, { toggle: toggleChats }] = useDisclosure(true);
+
+  // Auto-expand the module that contains the active session
+  const activeSessionMode = useMemo(() => {
+    if (!activeSessionId) return null;
+    const session = sessions.find((s) => s.id === activeSessionId);
+    return session?.mode ?? null;
+  }, [activeSessionId, sessions]);
+
+  const [expandedModule, setExpandedModule] = useState<TutoringMode | null>(activeSessionMode);
+
+  useEffect(() => {
+    if (activeSessionMode) {
+      setExpandedModule(activeSessionMode);
+    }
+  }, [activeSessionMode]);
+
+  // Group sessions by mode, sorted pinned-first + lastUpdated desc, max 10
+  const sessionsByMode = useMemo(() => {
+    const map: Record<string, ChatSession[]> = {};
+    for (const mod of CHAT_MODULES) {
+      const filtered = sessions
+        .filter((s) => s.mode === mod.mode)
+        .sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return b.lastUpdated - a.lastUpdated;
+        })
+        .slice(0, 10);
+      map[mod.mode] = filtered;
+    }
+    return map;
+  }, [sessions]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -84,7 +144,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isPro =
     profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
 
-  // === COLLAPSED STATE ===
+  const toggleModule = (mode: TutoringMode) => {
+    setExpandedModule((prev) => (prev === mode ? null : mode));
+  };
+
+  // === COLLAPSED STATE (icon-only) ===
   if (!opened) {
     return (
       <Stack
@@ -97,7 +161,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           fontFamily: 'var(--mantine-font-family)',
         }}
       >
-        {/* Header area - 52px height to match expanded */}
+        {/* Toggle button */}
         <Box h={52} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Tooltip label="Open sidebar" position="right" color="dark" radius="md">
             <ActionIcon
@@ -112,39 +176,46 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Tooltip>
         </Box>
 
-        {/* New Chat (+) */}
-        <Tooltip label="New chat" position="right">
-          <ActionIcon
-            onClick={onNewChat}
-            variant="subtle"
-            color="gray"
-            size={36}
-            radius="md"
-            mb={4}
-          >
-            <Plus size={20} strokeWidth={2} />
-          </ActionIcon>
-        </Tooltip>
+        {/* Chat modules */}
+        {CHAT_MODULES.map((mod) => {
+          const Icon = mod.icon;
+          return (
+            <Tooltip key={mod.mode} label={mod.label} position="right">
+              <ActionIcon
+                onClick={() => {
+                  onToggleSidebar();
+                  setExpandedModule(mod.mode);
+                }}
+                variant="subtle"
+                color="gray"
+                size={36}
+                radius="md"
+                mb={4}
+              >
+                <Icon size={20} strokeWidth={1.5} />
+              </ActionIcon>
+            </Tooltip>
+          );
+        })}
 
-        {/* Search */}
-        <Tooltip label="Search chats" position="right">
-          <ActionIcon variant="subtle" color="gray" size={36} radius="md" mb={4}>
-            <Search size={20} strokeWidth={1.5} />
-          </ActionIcon>
-        </Tooltip>
-
-        {/* Knowledge Base */}
-        <Tooltip label="Knowledge Base" position="right">
-          <ActionIcon
-            onClick={() => router.push('/knowledge')}
-            variant="subtle"
-            color="gray"
-            size={36}
-            radius="md"
-          >
-            <GraduationCap size={20} strokeWidth={1.5} />
-          </ActionIcon>
-        </Tooltip>
+        {/* Jump links */}
+        {JUMP_LINKS.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Tooltip key={link.href} label={link.label} position="right">
+              <ActionIcon
+                onClick={() => router.push(link.href)}
+                variant="subtle"
+                color="gray"
+                size={36}
+                radius="md"
+                mb={4}
+              >
+                <Icon size={20} strokeWidth={1.5} />
+              </ActionIcon>
+            </Tooltip>
+          );
+        })}
 
         <Box flex={1} />
 
@@ -158,6 +229,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 color="dark"
                 variant="filled"
                 style={{ cursor: 'pointer' }}
+                mb={8}
               >
                 {(profile?.full_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
               </Avatar>
@@ -194,7 +266,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Menu>
         ) : !loading ? (
           <Tooltip label="Sign In" position="right">
-            <ActionIcon variant="filled" size={28} radius="xl" onClick={handleSignIn} color="dark">
+            <ActionIcon
+              variant="filled"
+              size={28}
+              radius="xl"
+              onClick={handleSignIn}
+              color="dark"
+              mb={8}
+            >
               <LogIn size={14} />
             </ActionIcon>
           </Tooltip>
@@ -214,7 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         fontFamily: 'var(--mantine-font-family)',
       }}
     >
-      {/* Header: 52px height, Logo and Toggle aligned */}
+      {/* Header: Logo and Toggle — 52px, matches AppShell header */}
       <Group justify="space-between" align="center" h={52} px={8}>
         <UnstyledButton
           onClick={onGoHome}
@@ -232,117 +311,61 @@ const Sidebar: React.FC<SidebarProps> = ({
         </Tooltip>
       </Group>
 
-      {/* Navigation Items */}
-      <Stack gap={2} px={6} mt={4}>
-        {/* New Chat (+) */}
-        <UnstyledButton
-          onClick={onNewChat}
-          w="100%"
-          py={7}
-          px={10}
-          className="hover:bg-gray-100 transition-colors"
-          style={{ borderRadius: 8, cursor: 'pointer' }}
-        >
-          <Group gap={10} wrap="nowrap">
-            <Plus size={18} strokeWidth={2} className="text-gray-600" />
-            <Text size="sm" c="gray.8">
-              New chat
-            </Text>
-          </Group>
-        </UnstyledButton>
-
-        {/* Search */}
-        <UnstyledButton
-          w="100%"
-          py={7}
-          px={10}
-          className="hover:bg-gray-100 transition-colors"
-          style={{ borderRadius: 8, cursor: 'pointer' }}
-        >
-          <Group gap={10} wrap="nowrap">
-            <Search size={18} strokeWidth={1.5} className="text-gray-600" />
-            <Text size="sm" c="gray.8">
-              Search chats
-            </Text>
-          </Group>
-        </UnstyledButton>
-
-        {/* Knowledge Base */}
-        <UnstyledButton
-          onClick={() => router.push('/knowledge')}
-          w="100%"
-          py={7}
-          px={10}
-          className="hover:bg-gray-100 transition-colors"
-          style={{ borderRadius: 8, cursor: 'pointer' }}
-        >
-          <Group gap={10} wrap="nowrap">
-            <GraduationCap size={18} strokeWidth={1.5} className="text-gray-600" />
-            <Text size="sm" c="gray.8">
-              Knowledge Base
-            </Text>
-          </Group>
-        </UnstyledButton>
-      </Stack>
-
-      {/* Your Chats Section */}
-      <Box
-        mt={12}
-        flex={1}
-        style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-      >
-        {/* Section Header */}
-        <UnstyledButton
-          onClick={toggleChats}
-          px={16}
-          py={6}
-          className="hover:bg-gray-50 transition-colors"
-          style={{ cursor: 'pointer' }}
-        >
-          <Group gap={4}>
-            <Text size="xs" c="gray.5" fw={500}>
-              Your chats
-            </Text>
-            <ChevronDown
-              size={12}
-              className="text-gray-400"
-              style={{
-                transform: chatsExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-                transition: 'transform 0.15s ease',
-              }}
+      {/* Module sections + jump links */}
+      <ScrollArea flex={1} scrollbarSize={4}>
+        <Stack gap={2} mt={4}>
+          {CHAT_MODULES.map((mod) => (
+            <ModuleSection
+              key={mod.mode}
+              mode={mod.mode}
+              label={mod.label}
+              icon={mod.icon}
+              color={mod.color}
+              sessions={sessionsByMode[mod.mode] || []}
+              expanded={expandedModule === mod.mode}
+              onToggle={() => toggleModule(mod.mode)}
+              onNewChat={() => onNewChat(mod.mode)}
+              activeSessionId={activeSessionId}
+              onSelectSession={onSelectSession}
+              onTogglePin={onTogglePin}
+              onRenameSession={onRenameSession}
+              onDeleteSession={onDeleteSession}
+              onShareSession={onShareSession}
             />
-          </Group>
-        </UnstyledButton>
+          ))}
 
-        {/* Chat List */}
-        {/* Chat List */}
-        {chatsExpanded && (
-          <ScrollArea flex={1} scrollbarSize={4}>
-            <Stack gap={0} pb={8}>
-              {sessions.map((session) => (
-                <SessionItem
-                  key={session.id}
-                  session={session}
-                  isActive={activeSessionId === session.id}
-                  onSelect={onSelectSession}
-                  onTogglePin={onTogglePin}
-                  onRename={onRenameSession}
-                  onDelete={onDeleteSession}
-                  onShare={onShareSession}
-                />
-              ))}
+          <Divider my={8} mx={16} color="gray.1" />
 
-              {sessions.length === 0 && (
-                <Text size="sm" c="dimmed" ta="center" py="lg" px="md">
-                  No conversations yet
-                </Text>
-              )}
-            </Stack>
-          </ScrollArea>
-        )}
-      </Box>
+          {/* Jump links — same row styling as the original nav buttons */}
+          {JUMP_LINKS.map((link) => {
+            const Icon = link.icon;
+            return (
+              <UnstyledButton
+                key={link.href}
+                onClick={() => router.push(link.href)}
+                w="100%"
+                py={7}
+                px={10}
+                mx={6}
+                className="hover:bg-gray-100 transition-colors"
+                style={{ borderRadius: 8, cursor: 'pointer', width: 'calc(100% - 12px)' }}
+              >
+                <Group gap={10} wrap="nowrap" justify="space-between">
+                  <Group gap={10} wrap="nowrap">
+                    <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
+                    <Text size="sm" c="gray.8">
+                      {link.label}
+                    </Text>
+                  </Group>
+                  <ChevronRight size={14} color="var(--mantine-color-gray-4)" />
+                </Group>
+              </UnstyledButton>
+            );
+          })}
+        </Stack>
+      </ScrollArea>
 
-      {/* User Section (Bottom) - Compact */}
+      {/* User Section (Bottom) — Compact */}
       <Box px={8} pb={8} pt={4} style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}>
         {profile ? (
           <Menu shadow="lg" width={220} position="top-start" withinPortal>
@@ -425,7 +448,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             style={{ borderRadius: 6 }}
           >
             <Group gap={8}>
-              <LogIn size={16} className="text-gray-500" />
+              <LogIn size={16} color="var(--mantine-color-gray-5)" />
               <Text size="sm" c="gray.7">
                 Sign in
               </Text>
@@ -437,7 +460,121 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-// === SESSION ITEM ===
+// ============================================================================
+// MODULE SECTION
+// ============================================================================
+
+interface ModuleSectionProps {
+  mode: TutoringMode;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  sessions: ChatSession[];
+  expanded: boolean;
+  onToggle: () => void;
+  onNewChat: () => void;
+  activeSessionId: string | null;
+  onSelectSession: (id: string) => void;
+  onTogglePin?: (id: string, isPinned: boolean) => void;
+  onRenameSession?: (id: string, newTitle: string) => void;
+  onDeleteSession?: (id: string) => void;
+  onShareSession?: (id: string) => void;
+}
+
+const ModuleSection: React.FC<ModuleSectionProps> = ({
+  label,
+  icon: Icon,
+  color,
+  sessions,
+  expanded,
+  onToggle,
+  onNewChat,
+  activeSessionId,
+  onSelectSession,
+  onTogglePin,
+  onRenameSession,
+  onDeleteSession,
+  onShareSession,
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <Box>
+      {/* Module header row — <div> to allow nested <button> (ActionIcon) without HTML nesting violation */}
+      <Box
+        onClick={onToggle}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        py={7}
+        px={10}
+        mx={6}
+        className="hover:bg-gray-100 transition-colors"
+        style={{ borderRadius: 8, cursor: 'pointer' }}
+      >
+        <Group gap={8} wrap="nowrap" justify="space-between">
+          <Group gap={10} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <Icon size={18} strokeWidth={1.5} color={`var(--mantine-color-${color}-6)`} />
+            <Text size="sm" fw={600} c="gray.8" truncate>
+              {label}
+            </Text>
+            <ChevronDown
+              size={12}
+              color="var(--mantine-color-gray-4)"
+              style={{
+                transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+                transition: 'transform 0.15s ease',
+                flexShrink: 0,
+              }}
+            />
+          </Group>
+          {hovered && (
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size={22}
+              radius="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNewChat();
+              }}
+            >
+              <Plus size={14} strokeWidth={2} />
+            </ActionIcon>
+          )}
+        </Group>
+      </Box>
+
+      {/* Collapsible session list */}
+      {expanded && (
+        <Stack gap={0} pb={4}>
+          {sessions.map((session) => (
+            <SessionItem
+              key={session.id}
+              session={session}
+              isActive={activeSessionId === session.id}
+              onSelect={onSelectSession}
+              onTogglePin={onTogglePin}
+              onRename={onRenameSession}
+              onDelete={onDeleteSession}
+              onShare={onShareSession}
+              indent
+            />
+          ))}
+          {sessions.length === 0 && (
+            <Text size="xs" c="dimmed" ta="center" py={8} px="md">
+              No conversations yet
+            </Text>
+          )}
+        </Stack>
+      )}
+    </Box>
+  );
+};
+
+// ============================================================================
+// SESSION ITEM
+// ============================================================================
+
 interface SessionItemProps {
   session: ChatSession;
   isActive: boolean;
@@ -446,6 +583,7 @@ interface SessionItemProps {
   onRename?: (id: string, title: string) => void;
   onDelete?: (id: string) => void;
   onShare?: (id: string) => void;
+  indent?: boolean;
 }
 
 const SessionItem: React.FC<SessionItemProps> = ({
@@ -456,6 +594,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
   onRename,
   onDelete,
   onShare,
+  indent,
 }) => {
   const [hovered, setHovered] = useState(false);
 
@@ -467,6 +606,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
       onMouseLeave={() => setHovered(false)}
       py={8}
       px={12}
+      pl={indent ? 40 : 12}
       bg={isActive ? 'gray.1' : hovered ? 'gray.0' : 'transparent'}
       style={{
         borderRadius: 0,
