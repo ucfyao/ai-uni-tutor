@@ -67,28 +67,6 @@ function metaStr(meta: Json, key: string): string {
   return '';
 }
 
-/** Safely read a string[] field from Json metadata */
-function metaStrArr(meta: Json, key: string): string[] {
-  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
-    const val = (meta as Record<string, Json | undefined>)[key];
-    if (Array.isArray(val)) return val.filter((v): v is string => typeof v === 'string');
-  }
-  return [];
-}
-
-/** Safely read the numeric score from Json metadata */
-function metaNum(meta: Json, key: string): number | null {
-  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
-    const val = (meta as Record<string, Json | undefined>)[key];
-    if (typeof val === 'number') return val;
-    if (typeof val === 'string') {
-      const n = Number(val);
-      return Number.isNaN(n) ? null : n;
-    }
-  }
-  return null;
-}
-
 /** Get the metadata type of the first chunk that has one */
 function detectChunkType(chunks: Chunk[]): 'knowledge_point' | 'question' | null {
   for (const c of chunks) {
