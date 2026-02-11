@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { parsePDF } from '@/lib/pdf';
-import { generateEmbedding } from '@/lib/rag/embedding';
+import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { createClient, getCurrentUser, requireAdmin } from '@/lib/supabase/server';
@@ -167,7 +167,7 @@ export async function uploadAdminContent(
       const batch = chunks.slice(i, i + BATCH_SIZE);
       await Promise.all(
         batch.map(async (chunk) => {
-          const embedding = await generateEmbedding(chunk.content);
+          const embedding = await generateEmbeddingWithRetry(chunk.content);
           chunksData.push({
             documentId: doc.id,
             content: chunk.content,
