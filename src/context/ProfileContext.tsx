@@ -40,7 +40,7 @@ export function ProfileProvider({
   const [profile, setProfile] = useState<Profile | null>(
     initialProfile ? profileDataToContext(initialProfile) : null,
   );
-  const [loading, setLoading] = useState(initialProfile != null);
+  const [loading, setLoading] = useState(initialProfile == null);
   const supabase = useMemo(() => createClient(), []);
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
