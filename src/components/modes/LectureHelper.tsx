@@ -72,6 +72,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [cardChats, setCardChats] = useState<Record<string, ChatMessage[]>>({});
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
+  const [cardPrefillInput, setCardPrefillInput] = useState<{ cardId: string; text: string } | null>(
+    null,
+  );
 
   // Input state
   const [input, setInput] = useState('');
@@ -305,14 +308,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
     const source = {
       kind: 'selection' as const,
-      excerpt,
+      excerpt: '',
       createdAt: Date.now(),
       sessionId: session.id,
       messageId: options?.source?.messageId,
       role: options?.source?.role,
     };
 
-    const cardId = addManualCard(normalizedTitle, excerpt, source);
+    const cardId = addManualCard(normalizedTitle, '', source);
     if (!cardId) return;
 
     // Immediate UX: focus the new user card and show loading while explanation is generating.
@@ -321,14 +324,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     setPendingScrollToCardId(cardId);
     setScrollTrigger((prev) => prev + 1);
 
-    // Insert prompt into chat input for user to edit/send (saves tokens vs auto-calling a separate explain action).
-    const quoted = excerpt
-      .split('\n')
-      .map((line) => `> ${line}`)
-      .join('\n');
-    const prompt = `Explain this:\n\n${quoted}`;
-    setInput((prev) => (prev.trim().length ? `${prev.trim()}\n\n${prompt}` : prompt));
-    requestAnimationFrame(() => chatInputRef.current?.focus());
+    // Pre-fill the card's input so user can review/edit before sending
+    setCardPrefillInput({ cardId, text: `Explain this concept:\n\n${excerpt}` });
   };
 
   const handleRetry = () => {
@@ -519,6 +516,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             scrollToCardId={pendingScrollToCardId}
             scrollTrigger={scrollTrigger}
             onScrolledToCard={() => setPendingScrollToCardId(null)}
+            prefillInput={cardPrefillInput}
+            onPrefillConsumed={() => setCardPrefillInput(null)}
           />
         </Box>
       </Group>
@@ -569,6 +568,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             scrollToCardId={pendingScrollToCardId}
             scrollTrigger={scrollTrigger}
             onScrolledToCard={() => setPendingScrollToCardId(null)}
+            prefillInput={cardPrefillInput}
+            onPrefillConsumed={() => setCardPrefillInput(null)}
           />
         </Box>
       </Drawer>

@@ -167,7 +167,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       if (isUser || !onAddCard) return;
 
       const windowSelection = window.getSelection();
-      if (windowSelection && windowSelection.toString().trim().length > 3) {
+      if (windowSelection && windowSelection.toString().trim().length > 0) {
         const text = windowSelection.toString().trim();
         const range = windowSelection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
@@ -224,19 +224,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selection, handleExplainSelection]);
 
-  // Clear selection on outside click
+  // Clear selection on outside click or when native selection is lost
   useEffect(() => {
-    const clearSelection = (e: MouseEvent) => {
+    if (!selection) return;
+    const onMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('[data-quick-add-btn]')) return;
-
-      if (!window.getSelection()?.toString()) {
-        setSelection(null);
-      }
+      if (target.closest('[data-message-bubble]')) return;
+      setSelection(null);
     };
-    document.addEventListener('mousedown', clearSelection);
-    return () => document.removeEventListener('mousedown', clearSelection);
-  }, []);
+    // After any click completes, check if native selection was cleared
+    const onMouseUp = () => {
+      requestAnimationFrame(() => {
+        if (!window.getSelection()?.toString().trim()) {
+          setSelection(null);
+        }
+      });
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [selection]);
 
   // Preserve native selection highlight after rendering the floating action.
   // Force-restore the selection range to keep the active highlight visible.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
 import type { KnowledgeCardSource } from '@/types/knowledge';
@@ -38,6 +38,7 @@ export function useKnowledgeCards({
 
   // Track deleted card IDs
   const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(new Set());
+  const deletedLoadedRef = useRef(false);
 
   // Load deleted card IDs from local storage after mount
   useEffect(() => {
@@ -50,6 +51,7 @@ export function useKnowledgeCards({
     } catch (e) {
       console.error('Failed to load deleted cards', e);
     }
+    deletedLoadedRef.current = true;
   }, [sessionId, enabled]);
 
   // Track cards being explained by AI (reserved for future use)
@@ -66,7 +68,7 @@ export function useKnowledgeCards({
   }, [manualCards, sessionId, enabled, isLoaded]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !enabled) return;
+    if (typeof window === 'undefined' || !enabled || !deletedLoadedRef.current) return;
     localStorage.setItem(`deleted-cards-${sessionId}`, JSON.stringify([...deletedCardIds]));
   }, [deletedCardIds, sessionId, enabled]);
 
