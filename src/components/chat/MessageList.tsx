@@ -1,6 +1,6 @@
-import { AlertCircle, RefreshCw } from 'lucide-react';
-import React, { useEffect, useRef } from 'react';
-import { Box, Button, Container, Group, ScrollArea, Stack, Text } from '@mantine/core';
+import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActionIcon, Box, Button, Container, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MessageBubble } from './MessageBubble';
@@ -45,20 +45,46 @@ export const MessageList: React.FC<MessageListProps> = ({
   onRegenerate,
 }) => {
   const viewport = useRef<HTMLDivElement>(null);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
 
-  // Auto-scroll to bottom when messages change (double rAF ensures layout is complete)
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (viewport.current) {
-        viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'auto' });
-      }
-    };
-    const id = requestAnimationFrame(() => requestAnimationFrame(scrollToBottom));
-    return () => cancelAnimationFrame(id);
-  }, [messages, isTyping]);
+  const handleScroll = useCallback(() => {
+    if (!viewport.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = viewport.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    setIsScrolledUp(distanceFromBottom > 200);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    if (viewport.current) {
+      viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' });
+    }
+    setHasNewMessage(false);
+  }, []);
 
   // Filter out card-specific messages (only show main chat)
   const mainMessages = messages.filter((m) => !m.cardId);
+  const prevMessageCountRef = useRef(mainMessages.length);
+
+  // Auto-scroll to bottom when messages change (double rAF ensures layout is complete)
+  useEffect(() => {
+    if (isScrolledUp) {
+      if (mainMessages.length > prevMessageCountRef.current) {
+        setHasNewMessage(true);
+      }
+    } else {
+      const id = requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (viewport.current) {
+            viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' });
+          }
+        }),
+      );
+      prevMessageCountRef.current = mainMessages.length;
+      return () => cancelAnimationFrame(id);
+    }
+    prevMessageCountRef.current = mainMessages.length;
+  }, [messages, isTyping, isScrolledUp, mainMessages.length]);
   const isNewChat = mainMessages.length === 0;
 
   // Use full height for empty state to center Welcome Screen
@@ -73,8 +99,14 @@ export const MessageList: React.FC<MessageListProps> = ({
   }
 
   return (
-    <Box bg="white" style={{ flex: 1, minHeight: 0 }}>
-      <ScrollArea viewportRef={viewport} h="100%" scrollbarSize={8} type="auto">
+    <Box bg="white" style={{ flex: 1, minHeight: 0 }} pos="relative">
+      <ScrollArea
+        viewportRef={viewport}
+        h="100%"
+        scrollbarSize={8}
+        type="auto"
+        onScrollPositionChange={handleScroll}
+      >
         <Box pt="md" pb="md">
           {/* Max-width container for optimal line length */}
           <Container size="56.25rem" w="100%" px="md">
@@ -148,6 +180,45 @@ export const MessageList: React.FC<MessageListProps> = ({
           </Container>
         </Box>
       </ScrollArea>
+
+      {/* Scroll to bottom button */}
+      {isScrolledUp && (
+        <ActionIcon
+          variant="white"
+          size={40}
+          radius="xl"
+          onClick={scrollToBottom}
+          pos="absolute"
+          bottom={16}
+          right={16}
+          style={{
+            zIndex: 10,
+            backgroundColor: 'rgba(255,255,255,0.92)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid var(--mantine-color-gray-2)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            animation: 'scrollBtnIn 0.2s ease-out',
+          }}
+          aria-label="Scroll to bottom"
+        >
+          <Box pos="relative">
+            <ArrowDown size={18} color="var(--mantine-color-gray-7)" />
+            {hasNewMessage && (
+              <Box
+                pos="absolute"
+                top={-3}
+                right={-3}
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--mantine-color-indigo-5)',
+                }}
+              />
+            )}
+          </Box>
+        </ActionIcon>
+      )}
     </Box>
   );
 };
