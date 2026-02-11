@@ -1,19 +1,10 @@
-import { AlertCircle, Bot, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
-import {
-  Avatar,
-  Box,
-  Button,
-  Container,
-  Group,
-  ScrollArea,
-  Skeleton,
-  Stack,
-  Text,
-} from '@mantine/core';
+import { Box, Button, Container, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MessageBubble } from './MessageBubble';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import { WelcomeScreen } from './WelcomeScreen';
 
 interface MessageListProps {
@@ -116,18 +107,7 @@ export const MessageList: React.FC<MessageListProps> = ({
               })}
 
               {/* Loading state */}
-              {isTyping && streamingMsgId === null && (
-                <Group gap="md">
-                  <Avatar radius="xl" size="md" color="indigo">
-                    <Bot size={20} />
-                  </Avatar>
-                  <Box>
-                    <Skeleton height={12} width={200} radius="md" mb={6} />
-                    <Skeleton height={12} width={300} radius="md" mb={6} />
-                    <Skeleton height={12} width={250} radius="md" />
-                  </Box>
-                </Group>
-              )}
+              {isTyping && streamingMsgId === null && <ThinkingIndicator mode={mode} />}
 
               {/* Error state */}
               {lastError && (

@@ -448,6 +448,19 @@ body {
   }
 }
 
+/* Thinking indicator bounce */
+@keyframes thinkingBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
 /* Streaming cursor blink animation */
 @keyframes cursorBlink {
   0%,
