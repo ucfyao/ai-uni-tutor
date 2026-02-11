@@ -330,16 +330,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             ? 'linear-gradient(135deg, var(--mantine-color-gray-0), var(--mantine-color-gray-1))'
             : 'transparent',
           border: isUser ? '1px solid var(--mantine-color-gray-2)' : 'none',
-          borderLeft:
-            !isUser && !isStreaming
-              ? '2px solid var(--mantine-color-indigo-3)'
-              : !isUser
-                ? '2px solid transparent'
-                : undefined,
           boxShadow: isUser ? '0 1px 6px rgba(0, 0, 0, 0.03)' : 'none',
           color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
           position: 'relative',
-          transition: 'border-color 0.3s ease',
         }}
       >
         {/* Display images if present */}
