@@ -92,33 +92,69 @@ export async function uploadDocument(
       return { status: 'error', message: 'Failed to parse PDF content' };
     }
 
-    // 3. Chunk Text with Metadata
-    const { chunkPages } = await import('@/lib/rag/chunking');
-    const chunks = await chunkPages(pdfData.pages);
-
-    // 4. Generate Embeddings & Store Chunks
+    // 3. Parse content based on doc_type
     const chunksData: CreateDocumentChunkDTO[] = [];
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-      const batch = chunks.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (chunk) => {
-          try {
-            const embedding = await generateEmbedding(chunk.content);
-            chunksData.push({
-              documentId: doc.id,
-              content: chunk.content,
-              embedding,
-              metadata: chunk.metadata, // Store page number
-            });
-          } catch (err) {
-            console.error('Error generating embedding for chunk:', err);
-            throw err;
-          }
-        }),
-      );
+
+    try {
+      if (doc_type === 'lecture') {
+        // Lecture: Extract structured knowledge points via LLM
+        const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
+        const knowledgePoints = await parseLecture(pdfData.pages);
+
+        for (const kp of knowledgePoints) {
+          const content = [
+            kp.title,
+            kp.definition,
+            kp.keyFormulas?.length ? `Formulas: ${kp.keyFormulas.join('; ')}` : '',
+            kp.keyConcepts?.length ? `Concepts: ${kp.keyConcepts.join(', ')}` : '',
+            kp.examples?.length ? `Examples: ${kp.examples.join('; ')}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+          const embedding = await generateEmbedding(content);
+          chunksData.push({
+            documentId: doc.id,
+            content,
+            embedding,
+            metadata: { type: 'knowledge_point', ...kp },
+          });
+        }
+      } else {
+        // Exam / Assignment: Extract structured questions via LLM
+        const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
+        const questions = await parseQuestions(pdfData.pages, has_answers);
+
+        for (const q of questions) {
+          const content = [
+            `Q${q.questionNumber}: ${q.content}`,
+            q.options?.length ? `Options: ${q.options.join(' | ')}` : '',
+            q.referenceAnswer ? `Answer: ${q.referenceAnswer}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+          const embedding = await generateEmbedding(content);
+          chunksData.push({
+            documentId: doc.id,
+            content,
+            embedding,
+            metadata: { type: 'question', ...q },
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error during content extraction:', e);
+      // Clean up any partially created chunks
+      try {
+        await documentService.deleteChunksByDocumentId(doc.id);
+      } catch {
+        /* ignore cleanup errors */
+      }
+      await documentService.updateStatus(doc.id, 'error', 'Failed to extract content from PDF');
+      revalidatePath('/knowledge');
+      return { status: 'error', message: 'Failed to extract content from PDF' };
     }
 
+    // 4. Save chunks
     if (chunksData.length > 0) {
       try {
         await documentService.saveChunks(chunksData);
