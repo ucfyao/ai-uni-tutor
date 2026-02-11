@@ -489,6 +489,11 @@ body {
   animation: fade-in-up 0.5s ease-out forwards;
 }
 
+/* Code block copy button - show on hover */
+.group\/code:hover .code-copy-btn {
+  opacity: 1 !important;
+}
+
 /* Marketing homepage: gradient text, pulse glow, animation delays (from hub) */
 .gradient-text {
   -webkit-background-clip: text;

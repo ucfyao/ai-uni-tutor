@@ -1,10 +1,22 @@
+import { Check, Copy } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import React from 'react';
-import { Blockquote, Code, Divider, Image, Paper, Text, Title } from '@mantine/core';
+import React, { useCallback, useState } from 'react';
+import {
+  ActionIcon,
+  Blockquote,
+  Box,
+  Code,
+  Divider,
+  Image,
+  Paper,
+  Text,
+  Title,
+  Tooltip,
+} from '@mantine/core';
 
 interface MarkdownRendererProps {
   content: string;
@@ -16,6 +28,45 @@ interface MarkdownRendererProps {
    */
   tight?: boolean;
 }
+
+const CopyCodeButton: React.FC<{ code: string }> = ({ code }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard
+      .writeText(code)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        // Clipboard write failed silently
+      });
+  }, [code]);
+
+  return (
+    <Tooltip label={copied ? 'Copied!' : 'Copy code'} position="left" withArrow>
+      <ActionIcon
+        variant="subtle"
+        color={copied ? 'teal' : 'gray'}
+        size={28}
+        radius="md"
+        onClick={handleCopy}
+        className="code-copy-btn"
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          opacity: copied ? 1 : 0,
+          transition: 'opacity 0.15s ease',
+        }}
+        aria-label="Copy code"
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </ActionIcon>
+    </Tooltip>
+  );
+};
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
@@ -120,23 +171,25 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               {children}
             </Code>
           ) : (
-            <Paper
-              p={compact ? 'sm' : 'md'}
-              bg="slate.0"
-              withBorder
-              radius="md"
-              my={isTightSpacing ? 'sm' : 'md'}
-              style={{ overflow: 'auto' }}
-            >
-              <Code
-                block
-                c="slate.9"
-                bg="transparent"
-                style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
+            <Box pos="relative" className="group/code" my={isTightSpacing ? 'sm' : 'md'}>
+              <Paper
+                p={compact ? 'sm' : 'md'}
+                bg="slate.0"
+                withBorder
+                radius="md"
+                style={{ overflow: 'auto' }}
               >
-                {children}
-              </Code>
-            </Paper>
+                <Code
+                  block
+                  c="slate.9"
+                  bg="transparent"
+                  style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
+                >
+                  {children}
+                </Code>
+              </Paper>
+              <CopyCodeButton code={String(children).replace(/\n$/, '')} />
+            </Box>
           );
         },
         blockquote: ({ children }) => (
