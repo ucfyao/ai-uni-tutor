@@ -1,5 +1,5 @@
 import { Quote, Star } from 'lucide-react';
-import { Avatar, Box, Container, Group, SimpleGrid } from '@mantine/core';
+import { Avatar, Box, Container, Group, SimpleGrid, Text, Title } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const TestimonialsSection = () => {
@@ -10,20 +10,20 @@ const TestimonialsSection = () => {
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/10 to-background" />
 
-      <Container size="lg" px={24} className="relative z-10">
+      <Container size="lg" px="md" className="relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-10 md:mb-14">
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+        <Box className="text-center mb-10 md:mb-14">
+          <Title order={2} className="font-display text-4xl md:text-5xl font-bold mb-4">
             {t.testimonials.title}{' '}
             <span className="gradient-text">{t.testimonials.titleHighlight}</span>
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          </Title>
+          <Text size="xl" c="dimmed" className="max-w-2xl mx-auto">
             {t.testimonials.subtitle}
-          </p>
-        </div>
+          </Text>
+        </Box>
 
         {/* Testimonials Grid */}
-        <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 24, md: 32 }}>
+        <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
           {t.testimonials.items.map((testimonial, index) => (
             <Box
               key={index}
@@ -40,16 +40,15 @@ const TestimonialsSection = () => {
               </div>
 
               {/* Content */}
-              <p className="text-foreground/90 leading-relaxed mb-6">
+              <Text className="text-foreground/90 leading-relaxed mb-6">
                 {'\u201C'}
                 {testimonial.content}
                 {'\u201D'}
-              </p>
+              </Text>
 
               {/* Author */}
               <Group gap="md">
                 <Avatar
-                  size={48}
                   color="indigo"
                   variant="gradient"
                   gradient={{ from: 'indigo', to: 'grape' }}
@@ -57,10 +56,12 @@ const TestimonialsSection = () => {
                 >
                   {testimonial.avatar}
                 </Avatar>
-                <div>
-                  <div className="font-semibold">{testimonial.name}</div>
-                  <div className="text-sm text-muted-foreground">{testimonial.role}</div>
-                </div>
+                <Box>
+                  <Text fw={600}>{testimonial.name}</Text>
+                  <Text size="sm" c="dimmed">
+                    {testimonial.role}
+                  </Text>
+                </Box>
               </Group>
             </Box>
           ))}

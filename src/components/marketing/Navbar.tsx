@@ -14,7 +14,7 @@ const Navbar = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      <Container size="lg" px={24}>
+      <Container size="lg" px="md">
         <Group justify="space-between" h={64}>
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
@@ -32,17 +32,17 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <Group gap={32} visibleFrom="md">
-            <Anchor href="#features" className={navLinkClassName} underline="never" c="inherit">
+          <Group gap="lg" visibleFrom="md">
+            <Anchor href="#features" className={navLinkClassName} underline="never">
               {t.nav.features}
             </Anchor>
-            <Anchor href="#how-it-works" className={navLinkClassName} underline="never" c="inherit">
+            <Anchor href="#how-it-works" className={navLinkClassName} underline="never">
               {t.nav.howItWorks}
             </Anchor>
-            <Anchor href="#testimonials" className={navLinkClassName} underline="never" c="inherit">
+            <Anchor href="#testimonials" className={navLinkClassName} underline="never">
               {t.nav.testimonials}
             </Anchor>
-            <Anchor href="#pricing" className={navLinkClassName} underline="never" c="inherit">
+            <Anchor href="#pricing" className={navLinkClassName} underline="never">
               {t.nav.pricing}
             </Anchor>
           </Group>
@@ -66,36 +66,16 @@ const Navbar = () => {
         <Collapse in={opened} hiddenFrom="md">
           <Box className="py-4 border-t border-border/50">
             <Stack gap="md">
-              <Anchor
-                href="#features"
-                className={`${navLinkClassName} py-2`}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#features" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.features}
               </Anchor>
-              <Anchor
-                href="#how-it-works"
-                className={`${navLinkClassName} py-2`}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#how-it-works" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.howItWorks}
               </Anchor>
-              <Anchor
-                href="#testimonials"
-                className={`${navLinkClassName} py-2`}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#testimonials" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.testimonials}
               </Anchor>
-              <Anchor
-                href="#pricing"
-                className={`${navLinkClassName} py-2`}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#pricing" className={`${navLinkClassName} py-2`} underline="never">
                 {t.nav.pricing}
               </Anchor>
               <Stack gap="xs" className="pt-4">
