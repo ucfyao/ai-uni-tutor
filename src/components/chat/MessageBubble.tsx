@@ -329,7 +329,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           background: isUser
             ? 'linear-gradient(135deg, var(--mantine-color-gray-0), var(--mantine-color-gray-1))'
             : 'transparent',
-          border: isUser ? '1px solid var(--mantine-color-gray-2)' : 'none',
+          borderWidth: isUser ? '1px' : 0,
+          borderStyle: 'solid',
+          borderColor: isUser ? 'var(--mantine-color-gray-2)' : 'transparent',
           boxShadow: isUser ? '0 1px 6px rgba(0, 0, 0, 0.03)' : 'none',
           color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
           position: 'relative',

@@ -151,9 +151,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             borderRadius: '20px',
             display: 'flex',
             alignItems: 'flex-end',
-            border: isDragging
-              ? '2px dashed var(--mantine-color-indigo-4)'
-              : '1px solid var(--mantine-color-gray-3)',
+            borderWidth: isDragging ? '2px' : '1px',
+            borderStyle: isDragging ? 'dashed' : 'solid',
+            borderColor: isDragging
+              ? 'var(--mantine-color-indigo-4)'
+              : 'var(--mantine-color-gray-3)',
             backgroundColor: isDragging
               ? 'var(--mantine-color-indigo-0)'
               : isTyping
