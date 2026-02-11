@@ -1,6 +1,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Anchor, Box, Burger, Button, Collapse, Container, Group, Stack } from '@mantine/core';
+import {
+  Anchor,
+  Box,
+  Burger,
+  Button,
+  Collapse,
+  Container,
+  Group,
+  Stack,
+  Text,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -10,14 +20,17 @@ const Navbar = () => {
   const { t } = useLanguage();
 
   const navLinkClassName =
-    'relative inline-flex cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-primary after:to-accent after:transition-transform hover:after:scale-x-100';
+    'nav-link relative cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-primary after:to-accent after:transition-transform hover:after:scale-x-100';
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      <Container size="lg" px={24}>
-        <Group justify="space-between" h={64}>
+    <Box
+      component="nav"
+      className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50"
+    >
+      <Container size={1280} px={24}>
+        <Group justify="space-between" h={64} wrap="nowrap">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2" style={{ flexShrink: 0 }}>
             <Box className="w-10 h-10 flex items-center justify-center">
               <Image
                 src="/assets/logo.png"
@@ -28,11 +41,13 @@ const Navbar = () => {
                 priority
               />
             </Box>
-            <span className="font-display font-bold text-xl">AI UniTutor</span>
+            <Text component="span" fw={700} fz="1.25rem">
+              AI UniTutor
+            </Text>
           </Link>
 
           {/* Desktop Navigation */}
-          <Group gap={32} visibleFrom="md">
+          <Group gap={24} visibleFrom="md" wrap="nowrap">
             <Anchor href="#features" className={navLinkClassName} underline="never" c="inherit">
               {t.nav.features}
             </Anchor>
@@ -48,9 +63,9 @@ const Navbar = () => {
           </Group>
 
           {/* CTA Buttons */}
-          <Group gap="xs" visibleFrom="md">
+          <Group gap="xs" visibleFrom="md" wrap="nowrap" style={{ flexShrink: 0 }}>
             <LanguageSwitcher />
-            <Button variant="subtle" component={Link} href="/login">
+            <Button variant="subtle" color="gray" radius="md" component={Link} href="/login">
               {t.nav.login}
             </Button>
             <Button className="btn-hero" component={Link} href="/login">
@@ -68,7 +83,8 @@ const Navbar = () => {
             <Stack gap="md">
               <Anchor
                 href="#features"
-                className={`${navLinkClassName} py-2`}
+                py="0.5rem"
+                className={navLinkClassName}
                 underline="never"
                 c="inherit"
               >
@@ -76,7 +92,8 @@ const Navbar = () => {
               </Anchor>
               <Anchor
                 href="#how-it-works"
-                className={`${navLinkClassName} py-2`}
+                py="0.5rem"
+                className={navLinkClassName}
                 underline="never"
                 c="inherit"
               >
@@ -84,7 +101,8 @@ const Navbar = () => {
               </Anchor>
               <Anchor
                 href="#testimonials"
-                className={`${navLinkClassName} py-2`}
+                py="0.5rem"
+                className={navLinkClassName}
                 underline="never"
                 c="inherit"
               >
@@ -92,7 +110,8 @@ const Navbar = () => {
               </Anchor>
               <Anchor
                 href="#pricing"
-                className={`${navLinkClassName} py-2`}
+                py="0.5rem"
+                className={navLinkClassName}
                 underline="never"
                 c="inherit"
               >
@@ -100,7 +119,14 @@ const Navbar = () => {
               </Anchor>
               <Stack gap="xs" className="pt-4">
                 <LanguageSwitcher />
-                <Button variant="subtle" fullWidth component={Link} href="/login">
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  radius="md"
+                  fullWidth
+                  component={Link}
+                  href="/login"
+                >
                   {t.nav.login}
                 </Button>
                 <Button className="btn-hero" fullWidth component={Link} href="/login">
@@ -111,7 +137,7 @@ const Navbar = () => {
           </Box>
         </Collapse>
       </Container>
-    </nav>
+    </Box>
   );
 };
 

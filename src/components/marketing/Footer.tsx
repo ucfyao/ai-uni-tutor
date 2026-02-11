@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Anchor, Box, Container, Group, SimpleGrid, Stack } from '@mantine/core';
+import { Anchor, Box, Container, Flex, Group, SimpleGrid, Stack, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const Footer = () => {
@@ -10,9 +10,13 @@ const Footer = () => {
     'inline-flex cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground hover:underline hover:decoration-primary/50 hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm';
 
   return (
-    <footer className="py-10 md:py-12 border-t border-border/50">
-      <Container size="lg" px={24}>
-        <SimpleGrid cols={{ base: 1, md: 4 }} spacing={32} className="mb-10 md:mb-12">
+    <Box component="footer" className="py-10 md:py-12 border-t border-border/50">
+      <Container size={1280} px={24}>
+        <SimpleGrid
+          cols={{ base: 1, sm: 4 }}
+          spacing={{ base: 24, sm: 32 }}
+          mb={{ base: '2.5rem', sm: '3rem' }}
+        >
           {/* Brand */}
           <Box>
             <Box className="flex items-center gap-2 mb-4">
@@ -26,15 +30,21 @@ const Footer = () => {
                     className="w-10 h-10 object-contain"
                   />
                 </Box>
-                <span className="font-display font-bold text-xl">AI UniTutor</span>
+                <Text component="span" fw={700} fz="1.25rem">
+                  AI UniTutor
+                </Text>
               </Link>
             </Box>
-            <p className="text-muted-foreground text-sm">{t.footer.tagline}</p>
+            <Text size="sm" c="dimmed">
+              {t.footer.tagline}
+            </Text>
           </Box>
 
           {/* Links */}
           <Box>
-            <h4 className="font-semibold mb-4">{t.footer.product.title}</h4>
+            <Text fw={600} mb="1rem">
+              {t.footer.product.title}
+            </Text>
             <Stack gap={8}>
               <Anchor
                 href="#features"
@@ -62,7 +72,9 @@ const Footer = () => {
           </Box>
 
           <Box>
-            <h4 className="font-semibold mb-4">{t.footer.support.title}</h4>
+            <Text fw={600} mb="1rem">
+              {t.footer.support.title}
+            </Text>
             <Stack gap={8}>
               <Anchor href="/help" className={footerLinkClassName} underline="never" c="inherit">
                 {t.footer.support.help}
@@ -90,7 +102,9 @@ const Footer = () => {
           </Box>
 
           <Box>
-            <h4 className="font-semibold mb-4">{t.footer.legal.title}</h4>
+            <Text fw={600} mb="1rem">
+              {t.footer.legal.title}
+            </Text>
             <Stack gap={8}>
               <Anchor href="#" className={footerLinkClassName} underline="never" c="inherit">
                 {t.footer.legal.terms}
@@ -106,37 +120,30 @@ const Footer = () => {
         </SimpleGrid>
 
         {/* Bottom */}
-        <div className="pt-6 md:pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">{t.footer.copyright}</p>
+        <Flex
+          direction={{ base: 'column', sm: 'row' }}
+          align="center"
+          justify="space-between"
+          gap="md"
+          className="pt-6 md:pt-8 border-t border-border/50"
+        >
+          <Text size="sm" c="dimmed">
+            {t.footer.copyright}
+          </Text>
           <Group gap={24}>
-            <Anchor
-              href="#"
-              className={`${footerLinkClassName} text-sm`}
-              underline="never"
-              c="inherit"
-            >
+            <Anchor href="#" fz="sm" className={footerLinkClassName} underline="never" c="inherit">
               {t.footer.social.item1}
             </Anchor>
-            <Anchor
-              href="#"
-              className={`${footerLinkClassName} text-sm`}
-              underline="never"
-              c="inherit"
-            >
+            <Anchor href="#" fz="sm" className={footerLinkClassName} underline="never" c="inherit">
               {t.footer.social.item2}
             </Anchor>
-            <Anchor
-              href="#"
-              className={`${footerLinkClassName} text-sm`}
-              underline="never"
-              c="inherit"
-            >
+            <Anchor href="#" fz="sm" className={footerLinkClassName} underline="never" c="inherit">
               {t.footer.social.item3}
             </Anchor>
           </Group>
-        </div>
+        </Flex>
       </Container>
-    </footer>
+    </Box>
   );
 };
 

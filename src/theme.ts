@@ -1,7 +1,8 @@
 import { createTheme, rem } from '@mantine/core';
 
-/** System + Outfit stack; no next/font so build works offline/CI. Load Outfit via layout <link> if desired. */
-const fontFamily = '"Outfit", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+/** Font loaded via next/font (layout.tsx) with <link rel="preload"> — zero FOUT. */
+const fontFamily =
+  'var(--font-outfit), "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
 
 export const theme = createTheme({
   fontFamily,
