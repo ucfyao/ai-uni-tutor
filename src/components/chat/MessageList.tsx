@@ -221,9 +221,10 @@ export const MessageList: React.FC<MessageListProps> = ({
           onClick={scrollToBottom}
           pos="absolute"
           bottom={16}
-          right={16}
+          left="50%"
           style={{
             zIndex: 10,
+            transform: 'translateX(-50%)',
             backgroundColor: 'rgba(255,255,255,0.92)',
             backdropFilter: 'blur(8px)',
             border: '1px solid var(--mantine-color-gray-2)',
