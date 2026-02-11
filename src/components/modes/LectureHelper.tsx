@@ -214,6 +214,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           await updateLastMessage(accumulatedContent, null);
           setLastError(null);
           isSendingRef.current = false;
+          requestAnimationFrame(() => chatInputRef.current?.focus());
         },
       },
     );

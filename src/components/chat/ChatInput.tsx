@@ -1,5 +1,5 @@
-import { ArrowUp, Paperclip, Square } from 'lucide-react';
-import React from 'react';
+import { ArrowUp, Paperclip, Square, Upload } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
 import {
   ActionIcon,
   Box,
@@ -51,6 +51,53 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onStop,
   isStreaming,
 }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = React.useRef(0);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+
+      const files = Array.from(e.dataTransfer.files);
+      const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+      if (imageFiles.length === 0) return;
+
+      const dataTransfer = new DataTransfer();
+      imageFiles.forEach((f) => dataTransfer.items.add(f));
+      const syntheticEvent = {
+        target: { files: dataTransfer.files },
+      } as React.ChangeEvent<HTMLInputElement>;
+      onFileSelect(syntheticEvent);
+    },
+    [onFileSelect],
+  );
+
   return (
     <Container
       size="56.25rem" // 900px, matches MessageList maxWidth
@@ -96,21 +143,58 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
         <Box
           p={4}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
           style={{
             borderRadius: '20px',
             display: 'flex',
             alignItems: 'flex-end',
-            border: '1px solid var(--mantine-color-gray-3)',
-            backgroundColor: isTyping ? 'var(--mantine-color-gray-1)' : 'rgba(255, 255, 255, 0.92)',
-            transition: 'all 0.2s ease',
+            border: isDragging
+              ? '2px dashed var(--mantine-color-indigo-4)'
+              : '1px solid var(--mantine-color-gray-3)',
+            backgroundColor: isDragging
+              ? 'var(--mantine-color-indigo-0)'
+              : isTyping
+                ? 'var(--mantine-color-gray-1)'
+                : 'rgba(255, 255, 255, 0.92)',
+            transition: 'all 0.15s ease',
             boxShadow: '0 1px 6px rgba(0, 0, 0, 0.04)',
             opacity: isTyping ? 0.7 : 1,
             cursor: isTyping ? 'not-allowed' : 'text',
+            position: 'relative',
           }}
           className={`group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 ${
             isTyping ? 'pointer-events-none' : ''
           }`}
         >
+          {/* Drag overlay */}
+          {isDragging && (
+            <Box
+              pos="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '20px',
+                zIndex: 10,
+                pointerEvents: 'none',
+              }}
+            >
+              <Group gap={6}>
+                <Upload size={16} color="var(--mantine-color-indigo-5)" />
+                <Text size="sm" c="indigo.5" fw={500}>
+                  松开以添加图片
+                </Text>
+              </Group>
+            </Box>
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -193,7 +277,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               disabled={(!input.trim() && attachedFiles.length === 0) || isTyping}
               mr={2}
               mb={4}
-              className="transition-all duration-200"
+              className="transition-all duration-200 active:scale-90"
               style={{
                 opacity: !input.trim() && attachedFiles.length === 0 ? 0.4 : 1,
               }}
