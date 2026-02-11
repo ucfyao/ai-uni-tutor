@@ -58,6 +58,37 @@ export class DocumentService {
 
     await this.docRepo.delete(docId, userId);
   }
+
+  async findById(docId: string): Promise<DocumentEntity | null> {
+    return this.docRepo.findById(docId);
+  }
+
+  async getChunks(docId: string) {
+    return this.chunkRepo.findByDocumentId(docId);
+  }
+
+  async updateChunk(chunkId: string, content: string, metadata?: Json): Promise<void> {
+    await this.chunkRepo.updateChunk(chunkId, content, metadata);
+  }
+
+  async deleteChunk(chunkId: string): Promise<void> {
+    await this.chunkRepo.deleteChunk(chunkId);
+  }
+
+  async deleteChunksByDocumentId(docId: string): Promise<void> {
+    await this.chunkRepo.deleteByDocumentId(docId);
+  }
+
+  async updateChunkEmbedding(chunkId: string, embedding: number[]): Promise<void> {
+    await this.chunkRepo.updateEmbedding(chunkId, embedding);
+  }
+
+  async updateDocumentMetadata(
+    docId: string,
+    updates: { name?: string; metadata?: Json; docType?: string },
+  ): Promise<void> {
+    await this.docRepo.updateMetadata(docId, updates);
+  }
 }
 
 let _documentService: DocumentService | null = null;
