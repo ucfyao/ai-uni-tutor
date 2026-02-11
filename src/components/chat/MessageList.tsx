@@ -45,11 +45,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   onRegenerate,
 }) => {
   const viewport = useRef<HTMLDivElement>(null);
+  const isAutoScrollingRef = useRef(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
   const handleScroll = useCallback(() => {
-    if (!viewport.current) return;
+    if (!viewport.current || isAutoScrollingRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = viewport.current;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     setIsScrolledUp(distanceFromBottom > 200);
@@ -91,11 +92,16 @@ export const MessageList: React.FC<MessageListProps> = ({
         setHasNewMessage(true);
       }
     } else {
+      isAutoScrollingRef.current = true;
       const id = requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           if (viewport.current) {
-            viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' });
+            viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'auto' });
           }
+          // Reset flag after scroll completes
+          requestAnimationFrame(() => {
+            isAutoScrollingRef.current = false;
+          });
         }),
       );
       prevMessageCountRef.current = mainMessages.length;
