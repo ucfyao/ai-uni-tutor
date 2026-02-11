@@ -176,16 +176,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Tooltip>
         </Box>
 
-        {/* Chat modules */}
-        {CHAT_MODULES.map((mod) => {
-          const Icon = mod.icon;
+        {/* Jump links */}
+        {JUMP_LINKS.map((link) => {
+          const Icon = link.icon;
           return (
-            <Tooltip key={mod.mode} label={mod.label} position="right">
+            <Tooltip key={link.href} label={link.label} position="right">
               <ActionIcon
-                onClick={() => {
-                  onToggleSidebar();
-                  setExpandedModule(mod.mode);
-                }}
+                onClick={() => router.push(link.href)}
                 variant="subtle"
                 color="gray"
                 size={36}
@@ -198,13 +195,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {/* Jump links */}
-        {JUMP_LINKS.map((link) => {
-          const Icon = link.icon;
+        {/* Chat modules */}
+        {CHAT_MODULES.map((mod) => {
+          const Icon = mod.icon;
           return (
-            <Tooltip key={link.href} label={link.label} position="right">
+            <Tooltip key={mod.mode} label={mod.label} position="right">
               <ActionIcon
-                onClick={() => router.push(link.href)}
+                onClick={() => {
+                  onToggleSidebar();
+                  setExpandedModule(mod.mode);
+                }}
                 variant="subtle"
                 color="gray"
                 size={36}
@@ -314,29 +314,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Module sections + jump links */}
       <ScrollArea flex={1} scrollbarSize={4}>
         <Stack gap={2} mt={4}>
-          {CHAT_MODULES.map((mod) => (
-            <ModuleSection
-              key={mod.mode}
-              mode={mod.mode}
-              label={mod.label}
-              icon={mod.icon}
-              color={mod.color}
-              sessions={sessionsByMode[mod.mode] || []}
-              expanded={expandedModule === mod.mode}
-              onToggle={() => toggleModule(mod.mode)}
-              onNewChat={() => onNewChat(mod.mode)}
-              activeSessionId={activeSessionId}
-              onSelectSession={onSelectSession}
-              onTogglePin={onTogglePin}
-              onRenameSession={onRenameSession}
-              onDeleteSession={onDeleteSession}
-              onShareSession={onShareSession}
-            />
-          ))}
-
-          <Divider my={8} mx={16} color="gray.1" />
-
-          {/* Jump links — same row styling as the original nav buttons */}
+          {/* Jump links — Knowledge Base at top */}
           {JUMP_LINKS.map((link) => {
             const Icon = link.icon;
             return (
@@ -362,6 +340,28 @@ const Sidebar: React.FC<SidebarProps> = ({
               </UnstyledButton>
             );
           })}
+
+          <Divider my={8} mx={16} color="gray.1" />
+
+          {CHAT_MODULES.map((mod) => (
+            <ModuleSection
+              key={mod.mode}
+              mode={mod.mode}
+              label={mod.label}
+              icon={mod.icon}
+              color={mod.color}
+              sessions={sessionsByMode[mod.mode] || []}
+              expanded={expandedModule === mod.mode}
+              onToggle={() => toggleModule(mod.mode)}
+              onNewChat={() => onNewChat(mod.mode)}
+              activeSessionId={activeSessionId}
+              onSelectSession={onSelectSession}
+              onTogglePin={onTogglePin}
+              onRenameSession={onRenameSession}
+              onDeleteSession={onDeleteSession}
+              onShareSession={onShareSession}
+            />
+          ))}
         </Stack>
       </ScrollArea>
 
