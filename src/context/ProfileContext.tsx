@@ -95,8 +95,8 @@ export function ProfileProvider({
       try {
         if (updates.full_name !== undefined) {
           const result = await updateProfileFields({ fullName: updates.full_name });
-          if (!result.ok) throw new Error(result.message);
-          setProfile(profileDataToContext(result.profile));
+          if (!result.success) throw new Error(result.error);
+          setProfile(profileDataToContext(result.data));
           return;
         }
 

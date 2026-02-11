@@ -11,6 +11,7 @@ import type {
   SubscriptionInfo,
   UpdateProfileDTO,
 } from '@/lib/domain/models/Profile';
+import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 
@@ -37,7 +38,11 @@ export class ProfileRepository implements IProfileRepository {
     const supabase = await createClient();
     const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
 
-    if (error || !data) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch profile: ${error.message}`, error);
+    }
+    if (!data) return null;
     return this.mapToEntity(data);
   }
 
@@ -58,7 +63,7 @@ export class ProfileRepository implements IProfileRepository {
 
     const { error } = await supabase.from('profiles').update(updates).eq('id', id);
 
-    if (error) throw new Error(`Failed to update profile: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to update profile: ${error.message}`, error);
   }
 
   async getSubscriptionInfo(userId: string): Promise<SubscriptionInfo> {
@@ -69,7 +74,11 @@ export class ProfileRepository implements IProfileRepository {
       .eq('id', userId)
       .single();
 
-    if (error || !data) {
+    if (error) {
+      if (error.code === 'PGRST116') return { status: null, isPro: false, currentPeriodEnd: null };
+      throw new DatabaseError(`Failed to fetch subscription info: ${error.message}`, error);
+    }
+    if (!data) {
       return { status: null, isPro: false, currentPeriodEnd: null };
     }
 

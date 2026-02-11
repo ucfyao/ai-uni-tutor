@@ -9,12 +9,10 @@ import { generateEmbedding } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { FormActionState } from '@/types/actions';
 import type { Json } from '@/types/database';
 
-export type UploadState = {
-  status: 'idle' | 'success' | 'error';
-  message: string;
-};
+export type UploadState = FormActionState;
 
 const uploadSchema = z.object({
   file: z.instanceof(File),

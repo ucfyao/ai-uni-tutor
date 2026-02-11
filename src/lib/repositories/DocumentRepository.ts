@@ -11,6 +11,7 @@ import type {
   DocumentEntity,
   UpdateDocumentStatusDTO,
 } from '@/lib/domain/models/Document';
+import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database, Json } from '@/types/database';
 
@@ -25,6 +26,8 @@ export class DocumentRepository implements IDocumentRepository {
       status: row.status,
       statusMessage: row.status_message,
       metadata: row.metadata,
+      docType: row.doc_type ?? null,
+      courseId: row.course_id ?? null,
       createdAt: new Date(row.created_at),
     };
   }
@@ -45,7 +48,11 @@ export class DocumentRepository implements IDocumentRepository {
       .eq('name', name)
       .single();
 
-    if (error || !data) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch document: ${error.message}`, error);
+    }
+    if (!data) return null;
     return this.mapToEntity(data);
   }
 
@@ -62,7 +69,8 @@ export class DocumentRepository implements IDocumentRepository {
     }
     const { data, error } = await supabase.from('documents').insert(insertData).select().single();
 
-    if (error || !data) throw new Error(`Failed to create document: ${error?.message}`);
+    if (error || !data)
+      throw new DatabaseError(`Failed to create document: ${error?.message}`, error);
     return this.mapToEntity(data);
   }
 
@@ -78,7 +86,7 @@ export class DocumentRepository implements IDocumentRepository {
 
     const { error } = await supabase.from('documents').update(updates).eq('id', id);
 
-    if (error) throw new Error(`Failed to update document status: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to update document status: ${error.message}`, error);
   }
 
   async updateMetadata(
@@ -98,7 +106,7 @@ export class DocumentRepository implements IDocumentRepository {
     const supabase = await createClient();
     const { error } = await supabase.from('documents').delete().eq('id', id).eq('user_id', userId);
 
-    if (error) throw new Error(`Failed to delete document: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to delete document: ${error.message}`, error);
   }
 
   async verifyOwnership(id: string, userId: string): Promise<boolean> {
@@ -110,6 +118,9 @@ export class DocumentRepository implements IDocumentRepository {
       .eq('user_id', userId)
       .single();
 
+    if (error && error.code !== 'PGRST116') {
+      throw new DatabaseError(`Failed to verify document ownership: ${error.message}`, error);
+    }
     return !error && data !== null;
   }
 }

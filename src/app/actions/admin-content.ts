@@ -8,6 +8,7 @@ import { generateEmbedding } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { createClient, getCurrentUser, requireAdmin } from '@/lib/supabase/server';
+import type { FormActionState } from '@/types/actions';
 import type { Database } from '@/types/database';
 import type { ExamPaper } from '@/types/exam';
 
@@ -17,10 +18,7 @@ import type { ExamPaper } from '@/types/exam';
 
 export type AdminDocument = Database['public']['Tables']['documents']['Row'];
 
-export type AdminUploadState = {
-  status: 'idle' | 'success' | 'error';
-  message: string;
-};
+export type AdminUploadState = FormActionState;
 
 /* ------------------------------------------------------------------ */
 /*  Read helpers                                                       */

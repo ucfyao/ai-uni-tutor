@@ -6,40 +6,13 @@
  */
 
 import { getGenAI } from '@/lib/gemini';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
+import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
+import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
+import type { MockExamRepository } from '@/lib/repositories/MockExamRepository';
+import { getCurrentUser } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 import type { BatchSubmitResult, MockExam, MockExamQuestion, MockExamResponse } from '@/types/exam';
-
-// ==================== Helper ====================
-
-/** Maps a raw Supabase mock_exams row to the domain MockExam type. */
-function mapToMockExam(row: {
-  id: string;
-  user_id: string;
-  paper_id: string;
-  title: string;
-  questions: Json;
-  responses: Json;
-  score: number | null;
-  total_points: number;
-  current_index: number;
-  status: 'in_progress' | 'completed';
-  created_at: string;
-}): MockExam {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    paperId: row.paper_id,
-    title: row.title,
-    questions: (row.questions ?? []) as unknown as MockExamQuestion[],
-    responses: (row.responses ?? []) as unknown as MockExamResponse[],
-    score: row.score,
-    totalPoints: row.total_points,
-    currentIndex: row.current_index,
-    status: row.status,
-    createdAt: row.created_at,
-  };
-}
 
 // ==================== Prompt ====================
 
@@ -84,6 +57,14 @@ interface TopicGenerateOptions {
 // ==================== Service ====================
 
 export class MockExamService {
+  private readonly mockRepo: MockExamRepository;
+  private readonly paperRepo: ExamPaperRepository;
+
+  constructor(mockRepo?: MockExamRepository, paperRepo?: ExamPaperRepository) {
+    this.mockRepo = mockRepo ?? getMockExamRepository();
+    this.paperRepo = paperRepo ?? getExamPaperRepository();
+  }
+
   /**
    * Generate a mock exam from a topic using AI.
    * Creates a virtual exam paper (satisfying FK constraint) and a mock exam.
@@ -92,7 +73,6 @@ export class MockExamService {
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
     const ai = getGenAI();
 
     // Build the prompt
@@ -147,45 +127,32 @@ ${typesInstruction}
 
     // 1. Create virtual exam_paper
     const questionTypes = [...new Set(questions.map((q) => q.type))];
-    const { data: paper, error: paperErr } = await supabase
-      .from('exam_papers')
-      .insert({
-        user_id: user.id,
-        title,
-        course: options.topic,
-        visibility: 'private',
-        status: 'ready',
-        question_types: questionTypes,
-      })
-      .select('id')
-      .single();
-
-    if (paperErr || !paper) {
-      throw new Error(`Failed to create exam paper: ${paperErr?.message}`);
-    }
-
-    const paperId = paper.id as string;
+    const paperId = await this.paperRepo.create({
+      userId: user.id,
+      title,
+      course: options.topic,
+      visibility: 'private',
+      status: 'ready',
+      questionTypes,
+    });
 
     // 2. Batch insert exam_questions
-    const questionRows = questions.map((q) => ({
-      paper_id: paperId,
-      order_num: q.order_num,
-      type: q.type,
-      content: q.content,
-      options: q.options ?? null,
-      answer: q.answer ?? '',
-      explanation: q.explanation ?? '',
-      points: q.points ?? 1,
-      metadata: {
-        knowledge_point: q.knowledge_point ?? null,
-        difficulty: q.difficulty ?? null,
-      },
-    }));
-
-    const { error: questionsErr } = await supabase.from('exam_questions').insert(questionRows);
-    if (questionsErr) {
-      throw new Error(`Failed to insert questions: ${questionsErr.message}`);
-    }
+    await this.paperRepo.insertQuestions(
+      questions.map((q) => ({
+        paperId,
+        orderNum: q.order_num,
+        type: q.type,
+        content: q.content,
+        options: q.options ?? null,
+        answer: q.answer ?? '',
+        explanation: q.explanation ?? '',
+        points: q.points ?? 1,
+        metadata: {
+          knowledge_point: q.knowledge_point ?? null,
+          difficulty: q.difficulty ?? null,
+        },
+      })),
+    );
 
     // 3. Build MockExamQuestion[]
     const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
@@ -201,28 +168,19 @@ ${typesInstruction}
     const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
 
     // 4. Create mock_exam
-    const { data: mock, error: mockErr } = await supabase
-      .from('mock_exams')
-      .insert({
-        user_id: user.id,
-        paper_id: paperId,
-        session_id: null,
-        title,
-        questions: mockQuestions as unknown as Json,
-        responses: [] as unknown as Json,
-        score: null,
-        total_points: totalPoints,
-        current_index: 0,
-        status: 'in_progress',
-      })
-      .select('id')
-      .single();
+    const mockId = await this.mockRepo.create({
+      userId: user.id,
+      paperId,
+      sessionId: null,
+      title,
+      questions: mockQuestions as unknown as Json,
+      responses: [] as unknown as Json,
+      totalPoints,
+      currentIndex: 0,
+      status: 'in_progress',
+    });
 
-    if (mockErr || !mock) {
-      throw new Error(`Failed to create mock exam: ${mockErr?.message}`);
-    }
-
-    return { mockId: mock.id };
+    return { mockId };
   }
 
   /**
@@ -233,25 +191,17 @@ ${typesInstruction}
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
-
     // Find an exam paper for this course (public or user's own)
-    const { data: papers, error: paperErr } = await supabase
-      .from('exam_papers')
-      .select('id')
-      .or(`course.ilike.%${courseCode}%`)
-      .eq('status', 'ready')
-      .limit(1);
+    const paperId = await this.paperRepo.findByCourse(courseCode);
 
-    if (paperErr) throw new Error(`Failed to find exam papers: ${paperErr.message}`);
-    if (!papers || papers.length === 0) {
+    if (!paperId) {
       throw new Error(
         'No exam papers available for this course yet. Ask your admin to upload past exams.',
       );
     }
 
     // Generate mock exam from the found paper
-    const { mockId } = await this.generateMock(papers[0].id, sessionId);
+    const { mockId } = await this.generateMock(paperId, sessionId);
     return { mockId };
   }
 
@@ -262,35 +212,18 @@ ${typesInstruction}
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
-
     // Fetch all original questions for the paper
-    const { data: questions, error: qErr } = await supabase
-      .from('exam_questions')
-      .select('*')
-      .eq('paper_id', paperId)
-      .order('order_num', { ascending: true });
-
-    if (qErr) throw new Error(`Failed to fetch questions: ${qErr.message}`);
-    if (!questions || questions.length === 0) throw new Error('No questions found for this paper');
+    const questions = await this.paperRepo.findQuestionsByPaperId(paperId);
+    if (questions.length === 0) throw new Error('No questions found for this paper');
 
     // Fetch paper title
-    const { data: paper, error: pErr } = await supabase
-      .from('exam_papers')
-      .select('title')
-      .eq('id', paperId)
-      .single();
-
-    if (pErr) throw new Error(`Failed to fetch paper: ${pErr.message}`);
+    const paper = await this.paperRepo.findById(paperId);
+    if (!paper) throw new Error('Failed to fetch paper');
 
     // Count existing mocks by this user for this paper (for naming)
-    const { count } = await supabase
-      .from('mock_exams')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('paper_id', paperId);
+    const count = await this.mockRepo.countByUserAndPaper(user.id, paperId);
 
-    const mockNumber = (count ?? 0) + 1;
+    const mockNumber = count + 1;
     const title = `${paper.title} #${mockNumber}`;
 
     // Generate variant questions using Gemini in batches of 3
@@ -363,26 +296,19 @@ Return JSON with these exact fields:
     const totalPoints = questions.reduce((sum: number, q) => sum + (q.points ?? 1), 0);
 
     // Create mock_exams entry
-    const { data: mock, error: insertErr } = await supabase
-      .from('mock_exams')
-      .insert({
-        user_id: user.id,
-        paper_id: paperId,
-        session_id: sessionId ?? null,
-        title,
-        questions: generatedQuestions as unknown as Json,
-        responses: [] as unknown as Json,
-        score: null,
-        total_points: totalPoints,
-        current_index: 0,
-        status: 'in_progress',
-      })
-      .select('id')
-      .single();
+    const mockId = await this.mockRepo.create({
+      userId: user.id,
+      paperId,
+      sessionId: sessionId ?? null,
+      title,
+      questions: generatedQuestions as unknown as Json,
+      responses: [] as unknown as Json,
+      totalPoints,
+      currentIndex: 0,
+      status: 'in_progress',
+    });
 
-    if (insertErr) throw new Error(`Failed to create mock exam: ${insertErr.message}`);
-
-    return { mockId: mock.id };
+    return { mockId };
   }
 
   /**
@@ -462,17 +388,8 @@ Return JSON with these exact fields:
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
-
-    const { data: row, error } = await supabase
-      .from('mock_exams')
-      .select('*')
-      .eq('id', mockId)
-      .single();
-
-    if (error || !row) throw new Error('Mock exam not found');
-
-    const mock = mapToMockExam(row);
+    const mock = await this.mockRepo.findById(mockId);
+    if (!mock) throw new Error('Mock exam not found');
 
     if (mock.status === 'completed') throw new Error('Mock exam already completed');
     if (questionIndex < 0 || questionIndex >= mock.questions.length) {
@@ -489,12 +406,12 @@ Return JSON with these exact fields:
 
     const updatePayload: {
       responses: Json;
-      current_index: number;
+      currentIndex: number;
       score?: number;
       status?: 'completed';
     } = {
       responses: updatedResponses as unknown as Json,
-      current_index: newIndex,
+      currentIndex: newIndex,
     };
 
     if (isLast) {
@@ -503,12 +420,7 @@ Return JSON with these exact fields:
       updatePayload.status = 'completed';
     }
 
-    const { error: updateErr } = await supabase
-      .from('mock_exams')
-      .update(updatePayload)
-      .eq('id', mockId);
-
-    if (updateErr) throw new Error(`Failed to update mock exam: ${updateErr.message}`);
+    await this.mockRepo.update(mockId, updatePayload);
 
     return feedback;
   }
@@ -523,17 +435,8 @@ Return JSON with these exact fields:
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
-
-    const { data: row, error } = await supabase
-      .from('mock_exams')
-      .select('*')
-      .eq('id', mockId)
-      .single();
-
-    if (error || !row) throw new Error('Mock exam not found');
-
-    const mock = mapToMockExam(row);
+    const mock = await this.mockRepo.findById(mockId);
+    if (!mock) throw new Error('Mock exam not found');
 
     if (mock.status === 'completed') throw new Error('Mock exam already completed');
 
@@ -562,17 +465,12 @@ Return JSON with these exact fields:
 
     const totalScore = allResponses.reduce((sum, r) => sum + r.score, 0);
 
-    const { error: updateErr } = await supabase
-      .from('mock_exams')
-      .update({
-        responses: allResponses as unknown as Json,
-        current_index: mock.questions.length,
-        score: totalScore,
-        status: 'completed',
-      })
-      .eq('id', mockId);
-
-    if (updateErr) throw new Error(`Failed to update mock exam: ${updateErr.message}`);
+    await this.mockRepo.update(mockId, {
+      responses: allResponses as unknown as Json,
+      currentIndex: mock.questions.length,
+      score: totalScore,
+      status: 'completed',
+    });
 
     return {
       responses: allResponses,
@@ -585,34 +483,14 @@ Return JSON with these exact fields:
    * Look up a mock exam ID from a chat session ID.
    */
   async getMockIdBySessionId(sessionId: string): Promise<string | null> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('mock_exams')
-      .select('id')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error || !data) return null;
-    return data.id;
+    return this.mockRepo.findBySessionId(sessionId);
   }
 
   /**
    * Fetch a single mock exam by ID.
    */
   async getMock(mockId: string): Promise<MockExam | null> {
-    const supabase = await createClient();
-
-    const { data: row, error } = await supabase
-      .from('mock_exams')
-      .select('*')
-      .eq('id', mockId)
-      .single();
-
-    if (error || !row) return null;
-
-    return mapToMockExam(row);
+    return this.mockRepo.findById(mockId);
   }
 
   /**
@@ -622,18 +500,7 @@ Return JSON with these exact fields:
     const user = await getCurrentUser();
     if (!user) throw new Error('Unauthorized');
 
-    const supabase = await createClient();
-
-    const { data: rows, error } = await supabase
-      .from('mock_exams')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw new Error(`Failed to fetch mock exam history: ${error.message}`);
-
-    return (rows ?? []).map((row) => mapToMockExam(row));
+    return this.mockRepo.findByUserId(user.id, limit, offset);
   }
 }
 

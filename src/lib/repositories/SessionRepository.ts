@@ -11,6 +11,7 @@ import type {
   SessionEntity,
   UpdateSessionDTO,
 } from '@/lib/domain/models/Session';
+import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 
@@ -56,7 +57,11 @@ export class SessionRepository implements ISessionRepository {
     const supabase = await createClient();
     const { data, error } = await supabase.from('chat_sessions').select('*').eq('id', id).single();
 
-    if (error || !data) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch session: ${error.message}`, error);
+    }
+    if (!data) return null;
     return this.mapToEntity(data as SessionRow);
   }
 
@@ -69,7 +74,11 @@ export class SessionRepository implements ISessionRepository {
       .eq('user_id', userId)
       .single();
 
-    if (error || !data) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch session: ${error.message}`, error);
+    }
+    if (!data) return null;
     return this.mapToEntity(data as SessionRow);
   }
 
@@ -82,8 +91,8 @@ export class SessionRepository implements ISessionRepository {
       .order('is_pinned', { ascending: false })
       .order('updated_at', { ascending: false });
 
-    if (error || !data) return [];
-    return (data as SessionRow[]).map((row) => this.mapToEntity(row));
+    if (error) throw new DatabaseError(`Failed to fetch sessions: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row as SessionRow));
   }
 
   async findSharedById(id: string): Promise<SessionEntity | null> {
@@ -98,7 +107,11 @@ export class SessionRepository implements ISessionRepository {
       .or(`share_expires_at.is.null,share_expires_at.gt.${now}`)
       .single();
 
-    if (error || !data) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch shared session: ${error.message}`, error);
+    }
+    if (!data) return null;
     return this.mapToEntity(data as SessionRow);
   }
 
@@ -117,7 +130,7 @@ export class SessionRepository implements ISessionRepository {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to create session: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to create session: ${error.message}`, error);
     return this.mapToEntity(data as SessionRow);
   }
 
@@ -137,14 +150,14 @@ export class SessionRepository implements ISessionRepository {
 
     const { error } = await supabase.from('chat_sessions').update(updates).eq('id', id);
 
-    if (error) throw new Error(`Failed to update session: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to update session: ${error.message}`, error);
   }
 
   async delete(id: string): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('chat_sessions').delete().eq('id', id);
 
-    if (error) throw new Error(`Failed to delete session: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to delete session: ${error.message}`, error);
   }
 
   async verifyOwnership(id: string, userId: string): Promise<boolean> {

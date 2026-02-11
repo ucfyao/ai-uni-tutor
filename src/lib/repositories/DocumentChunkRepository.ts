@@ -7,6 +7,7 @@
 
 import type { IDocumentChunkRepository } from '@/lib/domain/interfaces/IDocumentChunkRepository';
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
+import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 
@@ -24,14 +25,14 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
 
     const { error } = await supabase.from('document_chunks').insert(rows);
 
-    if (error) throw new Error(`Failed to insert document chunks: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to insert document chunks: ${error.message}`, error);
   }
 
   async deleteByDocumentId(documentId: string): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('document_chunks').delete().eq('document_id', documentId);
 
-    if (error) throw new Error(`Failed to delete document chunks: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to delete document chunks: ${error.message}`, error);
   }
 
   async findByDocumentId(documentId: string) {

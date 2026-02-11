@@ -6,13 +6,10 @@ import { QuotaExceededError } from '@/lib/errors';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import type { FormActionState } from '@/types/actions';
 import type { ExamPaper, PaperFilters } from '@/types/exam';
 
-export type ExamPaperUploadState = {
-  status: 'idle' | 'success' | 'error';
-  message: string;
-  paperId?: string;
-};
+export type ExamPaperUploadState = FormActionState & { paperId?: string };
 
 const uploadSchema = z.object({
   file: z.instanceof(File),

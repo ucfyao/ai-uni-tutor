@@ -14,6 +14,7 @@ import { getChatService } from '@/lib/services/ChatService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getSessionService } from '@/lib/services/SessionService';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { ActionResult } from '@/types/actions';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
 
 // ============================================================================
@@ -93,9 +94,7 @@ export type ChatActionResponse =
   | { success: true; data: string }
   | { success: false; error: string; isLimitError?: boolean };
 
-export type ExplainConceptResponse =
-  | { success: true; explanation: string }
-  | { success: false; error: string };
+export type ExplainConceptResponse = ActionResult<string>;
 
 // ============================================================================
 // AI GENERATION ACTIONS
@@ -170,7 +169,7 @@ export async function explainConcept(
     const chatService = getChatService();
     const explanation = await chatService.explainConcept(concept, context, courseCode);
 
-    return { success: true, explanation };
+    return { success: true, data: explanation };
   } catch (error: unknown) {
     if (error instanceof QuotaExceededError) {
       return { success: false, error: error.message };

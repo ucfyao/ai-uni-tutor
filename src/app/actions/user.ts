@@ -5,11 +5,7 @@ import { z } from 'zod';
 import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { getCurrentUser } from '@/lib/supabase/server';
-
-export type ActionState = {
-  message: string;
-  status: 'idle' | 'success' | 'error';
-};
+import type { ActionResult, FormActionState } from '@/types/actions';
 
 export type ProfileData = {
   id: string;
@@ -35,10 +31,6 @@ const updateProfileSchema = z.object({
   ),
 });
 
-export type UpdateProfileResult =
-  | { ok: true; profile: ProfileData }
-  | { ok: false; message: string };
-
 /**
  * Canonical profile update path.
  * - Validates on server (Zod)
@@ -47,14 +39,14 @@ export type UpdateProfileResult =
  */
 export async function updateProfileFields(input: {
   fullName?: string;
-}): Promise<UpdateProfileResult> {
+}): Promise<ActionResult<ProfileData>> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, message: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized' };
 
   const parsed = updateProfileSchema.safeParse(input);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
-    return { ok: false, message: first?.message ?? 'Invalid input' };
+    return { success: false, error: first?.message ?? 'Invalid input' };
   }
 
   const { fullName } = parsed.data;
@@ -66,20 +58,20 @@ export async function updateProfileFields(input: {
     }
   } catch (error) {
     console.error('Profile update error:', error);
-    return { ok: false, message: 'Failed to update profile' };
+    return { success: false, error: 'Failed to update profile' };
   }
 
   const profile = await profileService.getProfile(user.id);
   if (!profile) {
-    return { ok: false, message: 'Failed to reload profile' };
+    return { success: false, error: 'Failed to reload profile' };
   }
 
   revalidatePath('/personalization');
   revalidatePath('/settings');
 
   return {
-    ok: true,
-    profile: {
+    success: true,
+    data: {
       id: profile.id,
       full_name: profile.fullName,
       email: profile.email,
@@ -90,15 +82,15 @@ export async function updateProfileFields(input: {
 }
 
 export async function updateProfile(
-  prevState: ActionState,
+  prevState: FormActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<FormActionState> {
   void prevState;
   const entries = Object.fromEntries(formData);
   const fullName = typeof entries.fullName === 'string' ? entries.fullName : undefined;
   const result = await updateProfileFields({ fullName });
 
-  if (!result.ok) return { message: result.message, status: 'error' };
+  if (!result.success) return { message: result.error, status: 'error' };
   return { message: 'Profile updated successfully', status: 'success' };
 }
 
