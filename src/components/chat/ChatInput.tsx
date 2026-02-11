@@ -189,7 +189,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <Group gap={6}>
                 <Upload size={16} color="var(--mantine-color-indigo-5)" />
                 <Text size="sm" c="indigo.5" fw={500}>
-                  松开以添加图片
+                  Drop to attach images
                 </Text>
               </Group>
             </Box>

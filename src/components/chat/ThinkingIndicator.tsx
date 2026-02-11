@@ -3,8 +3,8 @@ import { Box, Group, Text } from '@mantine/core';
 import { TutoringMode } from '@/types';
 
 const THINKING_TEXT: Record<string, string> = {
-  'Lecture Helper': '正在分析概念...',
-  'Assignment Coach': '正在梳理思路...',
+  'Lecture Helper': 'Analyzing concepts...',
+  'Assignment Coach': 'Organizing thoughts...',
 };
 
 interface ThinkingIndicatorProps {
@@ -12,7 +12,7 @@ interface ThinkingIndicatorProps {
 }
 
 export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) => {
-  const text = (mode && THINKING_TEXT[mode]) || '正在思考...';
+  const text = (mode && THINKING_TEXT[mode]) || 'Thinking...';
   const color =
     mode === 'Assignment Coach' ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-indigo-5)';
 
