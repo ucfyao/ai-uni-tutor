@@ -1,34 +1,44 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Box, Button, Container } from '@mantine/core';
+import { Box, Button, Container, Flex, Text, Title } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const CTASection = () => {
   const { t } = useLanguage();
 
   return (
-    <section className="py-16 md:py-20 relative overflow-hidden">
+    <Box component="section" className="py-16 md:py-20 relative overflow-hidden">
       {/* Background Effects */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background to-secondary/20" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/10 rounded-full blur-[100px]" />
+      <Box className="absolute inset-0 bg-gradient-to-b from-background to-secondary/20" />
+      <Box className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/10 rounded-full blur-[100px]" />
 
-      <Container size="lg" px={24} className="relative z-10">
-        <Box className="glass-card max-w-4xl mx-auto p-8 md:p-12 text-center">
+      <Container size={1280} px={24} className="relative z-10">
+        <Box className="glass-card max-w-4xl mx-auto p-5 sm:p-8 md:p-12 text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
+          <Box className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm text-primary">{t.cta.badge}</span>
-          </div>
+            <Text size="sm" c="var(--mantine-color-indigo-6)">
+              {t.cta.badge}
+            </Text>
+          </Box>
 
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
+          <Title order={2} fz={{ base: '2.25rem', sm: '3rem' }} fw={700} mb="1.5rem">
             {t.cta.title}
             <span className="gradient-text">{t.cta.titleHighlight}</span>
             {t.cta.titleEnd}
-          </h2>
+          </Title>
 
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">{t.cta.subtitle}</p>
+          <Text fz="1.25rem" c="dimmed" mx="auto" mb="2rem" className="max-w-2xl">
+            {t.cta.subtitle}
+          </Text>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Flex
+            direction={{ base: 'column', sm: 'row' }}
+            align="center"
+            justify="center"
+            gap="md"
+            wrap="wrap"
+          >
             <Button
               className="btn-hero"
               size="xl"
@@ -46,12 +56,14 @@ const CTASection = () => {
             >
               {t.cta.contactUs}
             </Button>
-          </div>
+          </Flex>
 
-          <p className="text-sm text-muted-foreground mt-6">{t.cta.note}</p>
+          <Text size="sm" c="dimmed" mt="1.5rem">
+            {t.cta.note}
+          </Text>
         </Box>
       </Container>
-    </section>
+    </Box>
   );
 };
 

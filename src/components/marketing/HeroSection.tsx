@@ -1,42 +1,61 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Box, Button, Container, Group, SimpleGrid } from '@mantine/core';
+import { Box, Button, Container, Group, SimpleGrid, Text, Title } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const HeroSection = () => {
   const { t } = useLanguage();
 
   return (
-    <section className="relative min-h-[100svh] flex items-start justify-center overflow-hidden pt-24 md:pt-28 pb-16 bg-background">
+    <Box
+      component="section"
+      className="relative min-h-[100svh] flex items-start justify-center overflow-hidden pt-24 md:pt-28 pb-16 bg-background"
+    >
       {/* Background Effects */}
-      <div className="absolute inset-0 hero-radial" />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pulse-glow" />
-      <div
+      <Box className="absolute inset-0 hero-radial" />
+      <Box className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pulse-glow" />
+      <Box
         className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-accent/10 rounded-full blur-[100px] pulse-glow"
         style={{ animationDelay: '1.5s' }}
       />
 
       {/* Grid Pattern */}
-      <div className="absolute inset-0 hero-grid" />
+      <Box className="absolute inset-0 hero-grid" />
 
-      <Container size="lg" px={24} className="relative z-10">
-        <div className="max-w-4xl mx-auto text-center">
+      <Container size={1280} px={24} className="relative z-10">
+        <Box className="max-w-4xl mx-auto text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/80 border border-border/50 mb-8 animate-fade-in-up opacity-0">
+          <Box className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/80 border border-border/50 mb-8 animate-fade-in-up opacity-0">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm text-muted-foreground">{t.hero.badge}</span>
-          </div>
+            <Text size="sm" c="dimmed">
+              {t.hero.badge}
+            </Text>
+          </Box>
 
           {/* Main Heading */}
-          <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold leading-tight mb-6 animate-fade-in-up opacity-0 animate-delay-100 text-foreground">
+          <Title
+            order={1}
+            fz={{ base: '2.25rem', xs: '3rem', sm: '4.5rem' }}
+            fw={700}
+            lh={1.2}
+            mb="1.5rem"
+            className="animate-fade-in-up opacity-0 animate-delay-100 text-foreground"
+          >
             {t.hero.title}
+            <br />
             <span className="gradient-text">{t.hero.titleHighlight}</span>
-          </h1>
+          </Title>
 
           {/* Subheading */}
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in-up opacity-0 animate-delay-200">
+          <Text
+            fz={{ base: '1.25rem', sm: '1.5rem' }}
+            c="dimmed"
+            mx="auto"
+            mb="2.5rem"
+            className="max-w-2xl animate-fade-in-up opacity-0 animate-delay-200"
+          >
             {t.hero.subtitle}
-          </p>
+          </Text>
 
           {/* CTA Buttons */}
           <Group
@@ -60,33 +79,46 @@ const HeroSection = () => {
 
           {/* Stats */}
           <SimpleGrid
-            cols={{ base: 1, sm: 3 }}
+            cols={{ base: 1, xs: 3 }}
             spacing={32}
-            className="mt-12 sm:mt-16 pt-12 sm:pt-16 border-t border-border/30 animate-fade-in-up opacity-0 animate-delay-400"
+            pt={{ base: '2rem', sm: '2.5rem' }}
+            className="border-t border-border/30 animate-fade-in-up opacity-0 animate-delay-400"
           >
             <Box>
-              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">50K+</div>
-              <div className="text-muted-foreground mt-1">{t.hero.stats.students}</div>
+              <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
+                50K+
+              </Text>
+              <Text c="dimmed" mt="0.25rem">
+                {t.hero.stats.students}
+              </Text>
             </Box>
             <Box>
-              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">98%</div>
-              <div className="text-muted-foreground mt-1">{t.hero.stats.satisfaction}</div>
+              <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
+                98%
+              </Text>
+              <Text c="dimmed" mt="0.25rem">
+                {t.hero.stats.satisfaction}
+              </Text>
             </Box>
             <Box>
-              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">200+</div>
-              <div className="text-muted-foreground mt-1">{t.hero.stats.subjects}</div>
+              <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
+                200+
+              </Text>
+              <Text c="dimmed" mt="0.25rem">
+                {t.hero.stats.subjects}
+              </Text>
             </Box>
           </SimpleGrid>
-        </div>
+        </Box>
       </Container>
 
       {/* Scroll Indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-        <div className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2">
-          <div className="w-1 h-2 bg-muted-foreground/50 rounded-full" />
-        </div>
-      </div>
-    </section>
+      <Box className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+        <Box className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2">
+          <Box className="w-1 h-2 bg-muted-foreground/50 rounded-full" />
+        </Box>
+      </Box>
+    </Box>
   );
 };
 

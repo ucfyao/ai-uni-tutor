@@ -1,19 +1,7 @@
 @import 'tailwindcss';
 @config "../../tailwind.config.ts";
 
-/* Self-hosted Outfit (place .ttf in public/fonts/) */
-@font-face {
-  font-family: 'Outfit';
-  src: url('/fonts/Outfit-VariableFont_wght.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-
   /* Shadcn/UI Variables */
   --background: 220 20% 98%;
   --foreground: 220 20% 15%;
@@ -61,8 +49,9 @@
   --shadow-button: 0 4px 24px hsl(var(--primary) / 0.28);
   --shadow-button-hover: 0 8px 32px hsl(var(--primary) / 0.34);
 
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* Font stacks for Tailwind config fontFamily references */
+  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-body: var(--font-outfit), system-ui, sans-serif;
 
   --sidebar-background: 0 0% 100%;
   --sidebar-foreground: 220 20% 15%;
@@ -75,7 +64,7 @@
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
+  color: hsl(var(--foreground));
 }
 
 /* Custom Scrollbar for Webkit browsers */
@@ -532,12 +521,32 @@ body {
   opacity: 1 !important;
 }
 
+/*
+ * Align Mantine color tokens with design-system variables.
+ * !important is needed because Mantine's runtime <style> injects
+ * its own :root declarations AFTER this file in the cascade.
+ */
+:root {
+  --mantine-color-text: hsl(var(--foreground)) !important;
+  --mantine-color-dimmed: hsl(var(--muted-foreground)) !important;
+  --mantine-color-body: hsl(var(--background)) !important;
+}
+
 /* Marketing homepage: gradient text, pulse glow, animation delays (from hub) */
 .gradient-text {
-  -webkit-background-clip: text;
-  background-clip: text;
-  background-image: var(--gradient-primary);
-  color: transparent;
+  color: hsl(var(--primary)) !important;
+  background-image: var(--gradient-primary) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .gradient-text {
+    color: hsl(var(--primary)) !important;
+    background-image: none;
+    -webkit-text-fill-color: unset;
+  }
 }
 
 .hero-radial {
@@ -635,8 +644,15 @@ body {
   background: var(--gradient-primary) !important;
   color: hsl(var(--primary-foreground)) !important;
   font-weight: 600;
+  border-radius: 1rem !important;
+  padding: 0.625rem 1.25rem !important;
   box-shadow: var(--shadow-button);
   transition: all 0.3s;
+}
+@media (min-width: 640px) {
+  .btn-hero {
+    padding: 0.875rem 2rem !important;
+  }
 }
 .btn-hero:hover {
   box-shadow: var(--shadow-button-hover);
@@ -650,15 +666,29 @@ body {
   border: 2px solid hsl(var(--primary) / 0.5) !important;
   background: transparent !important;
   color: hsl(var(--foreground)) !important;
+  border-radius: 1rem !important;
+  padding: 0.625rem 1.25rem !important;
   transition: all 0.3s;
+}
+@media (min-width: 640px) {
+  .btn-hero-outline {
+    padding: 0.875rem 2rem !important;
+  }
 }
 .btn-hero-outline:hover {
   background: hsl(var(--primary) / 0.1) !important;
   border-color: hsl(var(--primary)) !important;
 }
 
+/* Fix Mantine Anchor overriding inline-flex on nav links */
+.nav-link {
+  display: inline-flex !important;
+}
+
 /* Marketing homepage: glass card (from hub) */
 .glass-card {
+  box-sizing: border-box;
+  min-width: 0;
   background: hsl(var(--card) / 0.8);
   -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);

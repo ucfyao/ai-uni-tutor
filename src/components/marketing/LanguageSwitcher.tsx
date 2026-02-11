@@ -13,7 +13,7 @@ const LanguageSwitcher = () => {
       component={Link}
       href={language === 'zh' ? '/' : '/zh'}
       leftSection={<Globe className="w-4 h-4" />}
-      className="px-3"
+      px="xs"
     >
       {language === 'zh' ? 'EN' : '中文'}
     </Button>
