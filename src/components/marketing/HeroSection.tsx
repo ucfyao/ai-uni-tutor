@@ -1,6 +1,6 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Badge, Box, Button, Container, Group, SimpleGrid, Text, Title } from '@mantine/core';
+import { Box, Button, Container, Group, SimpleGrid } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const HeroSection = () => {
@@ -19,34 +19,24 @@ const HeroSection = () => {
       {/* Grid Pattern */}
       <div className="absolute inset-0 hero-grid" />
 
-      <Container size="lg" px="md" className="relative z-10">
+      <Container size="lg" px={24} className="relative z-10">
         <div className="max-w-4xl mx-auto text-center">
           {/* Badge */}
-          <Badge
-            variant="light"
-            size="lg"
-            leftSection={<Sparkles className="w-4 h-4" />}
-            className="animate-fade-in-up opacity-0 mb-8"
-          >
-            {t.hero.badge}
-          </Badge>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/80 border border-border/50 mb-8 animate-fade-in-up opacity-0">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm text-muted-foreground">{t.hero.badge}</span>
+          </div>
 
           {/* Main Heading */}
-          <Title
-            order={1}
-            className="font-display text-4xl sm:text-5xl md:text-7xl font-bold leading-tight mb-6 animate-fade-in-up opacity-0 animate-delay-100 text-foreground"
-          >
+          <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold leading-tight mb-6 animate-fade-in-up opacity-0 animate-delay-100 text-foreground">
             {t.hero.title}
             <span className="gradient-text">{t.hero.titleHighlight}</span>
-          </Title>
+          </h1>
 
           {/* Subheading */}
-          <Text
-            size="xl"
-            className="md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in-up opacity-0 animate-delay-200"
-          >
+          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in-up opacity-0 animate-delay-200">
             {t.hero.subtitle}
-          </Text>
+          </p>
 
           {/* CTA Buttons */}
           <Group
@@ -71,24 +61,20 @@ const HeroSection = () => {
           {/* Stats */}
           <SimpleGrid
             cols={{ base: 1, sm: 3 }}
-            spacing="lg"
+            spacing={32}
             className="mt-12 sm:mt-16 pt-12 sm:pt-16 border-t border-border/30 animate-fade-in-up opacity-0 animate-delay-400"
           >
             <Box>
-              <Text className="font-display text-3xl sm:text-4xl font-bold gradient-text">
-                50K+
-              </Text>
-              <Text className="text-muted-foreground mt-1">{t.hero.stats.students}</Text>
+              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">50K+</div>
+              <div className="text-muted-foreground mt-1">{t.hero.stats.students}</div>
             </Box>
             <Box>
-              <Text className="font-display text-3xl sm:text-4xl font-bold gradient-text">98%</Text>
-              <Text className="text-muted-foreground mt-1">{t.hero.stats.satisfaction}</Text>
+              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">98%</div>
+              <div className="text-muted-foreground mt-1">{t.hero.stats.satisfaction}</div>
             </Box>
             <Box>
-              <Text className="font-display text-3xl sm:text-4xl font-bold gradient-text">
-                200+
-              </Text>
-              <Text className="text-muted-foreground mt-1">{t.hero.stats.subjects}</Text>
+              <div className="font-display text-3xl sm:text-4xl font-bold gradient-text">200+</div>
+              <div className="text-muted-foreground mt-1">{t.hero.stats.subjects}</div>
             </Box>
           </SimpleGrid>
         </div>
