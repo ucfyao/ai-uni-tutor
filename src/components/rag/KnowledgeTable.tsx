@@ -6,9 +6,11 @@ import {
   CheckCircle,
   ClipboardCheck,
   Clock,
+  Eye,
   FileText,
   Trash2,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Badge, Box, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
@@ -47,6 +49,7 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
   const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
+  const router = useRouter();
 
   // Sync initialDocuments prop with local state when it changes (e.g. after refresh)
   useEffect(() => {
@@ -159,7 +162,14 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
           </Text>
         ) : (
           documents.map((doc) => (
-            <Card key={doc.id} withBorder padding="sm" radius="md">
+            <Card
+              key={doc.id}
+              withBorder
+              padding="sm"
+              radius="md"
+              style={{ cursor: 'pointer' }}
+              onClick={() => router.push(`/knowledge/${doc.id}`)}
+            >
               <Group justify="space-between" mb="xs">
                 <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
                   <FileText size={18} className="text-gray-500" style={{ flexShrink: 0 }} />
@@ -171,7 +181,10 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
                   <ActionIcon
                     variant="subtle"
                     color="red"
-                    onClick={() => handleDelete(doc.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(doc.id);
+                    }}
                     loading={deletingId === doc.id}
                     aria-label="Delete document"
                   >
@@ -234,7 +247,13 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
               <Table.Td>
                 <Group gap="xs">
                   <FileText size={16} className="text-gray-500" />
-                  <Text size="sm" fw={500}>
+                  <Text
+                    size="sm"
+                    fw={500}
+                    style={{ cursor: 'pointer' }}
+                    c="indigo"
+                    onClick={() => router.push(`/knowledge/${doc.id}`)}
+                  >
                     {doc.name}
                   </Text>
                 </Group>
@@ -274,15 +293,25 @@ export function KnowledgeTable({ documents: initialDocuments, readOnly }: Knowle
               <Table.Td>{renderStatusBadge(doc)}</Table.Td>
               {!readOnly && (
                 <Table.Td>
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    onClick={() => handleDelete(doc.id)}
-                    loading={deletingId === doc.id}
-                    aria-label="Delete document"
-                  >
-                    <Trash2 size={16} />
-                  </ActionIcon>
+                  <Group gap={4}>
+                    <ActionIcon
+                      variant="subtle"
+                      color="indigo"
+                      onClick={() => router.push(`/knowledge/${doc.id}`)}
+                      aria-label="View document details"
+                    >
+                      <Eye size={16} />
+                    </ActionIcon>
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      onClick={() => handleDelete(doc.id)}
+                      loading={deletingId === doc.id}
+                      aria-label="Delete document"
+                    >
+                      <Trash2 size={16} />
+                    </ActionIcon>
+                  </Group>
                 </Table.Td>
               )}
             </Table.Tr>
