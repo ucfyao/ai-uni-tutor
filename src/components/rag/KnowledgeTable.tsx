@@ -24,9 +24,10 @@ export interface KnowledgeDocument {
 
 interface KnowledgeTableProps {
   documents: KnowledgeDocument[];
+  readOnly?: boolean;
 }
 
-export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTableProps) {
+export function KnowledgeTable({ documents: initialDocuments, readOnly }: KnowledgeTableProps) {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(initialDocuments);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
@@ -151,15 +152,17 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
                     {doc.name}
                   </Text>
                 </Group>
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  onClick={() => handleDelete(doc.id)}
-                  loading={deletingId === doc.id}
-                  aria-label="Delete document"
-                >
-                  <Trash2 size={16} />
-                </ActionIcon>
+                {!readOnly && (
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    onClick={() => handleDelete(doc.id)}
+                    loading={deletingId === doc.id}
+                    aria-label="Delete document"
+                  >
+                    <Trash2 size={16} />
+                  </ActionIcon>
+                )}
               </Group>
 
               <Group gap="xs" mb="xs">
@@ -198,7 +201,7 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
             <Table.Th>Course</Table.Th>
             <Table.Th>Date</Table.Th>
             <Table.Th>Status</Table.Th>
-            <Table.Th style={{ width: 50 }}></Table.Th>
+            {!readOnly && <Table.Th style={{ width: 50 }}></Table.Th>}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -226,22 +229,24 @@ export function KnowledgeTable({ documents: initialDocuments }: KnowledgeTablePr
                 </Text>
               </Table.Td>
               <Table.Td>{renderStatusBadge(doc)}</Table.Td>
-              <Table.Td>
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  onClick={() => handleDelete(doc.id)}
-                  loading={deletingId === doc.id}
-                  aria-label="Delete document"
-                >
-                  <Trash2 size={16} />
-                </ActionIcon>
-              </Table.Td>
+              {!readOnly && (
+                <Table.Td>
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    onClick={() => handleDelete(doc.id)}
+                    loading={deletingId === doc.id}
+                    aria-label="Delete document"
+                  >
+                    <Trash2 size={16} />
+                  </ActionIcon>
+                </Table.Td>
+              )}
             </Table.Tr>
           ))}
           {documents.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={6} align="center">
+              <Table.Td colSpan={readOnly ? 5 : 6} align="center">
                 <Text c="dimmed" size="sm" py="xl">
                   No documents uploaded yet
                 </Text>

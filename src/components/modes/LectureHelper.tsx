@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Drawer, Group, Loader, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { generateChatResponse } from '@/app/actions/chat';
@@ -56,7 +56,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     onSessionUpdate: onUpdateSession,
   });
 
-  const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse } = useChatStream();
+  const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse, cancelStream } =
+    useChatStream();
   const isLargeScreen = useMediaQuery('(min-width: 75em)'); // Matches Mantine 'lg' breakpoint
 
   // Knowledge cards management
@@ -71,6 +72,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [cardChats, setCardChats] = useState<Record<string, ChatMessage[]>>({});
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
+  const [cardPrefillInput, setCardPrefillInput] = useState<{ cardId: string; text: string } | null>(
+    null,
+  );
 
   // Input state
   const [input, setInput] = useState('');
@@ -91,6 +95,21 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [scrollTrigger, setScrollTrigger] = useState(0);
 
   const isSendingRef = useRef(false);
+
+  // Session switch fade transition
+  const [mounted, setMounted] = useState(true);
+  const prevSessionIdRef = useRef(session?.id);
+
+  useEffect(() => {
+    if (session?.id !== prevSessionIdRef.current) {
+      setMounted(false);
+      const timer = setTimeout(() => {
+        setMounted(true);
+        prevSessionIdRef.current = session?.id;
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [session?.id]);
 
   // Open drawer when trigger changes (from header button click)
   React.useEffect(() => {
@@ -213,6 +232,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           await updateLastMessage(accumulatedContent, null);
           setLastError(null);
           isSendingRef.current = false;
+          requestAnimationFrame(() => chatInputRef.current?.focus());
         },
       },
     );
@@ -288,14 +308,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
     const source = {
       kind: 'selection' as const,
-      excerpt,
+      excerpt: '',
       createdAt: Date.now(),
       sessionId: session.id,
       messageId: options?.source?.messageId,
       role: options?.source?.role,
     };
 
-    const cardId = addManualCard(normalizedTitle, excerpt, source);
+    const cardId = addManualCard(normalizedTitle, '', source);
     if (!cardId) return;
 
     // Immediate UX: focus the new user card and show loading while explanation is generating.
@@ -304,14 +324,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     setPendingScrollToCardId(cardId);
     setScrollTrigger((prev) => prev + 1);
 
-    // Insert prompt into chat input for user to edit/send (saves tokens vs auto-calling a separate explain action).
-    const quoted = excerpt
-      .split('\n')
-      .map((line) => `> ${line}`)
-      .join('\n');
-    const prompt = `Explain this:\n\n${quoted}`;
-    setInput((prev) => (prev.trim().length ? `${prev.trim()}\n\n${prompt}` : prompt));
-    requestAnimationFrame(() => chatInputRef.current?.focus());
+    // Pre-fill the card's input so user can review/edit before sending
+    setCardPrefillInput({ cardId, text: `Explain this concept:\n\n${excerpt}` });
   };
 
   const handleRetry = () => {
@@ -319,6 +333,23 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       // onError already removed both AI placeholder and user message; just resend
       handleSend(lastInput);
     }
+  };
+
+  const handleRegenerate = async (messageId: string) => {
+    if (!session || isStreaming) return;
+
+    const msgIndex = session.messages.findIndex((m) => m.id === messageId);
+    if (msgIndex < 1) return;
+
+    const userMsg = session.messages[msgIndex - 1];
+    if (userMsg.role !== 'user') return;
+
+    // Remove from the user message onwards
+    const messagesToRemove = session.messages.length - msgIndex + 1;
+    removeMessages(messagesToRemove);
+
+    // Re-send with the original user input
+    handleSend(userMsg.content);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -400,7 +431,17 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}
       >
         {/* Left: Chat - minHeight: 0 so MessageList ScrollArea gets bounded height */}
-        <Stack gap={0} h="100%" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+        <Stack
+          gap={0}
+          h="100%"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            opacity: mounted ? 1 : 0,
+            transition: 'opacity 0.15s ease',
+          }}
+        >
           <MessageList
             messages={session.messages}
             isTyping={isStreaming}
@@ -414,6 +455,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             isKnowledgeMode={true}
             courseCode={session.course.code}
             onPromptSelect={(prompt) => handleSend(prompt)}
+            onRegenerate={handleRegenerate}
           />
 
           <Box
@@ -442,6 +484,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 fileInputRef={fileInputRef}
                 inputRef={chatInputRef}
                 onFileSelect={handleFileSelect}
+                onStop={cancelStream}
+                isStreaming={isStreaming}
               />
             </Box>
           </Box>
@@ -472,6 +516,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             scrollToCardId={pendingScrollToCardId}
             scrollTrigger={scrollTrigger}
             onScrolledToCard={() => setPendingScrollToCardId(null)}
+            prefillInput={cardPrefillInput}
+            onPrefillConsumed={() => setCardPrefillInput(null)}
           />
         </Box>
       </Group>
@@ -522,6 +568,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             scrollToCardId={pendingScrollToCardId}
             scrollTrigger={scrollTrigger}
             onScrolledToCard={() => setPendingScrollToCardId(null)}
+            prefillInput={cardPrefillInput}
+            onPrefillConsumed={() => setCardPrefillInput(null)}
           />
         </Box>
       </Drawer>

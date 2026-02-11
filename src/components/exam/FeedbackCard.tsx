@@ -13,11 +13,14 @@ interface Props {
 export function FeedbackCard({ feedback, explanation }: Props) {
   return (
     <Card
+      withBorder
+      radius="lg"
       p="lg"
-      radius="md"
+      bg={feedback.isCorrect ? 'green.0' : 'red.0'}
       style={{
-        background: feedback.isCorrect ? 'rgba(34, 197, 94, 0.05)' : 'rgba(239, 68, 68, 0.05)',
-        border: `1px solid ${feedback.isCorrect ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+        borderColor: feedback.isCorrect
+          ? 'var(--mantine-color-green-3)'
+          : 'var(--mantine-color-red-3)',
       }}
     >
       <Stack gap="sm">

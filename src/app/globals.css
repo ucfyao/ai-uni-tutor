@@ -448,6 +448,19 @@ body {
   }
 }
 
+/* Thinking indicator bounce */
+@keyframes thinkingBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
 /* Streaming cursor blink animation */
 @keyframes cursorBlink {
   0%,
@@ -487,6 +500,36 @@ body {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.5s ease-out forwards;
+}
+
+/* Polished scrollbar */
+.mantine-ScrollArea-scrollbar {
+  transition:
+    opacity 0.2s ease,
+    width 0.2s ease !important;
+}
+
+.mantine-ScrollArea-scrollbar[data-orientation='vertical'] {
+  width: 6px !important;
+}
+
+.mantine-ScrollArea-scrollbar[data-orientation='vertical']:hover {
+  width: 8px !important;
+}
+
+.mantine-ScrollArea-thumb {
+  background-color: var(--mantine-color-gray-3) !important;
+  border-radius: 99px !important;
+}
+
+/* Message action bar - show on hover */
+[data-message-bubble]:hover .message-actions {
+  opacity: 1 !important;
+}
+
+/* Code block copy button - show on hover */
+.group\/code:hover .code-copy-btn {
+  opacity: 1 !important;
 }
 
 /* Marketing homepage: gradient text, pulse glow, animation delays (from hub) */
@@ -663,4 +706,47 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -0.03em;
+}
+
+/* Message entry animations */
+@keyframes msgEnterLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes msgEnterRight {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.msg-enter-left {
+  animation: msgEnterLeft 0.25s ease-out;
+}
+
+.msg-enter-right {
+  animation: msgEnterRight 0.25s ease-out;
+}
+
+/* Scroll to bottom button entrance */
+@keyframes scrollBtnIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

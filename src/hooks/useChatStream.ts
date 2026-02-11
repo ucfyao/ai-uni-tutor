@@ -20,12 +20,14 @@ export function useChatStream() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
 
   const streamChatResponse = useCallback(
     async (options: StreamChatOptions, callbacks: StreamCallbacks) => {
       const { course, mode, history, userInput, images = [] } = options;
       const { onChunk, onError, onComplete } = callbacks;
 
+      cancelledRef.current = false;
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
@@ -111,11 +113,18 @@ export function useChatStream() {
         setStreamingMsgId(null);
       } catch (error) {
         clearTimeout(timeoutId);
-        console.error('Stream error:', error);
 
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (cancelledRef.current) {
+          // User clicked stop - keep partial response
+          try {
+            await onComplete();
+          } catch {
+            // ignore errors during cancel completion
+          }
+        } else if (error instanceof Error && error.name === 'AbortError') {
           onError('Request timed out. Please try again.', false, true);
         } else {
+          console.error('Stream error:', error);
           onError('Failed to connect to server. Please check your connection.', false, true);
         }
         setIsStreaming(false);
@@ -126,12 +135,12 @@ export function useChatStream() {
   );
 
   const cancelStream = useCallback(() => {
+    cancelledRef.current = true;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    setIsStreaming(false);
-    setStreamingMsgId(null);
+    // State cleanup is handled by the catch block in streamChatResponse
   }, []);
 
   return {

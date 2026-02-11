@@ -133,6 +133,8 @@ export interface Database {
           name: string;
           status: 'processing' | 'ready' | 'error';
           status_message: string | null;
+          doc_type: 'lecture' | 'exam' | 'assignment';
+          course_id: string | null;
           created_at: string;
           metadata: Json;
         };
@@ -142,6 +144,8 @@ export interface Database {
           name: string;
           status?: 'processing' | 'ready' | 'error';
           status_message?: string | null;
+          doc_type?: 'lecture' | 'exam' | 'assignment';
+          course_id?: string | null;
           created_at?: string;
           metadata?: Json;
         };
@@ -151,6 +155,8 @@ export interface Database {
           name?: string;
           status?: 'processing' | 'ready' | 'error';
           status_message?: string | null;
+          doc_type?: 'lecture' | 'exam' | 'assignment';
+          course_id?: string | null;
           created_at?: string;
           metadata?: Json;
         };
@@ -275,6 +281,7 @@ export interface Database {
           id: string;
           user_id: string;
           paper_id: string;
+          session_id: string | null;
           title: string;
           questions: Json;
           responses: Json;
@@ -288,6 +295,7 @@ export interface Database {
           id?: string;
           user_id: string;
           paper_id: string;
+          session_id?: string | null;
           title: string;
           questions?: Json;
           responses?: Json;
@@ -301,6 +309,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           paper_id?: string;
+          session_id?: string | null;
           title?: string;
           questions?: Json;
           responses?: Json;

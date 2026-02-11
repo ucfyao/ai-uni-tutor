@@ -15,15 +15,7 @@ interface Props {
 
 export function QuestionCard({ question, index, total, value, onChange, disabled }: Props) {
   return (
-    <Card
-      p="lg"
-      radius="md"
-      style={{
-        background: 'rgba(255,255,255,0.03)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.08)',
-      }}
-    >
+    <Card withBorder radius="lg" p="lg">
       <Stack gap="md">
         <Group justify="space-between">
           <Badge variant="light" color="indigo">

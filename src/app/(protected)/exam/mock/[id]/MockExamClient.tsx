@@ -3,7 +3,7 @@
 import { IconArrowRight, IconCheck, IconTrophy } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState, useTransition } from 'react';
-import { Button, Card, Group, Progress, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Container, Group, Progress, Stack, Text, Title } from '@mantine/core';
 import { submitMockAnswer } from '@/app/actions/mock-exams';
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
@@ -69,124 +69,119 @@ export function MockExamClient({ initialMock }: Props) {
     const reviewR = mock.responses[reviewIndex];
 
     return (
-      <Stack gap="xl" p="md" maw={800} mx="auto">
-        <Card
-          p="xl"
-          radius="md"
-          ta="center"
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <IconTrophy size={48} color="gold" />
-          <Title order={2} mt="md">
-            Exam Completed!
-          </Title>
-          <Text size="xl" fw={700} mt="sm">
-            {mock.score}/{mock.totalPoints}
-          </Text>
-          <Progress
-            value={(mock.score! / mock.totalPoints) * 100}
-            mt="md"
-            size="lg"
-            color={mock.score! / mock.totalPoints >= 0.6 ? 'green' : 'red'}
-          />
-        </Card>
+      <Container size="md" py={48}>
+        <Stack gap="xl">
+          <Card withBorder radius="lg" p="xl" ta="center">
+            <IconTrophy size={48} color="gold" />
+            <Title order={2} mt="md">
+              Exam Completed!
+            </Title>
+            <Text size="xl" fw={700} mt="sm">
+              {mock.score}/{mock.totalPoints}
+            </Text>
+            <Progress
+              value={(mock.score! / mock.totalPoints) * 100}
+              mt="md"
+              size="lg"
+              color={mock.score! / mock.totalPoints >= 0.6 ? 'green' : 'red'}
+            />
+          </Card>
 
-        {/* Review section */}
-        <Title order={4}>Review Questions</Title>
-        {reviewQ && (
-          <QuestionCard
-            question={reviewQ}
-            index={reviewIndex}
-            total={mock.questions.length}
-            value={reviewR?.userAnswer ?? ''}
-            onChange={() => {}}
-            disabled
-          />
-        )}
-        {reviewR && reviewQ && (
-          <FeedbackCard feedback={reviewR} explanation={reviewQ.explanation} />
-        )}
+          {/* Review section */}
+          <Title order={4}>Review Questions</Title>
+          {reviewQ && (
+            <QuestionCard
+              question={reviewQ}
+              index={reviewIndex}
+              total={mock.questions.length}
+              value={reviewR?.userAnswer ?? ''}
+              onChange={() => {}}
+              disabled
+            />
+          )}
+          {reviewR && reviewQ && (
+            <FeedbackCard feedback={reviewR} explanation={reviewQ.explanation} />
+          )}
 
-        <Group justify="space-between">
-          <Button
-            variant="subtle"
-            disabled={reviewIndex <= 0}
-            onClick={() => setReviewIndex((i) => i - 1)}
-          >
-            Previous
+          <Group justify="space-between">
+            <Button
+              variant="subtle"
+              disabled={reviewIndex <= 0}
+              onClick={() => setReviewIndex((i) => i - 1)}
+            >
+              Previous
+            </Button>
+            <Text size="sm" c="dimmed">
+              {reviewIndex + 1} / {mock.questions.length}
+            </Text>
+            <Button
+              variant="subtle"
+              disabled={reviewIndex >= mock.questions.length - 1}
+              onClick={() => setReviewIndex((i) => i + 1)}
+            >
+              Next
+            </Button>
+          </Group>
+
+          <Button variant="subtle" onClick={() => router.push('/exam')}>
+            Back to Exam Practice
           </Button>
-          <Text size="sm" c="dimmed">
-            {reviewIndex + 1} / {mock.questions.length}
-          </Text>
-          <Button
-            variant="subtle"
-            disabled={reviewIndex >= mock.questions.length - 1}
-            onClick={() => setReviewIndex((i) => i + 1)}
-          >
-            Next
-          </Button>
-        </Group>
-
-        <Button variant="subtle" onClick={() => router.push('/exam')}>
-          Back to Exam Practice
-        </Button>
-      </Stack>
+        </Stack>
+      </Container>
     );
   }
 
   return (
-    <Stack gap="xl" p="md" maw={800} mx="auto">
-      {/* Progress header */}
-      <div>
-        <Group justify="space-between" mb="xs">
-          <Text size="sm" fw={500}>
-            {mock.title}
-          </Text>
-          <Text size="sm" c="dimmed">
-            Question {mock.currentIndex + 1}/{mock.questions.length} · {earnedPoints} pts earned
-          </Text>
-        </Group>
-        <Progress value={progress} size="sm" color="indigo" />
-      </div>
+    <Container size="md" py={48}>
+      <Stack gap="xl">
+        {/* Progress header */}
+        <div>
+          <Group justify="space-between" mb="xs">
+            <Text size="sm" fw={500}>
+              {mock.title}
+            </Text>
+            <Text size="sm" c="dimmed">
+              Question {mock.currentIndex + 1}/{mock.questions.length} · {earnedPoints} pts earned
+            </Text>
+          </Group>
+          <Progress value={progress} size="sm" color="indigo" />
+        </div>
 
-      {/* Current question */}
-      {currentQuestion && (
-        <QuestionCard
-          question={currentQuestion}
-          index={mock.currentIndex}
-          total={mock.questions.length}
-          value={userAnswer}
-          onChange={setUserAnswer}
-          disabled={!!feedback}
-        />
-      )}
-
-      {/* Feedback */}
-      {feedback && currentQuestion && (
-        <FeedbackCard feedback={feedback} explanation={currentQuestion.explanation} />
-      )}
-
-      {/* Actions */}
-      <Group justify="flex-end">
-        {!feedback ? (
-          <Button
-            leftSection={<IconCheck size={16} />}
-            loading={isPending}
-            disabled={!userAnswer.trim()}
-            onClick={handleSubmit}
-          >
-            Submit Answer
-          </Button>
-        ) : (
-          <Button rightSection={<IconArrowRight size={16} />} onClick={handleNext}>
-            {mock.currentIndex >= mock.questions.length - 1 ? 'Finish Exam' : 'Next Question'}
-          </Button>
+        {/* Current question */}
+        {currentQuestion && (
+          <QuestionCard
+            question={currentQuestion}
+            index={mock.currentIndex}
+            total={mock.questions.length}
+            value={userAnswer}
+            onChange={setUserAnswer}
+            disabled={!!feedback}
+          />
         )}
-      </Group>
-    </Stack>
+
+        {/* Feedback */}
+        {feedback && currentQuestion && (
+          <FeedbackCard feedback={feedback} explanation={currentQuestion.explanation} />
+        )}
+
+        {/* Actions */}
+        <Group justify="flex-end">
+          {!feedback ? (
+            <Button
+              leftSection={<IconCheck size={16} />}
+              loading={isPending}
+              disabled={!userAnswer.trim()}
+              onClick={handleSubmit}
+            >
+              Submit Answer
+            </Button>
+          ) : (
+            <Button rightSection={<IconArrowRight size={16} />} onClick={handleNext}>
+              {mock.currentIndex >= mock.questions.length - 1 ? 'Finish Exam' : 'Next Question'}
+            </Button>
+          )}
+        </Group>
+      </Stack>
+    </Container>
   );
 }

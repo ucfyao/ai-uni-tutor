@@ -1,9 +1,35 @@
-import { Quote } from 'lucide-react';
+import { Check, Copy, Quote, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Box, Button, Image, Portal, SimpleGrid, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Group,
+  Image,
+  Portal,
+  SimpleGrid,
+  Text,
+  Tooltip,
+} from '@mantine/core';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import MarkdownRenderer from '../MarkdownRenderer';
+
+// Relative time formatting (hoisted outside component)
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (seconds < 60) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+
+  const date = new Date(timestamp);
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
 
 // Title generation function (hoisted outside component)
 function generateSmartTitle(text: string): string {
@@ -37,7 +63,66 @@ interface MessageBubbleProps {
       source?: { messageId: string; role: 'user' | 'assistant' };
     },
   ) => void;
+  onRegenerate?: (messageId: string) => void;
 }
+
+const MessageActionBar: React.FC<{
+  isUser: boolean;
+  content: string;
+  messageId: string;
+  timestamp: number;
+  onRegenerate?: (messageId: string) => void;
+}> = ({ isUser, content, messageId, timestamp, onRegenerate }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard
+      .writeText(content)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
+  }, [content]);
+
+  return (
+    <Group
+      gap={2}
+      mt={6}
+      className="message-actions"
+      style={{ opacity: 0, transition: 'opacity 0.15s ease' }}
+    >
+      <Tooltip label={copied ? 'Copied!' : 'Copy'} position="bottom" withArrow>
+        <ActionIcon
+          variant="subtle"
+          color={copied ? 'teal' : 'gray'}
+          size={28}
+          radius="md"
+          onClick={handleCopy}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </ActionIcon>
+      </Tooltip>
+
+      {!isUser && onRegenerate && (
+        <Tooltip label="Regenerate" position="bottom" withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size={28}
+            radius="md"
+            onClick={() => onRegenerate(messageId)}
+          >
+            <RefreshCw size={14} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+      <Text size="xs" c="dimmed" ml={4}>
+        {formatRelativeTime(timestamp)}
+      </Text>
+    </Group>
+  );
+};
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -49,6 +134,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   knowledgeCards = [],
   onHighlightClick,
   onAddCard,
+  onRegenerate,
 }) => {
   const isUser = message.role === 'user';
   const [selection, setSelection] = useState<{
@@ -81,7 +167,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       if (isUser || !onAddCard) return;
 
       const windowSelection = window.getSelection();
-      if (windowSelection && windowSelection.toString().trim().length > 3) {
+      if (windowSelection && windowSelection.toString().trim().length > 0) {
         const text = windowSelection.toString().trim();
         const range = windowSelection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
@@ -138,19 +224,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selection, handleExplainSelection]);
 
-  // Clear selection on outside click
+  // Clear selection on outside click or when native selection is lost
   useEffect(() => {
-    const clearSelection = (e: MouseEvent) => {
+    if (!selection) return;
+    const onMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('[data-quick-add-btn]')) return;
-
-      if (!window.getSelection()?.toString()) {
-        setSelection(null);
-      }
+      if (target.closest('[data-message-bubble]')) return;
+      setSelection(null);
     };
-    document.addEventListener('mousedown', clearSelection);
-    return () => document.removeEventListener('mousedown', clearSelection);
-  }, []);
+    // After any click completes, check if native selection was cleared
+    const onMouseUp = () => {
+      requestAnimationFrame(() => {
+        if (!window.getSelection()?.toString().trim()) {
+          setSelection(null);
+        }
+      });
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [selection]);
 
   // Preserve native selection highlight after rendering the floating action.
   // Force-restore the selection range to keep the active highlight visible.
@@ -228,6 +325,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   return (
     <Box
+      data-message-bubble
       style={{
         width: isUser ? 'auto' : '100%',
         maxWidth: isUser ? '85%' : '100%',
@@ -238,9 +336,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         p="12px 16px"
         onMouseUp={handleMouseUp} // Listen for selection
         style={{
-          borderRadius: '16px',
-          background: isUser ? 'var(--mantine-color-gray-0)' : 'transparent',
-          border: isUser ? '1px solid var(--mantine-color-gray-2)' : 'none',
+          borderRadius: isUser ? '18px 18px 4px 18px' : '16px',
+          background: isUser
+            ? 'linear-gradient(135deg, var(--mantine-color-gray-0), var(--mantine-color-gray-1))'
+            : 'transparent',
+          borderWidth: isUser ? '1px' : 0,
+          borderStyle: 'solid',
+          borderColor: isUser ? 'var(--mantine-color-gray-2)' : 'transparent',
           boxShadow: isUser ? '0 1px 6px rgba(0, 0, 0, 0.03)' : 'none',
           color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
           position: 'relative',
@@ -356,6 +458,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </Portal>
         )}
       </Box>
+
+      {/* Message Action Bar - outside bubble */}
+      {!isStreaming && (
+        <MessageActionBar
+          isUser={isUser}
+          content={message.content}
+          messageId={message.id}
+          timestamp={message.timestamp}
+          onRegenerate={onRegenerate}
+        />
+      )}
     </Box>
   );
 };

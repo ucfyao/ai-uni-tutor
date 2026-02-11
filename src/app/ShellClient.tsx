@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
+import { getMockExamIdBySessionId, startMockExamSession } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import NewSessionModal from '@/components/NewSessionModal';
 import RenameSessionModal from '@/components/RenameSessionModal';
@@ -30,7 +31,10 @@ export default function ShellClient({ children }: { children: React.ReactNode })
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   useEffect(() => {
-    const id = pathname?.match(/^\/(lecture|assignment|exam)\/([^/]+)/)?.[2] ?? null;
+    const id =
+      pathname?.match(/^\/(lecture|assignment)\/([^/]+)/)?.[2] ??
+      pathname?.match(/^\/exam\/mock\/([^/]+)/)?.[1] ??
+      null;
     setActiveSessionId(id);
   }, [pathname]);
 
@@ -58,36 +62,61 @@ export default function ShellClient({ children }: { children: React.ReactNode })
 
   const toggleSidebar = () => (isMobile ? toggleMobile() : toggleDesktop());
 
-  // Pre-select mode when opening New Chat from a mode page (e.g. /lecture/xxx -> Lecture Helper)
-  const pathnameMode: TutoringMode | null = pathname?.startsWith('/lecture')
-    ? 'Lecture Helper'
-    : pathname?.startsWith('/assignment')
-      ? 'Assignment Coach'
-      : pathname?.startsWith('/exam')
-        ? 'Exam Prep'
-        : null;
+  // Pre-selected mode for NewSessionModal (set by sidebar module [+] buttons)
+  const [preSelectedMode, setPreSelectedMode] = useState<TutoringMode | null>(null);
+
+  const openModalForMode = (mode: TutoringMode) => {
+    setPreSelectedMode(mode);
+    openModal();
+  };
 
   const handleStartSession = async (course: Course, mode: TutoringMode) => {
     closeModal();
     const newId = await addSession(course, mode);
-    if (newId) {
+    if (!newId) {
+      showNotification({ title: 'Error', message: 'Failed to create session', color: 'red' });
+      return;
+    }
+
+    if (mode === 'Mock Exam') {
+      // Mock Exam: create session, then generate mock exam and navigate to it
+      const result = await startMockExamSession(newId, course.code);
+      if (result.success) {
+        const targetPath = `/exam/mock/${result.mockId}`;
+        setActiveSessionId(newId);
+        router.push(targetPath);
+      } else {
+        showNotification({ title: 'Error', message: result.error, color: 'red' });
+      }
+    } else {
+      // Chat modes: navigate to chat page
       const modeRoute = MODES_METADATA[mode].id;
       const targetPath = `/${modeRoute}/${newId}`;
       setActiveSessionId(newId);
       window.history.pushState(null, '', targetPath);
       router.push(targetPath);
-    } else {
-      showNotification({ title: 'Error', message: 'Failed to create session', color: 'red' });
     }
   };
 
-  const handleSelectSession = (id: string) => {
+  const handleSelectSession = async (id: string) => {
     const session = sessions.find((s) => s.id === id);
-    if (session?.mode) {
+    if (!session?.mode) {
+      router.push(`/`);
+      if (isMobile) toggleMobile();
+      return;
+    }
+
+    if (session.mode === 'Mock Exam') {
+      // Look up the mock exam ID linked to this session
+      const mockId = await getMockExamIdBySessionId(id);
+      if (mockId) {
+        router.push(`/exam/mock/${mockId}`);
+      } else {
+        router.push('/exam');
+      }
+    } else {
       const modeRoute = MODES_METADATA[session.mode].id;
       router.push(`/${modeRoute}/${id}`);
-    } else {
-      router.push(`/`);
     }
     if (isMobile) toggleMobile();
   };
@@ -171,7 +200,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
             sessions={sessions}
             activeSessionId={activeSessionId}
             onSelectSession={handleSelectSession}
-            onNewChat={openModal}
+            onNewChat={openModalForMode}
             onToggleSidebar={toggleDesktop}
             onTogglePin={handleTogglePin}
             onRenameSession={(id) => {
@@ -210,8 +239,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
           sessions={sessions}
           activeSessionId={activeSessionId}
           onSelectSession={handleSelectSession}
-          onNewChat={() => {
-            openModal();
+          onNewChat={(mode: TutoringMode) => {
+            openModalForMode(mode);
             toggleMobile();
           }}
           onToggleSidebar={toggleMobile}
@@ -235,9 +264,12 @@ export default function ShellClient({ children }: { children: React.ReactNode })
 
       <NewSessionModal
         opened={modalOpened}
-        onClose={closeModal}
+        onClose={() => {
+          closeModal();
+          setPreSelectedMode(null);
+        }}
         onStart={handleStartSession}
-        preSelectedMode={pathnameMode}
+        preSelectedMode={preSelectedMode}
       />
 
       <RenameSessionModal

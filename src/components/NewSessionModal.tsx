@@ -10,10 +10,9 @@ import {
   Stack,
   Text,
   ThemeIcon,
-  Tooltip,
   UnstyledButton,
 } from '@mantine/core';
-import { MODES_LIST } from '@/constants/modes';
+import { MODES_METADATA } from '@/constants/modes';
 import { COURSES, UNIVERSITIES } from '../constants/index';
 import { PLACEHOLDERS } from '../constants/placeholders';
 import { Course, TutoringMode } from '../types/index';
@@ -25,10 +24,16 @@ interface NewSessionModalProps {
   preSelectedMode?: TutoringMode | null;
 }
 
+const MODE_LABELS: Record<TutoringMode, string> = {
+  'Lecture Helper': 'Lecture',
+  'Assignment Coach': 'Assignment',
+  'Mock Exam': 'Mock Exam',
+};
+
 const buttonShadowColors: Record<string, string> = {
   indigo: 'rgba(99, 102, 241, 0.25)',
   violet: 'rgba(139, 92, 246, 0.25)',
-  purple: 'rgba(168, 85, 247, 0.25)',
+  purple: 'rgba(147, 51, 234, 0.25)',
 };
 
 const selectStyles = {
@@ -63,7 +68,6 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
   onStart,
   preSelectedMode,
 }) => {
-  const [selectedMode, setSelectedMode] = useState<TutoringMode | null>(preSelectedMode || null);
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,24 +84,18 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     }
   }, [preSelectedMode]);
 
-  React.useEffect(() => {
-    if (opened && preSelectedMode) {
-      setSelectedMode(preSelectedMode);
-    }
-  }, [opened, preSelectedMode]);
-
   const filteredCourses = useMemo(() => {
     return COURSES.filter((c) => c.universityId === selectedUniId);
   }, [selectedUniId]);
 
   const handleStart = async () => {
     const course = COURSES.find((c) => c.id === selectedCourseId);
-    if (course && selectedMode) {
+    if (course && preSelectedMode) {
       setIsLoading(true);
       try {
         localStorage.setItem('lastUniId', course.universityId);
         localStorage.setItem('lastCourseId', course.id);
-        await onStart(course, selectedMode);
+        await onStart(course, preSelectedMode);
       } finally {
         setIsLoading(false);
       }
@@ -105,10 +103,13 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
   };
 
   const activeThemeColor = useMemo(() => {
-    if (!selectedMode) return 'indigo';
-    const mode = MODES_LIST.find((m) => m.label === selectedMode);
-    return mode?.color || 'indigo';
-  }, [selectedMode]);
+    if (!preSelectedMode) return 'indigo';
+    return MODES_METADATA[preSelectedMode]?.color || 'indigo';
+  }, [preSelectedMode]);
+
+  const modalTitle = preSelectedMode
+    ? `New ${MODE_LABELS[preSelectedMode]} Session`
+    : 'New Session';
 
   const FormRow = ({
     icon: Icon,
@@ -191,7 +192,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     </Box>
   );
 
-  const isFormValid = selectedMode && selectedCourseId;
+  const isFormValid = preSelectedMode && selectedCourseId;
 
   return (
     <Modal
@@ -215,7 +216,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
       <Stack gap={24}>
         <Group justify="space-between" align="center" mb={2}>
           <Text fw={800} size="22px" lts={-0.2} c="dark.9">
-            Smart Setup
+            {modalTitle}
           </Text>
           <UnstyledButton
             onClick={onClose}
@@ -223,7 +224,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
             h={36}
             className="flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
           >
-            <X size={18} strokeWidth={3} className="text-gray-300" />
+            <X size={18} strokeWidth={3} color="var(--mantine-color-gray-4)" />
           </UnstyledButton>
         </Group>
 
@@ -264,110 +265,6 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
           </FormRow>
         </Stack>
 
-        <Box>
-          <Group gap={8}>
-            {MODES_LIST.map((mode, index) => {
-              const Icon = mode.icon;
-              const isSelected = selectedMode === mode.label;
-              return (
-                <Tooltip
-                  key={mode.id}
-                  label={mode.intro.replace(/\*\*(.*?)\*\*\n\n/, '')}
-                  position="top"
-                  withArrow
-                  transitionProps={{ duration: 200, transition: 'pop-bottom-left' }}
-                  multiline
-                  w={220}
-                  radius="md"
-                  p="sm"
-                  color="dark"
-                  styles={{
-                    tooltip: {
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                      fontSize: '12px',
-                      lineHeight: 1.4,
-                    },
-                  }}
-                >
-                  <UnstyledButton
-                    onClick={() => setSelectedMode(mode.label)}
-                    className="animate-fade-in-up"
-                    style={{
-                      flex: 1,
-                      padding: '16px 8px',
-                      borderRadius: '16px',
-                      border: isSelected
-                        ? `2px solid var(--mantine-color-${mode.color}-3)`
-                        : '2px solid var(--mantine-color-gray-2)',
-                      backgroundColor: isSelected
-                        ? `var(--mantine-color-${mode.color}-0)`
-                        : 'white',
-                      boxShadow: isSelected
-                        ? `0 8px 20px -4px var(--mantine-color-${mode.color}-2)`
-                        : '0 2px 4px rgba(0,0,0,0.03)',
-                      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      animationDelay: `${index * 100}ms`,
-                      opacity: 0, // Start invisible for animation
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
-                        e.currentTarget.style.transform = 'translateY(-3px)';
-                        e.currentTarget.style.boxShadow = '0 12px 24px -8px rgba(0,0,0,0.08)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.borderColor = 'var(--mantine-color-gray-2)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.03)';
-                      }
-                    }}
-                  >
-                    <Stack gap={10} align="center" justify="center" h="100%">
-                      <ThemeIcon
-                        variant={isSelected ? 'white' : 'light'}
-                        color={isSelected ? mode.color : 'gray'}
-                        size={48}
-                        radius="xl"
-                        style={{
-                          boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
-                          transition: 'all 0.3s ease',
-                        }}
-                      >
-                        <Icon size={24} strokeWidth={isSelected ? 2.5 : 1.5} />
-                      </ThemeIcon>
-                      <Stack gap={2} align="center">
-                        <Text
-                          size="13px"
-                          fw={700}
-                          c={isSelected ? `${mode.color}.8` : 'dark.3'}
-                          ta="center"
-                          style={{ transition: 'color 0.2s ease' }}
-                        >
-                          {mode.label}
-                        </Text>
-                        <Text
-                          size="10px"
-                          fw={500}
-                          c={isSelected ? `${mode.color}.6` : 'dimmed'}
-                          ta="center"
-                          style={{ transition: 'color 0.2s ease' }}
-                        >
-                          {mode.desc}
-                        </Text>
-                      </Stack>
-                    </Stack>
-                  </UnstyledButton>
-                </Tooltip>
-              );
-            })}
-          </Group>
-        </Box>
-
         <Button
           fullWidth
           size="lg"
@@ -399,11 +296,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
           }}
           rightSection={!isLoading && isFormValid && <ArrowRight size={18} strokeWidth={3} />}
         >
-          {isLoading
-            ? 'Initializing...'
-            : selectedMode
-              ? `Initialize ${selectedMode}`
-              : 'Select a Learning Mode'}
+          {isLoading ? 'Initializing...' : 'Start Session'}
         </Button>
       </Stack>
     </Modal>

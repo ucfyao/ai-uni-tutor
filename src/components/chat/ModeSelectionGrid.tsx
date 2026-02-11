@@ -109,7 +109,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
 
       {/* Quick Actions Grid */}
       <SimpleGrid
-        cols={{ base: 1, sm: 2, md: 3 }}
+        cols={{ base: 1, sm: 2 }}
         spacing={{ base: 'md', sm: 'lg' }}
         verticalSpacing={{ base: 'md', sm: 'lg' }}
         style={{ alignContent: 'start' }}

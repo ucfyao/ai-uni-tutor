@@ -35,6 +35,9 @@ interface KnowledgePanelProps {
   /** Incrementing counter to force scroll even when scrollToCardId is the same */
   scrollTrigger?: number;
   onScrolledToCard?: () => void;
+  /** Pre-fill a card's input field (e.g. after Explain selection) */
+  prefillInput?: { cardId: string; text: string } | null;
+  onPrefillConsumed?: () => void;
 }
 
 export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
@@ -51,6 +54,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   scrollToCardId,
   scrollTrigger,
   onScrolledToCard,
+  prefillInput,
+  onPrefillConsumed,
 }) => {
   const [inputs, setInputs] = useState<{ [key: string]: string }>({});
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
@@ -86,6 +91,14 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
       else if (userCards.length > 0) setOpenedSections(['mine']);
     }
   }, [cards.length, openedSections.length, officialCards.length, userCards.length]);
+
+  // Pre-fill card input when requested (e.g. after Explain selection)
+  useEffect(() => {
+    if (prefillInput) {
+      setInputs((p) => ({ ...p, [prefillInput.cardId]: prefillInput.text }));
+      onPrefillConsumed?.();
+    }
+  }, [prefillInput, onPrefillConsumed]);
 
   // Memoize input change handler
   const handleInputChange = useCallback((cardId: string, value: string) => {

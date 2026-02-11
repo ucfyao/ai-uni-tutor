@@ -20,7 +20,7 @@ import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
 // VALIDATION SCHEMAS
 // ============================================================================
 
-const tutoringModeSchema = z.enum(['Lecture Helper', 'Assignment Coach', 'Exam Prep']);
+const tutoringModeSchema = z.enum(['Lecture Helper', 'Assignment Coach', 'Mock Exam']);
 
 const courseSchema = z.object({
   id: z.string().min(1),
