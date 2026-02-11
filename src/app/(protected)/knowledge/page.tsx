@@ -1,9 +1,9 @@
 import { AlertCircle } from 'lucide-react';
 import { redirect } from 'next/navigation';
-import { Alert, Box, Card, Container, Group, Stack, Text, Title } from '@mantine/core';
-import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
+import { Alert, Box, Container, Stack, Text, Title } from '@mantine/core';
+import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
-import { UploadButton } from './KnowledgeClient';
+import { KnowledgeClient } from './KnowledgeClient';
 
 export default async function KnowledgePage() {
   const user = await getCurrentUser();
@@ -68,27 +68,16 @@ export default async function KnowledgePage() {
   return (
     <Container size="md" py={48}>
       <Stack gap="xl">
-        <Group justify="space-between" align="flex-start">
-          <Box>
-            <Title order={1} fw={800} mb={4}>
-              Knowledge Base
-            </Title>
-            <Text c="dimmed" size="lg">
-              Course materials and documents for your studies.
-            </Text>
-          </Box>
-          <UploadButton />
-        </Group>
+        <Box>
+          <Title order={1} fw={800} mb={4}>
+            Knowledge Base
+          </Title>
+          <Text c="dimmed" size="lg">
+            Course materials and documents for your studies.
+          </Text>
+        </Box>
 
-        {documents.length > 0 ? (
-          <Card withBorder radius="lg" p={0}>
-            <KnowledgeTable documents={documents} />
-          </Card>
-        ) : (
-          <Alert variant="light" color="blue" icon={<AlertCircle size={16} />}>
-            No documents available yet. Upload your first document to get started.
-          </Alert>
-        )}
+        <KnowledgeClient documents={documents} />
       </Stack>
     </Container>
   );

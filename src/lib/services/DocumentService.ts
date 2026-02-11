@@ -52,6 +52,10 @@ export class DocumentService {
     await this.chunkRepo.createBatch(chunks);
   }
 
+  async saveChunksAndReturn(chunks: CreateDocumentChunkDTO[]): Promise<{ id: string }[]> {
+    return this.chunkRepo.createBatchAndReturn(chunks);
+  }
+
   async deleteDocument(docId: string, userId: string): Promise<void> {
     const isOwner = await this.docRepo.verifyOwnership(docId, userId);
     if (!isOwner) throw new Error('Unauthorized');

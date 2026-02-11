@@ -28,6 +28,23 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
     if (error) throw new DatabaseError(`Failed to insert document chunks: ${error.message}`, error);
   }
 
+  async createBatchAndReturn(chunks: CreateDocumentChunkDTO[]): Promise<{ id: string }[]> {
+    if (chunks.length === 0) return [];
+
+    const supabase = await createClient();
+    const rows = chunks.map((c) => ({
+      document_id: c.documentId,
+      content: c.content,
+      embedding: c.embedding,
+      metadata: c.metadata,
+    }));
+
+    const { data, error } = await supabase.from('document_chunks').insert(rows).select('id');
+
+    if (error) throw new DatabaseError(`Failed to insert document chunks: ${error.message}`, error);
+    return data ?? [];
+  }
+
   async deleteByDocumentId(documentId: string): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('document_chunks').delete().eq('document_id', documentId);

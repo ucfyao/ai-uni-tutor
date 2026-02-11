@@ -9,6 +9,7 @@ import type { CreateDocumentChunkDTO } from '../models/Document';
 
 export interface IDocumentChunkRepository {
   createBatch(chunks: CreateDocumentChunkDTO[]): Promise<void>;
+  createBatchAndReturn(chunks: CreateDocumentChunkDTO[]): Promise<{ id: string }[]>;
   deleteByDocumentId(documentId: string): Promise<void>;
   findByDocumentId(
     documentId: string,
