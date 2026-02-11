@@ -109,7 +109,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   if (isNewChat && mode && courseCode && onPromptSelect) {
     return (
       <Box bg="white" style={{ flex: 1, minHeight: 0 }}>
-        <ScrollArea h="100%" scrollbarSize={8} type="auto">
+        <ScrollArea h="100%" scrollbarSize={6} type="auto">
           <WelcomeScreen mode={mode} courseCode={courseCode} onPromptSelect={onPromptSelect} />
         </ScrollArea>
       </Box>
@@ -121,7 +121,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       <ScrollArea
         viewportRef={viewport}
         h="100%"
-        scrollbarSize={8}
+        scrollbarSize={6}
         type="auto"
         onScrollPositionChange={handleScroll}
       >

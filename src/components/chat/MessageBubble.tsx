@@ -15,6 +15,22 @@ import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 import MarkdownRenderer from '../MarkdownRenderer';
 
+// Relative time formatting (hoisted outside component)
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (seconds < 60) return '刚刚';
+  if (minutes < 60) return `${minutes}分钟前`;
+  if (hours < 24) return `${hours}小时前`;
+
+  const date = new Date(timestamp);
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
 // Title generation function (hoisted outside component)
 function generateSmartTitle(text: string): string {
   const cleaned = text.trim().replace(/\s+/g, ' ');
@@ -54,8 +70,9 @@ const MessageActionBar: React.FC<{
   isUser: boolean;
   content: string;
   messageId: string;
+  timestamp: number;
   onRegenerate?: (messageId: string) => void;
-}> = ({ isUser, content, messageId, onRegenerate }) => {
+}> = ({ isUser, content, messageId, timestamp, onRegenerate }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -100,6 +117,9 @@ const MessageActionBar: React.FC<{
           </ActionIcon>
         </Tooltip>
       )}
+      <Text size="xs" c="dimmed" ml={4}>
+        {formatRelativeTime(timestamp)}
+      </Text>
     </Group>
   );
 };
@@ -389,6 +409,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isUser={isUser}
             content={message.content}
             messageId={message.id}
+            timestamp={message.timestamp}
             onRegenerate={onRegenerate}
           />
         )}

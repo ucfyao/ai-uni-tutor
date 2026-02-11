@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Drawer, Group, Loader, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { generateChatResponse } from '@/app/actions/chat';
@@ -92,6 +92,21 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [scrollTrigger, setScrollTrigger] = useState(0);
 
   const isSendingRef = useRef(false);
+
+  // Session switch fade transition
+  const [mounted, setMounted] = useState(true);
+  const prevSessionIdRef = useRef(session?.id);
+
+  useEffect(() => {
+    if (session?.id !== prevSessionIdRef.current) {
+      setMounted(false);
+      const timer = setTimeout(() => {
+        setMounted(true);
+        prevSessionIdRef.current = session?.id;
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [session?.id]);
 
   // Open drawer when trigger changes (from header button click)
   React.useEffect(() => {
@@ -419,7 +434,17 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}
       >
         {/* Left: Chat - minHeight: 0 so MessageList ScrollArea gets bounded height */}
-        <Stack gap={0} h="100%" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+        <Stack
+          gap={0}
+          h="100%"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            opacity: mounted ? 1 : 0,
+            transition: 'opacity 0.15s ease',
+          }}
+        >
           <MessageList
             messages={session.messages}
             isTyping={isStreaming}

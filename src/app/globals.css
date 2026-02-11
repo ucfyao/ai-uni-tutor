@@ -502,6 +502,26 @@ body {
   animation: fade-in-up 0.5s ease-out forwards;
 }
 
+/* Polished scrollbar */
+.mantine-ScrollArea-scrollbar {
+  transition:
+    opacity 0.2s ease,
+    width 0.2s ease !important;
+}
+
+.mantine-ScrollArea-scrollbar[data-orientation='vertical'] {
+  width: 6px !important;
+}
+
+.mantine-ScrollArea-scrollbar[data-orientation='vertical']:hover {
+  width: 8px !important;
+}
+
+.mantine-ScrollArea-thumb {
+  background-color: var(--mantine-color-gray-3) !important;
+  border-radius: 99px !important;
+}
+
 /* Message action bar - show on hover */
 [data-message-bubble]:hover .message-actions {
   opacity: 1 !important;
