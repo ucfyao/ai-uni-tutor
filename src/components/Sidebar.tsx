@@ -39,7 +39,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/Logo';
 import { useProfile } from '@/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { ChatSession, TutoringMode } from '../types/index';

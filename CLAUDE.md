@@ -49,7 +49,7 @@ Mantine is the primary UI library. Tailwind only for micro-adjustments.
 ## Components
 
 - New UI: Mantine (`Box`, `Text`, `Title`, `Button`, `Group`, `Stack`, `SimpleGrid`)
-- `components/ui/`: Shadcn legacy — don't add new ones, keep existing for sidebar/pagination/carousel
+- Shadcn/ui has been fully removed — do not reintroduce @radix-ui or components/ui/
 - Icons: `lucide-react` (marketing), `@tabler/icons-react` (app)
 - All user-facing text via `useLanguage()` — never hardcode strings
 
