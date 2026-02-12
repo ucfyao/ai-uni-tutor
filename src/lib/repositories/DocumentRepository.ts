@@ -67,6 +67,9 @@ export class DocumentRepository implements IDocumentRepository {
     if (dto.docType) {
       insertData.doc_type = dto.docType as 'lecture' | 'exam' | 'assignment';
     }
+    if (dto.courseId !== undefined) {
+      insertData.course_id = dto.courseId;
+    }
     const { data, error } = await supabase.from('documents').insert(insertData).select().single();
 
     if (error || !data)
@@ -99,7 +102,7 @@ export class DocumentRepository implements IDocumentRepository {
     if (updates.metadata) updateData.metadata = updates.metadata;
     if (updates.docType) updateData.doc_type = updates.docType as 'lecture' | 'exam' | 'assignment';
     const { error } = await supabase.from('documents').update(updateData).eq('id', id);
-    if (error) throw new Error(`Failed to update document: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to update document: ${error.message}`, error);
   }
 
   async delete(id: string, userId: string): Promise<void> {

@@ -5,15 +5,13 @@
  */
 
 import type { Json } from '@/types/database';
-import type { CreateDocumentChunkDTO } from '../models/Document';
+import type { CreateDocumentChunkDTO, DocumentChunkEntity } from '../models/Document';
 
 export interface IDocumentChunkRepository {
   createBatch(chunks: CreateDocumentChunkDTO[]): Promise<void>;
   createBatchAndReturn(chunks: CreateDocumentChunkDTO[]): Promise<{ id: string }[]>;
   deleteByDocumentId(documentId: string): Promise<void>;
-  findByDocumentId(
-    documentId: string,
-  ): Promise<{ id: string; content: string; metadata: Json; embedding: number[] | null }[]>;
+  findByDocumentId(documentId: string): Promise<DocumentChunkEntity[]>;
   updateChunk(id: string, content: string, metadata?: Json): Promise<void>;
   deleteChunk(id: string): Promise<void>;
   updateEmbedding(id: string, embedding: number[]): Promise<void>;

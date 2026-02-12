@@ -7,9 +7,9 @@
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { MODE_CONFIGS } from '@/constants/modes';
 import { getChatService } from '@/lib/services/ChatService';
 import { getQuotaService } from '@/lib/services/QuotaService';
-import { StrategyFactory } from '@/lib/strategies';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ChatMessage, Course, TutoringMode } from '@/types';
 
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   // 4. Check Usage Limits
   const quotaService = getQuotaService();
-  const quota = await quotaService.checkAndConsume();
+  const quota = await quotaService.checkAndConsume(user.id);
 
   if (!quota.allowed) {
     return errorResponse(quota.error || 'Daily limit reached. Please upgrade your plan.', 429, {
@@ -96,8 +96,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 5. Get Strategy for the mode
-  const strategy = StrategyFactory.create(mode as TutoringMode);
+  // 5. Get mode config for post-processing
+  const modeConfig = MODE_CONFIGS[mode as keyof typeof MODE_CONFIGS];
 
   // 6. Convert history to ChatMessage format
   const chatHistory: ChatMessage[] = history.map((msg, index) => ({
@@ -133,9 +133,9 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
           }
 
-          // Post-process with strategy if available
-          if (strategy.postprocessResponse) {
-            const processed = strategy.postprocessResponse(fullResponse);
+          // Post-process with mode config if available
+          if (modeConfig?.postprocessResponse) {
+            const processed = modeConfig.postprocessResponse(fullResponse);
             // If post-processing added content, send it
             if (processed.length > fullResponse.length) {
               const additional = processed.slice(fullResponse.length);

@@ -62,7 +62,7 @@ export async function uploadDocument(
     const documentService = getDocumentService();
 
     // Enforce AI quota before processing (embedding generation uses Gemini)
-    await getQuotaService().enforce();
+    await getQuotaService().enforce(user.id);
 
     // Check for duplicates
     const isDuplicate = await documentService.checkDuplicate(user.id, file.name);

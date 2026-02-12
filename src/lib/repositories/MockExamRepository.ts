@@ -77,6 +77,17 @@ export class MockExamRepository implements IMockExamRepository {
     return this.mapToMockExam(data);
   }
 
+  async verifyOwnership(id: string, userId: string): Promise<boolean> {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('mock_exams')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+    return data !== null;
+  }
+
   async findBySessionId(sessionId: string): Promise<string | null> {
     const supabase = await createClient();
     const { data, error } = await supabase

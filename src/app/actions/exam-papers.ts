@@ -48,11 +48,11 @@ export async function uploadAndParseExamPaper(
     }
 
     // Enforce AI quota before calling Gemini
-    await getQuotaService().enforce();
+    await getQuotaService().enforce(user.id);
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const service = getExamPaperService();
-    const { paperId } = await service.parsePaper(buffer, file.name, options);
+    const { paperId } = await service.parsePaper(user.id, buffer, file.name, options);
 
     revalidatePath('/exam');
     return { status: 'success', message: 'Exam paper parsed successfully', paperId };
@@ -100,6 +100,6 @@ export async function deleteExamPaper(paperId: string) {
   if (!user) throw new Error('Unauthorized');
 
   const service = getExamPaperService();
-  await service.deletePaper(paperId);
+  await service.deletePaper(user.id, paperId);
   revalidatePath('/exam');
 }

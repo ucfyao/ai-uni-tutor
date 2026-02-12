@@ -5,12 +5,13 @@
  * and handling the interactive answer/judging flow via Gemini AI.
  */
 
+import { parseAIResponse } from '@/lib/ai-utils';
+import { AppError } from '@/lib/errors';
 import { getGenAI } from '@/lib/gemini';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { MockExamRepository } from '@/lib/repositories/MockExamRepository';
-import { getCurrentUser } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 import type { BatchSubmitResult, MockExam, MockExamQuestion, MockExamResponse } from '@/types/exam';
 
@@ -69,10 +70,10 @@ export class MockExamService {
    * Generate a mock exam from a topic using AI.
    * Creates a virtual exam paper (satisfying FK constraint) and a mock exam.
    */
-  async generateFromTopic(options: TopicGenerateOptions): Promise<{ mockId: string }> {
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
-
+  async generateFromTopic(
+    userId: string,
+    options: TopicGenerateOptions,
+  ): Promise<{ mockId: string }> {
     const ai = getGenAI();
 
     // Build the prompt
@@ -103,7 +104,7 @@ ${typesInstruction}
       },
     });
 
-    const parsed = JSON.parse(response.text || '{}') as {
+    const parsed = parseAIResponse<{
       title?: string;
       questions?: Array<{
         order_num: number;
@@ -116,11 +117,11 @@ ${typesInstruction}
         knowledge_point?: string;
         difficulty?: string;
       }>;
-    };
+    }>(response.text);
 
     const questions = parsed.questions ?? [];
     if (questions.length === 0) {
-      throw new Error('AI could not generate questions for this topic');
+      throw new AppError('VALIDATION', 'AI could not generate questions for this topic');
     }
 
     const title = parsed.title || `${options.topic} - Practice Exam`;
@@ -128,7 +129,7 @@ ${typesInstruction}
     // 1. Create virtual exam_paper
     const questionTypes = [...new Set(questions.map((q) => q.type))];
     const paperId = await this.paperRepo.create({
-      userId: user.id,
+      userId,
       title,
       course: options.topic,
       visibility: 'private',
@@ -169,7 +170,7 @@ ${typesInstruction}
 
     // 4. Create mock_exam
     const mockId = await this.mockRepo.create({
-      userId: user.id,
+      userId,
       paperId,
       sessionId: null,
       title,
@@ -187,41 +188,45 @@ ${typesInstruction}
    * Start a mock exam from a course code.
    * Finds an available exam paper for the course, generates a mock, and links it to the session.
    */
-  async startFromCourse(sessionId: string, courseCode: string): Promise<{ mockId: string }> {
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
-
+  async startFromCourse(
+    userId: string,
+    sessionId: string,
+    courseCode: string,
+  ): Promise<{ mockId: string }> {
     // Find an exam paper for this course (public or user's own)
     const paperId = await this.paperRepo.findByCourse(courseCode);
 
     if (!paperId) {
-      throw new Error(
+      throw new AppError(
+        'NOT_FOUND',
         'No exam papers available for this course yet. Ask your admin to upload past exams.',
       );
     }
 
     // Generate mock exam from the found paper
-    const { mockId } = await this.generateMock(paperId, sessionId);
+    const { mockId } = await this.generateMock(userId, paperId, sessionId);
     return { mockId };
   }
 
   /**
    * Generate a mock exam with AI-generated variant questions from a paper.
    */
-  async generateMock(paperId: string, sessionId?: string): Promise<{ mockId: string }> {
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
-
+  async generateMock(
+    userId: string,
+    paperId: string,
+    sessionId?: string,
+  ): Promise<{ mockId: string }> {
     // Fetch all original questions for the paper
     const questions = await this.paperRepo.findQuestionsByPaperId(paperId);
-    if (questions.length === 0) throw new Error('No questions found for this paper');
+    if (questions.length === 0)
+      throw new AppError('NOT_FOUND', 'No questions found for this paper');
 
     // Fetch paper title
     const paper = await this.paperRepo.findById(paperId);
-    if (!paper) throw new Error('Failed to fetch paper');
+    if (!paper) throw new AppError('NOT_FOUND', 'Paper not found');
 
     // Count existing mocks by this user for this paper (for naming)
-    const count = await this.mockRepo.countByUserAndPaper(user.id, paperId);
+    const count = await this.mockRepo.countByUserAndPaper(userId, paperId);
 
     const mockNumber = count + 1;
     const title = `${paper.title} #${mockNumber}`;
@@ -262,7 +267,12 @@ Return JSON with these exact fields:
               },
             });
 
-            const parsed = JSON.parse(response.text || '{}');
+            const parsed = parseAIResponse<{
+              content?: string;
+              options?: Record<string, string> | null;
+              answer?: string;
+              explanation?: string;
+            }>(response.text);
 
             return {
               content: parsed.content || q.content,
@@ -297,7 +307,7 @@ Return JSON with these exact fields:
 
     // Create mock_exams entry
     const mockId = await this.mockRepo.create({
-      userId: user.id,
+      userId,
       paperId,
       sessionId: sessionId ?? null,
       title,
@@ -349,7 +359,11 @@ Return JSON with these exact fields:
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
+      const parsed = parseAIResponse<{
+        is_correct?: boolean;
+        score?: number;
+        feedback?: string;
+      }>(response.text);
 
       return {
         questionIndex,
@@ -381,19 +395,22 @@ Return JSON with these exact fields:
    * Submit and judge a student answer for a specific question in a mock exam.
    */
   async submitAnswer(
+    userId: string,
     mockId: string,
     questionIndex: number,
     userAnswer: string,
   ): Promise<MockExamResponse> {
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
+    if (!(await this.mockRepo.verifyOwnership(mockId, userId))) {
+      throw new AppError('NOT_FOUND', 'Mock exam not found');
+    }
 
     const mock = await this.mockRepo.findById(mockId);
-    if (!mock) throw new Error('Mock exam not found');
+    if (!mock) throw new AppError('NOT_FOUND', 'Mock exam not found');
 
-    if (mock.status === 'completed') throw new Error('Mock exam already completed');
+    if (mock.status === 'completed')
+      throw new AppError('VALIDATION', 'Mock exam already completed');
     if (questionIndex < 0 || questionIndex >= mock.questions.length) {
-      throw new Error('Invalid question index');
+      throw new AppError('VALIDATION', 'Invalid question index');
     }
 
     const question = mock.questions[questionIndex];
@@ -429,16 +446,19 @@ Return JSON with these exact fields:
    * Batch submit and judge all answers for exam mode.
    */
   async batchSubmitAnswers(
+    userId: string,
     mockId: string,
     answers: Array<{ questionIndex: number; userAnswer: string }>,
   ): Promise<BatchSubmitResult> {
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
+    if (!(await this.mockRepo.verifyOwnership(mockId, userId))) {
+      throw new AppError('NOT_FOUND', 'Mock exam not found');
+    }
 
     const mock = await this.mockRepo.findById(mockId);
-    if (!mock) throw new Error('Mock exam not found');
+    if (!mock) throw new AppError('NOT_FOUND', 'Mock exam not found');
 
-    if (mock.status === 'completed') throw new Error('Mock exam already completed');
+    if (mock.status === 'completed')
+      throw new AppError('VALIDATION', 'Mock exam already completed');
 
     // Judge all answers in batches of 3
     const allResponses: MockExamResponse[] = [];
@@ -489,18 +509,16 @@ Return JSON with these exact fields:
   /**
    * Fetch a single mock exam by ID.
    */
-  async getMock(mockId: string): Promise<MockExam | null> {
+  async getMock(userId: string, mockId: string): Promise<MockExam | null> {
+    if (!(await this.mockRepo.verifyOwnership(mockId, userId))) return null;
     return this.mockRepo.findById(mockId);
   }
 
   /**
    * Fetch mock exam history for the current user with pagination.
    */
-  async getHistory(limit = 20, offset = 0): Promise<MockExam[]> {
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
-
-    return this.mockRepo.findByUserId(user.id, limit, offset);
+  async getHistory(userId: string, limit = 20, offset = 0): Promise<MockExam[]> {
+    return this.mockRepo.findByUserId(userId, limit, offset);
   }
 }
 

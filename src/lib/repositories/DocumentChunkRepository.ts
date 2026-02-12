@@ -6,12 +6,28 @@
  */
 
 import type { IDocumentChunkRepository } from '@/lib/domain/interfaces/IDocumentChunkRepository';
-import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
+import type { CreateDocumentChunkDTO, DocumentChunkEntity } from '@/lib/domain/models/Document';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 
 export class DocumentChunkRepository implements IDocumentChunkRepository {
+  private mapToEntity(row: {
+    id: string;
+    document_id: string;
+    content: string;
+    metadata: Json;
+    embedding: number[] | null;
+  }): DocumentChunkEntity {
+    return {
+      id: row.id,
+      documentId: row.document_id,
+      content: row.content,
+      metadata: row.metadata,
+      embedding: row.embedding,
+    };
+  }
+
   async createBatch(chunks: CreateDocumentChunkDTO[]): Promise<void> {
     if (chunks.length === 0) return;
 
@@ -52,15 +68,15 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
     if (error) throw new DatabaseError(`Failed to delete document chunks: ${error.message}`, error);
   }
 
-  async findByDocumentId(documentId: string) {
+  async findByDocumentId(documentId: string): Promise<DocumentChunkEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('document_chunks')
-      .select('id, content, metadata, embedding')
+      .select('id, document_id, content, metadata, embedding')
       .eq('document_id', documentId)
       .order('created_at', { ascending: true });
-    if (error) throw new Error(`Failed to fetch chunks: ${error.message}`);
-    return data ?? [];
+    if (error) throw new DatabaseError(`Failed to fetch chunks: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
   async updateChunk(id: string, content: string, metadata?: Json): Promise<void> {
@@ -68,19 +84,19 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
     const updates: Record<string, unknown> = { content };
     if (metadata !== undefined) updates.metadata = metadata;
     const { error } = await supabase.from('document_chunks').update(updates).eq('id', id);
-    if (error) throw new Error(`Failed to update chunk: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to update chunk: ${error.message}`, error);
   }
 
   async deleteChunk(id: string): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('document_chunks').delete().eq('id', id);
-    if (error) throw new Error(`Failed to delete chunk: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to delete chunk: ${error.message}`, error);
   }
 
   async updateEmbedding(id: string, embedding: number[]): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('document_chunks').update({ embedding }).eq('id', id);
-    if (error) throw new Error(`Failed to update embedding: ${error.message}`);
+    if (error) throw new DatabaseError(`Failed to update embedding: ${error.message}`, error);
   }
 }
 

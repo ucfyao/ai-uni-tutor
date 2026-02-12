@@ -29,11 +29,20 @@ export interface CreateDocumentDTO {
   status?: DocumentStatus;
   metadata?: Json;
   docType?: string;
+  courseId?: string;
 }
 
 export interface UpdateDocumentStatusDTO {
   status: DocumentStatus;
   statusMessage?: string | null;
+}
+
+export interface DocumentChunkEntity {
+  id: string;
+  documentId: string;
+  content: string;
+  metadata: Json;
+  embedding: number[] | null;
 }
 
 export interface CreateDocumentChunkDTO {
