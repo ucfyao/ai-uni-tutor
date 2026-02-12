@@ -21,6 +21,7 @@ export interface IMockExamRepository {
   }): Promise<string>; // returns mockId
 
   findById(id: string): Promise<MockExam | null>;
+  verifyOwnership(id: string, userId: string): Promise<boolean>;
   findBySessionId(sessionId: string): Promise<string | null>; // returns mock ID
   findByUserId(userId: string, limit?: number, offset?: number): Promise<MockExam[]>;
   countByUserAndPaper(userId: string, paperId: string): Promise<number>;

@@ -67,6 +67,9 @@ export class DocumentRepository implements IDocumentRepository {
     if (dto.docType) {
       insertData.doc_type = dto.docType as 'lecture' | 'exam' | 'assignment';
     }
+    if (dto.courseId !== undefined) {
+      insertData.course_id = dto.courseId;
+    }
     const { data, error } = await supabase.from('documents').insert(insertData).select().single();
 
     if (error || !data)

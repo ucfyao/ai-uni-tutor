@@ -10,6 +10,7 @@ import type {
   DocumentEntity,
   DocumentStatus,
 } from '@/lib/domain/models/Document';
+import { ForbiddenError } from '@/lib/errors';
 import { getDocumentChunkRepository, getDocumentRepository } from '@/lib/repositories';
 import type { DocumentChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
 import type { DocumentRepository } from '@/lib/repositories/DocumentRepository';
@@ -34,6 +35,7 @@ export class DocumentService {
     name: string,
     metadata?: Json,
     docType?: string,
+    courseId?: string,
   ): Promise<DocumentEntity> {
     return this.docRepo.create({
       userId,
@@ -41,6 +43,7 @@ export class DocumentService {
       status: 'processing',
       metadata,
       docType,
+      courseId,
     });
   }
 
@@ -58,7 +61,7 @@ export class DocumentService {
 
   async deleteDocument(docId: string, userId: string): Promise<void> {
     const isOwner = await this.docRepo.verifyOwnership(docId, userId);
-    if (!isOwner) throw new Error('Unauthorized');
+    if (!isOwner) throw new ForbiddenError('You do not own this document');
 
     await this.docRepo.delete(docId, userId);
   }

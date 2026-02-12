@@ -2,13 +2,14 @@
  * Chat Service
  *
  * Business logic layer for AI chat generation.
- * Uses Strategy pattern for mode-specific behavior.
+ * Uses mode config map for mode-specific behavior.
  */
 
 import type { Content, Part } from '@google/genai';
+import { MODE_CONFIGS, type ModeConfig } from '@/constants/modes';
+import { AppError } from '@/lib/errors';
 import { getGenAI } from '@/lib/gemini';
 import { appendRagContext } from '@/lib/prompts';
-import { ITutoringStrategy, StrategyFactory } from '@/lib/strategies';
 import { ChatMessage, Course, TutoringMode } from '@/types';
 
 export interface ChatGenerationOptions {
@@ -29,6 +30,12 @@ export class ChatService {
   private readonly MAX_RETRIES = 3;
   private readonly BASE_DELAY = 2000;
 
+  private getModeConfig(mode: TutoringMode): ModeConfig {
+    const config = MODE_CONFIGS[mode as keyof typeof MODE_CONFIGS];
+    if (!config) throw new AppError('VALIDATION', `Unknown tutoring mode: ${mode}`);
+    return config;
+  }
+
   /**
    * Generate a complete AI response (non-streaming)
    */
@@ -38,16 +45,16 @@ export class ChatService {
     // Validation
     this.validateRequest(course, mode);
 
-    // Get strategy for the mode
-    const strategy = StrategyFactory.create(mode);
+    // Get config for the mode
+    const config = this.getModeConfig(mode);
 
-    // Build system instruction using strategy
-    let systemInstruction = await strategy.buildSystemInstruction(course, userInput);
+    // Build system instruction
+    let systemInstruction = config.buildSystemInstruction(course);
 
-    // Pre-process user input if strategy has preprocessor
+    // Pre-process user input if config has preprocessor
     let processedInput = userInput;
-    if (strategy.preprocessUserInput) {
-      processedInput = strategy.preprocessUserInput(userInput, { course, history });
+    if (config.preprocessInput) {
+      processedInput = config.preprocessInput(userInput);
     }
 
     // RAG Integration
@@ -55,18 +62,18 @@ export class ChatService {
       systemInstruction,
       processedInput,
       course.code,
-      strategy.getRAGMatchCount(),
+      config.ragMatchCount,
     );
 
     // Prepare contents for Gemini
     const contents = this.prepareContents(history, processedInput, images);
 
     // Generate with retry logic
-    const response = await this.generateWithRetry(contents, systemInstruction, strategy);
+    const response = await this.generateWithRetry(contents, systemInstruction, config);
 
-    // Post-process response if strategy has postprocessor
-    if (strategy.postprocessResponse) {
-      return strategy.postprocessResponse(response);
+    // Post-process response if config has postprocessor
+    if (config.postprocessResponse) {
+      return config.postprocessResponse(response);
     }
 
     return response;
@@ -81,16 +88,16 @@ export class ChatService {
     // Validation
     this.validateRequest(course, mode);
 
-    // Get strategy
-    const strategy = StrategyFactory.create(mode);
+    // Get config
+    const config = this.getModeConfig(mode);
 
     // Build system instruction
-    let systemInstruction = await strategy.buildSystemInstruction(course, userInput);
+    let systemInstruction = config.buildSystemInstruction(course);
 
     // Pre-process user input
     let processedInput = userInput;
-    if (strategy.preprocessUserInput) {
-      processedInput = strategy.preprocessUserInput(userInput, { course, history });
+    if (config.preprocessInput) {
+      processedInput = config.preprocessInput(userInput);
     }
 
     // RAG Integration
@@ -98,7 +105,7 @@ export class ChatService {
       systemInstruction,
       processedInput,
       course.code,
-      strategy.getRAGMatchCount(),
+      config.ragMatchCount,
     );
 
     // Prepare contents
@@ -113,7 +120,7 @@ export class ChatService {
       contents,
       config: {
         systemInstruction,
-        temperature: strategy.getTemperature(),
+        temperature: config.temperature,
       },
     });
 
@@ -170,10 +177,10 @@ Guidelines:
 
   private validateRequest(course: Course, mode: TutoringMode | null): void {
     if (!mode) {
-      throw new Error('Tutoring Mode must be selected before starting a chat.');
+      throw new AppError('VALIDATION', 'Tutoring Mode must be selected before starting a chat.');
     }
     if (!course?.code) {
-      throw new Error('Invalid Course Context. Please restart the session.');
+      throw new AppError('VALIDATION', 'Invalid Course Context. Please restart the session.');
     }
   }
 
@@ -248,7 +255,7 @@ Guidelines:
   private async generateWithRetry(
     contents: Content[],
     systemInstruction: string,
-    strategy: ITutoringStrategy,
+    config: ModeConfig,
   ): Promise<string> {
     const ai = getGenAI();
     let lastError: unknown;
@@ -260,7 +267,7 @@ Guidelines:
           contents,
           config: {
             systemInstruction,
-            temperature: strategy.getTemperature(),
+            temperature: config.temperature,
           },
         });
 

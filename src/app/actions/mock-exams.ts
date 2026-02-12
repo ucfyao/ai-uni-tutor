@@ -4,20 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { QuotaExceededError } from '@/lib/errors';
 import { getMockExamService } from '@/lib/services/MockExamService';
 import { getQuotaService } from '@/lib/services/QuotaService';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/server';
 import type { BatchSubmitResult, MockExam, MockExamResponse } from '@/types/exam';
-
-/** Verify the mock exam belongs to the current user. */
-async function verifyMockOwnership(mockId: string, userId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('mock_exams')
-    .select('id')
-    .eq('id', mockId)
-    .eq('user_id', userId)
-    .single();
-  return data !== null;
-}
 
 /**
  * Start a mock exam session: find an exam paper for the course, generate a mock, link to session.
@@ -30,10 +18,10 @@ export async function startMockExamSession(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    await getQuotaService().enforce();
+    await getQuotaService().enforce(user.id);
 
     const service = getMockExamService();
-    const result = await service.startFromCourse(sessionId, courseCode);
+    const result = await service.startFromCourse(user.id, sessionId, courseCode);
 
     revalidatePath('/exam');
     revalidatePath('/exam/history');
@@ -68,10 +56,10 @@ export async function generateMockFromTopic(
       return { success: false, error: 'Invalid difficulty level' };
     }
 
-    await getQuotaService().enforce();
+    await getQuotaService().enforce(user.id);
 
     const service = getMockExamService();
-    const { mockId } = await service.generateFromTopic({
+    const { mockId } = await service.generateFromTopic(user.id, {
       topic: topic.trim(),
       numQuestions,
       difficulty,
@@ -100,10 +88,10 @@ export async function generateMockExam(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    await getQuotaService().enforce();
+    await getQuotaService().enforce(user.id);
 
     const service = getMockExamService();
-    const { mockId } = await service.generateMock(paperId);
+    const { mockId } = await service.generateMock(user.id, paperId);
 
     revalidatePath('/exam');
     revalidatePath('/exam/history');
@@ -129,12 +117,8 @@ export async function submitMockAnswer(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    if (!(await verifyMockOwnership(mockId, user.id))) {
-      return { success: false, error: 'Mock exam not found' };
-    }
-
     const service = getMockExamService();
-    const feedback = await service.submitAnswer(mockId, questionIndex, userAnswer);
+    const feedback = await service.submitAnswer(user.id, mockId, questionIndex, userAnswer);
 
     return { success: true, feedback };
   } catch (error) {
@@ -154,12 +138,8 @@ export async function batchSubmitMockAnswers(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    if (!(await verifyMockOwnership(mockId, user.id))) {
-      return { success: false, error: 'Mock exam not found' };
-    }
-
     const service = getMockExamService();
-    const result = await service.batchSubmitAnswers(mockId, answers);
+    const result = await service.batchSubmitAnswers(user.id, mockId, answers);
 
     return { success: true, result };
   } catch (error) {
@@ -183,10 +163,8 @@ export async function getMockExamDetail(mockId: string): Promise<MockExam | null
   const user = await getCurrentUser();
   if (!user) return null;
 
-  if (!(await verifyMockOwnership(mockId, user.id))) return null;
-
   const service = getMockExamService();
-  return service.getMock(mockId);
+  return service.getMock(user.id, mockId);
 }
 
 export async function getMockExamList(): Promise<MockExam[]> {
@@ -194,5 +172,5 @@ export async function getMockExamList(): Promise<MockExam[]> {
   if (!user) return [];
 
   const service = getMockExamService();
-  return service.getHistory();
+  return service.getHistory(user.id);
 }

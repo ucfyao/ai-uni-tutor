@@ -127,7 +127,7 @@ export async function generateChatResponse(
 
     // Quota Check
     const quotaService = getQuotaService();
-    await quotaService.enforce();
+    await quotaService.enforce(user.id);
 
     // Delegate to ChatService (uses Strategy pattern internally)
     const chatService = getChatService();
@@ -163,7 +163,7 @@ export async function explainConcept(
 
     // Quota Check
     const quotaService = getQuotaService();
-    await quotaService.enforce();
+    await quotaService.enforce(user.id);
 
     // Delegate to ChatService
     const chatService = getChatService();

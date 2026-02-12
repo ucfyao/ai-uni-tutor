@@ -5,6 +5,7 @@
  * Uses Repositories for data access and encapsulates all session-related logic.
  */
 
+import { ForbiddenError } from '@/lib/errors';
 import { getMessageRepository, getSessionRepository } from '@/lib/repositories';
 import type { MessageRepository } from '@/lib/repositories/MessageRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
@@ -145,7 +146,7 @@ export class SessionService {
     // Verify ownership
     const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
     if (!hasAccess) {
-      throw new Error('Unauthorized: You do not own this session');
+      throw new ForbiddenError('You do not own this session');
     }
 
     await this.messageRepo.create({
@@ -162,7 +163,7 @@ export class SessionService {
    */
   async updateTitle(sessionId: string, userId: string, title: string): Promise<void> {
     const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
-    if (!hasAccess) throw new Error('Unauthorized');
+    if (!hasAccess) throw new ForbiddenError();
 
     await this.sessionRepo.update(sessionId, { title });
   }
@@ -172,7 +173,7 @@ export class SessionService {
    */
   async updateMode(sessionId: string, userId: string, mode: TutoringMode): Promise<void> {
     const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
-    if (!hasAccess) throw new Error('Unauthorized');
+    if (!hasAccess) throw new ForbiddenError();
 
     await this.sessionRepo.update(sessionId, { mode });
   }
@@ -182,7 +183,7 @@ export class SessionService {
    */
   async togglePin(sessionId: string, userId: string, isPinned: boolean): Promise<void> {
     const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
-    if (!hasAccess) throw new Error('Unauthorized');
+    if (!hasAccess) throw new ForbiddenError();
 
     await this.sessionRepo.update(sessionId, { isPinned });
   }
@@ -192,7 +193,7 @@ export class SessionService {
    */
   async toggleShare(sessionId: string, userId: string, isShared: boolean): Promise<void> {
     const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
-    if (!hasAccess) throw new Error('Unauthorized');
+    if (!hasAccess) throw new ForbiddenError();
 
     // Set expiration to 1 hour from now if sharing, null if unsharing
     const shareExpiresAt = isShared ? new Date(Date.now() + 60 * 60 * 1000) : null;
@@ -205,7 +206,7 @@ export class SessionService {
    */
   async deleteSession(sessionId: string, userId: string): Promise<void> {
     const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
-    if (!hasAccess) throw new Error('Unauthorized');
+    if (!hasAccess) throw new ForbiddenError();
 
     await this.sessionRepo.delete(sessionId);
   }

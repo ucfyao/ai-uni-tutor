@@ -29,6 +29,7 @@ export interface CreateDocumentDTO {
   status?: DocumentStatus;
   metadata?: Json;
   docType?: string;
+  courseId?: string;
 }
 
 export interface UpdateDocumentStatusDTO {

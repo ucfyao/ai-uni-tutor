@@ -10,7 +10,6 @@ import { QuotaExceededError } from '@/lib/errors';
 import { checkLLMUsage, getLLMUsage, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
 import { getProfileRepository } from '@/lib/repositories';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
-import { getCurrentUser } from '@/lib/supabase/server';
 
 export interface QuotaStatus {
   canSend: boolean;
@@ -51,15 +50,11 @@ export class QuotaService {
   /**
    * Check quota status without consuming (for UI display)
    */
-  async checkStatus(): Promise<QuotaStatus> {
-    const { user, isPro } = await this.getUserAndPlan();
-
-    if (!user) {
-      return { canSend: false, usage: 0, limit: 0, remaining: 0, isPro: false };
-    }
+  async checkStatus(userId: string): Promise<QuotaStatus> {
+    const isPro = await this.getIsPro(userId);
 
     const limit = this.getDailyLimit(isPro);
-    const usage = await getLLMUsage(user.id);
+    const usage = await getLLMUsage(userId);
     const remaining = Math.max(0, limit - usage);
     const canSend = usage < limit;
 
@@ -84,7 +79,7 @@ export class QuotaService {
   /**
    * Check and consume quota (call before AI requests)
    */
-  async checkAndConsume(): Promise<QuotaCheckResult> {
+  async checkAndConsume(userId: string): Promise<QuotaCheckResult> {
     // Skip in development unless explicitly enabled
     if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_RATELIMIT !== 'true') {
       return {
@@ -97,22 +92,11 @@ export class QuotaService {
     }
 
     try {
-      const { user, isPro } = await this.getUserAndPlan();
-
-      if (!user) {
-        return {
-          allowed: false,
-          usage: 0,
-          limit: 0,
-          remaining: 0,
-          isPro: false,
-          error: 'Unauthorized',
-        };
-      }
+      const isPro = await this.getIsPro(userId);
 
       // 1. LLM daily quota
       const dailyLimit = this.getDailyLimit(isPro);
-      const { success: dailyOk, count, remaining } = await checkLLMUsage(user.id, dailyLimit);
+      const { success: dailyOk, count, remaining } = await checkLLMUsage(userId, dailyLimit);
       if (!dailyOk) {
         return {
           allowed: false,
@@ -126,7 +110,7 @@ export class QuotaService {
 
       // 2. LLM per-window rate limit (chat/LLM endpoints only)
       const llmLimiter = isPro ? llmProRatelimit : llmFreeRatelimit;
-      const { success: windowOk } = await llmLimiter.limit(user.id);
+      const { success: windowOk } = await llmLimiter.limit(userId);
       if (!windowOk) {
         return {
           allowed: false,
@@ -161,8 +145,8 @@ export class QuotaService {
   /**
    * Enforce quota - throws if limit reached
    */
-  async enforce(): Promise<QuotaCheckResult> {
-    const result = await this.checkAndConsume();
+  async enforce(userId: string): Promise<QuotaCheckResult> {
+    const result = await this.checkAndConsume(userId);
 
     if (!result.allowed) {
       throw new QuotaExceededError(result.usage, result.limit);
@@ -173,16 +157,9 @@ export class QuotaService {
 
   // ==================== Private Methods ====================
 
-  private async getUserAndPlan(): Promise<{ user: { id: string } | null; isPro: boolean }> {
-    const user = await getCurrentUser();
-
-    if (!user) {
-      return { user: null, isPro: false };
-    }
-
-    const { isPro } = await this.profileRepo.getSubscriptionInfo(user.id);
-
-    return { user, isPro };
+  private async getIsPro(userId: string): Promise<boolean> {
+    const { isPro } = await this.profileRepo.getSubscriptionInfo(userId);
+    return isPro;
   }
 
   private getDailyLimit(isPro: boolean): number {

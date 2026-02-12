@@ -13,7 +13,6 @@ vi.mock('@/lib/redis', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
-  getCurrentUser: vi.fn(),
 }));
 
 type MockSupabaseClient = {
@@ -41,19 +40,7 @@ describe('QuotaService', () => {
     vi.stubEnv('ENABLE_RATELIMIT', 'true');
   });
 
-  it('should return default allowed if user not logged in', async () => {
-    vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue(null);
-
-    const result = await quotaService.checkAndConsume();
-
-    expect(result.allowed).toBe(false);
-    expect(result.error).toBe('Unauthorized');
-  });
-
   it('should check quota for Free user', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-123' } as any);
-
     // Mock Profile lookup (Free plan)
     const mockSupabase = {
       from: vi.fn().mockReturnThis(),
@@ -72,7 +59,7 @@ describe('QuotaService', () => {
       remaining: 5,
     });
 
-    const result = await quotaService.checkAndConsume();
+    const result = await quotaService.checkAndConsume('user-123');
 
     expect(result.allowed).toBe(true);
     expect(result.limit).toBe(10);
@@ -81,9 +68,6 @@ describe('QuotaService', () => {
   });
 
   it('should check quota for Pro user', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-pro' } as any);
-
     // Mock Profile lookup (Pro plan)
     const mockSupabase = {
       from: vi.fn().mockReturnThis(),
@@ -102,7 +86,7 @@ describe('QuotaService', () => {
       remaining: 50,
     });
 
-    const result = await quotaService.checkAndConsume();
+    const result = await quotaService.checkAndConsume('user-pro');
 
     expect(result.allowed).toBe(true);
     expect(result.limit).toBe(100);
@@ -110,9 +94,6 @@ describe('QuotaService', () => {
   });
 
   it('should fail when daily quota exceeded', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-limit' } as any);
-
     const mockSupabase = {
       from: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
@@ -130,16 +111,13 @@ describe('QuotaService', () => {
       remaining: 0,
     });
 
-    const result = await quotaService.checkAndConsume();
+    const result = await quotaService.checkAndConsume('user-limit');
 
     expect(result.allowed).toBe(false);
     expect(result.error).toContain('Daily limit reached');
   });
 
   it('should fail when LLM per-window rate limit exceeded', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-window' } as any);
-
     const mockSupabase = {
       from: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
@@ -165,7 +143,7 @@ describe('QuotaService', () => {
       pending: Promise.resolve(),
     });
 
-    const result = await quotaService.checkAndConsume();
+    const result = await quotaService.checkAndConsume('user-window');
 
     expect(result.allowed).toBe(false);
     expect(result.error).toContain('Too many LLM requests');
@@ -174,9 +152,6 @@ describe('QuotaService', () => {
   it('should fail open if redis fails', async () => {
     // Suppress console.error for this test as we expect an error to be logged
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(supabaseServer.getCurrentUser).mockResolvedValue({ id: 'user-error' } as any);
 
     const mockSupabase = {
       from: vi.fn().mockReturnThis(),
@@ -192,7 +167,7 @@ describe('QuotaService', () => {
     vi.mocked(redisLib.checkLLMUsage).mockRejectedValue(new Error('Redis connection failed'));
 
     // Should return success=true (Fail Open)
-    const result = await quotaService.checkAndConsume();
+    const result = await quotaService.checkAndConsume('user-error');
 
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(999); // Fallback value

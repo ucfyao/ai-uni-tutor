@@ -79,7 +79,7 @@ export async function POST(request: Request) {
 
       // ── Quota ──
       try {
-        await getQuotaService().enforce();
+        await getQuotaService().enforce(user.id);
       } catch (error) {
         if (error instanceof QuotaExceededError) {
           send('error', { message: error.message, code: 'QUOTA_EXCEEDED' });

@@ -7,7 +7,7 @@ import { parsePDF } from '@/lib/pdf';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
-import { createClient, getCurrentUser, requireAdmin } from '@/lib/supabase/server';
+import { createClient, requireAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
 import type { Database } from '@/types/database';
 import type { ExamPaper } from '@/types/exam';
@@ -104,7 +104,7 @@ export async function uploadAdminContent(
     if (docType === 'exam') {
       const buffer = Buffer.from(await file.arrayBuffer());
       const examService = getExamPaperService();
-      await examService.parsePaper(buffer, file.name, {
+      await examService.parsePaper(user.id, buffer, file.name, {
         school,
         course,
         year,
@@ -117,24 +117,20 @@ export async function uploadAdminContent(
     }
 
     /* ---- Otherwise, create a document with doc_type & course_id ---- */
-    const supabase = await createClient();
+    const documentService = getDocumentService();
 
-    // Insert directly to include doc_type and course_id columns
-    const { data: doc, error: insertErr } = await supabase
-      .from('documents')
-      .insert({
-        user_id: user.id,
-        name: file.name,
-        status: 'processing' as const,
-        doc_type: docType,
-        course_id: course ?? null,
-        metadata: { school: school || 'Unspecified', course: course || 'General' },
-      })
-      .select()
-      .single();
-
-    if (insertErr || !doc) {
-      return { status: 'error', message: `Failed to create document: ${insertErr?.message}` };
+    let doc;
+    try {
+      doc = await documentService.createDocument(
+        user.id,
+        file.name,
+        { school: school || 'Unspecified', course: course || 'General' },
+        docType,
+        course ?? undefined,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      return { status: 'error', message: `Failed to create document: ${msg}` };
     }
 
     revalidatePath('/admin/content');
@@ -149,7 +145,6 @@ export async function uploadAdminContent(
       pdfData = await parsePDF(buffer);
     } catch (e) {
       console.error('Error parsing PDF:', e);
-      const documentService = getDocumentService();
       await documentService.updateStatus(doc.id, 'error', 'Failed to parse PDF');
       revalidatePath('/admin/content');
       return { status: 'error', message: 'Failed to parse PDF content' };
@@ -160,7 +155,6 @@ export async function uploadAdminContent(
     const chunks = await chunkPages(pdfData.pages);
 
     // Generate Embeddings & Store Chunks
-    const documentService = getDocumentService();
     const chunksData: CreateDocumentChunkDTO[] = [];
     const BATCH_SIZE = 5;
     for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
@@ -212,7 +206,7 @@ export async function deleteAdminContent(id: string, type: 'document' | 'exam') 
 
   if (type === 'exam') {
     const service = getExamPaperService();
-    await service.deletePaper(id);
+    await service.deleteByAdmin(id);
   } else {
     // Admin delete – no user_id check
     const { error } = await supabase.from('documents').delete().eq('id', id);

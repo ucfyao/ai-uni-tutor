@@ -26,73 +26,138 @@ export async function POST(req: NextRequest) {
     return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const session = event.data.object as any;
-
   const supabase = await createClient();
 
-  if (event.type === 'checkout.session.completed') {
-    const subscription = (await stripe.subscriptions.retrieve(
-      session.subscription as string,
-    )) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  // Idempotency: skip already-processed events
+  const { data: existing } = await (supabase as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+    .from('stripe_events')
+    .select('id')
+    .eq('event_id', event.id)
+    .single();
 
-    if (!session?.metadata?.userId) {
-      return new NextResponse('User ID is required', { status: 400 });
+  if (existing) {
+    return new NextResponse(null, { status: 200 });
+  }
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      await handleCheckoutCompleted(event, supabase);
+    } else if (event.type === 'invoice.payment_succeeded') {
+      await handleInvoicePaymentSucceeded(event, supabase);
+    } else if (event.type === 'customer.subscription.updated') {
+      await handleSubscriptionUpdated(event, supabase);
+    } else if (event.type === 'customer.subscription.deleted') {
+      await handleSubscriptionDeleted(event, supabase);
     }
 
-    await supabase
-      .from('profiles')
-      .update({
-        stripe_subscription_id: subscription.id,
-        stripe_customer_id: subscription.customer as string,
-        subscription_status: subscription.status,
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      })
-      .eq('id', session.metadata.userId);
+    // Mark event as processed
+    await (supabase as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .from('stripe_events')
+      .insert({ event_id: event.id, event_type: event.type });
+
+    return new NextResponse(null, { status: 200 });
+  } catch (error) {
+    console.error(`Stripe webhook handler failed for ${event.type}:`, error);
+    return new NextResponse('Webhook handler failed', { status: 500 });
+  }
+}
+
+// ---------- Event Handlers ----------
+
+async function handleCheckoutCompleted(
+  event: Stripe.Event,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const session = event.data.object as Stripe.Checkout.Session;
+
+  if (!session?.metadata?.userId) {
+    throw new Error('Missing userId in checkout session metadata');
   }
 
-  if (event.type === 'invoice.payment_succeeded') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const invoice = event.data.object as any;
-    const subscription = (await stripe.subscriptions.retrieve(
-      invoice.subscription as string,
-    )) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-
-    await supabase
-      .from('profiles')
-      .update({
-        subscription_status: subscription.status,
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      })
-      .eq('stripe_subscription_id', subscription.id);
+  if (!session.subscription) {
+    throw new Error('Missing subscription in checkout session');
   }
 
-  if (event.type === 'customer.subscription.updated') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subscription = event.data.object as any;
+  const subscription = (await stripe.subscriptions.retrieve(session.subscription as string)) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-    await supabase
-      .from('profiles')
-      .update({
-        subscription_status: subscription.status,
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        stripe_price_id: subscription.items.data[0].price.id,
-      })
-      .eq('stripe_subscription_id', subscription.id);
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id: subscription.customer as string,
+      subscription_status: subscription.status,
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    })
+    .eq('id', session.metadata.userId);
+
+  if (error) {
+    throw new Error(`Failed to update profile for checkout: ${error.message}`);
+  }
+}
+
+async function handleInvoicePaymentSucceeded(
+  event: Stripe.Event,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invoice = event.data.object as any;
+
+  if (!invoice.subscription) {
+    return; // One-off invoice, not subscription-related
   }
 
-  if (event.type === 'customer.subscription.deleted') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subscription = event.data.object as any;
+  const subscription = (await stripe.subscriptions.retrieve(invoice.subscription as string)) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-    await supabase
-      .from('profiles')
-      .update({
-        subscription_status: 'canceled', // or subscription.status which should be 'canceled'
-        current_period_end: new Date().toISOString(), // Expire immediately or keep until period end? Usually deleted means gone.
-      })
-      .eq('stripe_subscription_id', subscription.id);
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      subscription_status: subscription.status,
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    })
+    .eq('stripe_subscription_id', subscription.id);
+
+  if (error) {
+    throw new Error(`Failed to update profile for invoice: ${error.message}`);
   }
+}
 
-  return new NextResponse(null, { status: 200 });
+async function handleSubscriptionUpdated(
+  event: Stripe.Event,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const subscription = event.data.object as Stripe.Subscription;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      subscription_status: subscription.status,
+      current_period_end: new Date(
+        (subscription as any).current_period_end * 1000, // eslint-disable-line @typescript-eslint/no-explicit-any
+      ).toISOString(),
+      stripe_price_id: subscription.items.data[0]?.price?.id ?? null,
+    })
+    .eq('stripe_subscription_id', subscription.id);
+
+  if (error) {
+    throw new Error(`Failed to update profile for subscription update: ${error.message}`);
+  }
+}
+
+async function handleSubscriptionDeleted(
+  event: Stripe.Event,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const subscription = event.data.object as Stripe.Subscription;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      subscription_status: 'canceled',
+      current_period_end: new Date().toISOString(),
+    })
+    .eq('stripe_subscription_id', subscription.id);
+
+  if (error) {
+    throw new Error(`Failed to update profile for subscription deletion: ${error.message}`);
+  }
 }
