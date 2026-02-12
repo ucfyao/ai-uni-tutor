@@ -37,6 +37,14 @@ export interface UpdateDocumentStatusDTO {
   statusMessage?: string | null;
 }
 
+export interface DocumentChunkEntity {
+  id: string;
+  documentId: string;
+  content: string;
+  metadata: Json;
+  embedding: number[] | null;
+}
+
 export interface CreateDocumentChunkDTO {
   documentId: string;
   content: string;
