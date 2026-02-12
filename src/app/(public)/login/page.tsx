@@ -18,7 +18,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/Logo';
 import { login, signup } from './actions';
 
 export default function LoginPage() {

@@ -6,7 +6,7 @@ import remarkMath from 'remark-math';
 import React from 'react';
 import { Badge, Box, Button, Container, Group, Stack, Text, Title } from '@mantine/core';
 import { getSharedSession } from '@/app/actions/chat';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/Logo';
 import { ChatMessage } from '@/types/index';
 import 'katex/dist/katex.min.css';
 
