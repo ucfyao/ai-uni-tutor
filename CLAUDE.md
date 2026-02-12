@@ -1,5 +1,10 @@
 # AI UniTutor
 
+## Toolchain
+
+- Node.js version pinned via Volta (`"volta"` key in package.json)
+- Developers with Volta installed get automatic version switching
+
 ## Commands
 
 - Build: `npm run build`
