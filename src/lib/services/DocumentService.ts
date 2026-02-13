@@ -100,6 +100,14 @@ export class DocumentService {
   ): Promise<void> {
     await this.docRepo.updateMetadata(docId, updates);
   }
+
+  async getAdminDocuments(): Promise<DocumentEntity[]> {
+    return this.docRepo.findAll();
+  }
+
+  async deleteByAdmin(docId: string): Promise<void> {
+    await this.docRepo.deleteById(docId);
+  }
 }
 
 let _documentService: DocumentService | null = null;

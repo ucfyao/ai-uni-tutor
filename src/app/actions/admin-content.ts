@@ -7,7 +7,7 @@ import { parsePDF } from '@/lib/pdf';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
-import { createClient, requireAdmin } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
 import type { Database } from '@/types/database';
 import type { ExamPaper } from '@/types/exam';
@@ -29,17 +29,14 @@ export async function getAdminDocuments(): Promise<AdminDocument[]> {
   const user = await requireAdmin().catch(() => null);
   if (!user) return [];
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('documents')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Failed to fetch admin documents:', error.message);
+  try {
+    const documentService = getDocumentService();
+    const docs = await documentService.getAdminDocuments();
+    return docs as unknown as AdminDocument[];
+  } catch (error) {
+    console.error('Failed to fetch admin documents:', error);
     return [];
   }
-  return data ?? [];
 }
 
 /** Fetch ALL exam papers (admin). */
@@ -202,15 +199,12 @@ export async function uploadAdminContent(
 export async function deleteAdminContent(id: string, type: 'document' | 'exam') {
   await requireAdmin();
 
-  const supabase = await createClient();
-
   if (type === 'exam') {
     const service = getExamPaperService();
     await service.deleteByAdmin(id);
   } else {
-    // Admin delete – no user_id check
-    const { error } = await supabase.from('documents').delete().eq('id', id);
-    if (error) throw new Error(`Failed to delete document: ${error.message}`);
+    const documentService = getDocumentService();
+    await documentService.deleteByAdmin(id);
   }
 
   revalidatePath('/admin/content');
