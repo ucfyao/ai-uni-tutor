@@ -9,7 +9,7 @@ const HeroSection = () => {
   return (
     <Box
       component="section"
-      className="relative min-h-[100svh] flex items-start justify-center overflow-hidden pt-24 md:pt-28 pb-16 bg-background"
+      className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-20 pb-24 bg-background"
     >
       {/* Background Effects */}
       <Box className="absolute inset-0 hero-radial" />
@@ -38,7 +38,7 @@ const HeroSection = () => {
             fz={{ base: '2.25rem', xs: '3rem', sm: '4.5rem' }}
             fw={700}
             lh={1.2}
-            mb="1.5rem"
+            mb={{ base: '1.5rem', sm: '2.5rem' }}
             className="animate-fade-in-up opacity-0 animate-delay-100 text-foreground"
           >
             {t.hero.title}
@@ -51,7 +51,7 @@ const HeroSection = () => {
             fz={{ base: '1.25rem', sm: '1.5rem' }}
             c="dimmed"
             mx="auto"
-            mb="2.5rem"
+            mb={{ base: '2.5rem', sm: '3rem' }}
             className="max-w-2xl animate-fade-in-up opacity-0 animate-delay-200"
           >
             {t.hero.subtitle}
@@ -81,7 +81,8 @@ const HeroSection = () => {
           <SimpleGrid
             cols={{ base: 1, xs: 3 }}
             spacing={32}
-            pt={{ base: '2rem', sm: '2.5rem' }}
+            pt={{ base: '2rem', sm: '3rem' }}
+            mt={{ base: '0.5rem', sm: '1rem' }}
             className="border-t border-border/30 animate-fade-in-up opacity-0 animate-delay-400"
           >
             <Box>

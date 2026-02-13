@@ -8,13 +8,13 @@ const FeaturesSection = () => {
   const { t } = useLanguage();
 
   return (
-    <Box component="section" id="features" className="py-16 md:py-20 relative scroll-mt-24">
+    <Box component="section" id="features" className="py-16 md:py-24 relative scroll-mt-24">
       {/* Background */}
       <Box className="absolute inset-0 bg-gradient-to-b from-background via-secondary/20 to-background" />
 
       <Container size={1280} px={24} className="relative z-10">
         {/* Section Header */}
-        <Box className="text-center mb-10 md:mb-14">
+        <Box className="text-center mb-12 md:mb-16">
           <Title order={2} fz={{ base: '2.25rem', sm: '3rem' }} fw={700} mb="1rem">
             {t.features.title} <span className="gradient-text">{t.features.titleHighlight}</span>
           </Title>
@@ -24,7 +24,7 @@ const FeaturesSection = () => {
         </Box>
 
         {/* Features Grid */}
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={24}>
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 24, sm: 32 }}>
           {t.features.items.map((feature, index) => {
             const Icon = featureIcons[index];
             return (

@@ -11,7 +11,7 @@ const HowItWorksSection = () => {
     <Box
       component="section"
       id="how-it-works"
-      className="py-16 md:py-20 relative overflow-hidden scroll-mt-24"
+      className="py-16 md:py-24 relative overflow-hidden scroll-mt-24"
     >
       {/* Background */}
       <Box className="absolute inset-0 bg-gradient-to-b from-background via-secondary/20 to-background" />
@@ -20,7 +20,7 @@ const HowItWorksSection = () => {
 
       <Container size={1280} px={24} className="relative z-10">
         {/* Section Header */}
-        <Box className="text-center mb-10 md:mb-14">
+        <Box className="text-center mb-12 md:mb-16">
           <Title order={2} fz={{ base: '2.25rem', sm: '3rem' }} fw={700} mb="1rem">
             {t.howItWorks.title}{' '}
             <span className="gradient-text">{t.howItWorks.titleHighlight}</span>{' '}
@@ -39,7 +39,7 @@ const HowItWorksSection = () => {
             className="absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/30 to-transparent -translate-y-1/2"
           />
 
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing={{ base: 24, sm: 24 }}>
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing={{ base: 24, sm: 32 }}>
             {t.howItWorks.steps.map((step, index) => {
               const Icon = stepIcons[index];
               return (
