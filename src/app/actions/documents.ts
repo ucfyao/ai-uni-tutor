@@ -331,6 +331,12 @@ export async function retryDocument(
   return { status: 'success', message: 'Document removed. Please re-upload.' };
 }
 
+const updateDocumentMetaSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  school: z.string().max(255).optional(),
+  course: z.string().max(255).optional(),
+});
+
 export async function updateDocumentMeta(
   documentId: string,
   updates: { name?: string; school?: string; course?: string },
@@ -338,18 +344,24 @@ export async function updateDocumentMeta(
   const user = await getCurrentUser();
   if (!user) return { status: 'error', message: 'Unauthorized' };
 
+  const parsed = updateDocumentMetaSchema.safeParse(updates);
+  if (!parsed.success) {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const validatedUpdates = parsed.data;
+
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
   if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
 
   const metadataUpdates: { name?: string; metadata?: Json; docType?: string } = {};
-  if (updates.name) metadataUpdates.name = updates.name;
-  if (updates.school || updates.course) {
+  if (validatedUpdates.name) metadataUpdates.name = validatedUpdates.name;
+  if (validatedUpdates.school || validatedUpdates.course) {
     const existingMeta = (doc.metadata as Record<string, unknown>) ?? {};
     metadataUpdates.metadata = {
       ...existingMeta,
-      ...(updates.school && { school: updates.school }),
-      ...(updates.course && { course: updates.course }),
+      ...(validatedUpdates.school && { school: validatedUpdates.school }),
+      ...(validatedUpdates.course && { course: validatedUpdates.course }),
     } as Json;
   }
 
