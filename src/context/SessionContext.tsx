@@ -160,10 +160,12 @@ export function SessionProvider({
     await queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
   }, [queryClient]);
 
+  const sortedSessions = useMemo(() => sortSessions(sessions), [sessions]);
+
   return (
     <SessionContext.Provider
       value={{
-        sessions: sortSessions(sessions),
+        sessions: sortedSessions,
         addSession,
         removeSession,
         updateSessionLocal,
