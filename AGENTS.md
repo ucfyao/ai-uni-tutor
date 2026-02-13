@@ -14,7 +14,7 @@ AI-powered university tutoring system built with Next.js 16, Supabase, and Googl
 | AI              | Google Gemini (gemini-2.5-flash, text-embedding-004) |
 | Payments        | Stripe                                               |
 | Caching         | Redis (Upstash)                                      |
-| Language        | TypeScript 5.8                                       |
+| Language        | TypeScript 5.9                                       |
 
 ## Architecture
 
@@ -24,50 +24,49 @@ AI-powered university tutoring system built with Next.js 16, Supabase, and Googl
 src/
 ├── app/                      # Next.js App Router
 │   ├── (protected)/          # Protected routes (auth required)
-│   │   ├── chat/[id]/        # Chat session pages
-│   │   ├── study/            # Study mode selection
-│   │   └── lecture/[id]/     # Lecture-specific pages
-│   ├── actions/              # Server Actions
-│   ├── api/                  # API Routes
-│   └── auth/                 # Authentication pages
+│   │   ├── admin/            # Admin content & exam management
+│   │   ├── assignment/[id]/  # Assignment coach mode
+│   │   ├── exam/             # Exam prep & mock exams
+│   │   ├── knowledge/        # Document upload & management
+│   │   ├── lecture/[id]/     # Lecture helper mode
+│   │   ├── pricing/          # Subscription page
+│   │   ├── settings/         # User settings
+│   │   └── study/            # Study mode selection
+│   ├── (public)/             # Public routes (/, /zh, /login)
+│   ├── actions/              # Server Actions (6 files)
+│   ├── api/                  # API Routes (chat/stream, documents/parse, health, quota, stripe)
+│   └── auth/                 # Auth callback
 ├── components/               # React components
-│   ├── chat/                 # Chat-related components
-│   │   ├── ChatLayout.tsx
-│   │   ├── ChatInput.tsx
-│   │   ├── MessageList.tsx
-│   │   ├── MessageBubble.tsx
-│   │   ├── KnowledgePanel.tsx      # Knowledge Cards UI
-│   │   └── KnowledgeCardItem.tsx   # Individual card component
+│   ├── chat/                 # Chat interface (ChatLayout, ChatInput, MessageList, etc.)
+│   ├── exam/                 # Exam system components
 │   ├── modes/                # Tutoring mode components
-│   │   ├── LectureHelper.tsx
-│   │   ├── AssignmentCoach.tsx
-│   │   └── ExamPrep.tsx
 │   ├── rag/                  # Document upload components
-│   ├── marketing/            # Marketing pages
-│   └── ui/                   # Reusable UI components
+│   └── marketing/            # Landing page components
 ├── context/                  # React Context providers
 │   ├── SessionContext.tsx    # Chat session management
 │   ├── ProfileContext.tsx    # User profile state
 │   ├── SidebarContext.tsx    # Sidebar state
 │   └── HeaderContext.tsx     # Header state
 ├── hooks/                    # Custom React hooks
-│   ├── useKnowledgeCards.ts  # Knowledge card state management
-│   └── useChat.ts            # Chat functionality
+│   ├── useChatSession.ts    # Chat session logic
+│   ├── useChatStream.ts     # SSE chat streaming
+│   ├── useKnowledgeCards.ts # Knowledge card state management
+│   ├── useStreamingParse.ts # SSE document parsing
+│   └── use-mobile.tsx       # Mobile detection
 ├── lib/                      # Shared utilities
-│   ├── domain/models/        # Domain entities
-│   │   └── KnowledgeCard.ts
-│   ├── strategies/           # Tutoring strategy patterns
-│   │   ├── ITutoringStrategy.ts
-│   │   ├── LectureHelperStrategy.ts
-│   │   ├── AssignmentCoachStrategy.ts
-│   │   └── ExamPrepStrategy.ts
-│   ├── rag/                  # RAG pipeline (chunking, embedding, retrieval)
+│   ├── domain/               # Domain models & interfaces
+│   ├── rag/                  # RAG pipeline (chunking, embedding, parsers/)
+│   ├── repositories/         # Data access layer (8 repos)
+│   ├── services/             # Business logic (7 services)
 │   ├── supabase/             # Supabase clients (server/client)
 │   ├── contentParser.ts      # Markdown parsing with card extraction
-│   └── redis.ts              # Rate limiting
+│   ├── redis.ts              # Rate limiting
+│   └── *.ts                  # Other utilities (gemini, stripe, prompts, etc.)
 └── types/                    # TypeScript type definitions
     ├── database.ts
     ├── knowledge.ts          # Knowledge card types
+    ├── exam.ts               # Exam types
+    ├── actions.ts            # Action response types
     └── index.ts
 ```
 
