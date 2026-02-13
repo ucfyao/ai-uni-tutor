@@ -93,10 +93,29 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
     if (error) throw new DatabaseError(`Failed to delete chunk: ${error.message}`, error);
   }
 
-  async updateEmbedding(id: string, embedding: number[]): Promise<void> {
+  async updateEmbedding(id: string, embedding: number[], documentId?: string): Promise<void> {
     const supabase = await createClient();
-    const { error } = await supabase.from('document_chunks').update({ embedding }).eq('id', id);
+    let query = supabase.from('document_chunks').update({ embedding }).eq('id', id);
+
+    if (documentId) {
+      query = query.eq('document_id', documentId);
+    }
+
+    const { error } = await query;
     if (error) throw new DatabaseError(`Failed to update embedding: ${error.message}`, error);
+  }
+
+  async verifyChunksBelongToDocument(chunkIds: string[], documentId: string): Promise<boolean> {
+    if (chunkIds.length === 0) return true;
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('document_chunks')
+      .select('id')
+      .in('id', chunkIds)
+      .eq('document_id', documentId);
+
+    if (error) throw new DatabaseError(`Failed to verify chunk ownership: ${error.message}`, error);
+    return data?.length === chunkIds.length;
   }
 }
 

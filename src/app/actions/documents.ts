@@ -197,6 +197,15 @@ export async function updateDocumentChunks(
   const doc = await documentService.findById(documentId);
   if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
 
+  // Verify all chunk IDs belong to this document (IDOR protection)
+  const allChunkIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allChunkIds.length > 0) {
+    const chunksValid = await documentService.verifyChunksBelongToDocument(allChunkIds, documentId);
+    if (!chunksValid) {
+      return { status: 'error', message: 'Invalid chunk IDs' };
+    }
+  }
+
   for (const id of deletedIds) {
     await documentService.deleteChunk(id);
   }
@@ -226,7 +235,7 @@ export async function regenerateEmbeddings(
     const chunks = await documentService.getChunks(documentId);
     for (const chunk of chunks) {
       const embedding = await generateEmbeddingWithRetry(chunk.content);
-      await documentService.updateChunkEmbedding(chunk.id, embedding);
+      await documentService.updateChunkEmbedding(chunk.id, embedding, documentId);
     }
     await documentService.updateStatus(doc.id, 'ready');
   } catch (e) {
