@@ -17,11 +17,5 @@ export async function GET() {
 
   const status = supabaseOk ? 'healthy' : 'degraded';
 
-  return Response.json({
-    status,
-    timestamp: Date.now(),
-    checks: {
-      supabase: supabaseOk ? 'ok' : 'error',
-    },
-  });
+  return Response.json({ status }, { status: supabaseOk ? 200 : 503 });
 }

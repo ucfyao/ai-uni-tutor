@@ -870,19 +870,31 @@ describe('MockExamService', () => {
   // ==================== getMockIdBySessionId ====================
 
   describe('getMockIdBySessionId', () => {
-    it('should delegate to repo', async () => {
+    it('should return mock ID when session exists and user owns it', async () => {
       mockRepo.findBySessionId.mockResolvedValue(MOCK_ID);
+      mockRepo.verifyOwnership.mockResolvedValue(true);
 
-      const result = await service.getMockIdBySessionId(SESSION_ID);
+      const result = await service.getMockIdBySessionId(SESSION_ID, USER_ID);
 
       expect(result).toBe(MOCK_ID);
       expect(mockRepo.findBySessionId).toHaveBeenCalledWith(SESSION_ID);
+      expect(mockRepo.verifyOwnership).toHaveBeenCalledWith(MOCK_ID, USER_ID);
     });
 
     it('should return null when no mock found for session', async () => {
       mockRepo.findBySessionId.mockResolvedValue(null);
 
-      const result = await service.getMockIdBySessionId('nonexistent');
+      const result = await service.getMockIdBySessionId('nonexistent', USER_ID);
+
+      expect(result).toBeNull();
+      expect(mockRepo.verifyOwnership).not.toHaveBeenCalled();
+    });
+
+    it('should return null when user does not own the mock', async () => {
+      mockRepo.findBySessionId.mockResolvedValue(MOCK_ID);
+      mockRepo.verifyOwnership.mockResolvedValue(false);
+
+      const result = await service.getMockIdBySessionId(SESSION_ID, 'other-user');
 
       expect(result).toBeNull();
     });

@@ -466,13 +466,13 @@ describe('Mock Exam Actions', () => {
   // getMockExamIdBySessionId
   // =========================================================================
   describe('getMockExamIdBySessionId', () => {
-    it('should return mock ID for valid session', async () => {
+    it('should return mock ID for valid session with ownership', async () => {
       mockMockExamService.getMockIdBySessionId.mockResolvedValue('mock-1');
 
       const result = await getMockExamIdBySessionId('sess-1');
 
       expect(result).toBe('mock-1');
-      expect(mockMockExamService.getMockIdBySessionId).toHaveBeenCalledWith('sess-1');
+      expect(mockMockExamService.getMockIdBySessionId).toHaveBeenCalledWith('sess-1', 'user-1');
     });
 
     it('should return null when user is not authenticated', async () => {

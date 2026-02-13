@@ -664,9 +664,28 @@ describe('ExamPaperRepository', () => {
       expect(result).toBe('paper-001');
       expect(mockSupabase.client.from).toHaveBeenCalledWith('exam_papers');
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('id');
-      expect(mockSupabase.client._chain.or).toHaveBeenCalledWith('course.ilike.%CS101%');
+      expect(mockSupabase.client._chain.ilike).toHaveBeenCalledWith('course', '%CS101%');
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('status', 'ready');
       expect(mockSupabase.client._chain.limit).toHaveBeenCalledWith(1);
+    });
+
+    it('should sanitize courseCode to prevent filter injection', async () => {
+      const maliciousCode = 'CS101,id.eq.some-uuid';
+      const result = await repo.findByCourse(maliciousCode);
+
+      // Sanitized to 'CS101ideqsome-uuid' (commas and dots stripped)
+      expect(mockSupabase.client._chain.ilike).toHaveBeenCalledWith(
+        'course',
+        '%CS101ideqsome-uuid%',
+      );
+    });
+
+    it('should return null for courseCode that sanitizes to empty string', async () => {
+      const result = await repo.findByCourse('!!!@@@###');
+
+      expect(result).toBeNull();
+      // Should not even call supabase
+      expect(mockSupabase.client.from).not.toHaveBeenCalled();
     });
 
     it('should return null when no papers found', async () => {

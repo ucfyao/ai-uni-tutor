@@ -156,7 +156,7 @@ export async function getMockExamIdBySessionId(sessionId: string): Promise<strin
   if (!user) return null;
 
   const service = getMockExamService();
-  return service.getMockIdBySessionId(sessionId);
+  return service.getMockIdBySessionId(sessionId, user.id);
 }
 
 export async function getMockExamDetail(mockId: string): Promise<MockExam | null> {

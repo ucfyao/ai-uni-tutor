@@ -32,38 +32,34 @@ describe('GET /api/health', () => {
     mockSupabase.select.mockReturnThis();
   });
 
-  it('returns healthy when Supabase is connected', async () => {
+  it('returns healthy with 200 when Supabase is connected', async () => {
     mockSupabase.limit.mockResolvedValue({ error: null });
 
     const response = await GET();
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.status).toBe('healthy');
-    expect(body.checks.supabase).toBe('ok');
-    expect(body.timestamp).toBeTypeOf('number');
+    expect(body).toEqual({ status: 'healthy' });
   });
 
-  it('returns degraded when Supabase returns an error', async () => {
+  it('returns degraded with 503 when Supabase returns an error', async () => {
     mockSupabase.limit.mockResolvedValue({ error: { message: 'connection refused' } });
 
     const response = await GET();
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.status).toBe('degraded');
-    expect(body.checks.supabase).toBe('error');
+    expect(response.status).toBe(503);
+    expect(body).toEqual({ status: 'degraded' });
   });
 
-  it('returns degraded when Supabase throws an exception', async () => {
+  it('returns degraded with 503 when Supabase throws an exception', async () => {
     mockSupabase.limit.mockRejectedValue(new Error('Network error'));
 
     const response = await GET();
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.status).toBe('degraded');
-    expect(body.checks.supabase).toBe('error');
+    expect(response.status).toBe(503);
+    expect(body).toEqual({ status: 'degraded' });
   });
 
   it('queries the profiles table with limit 1', async () => {
@@ -76,15 +72,13 @@ describe('GET /api/health', () => {
     expect(mockSupabase.limit).toHaveBeenCalledWith(1);
   });
 
-  it('includes a numeric timestamp in every response', async () => {
+  it('does not expose internal details like timestamp or checks', async () => {
     mockSupabase.limit.mockResolvedValue({ error: null });
 
-    const before = Date.now();
     const response = await GET();
     const body = await response.json();
-    const after = Date.now();
 
-    expect(body.timestamp).toBeGreaterThanOrEqual(before);
-    expect(body.timestamp).toBeLessThanOrEqual(after);
+    expect(body).not.toHaveProperty('timestamp');
+    expect(body).not.toHaveProperty('checks');
   });
 });

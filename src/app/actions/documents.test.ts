@@ -573,6 +573,20 @@ describe('Document Actions', () => {
       expect(result).toEqual({ status: 'error', message: 'Document not found' });
     });
 
+    it('should return error for invalid input (name too long)', async () => {
+      const longName = 'a'.repeat(256);
+      const result = await updateDocumentMeta('doc-1', { name: longName });
+
+      expect(result).toEqual({ status: 'error', message: 'Invalid input' });
+      expect(mockDocumentService.findById).not.toHaveBeenCalled();
+    });
+
+    it('should return error for empty name', async () => {
+      const result = await updateDocumentMeta('doc-1', { name: '' });
+
+      expect(result).toEqual({ status: 'error', message: 'Invalid input' });
+    });
+
     it('should merge with existing metadata when updating school only', async () => {
       mockDocumentService.findById.mockResolvedValue(
         makeDocEntity({ metadata: { school: 'Old', course: 'Existing', otherField: 'keep' } }),
