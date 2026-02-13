@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/server';
+import { getProfileService } from '@/lib/services/ProfileService';
 
 export async function POST() {
   try {
@@ -10,14 +11,8 @@ export async function POST() {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const supabase = await createClient();
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('stripe_customer_id')
-      .eq('id', user.id)
-      .single();
-
-    let stripeCustomerId = profile?.stripe_customer_id;
+    const profileService = getProfileService();
+    let stripeCustomerId = await profileService.getStripeCustomerId(user.id);
 
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
@@ -28,8 +23,7 @@ export async function POST() {
       });
       stripeCustomerId = customer.id;
 
-      // Ideally should update profile here, but we can do it via webhook or lazily
-      await supabase.from('profiles').update({ stripe_customer_id: customer.id }).eq('id', user.id);
+      await profileService.updateStripeCustomerId(user.id, customer.id);
     }
 
     const priceId = process.env.STRIPE_PRICE_ID;
