@@ -14,7 +14,6 @@ import ShareModal from '@/components/ShareModal';
 import Sidebar from '@/components/Sidebar';
 import { MODES_METADATA } from '@/constants/modes';
 import { useHeader } from '@/context/HeaderContext';
-import { useProfile } from '@/context/ProfileContext';
 import { useSessions } from '@/context/SessionContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { showNotification } from '@/lib/notifications';
@@ -24,9 +23,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
 
-  const { sessions, addSession, removeSession, updateSessionLocal, refreshSessions } =
-    useSessions();
-  const { refreshProfile } = useProfile();
+  const { sessions, addSession, removeSession, updateSessionLocal } = useSessions();
   const { mobileOpened, toggleMobile } = useSidebar();
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
