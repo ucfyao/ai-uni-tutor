@@ -112,10 +112,7 @@ export function injectLinks(content: string, cards: KnowledgeCard[]): string {
   // link but keep the visible text; injectLinks will then re-link based on
   // the canonical card.id.
   const preExistingCardLinkPattern = /\[([^\]]+)\]\(#card-([^)]+)\)/g;
-  const preExistingMatches = content.match(preExistingCardLinkPattern);
-  if (preExistingMatches && preExistingMatches.length > 0) {
-    content = content.replace(preExistingCardLinkPattern, (_match, linkText) => linkText);
-  }
+  content = content.replace(preExistingCardLinkPattern, (_match, linkText) => linkText);
 
   if (!cards.length) return content;
 
@@ -127,6 +124,26 @@ export function injectLinks(content: string, cards: KnowledgeCard[]): string {
 
   const parts = content.split(protectedPattern);
 
+  // Build a single combined regex from all card titles
+  const cardMap = new Map<string, string>(); // lowercase title -> card.id
+  for (const card of sortedCards) {
+    cardMap.set(card.title.toLowerCase(), card.id);
+  }
+
+  const escapedTitles = sortedCards.map((card) => {
+    const escaped = escapeRegExp(card.title);
+    const hasCJK =
+      /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(
+        card.title,
+      );
+    const mdMarker = '(?:\\*\\*|__)';
+    return hasCJK
+      ? `${mdMarker}${escaped}${mdMarker}|${escaped}`
+      : `${mdMarker}${escaped}${mdMarker}|\\b${escaped}\\b`;
+  });
+
+  const combinedRegex = new RegExp(escapedTitles.join('|'), 'gi');
+
   let result = '';
 
   for (let i = 0; i < parts.length; i++) {
@@ -134,29 +151,11 @@ export function injectLinks(content: string, cards: KnowledgeCard[]): string {
 
     // Even indices are text outside protected blocks
     if (i % 2 === 0 && part) {
-      sortedCards.forEach((card) => {
-        const hasCJK =
-          /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(
-            card.title,
-          );
-
-        // Regex patterns for matching
-        const mdMarker = '(?:\\*\\*|__)';
-        const escapedTitle = escapeRegExp(card.title);
-
-        let regex;
-
-        if (hasCJK) {
-          // For CJK: Match either strictly wrapped (**Title**) OR plain (Title)
-          regex = new RegExp(`${mdMarker}${escapedTitle}${mdMarker}|${escapedTitle}`, 'gi');
-        } else {
-          // For English:
-          // 1. Wrapped **Title**
-          // 2. Plain \bTitle\b
-          regex = new RegExp(`${mdMarker}${escapedTitle}${mdMarker}|\\b${escapedTitle}\\b`, 'gi');
-        }
-
-        part = part.replace(regex, `[$&](#card-${card.id})`);
+      // Single pass replacement
+      part = part.replace(combinedRegex, (match) => {
+        const plain = match.replace(/^\*\*|^__|__$|\*\*$/g, '');
+        const cardId = cardMap.get(plain.toLowerCase());
+        return cardId ? `[${match}](#card-${cardId})` : match;
       });
       result += part;
     } else if (part) {
