@@ -25,6 +25,11 @@ export interface ParseMetadata {
   hasAnswers?: boolean;
 }
 
+export interface StageTime {
+  start: number;
+  end?: number;
+}
+
 export interface StreamingParseState {
   startParse: (file: File, metadata: ParseMetadata) => void;
   items: ParsedItem[];
@@ -33,6 +38,7 @@ export interface StreamingParseState {
   savedChunkIds: Set<string>;
   error: string | null;
   documentId: string | null;
+  stageTimes: Record<string, StageTime>;
   reset: () => void;
 }
 
@@ -43,7 +49,9 @@ export function useStreamingParse(): StreamingParseState {
   const [savedChunkIds, setSavedChunkIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
+  const [stageTimes, setStageTimes] = useState<Record<string, StageTime>>({});
   const abortRef = useRef<AbortController | null>(null);
+  const currentStageRef = useRef<string | null>(null);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -53,6 +61,8 @@ export function useStreamingParse(): StreamingParseState {
     setSavedChunkIds(new Set());
     setError(null);
     setDocumentId(null);
+    setStageTimes({});
+    currentStageRef.current = null;
   }, []);
 
   const startParse = useCallback((file: File, metadata: ParseMetadata) => {
@@ -63,6 +73,9 @@ export function useStreamingParse(): StreamingParseState {
     setSavedChunkIds(new Set());
     setError(null);
     setDocumentId(null);
+    const initialTime = Date.now();
+    setStageTimes({ parsing_pdf: { start: initialTime } });
+    currentStageRef.current = 'parsing_pdf';
 
     const abortController = new AbortController();
     abortRef.current = abortController;
@@ -130,10 +143,34 @@ export function useStreamingParse(): StreamingParseState {
       switch (event) {
         case 'status': {
           const statusData = data as SSEEventMap['status'];
+          const now = Date.now();
           if (statusData.stage === 'error') {
             setStatus('error');
             setError(statusData.message);
+            // Close current stage on error
+            if (currentStageRef.current) {
+              const prev = currentStageRef.current;
+              setStageTimes((t) => ({
+                ...t,
+                [prev]: { ...t[prev], end: now },
+              }));
+            }
           } else {
+            // Close previous stage, open new stage
+            const prevStage = currentStageRef.current;
+            if (prevStage && prevStage !== statusData.stage) {
+              setStageTimes((t) => ({
+                ...t,
+                [prevStage]: { ...t[prevStage], end: now },
+                [statusData.stage]: { start: now },
+              }));
+            } else if (!prevStage) {
+              setStageTimes((t) => ({
+                ...t,
+                [statusData.stage]: { start: now },
+              }));
+            }
+            currentStageRef.current = statusData.stage;
             setStatus(statusData.stage);
           }
           break;
@@ -180,6 +217,7 @@ export function useStreamingParse(): StreamingParseState {
     savedChunkIds,
     error,
     documentId,
+    stageTimes,
     reset,
   };
 }

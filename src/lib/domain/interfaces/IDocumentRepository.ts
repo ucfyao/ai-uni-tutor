@@ -12,6 +12,7 @@ import type {
 } from '../models/Document';
 
 export interface IDocumentRepository {
+  findByUserId(userId: string, docType?: string): Promise<DocumentEntity[]>;
   findByUserIdAndName(userId: string, name: string): Promise<DocumentEntity | null>;
   findById(id: string): Promise<DocumentEntity | null>;
   create(data: CreateDocumentDTO): Promise<DocumentEntity>;

@@ -25,6 +25,10 @@ export class DocumentService {
     this.chunkRepo = chunkRepo ?? getDocumentChunkRepository();
   }
 
+  async getDocumentsByType(userId: string, docType: string): Promise<DocumentEntity[]> {
+    return this.docRepo.findByUserId(userId, docType);
+  }
+
   async checkDuplicate(userId: string, name: string): Promise<boolean> {
     const existing = await this.docRepo.findByUserIdAndName(userId, name);
     return existing !== null;

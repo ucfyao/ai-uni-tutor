@@ -32,6 +32,23 @@ export class DocumentRepository implements IDocumentRepository {
     };
   }
 
+  async findByUserId(userId: string, docType?: string): Promise<DocumentEntity[]> {
+    const supabase = await createClient();
+    let query = supabase
+      .from('documents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (docType) {
+      query = query.eq('doc_type', docType as 'lecture' | 'exam' | 'assignment');
+    }
+
+    const { data, error } = await query;
+    if (error) throw new DatabaseError(`Failed to fetch documents: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row));
+  }
+
   async findById(id: string): Promise<DocumentEntity | null> {
     const supabase = await createClient();
     const { data, error } = await supabase.from('documents').select('*').eq('id', id).single();

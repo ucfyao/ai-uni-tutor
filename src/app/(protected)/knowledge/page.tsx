@@ -1,9 +1,11 @@
 import { AlertCircle } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { Alert, Box, Container, Stack, Text, Title } from '@mantine/core';
-import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
+import { getDocumentService } from '@/lib/services/DocumentService';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { KnowledgeClient } from './KnowledgeClient';
+
+const DEFAULT_DOC_TYPE = 'lecture';
 
 export default async function KnowledgePage() {
   const user = await getCurrentUser();
@@ -31,37 +33,20 @@ export default async function KnowledgePage() {
     redirect('/admin/content');
   }
 
-  // Fetch only documents uploaded by this user
-  // Try with doc_type first; fall back to without it if column doesn't exist yet
-  let rows: Record<string, unknown>[] | null = null;
-  const { data: rowsWithType, error } = await supabase
-    .from('documents')
-    .select('id, name, status, status_message, created_at, metadata, doc_type')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+  // Fetch initial documents for default tab via service layer
+  const service = getDocumentService();
+  const entities = await service.getDocumentsByType(user.id, DEFAULT_DOC_TYPE);
 
-  if (error) {
-    // doc_type column may not exist yet — query without it
-    const { data: rowsBasic } = await supabase
-      .from('documents')
-      .select('id, name, status, status_message, created_at, metadata')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    rows = rowsBasic as Record<string, unknown>[] | null;
-  } else {
-    rows = rowsWithType as Record<string, unknown>[] | null;
-  }
-
-  const documents: KnowledgeDocument[] = (rows ?? []).map((doc) => ({
-    id: doc.id as string,
-    name: doc.name as string,
-    status: doc.status as string,
-    status_message: (doc.status_message as string) ?? null,
-    created_at: doc.created_at as string,
-    doc_type: (doc.doc_type as string) ?? 'lecture',
+  const initialDocuments = entities.map((doc) => ({
+    id: doc.id,
+    name: doc.name,
+    status: doc.status,
+    status_message: doc.statusMessage,
+    created_at: doc.createdAt.toISOString(),
+    doc_type: doc.docType ?? DEFAULT_DOC_TYPE,
     metadata:
       doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
-        ? (doc.metadata as KnowledgeDocument['metadata'])
+        ? (doc.metadata as { school?: string; course?: string; [key: string]: unknown } | null)
         : null,
   }));
 
@@ -77,7 +62,7 @@ export default async function KnowledgePage() {
           </Text>
         </Box>
 
-        <KnowledgeClient documents={documents} />
+        <KnowledgeClient initialDocuments={initialDocuments} initialDocType={DEFAULT_DOC_TYPE} />
       </Stack>
     </Container>
   );

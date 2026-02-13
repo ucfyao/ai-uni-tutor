@@ -2,33 +2,40 @@
 
 import { AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { Alert, Box, Button, Group, Progress, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { DOC_TYPE_MAP } from '@/constants/doc-types';
 import type { StreamingParseState } from '@/hooks/useStreamingParse';
 import { ParsedItemCard } from './ParsedItemCard';
+import { ParseTimeline } from './ParseTimeline';
 
 interface ParsePanelProps {
   parseState: StreamingParseState;
   fileName: string;
+  docType: string | null;
   onBack: () => void;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  parsing_pdf: 'Parsing PDF...',
-  extracting: 'AI extracting content...',
-  embedding: 'Generating embeddings & saving...',
-  complete: 'Complete!',
-  error: 'Error',
-};
+function formatTotalTime(stageTimes: Record<string, { start: number; end?: number }>): string {
+  const starts = Object.values(stageTimes).map((t) => t.start);
+  const ends = Object.values(stageTimes)
+    .map((t) => t.end)
+    .filter((e): e is number => e != null);
+  if (starts.length === 0 || ends.length === 0) return '';
+  const total = Math.max(...ends) - Math.min(...starts);
+  const seconds = Math.round(total / 100) / 10;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remaining = Math.round(seconds % 60);
+  return `${minutes}m ${remaining}s`;
+}
 
-export function ParsePanel({ parseState, fileName, onBack }: ParsePanelProps) {
-  const { items, status, progress, savedChunkIds, error } = parseState;
+export function ParsePanel({ parseState, fileName, docType, onBack }: ParsePanelProps) {
+  const { items, status, progress, savedChunkIds, stageTimes, error } = parseState;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isComplete = status === 'complete';
   const isError = status === 'error';
   const isProcessing = !isComplete && !isError;
-  const progressPercent =
-    progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
   // Auto-scroll to bottom as new items appear
   useEffect(() => {
@@ -37,8 +44,6 @@ export function ParsePanel({ parseState, fileName, onBack }: ParsePanelProps) {
     }
   }, [items.length, isProcessing]);
 
-  // Determine which items are saved based on batch_saved events
-  // Items saved in batches of 3: items 0,1,2 → first batch, items 3,4,5 → second, etc.
   const savedCount = savedChunkIds.size;
 
   return (
@@ -58,38 +63,34 @@ export function ParsePanel({ parseState, fileName, onBack }: ParsePanelProps) {
           <Text fw={600} size="lg" truncate="end" maw={400}>
             {fileName}
           </Text>
+          {docType && DOC_TYPE_MAP[docType] && (
+            <Badge variant="light" color={DOC_TYPE_MAP[docType].color} size="sm">
+              {DOC_TYPE_MAP[docType].label}
+            </Badge>
+          )}
         </Group>
-        {isComplete && (
-          <Group gap={4}>
-            <CheckCircle2 size={18} color="var(--mantine-color-green-6)" />
-            <Text size="sm" c="green" fw={500}>
-              {items.length} items extracted
-            </Text>
-          </Group>
-        )}
       </Group>
 
-      {/* ── Progress Bar ── */}
-      {isProcessing && (
-        <Box>
-          <Group justify="space-between" mb={4}>
-            <Text size="sm" c="dimmed">
-              {STATUS_LABELS[status] || status}
-            </Text>
-            {progress.total > 0 && (
-              <Text size="sm" c="dimmed">
-                {progress.current} / {progress.total}
-              </Text>
-            )}
-          </Group>
-          <Progress
-            value={progress.total > 0 ? progressPercent : 100}
-            animated={progress.total === 0}
-            size="sm"
-            radius="xl"
-            color="blue"
-          />
-        </Box>
+      {/* ── Stage Timeline ── */}
+      {(isProcessing || isComplete) && (
+        <ParseTimeline
+          status={status}
+          progress={progress}
+          savedCount={savedCount}
+          stageTimes={stageTimes}
+        />
+      )}
+
+      {/* ── Completion Summary ── */}
+      {isComplete && items.length > 0 && (
+        <Group gap="xs" justify="center">
+          <CheckCircle2 size={18} color="var(--mantine-color-green-6)" />
+          <Text size="sm" c="green" fw={500}>
+            Successfully extracted {items.length}{' '}
+            {items[0]?.type === 'knowledge_point' ? 'knowledge points' : 'questions'}
+            {formatTotalTime(stageTimes) ? ` in ${formatTotalTime(stageTimes)}` : ''}
+          </Text>
+        </Group>
       )}
 
       {/* ── Error Alert ── */}
@@ -99,7 +100,7 @@ export function ParsePanel({ parseState, fileName, onBack }: ParsePanelProps) {
         </Alert>
       )}
 
-      {/* ── Complete Alert ── */}
+      {/* ── Complete Alert (no content) ── */}
       {isComplete && items.length === 0 && (
         <Alert icon={<AlertCircle size={16} />} color="yellow" title="No Content">
           No extractable content was found in this PDF.
