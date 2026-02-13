@@ -14,6 +14,42 @@ import type { Json } from '@/types/database';
 
 export type UploadState = FormActionState;
 
+export interface DocumentListItem {
+  id: string;
+  name: string;
+  status: string;
+  status_message: string | null;
+  created_at: string;
+  doc_type: string;
+  metadata: { school?: string; course?: string; [key: string]: unknown } | null;
+}
+
+const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
+
+export async function fetchDocuments(docType: string): Promise<DocumentListItem[]> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const parsed = docTypeSchema.safeParse(docType);
+  if (!parsed.success) throw new Error('Invalid document type');
+
+  const service = getDocumentService();
+  const entities = await service.getDocumentsByType(user.id, parsed.data);
+
+  return entities.map((doc) => ({
+    id: doc.id,
+    name: doc.name,
+    status: doc.status,
+    status_message: doc.statusMessage,
+    created_at: doc.createdAt.toISOString(),
+    doc_type: doc.docType ?? 'lecture',
+    metadata:
+      doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
+        ? (doc.metadata as DocumentListItem['metadata'])
+        : null,
+  }));
+}
+
 const uploadSchema = z.object({
   file: z.instanceof(File),
   doc_type: z.enum(['lecture', 'exam', 'assignment']).optional().default('lecture'),

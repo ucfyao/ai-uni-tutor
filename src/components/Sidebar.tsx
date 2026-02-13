@@ -328,14 +328,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                 className="hover:bg-gray-100 transition-colors"
                 style={{ borderRadius: 8, cursor: 'pointer', width: 'calc(100% - 12px)' }}
               >
-                <Group gap={10} wrap="nowrap" justify="space-between">
-                  <Group gap={10} wrap="nowrap">
-                    <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
-                    <Text size="sm" c="gray.8">
-                      {link.label}
-                    </Text>
-                  </Group>
-                  <ChevronRight size={14} color="var(--mantine-color-gray-4)" />
+                <Group gap={10} wrap="nowrap">
+                  <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
+                  <Text size="sm" c="gray.8">
+                    {link.label}
+                  </Text>
+                  <ChevronRight
+                    size={12}
+                    color="var(--mantine-color-gray-4)"
+                    style={{ flexShrink: 0 }}
+                  />
                 </Group>
               </UnstyledButton>
             );
