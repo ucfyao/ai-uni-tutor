@@ -271,12 +271,16 @@ export class ExamPaperRepository implements IExamPaperRepository {
   }
 
   async findByCourse(courseCode: string): Promise<string | null> {
+    // Sanitize: allow only alphanumeric, spaces, hyphens, underscores
+    const sanitized = courseCode.replace(/[^A-Za-z0-9 _-]/g, '');
+    if (!sanitized) return null;
+
     const supabase = await createClient();
 
     const { data, error } = await supabase
       .from('exam_papers')
       .select('id')
-      .or(`course.ilike.%${courseCode}%`)
+      .ilike('course', `%${sanitized}%`)
       .eq('status', 'ready')
       .limit(1);
 
