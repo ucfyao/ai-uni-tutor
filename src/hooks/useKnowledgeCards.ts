@@ -72,6 +72,14 @@ export function useKnowledgeCards({
     localStorage.setItem(`deleted-cards-${sessionId}`, JSON.stringify([...deletedCardIds]));
   }, [deletedCardIds, sessionId, enabled]);
 
+  // Stable key: only changes when assistant message IDs or last content changes
+  const assistantContentKey = useMemo(() => {
+    const assistantMsgs = messages.filter((m) => m.role === 'assistant' && !m.cardId && m.content);
+    if (assistantMsgs.length === 0) return '';
+    const lastMsg = assistantMsgs[assistantMsgs.length - 1];
+    return `${assistantMsgs.length}:${lastMsg.id}:${lastMsg.content.length}`;
+  }, [messages]);
+
   const autoCards = useMemo(() => {
     if (!enabled) return [];
 
@@ -89,7 +97,8 @@ export function useKnowledgeCards({
 
     // Deduplicate by title
     return Array.from(new Map(allCards.map((c) => [c.title, c])).values());
-  }, [messages, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assistantContentKey, enabled]);
 
   // Combine auto + manual - deleted
   const knowledgeCards = useMemo(() => {
