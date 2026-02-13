@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActionIcon, Box, Button, Container, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types';
@@ -85,6 +85,17 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   const prevMessageCountRef = useRef(mainMessages.length);
 
+  // Memoize processed messages to avoid repeated extractCards calls
+  const processedMessages = useMemo(
+    () =>
+      mainMessages.map((msg) => ({
+        ...msg,
+        displayText:
+          msg.role === 'assistant' ? extractCards(msg.content).cleanContent : msg.content,
+      })),
+    [mainMessages],
+  );
+
   // Auto-scroll to bottom when messages change (double rAF ensures layout is complete)
   useEffect(() => {
     if (isScrolledUp) {
@@ -135,11 +146,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           {/* Max-width container for optimal line length */}
           <Container size="56.25rem" w="100%" px="md">
             <Stack gap="sm">
-              {mainMessages.map((msg) => {
-                // Clean content if assistant (remove knowledge cards markup)
-                const displayText =
-                  msg.role === 'assistant' ? extractCards(msg.content).cleanContent : msg.content;
-
+              {processedMessages.map((msg) => {
                 return (
                   <Box
                     key={msg.id}
@@ -156,7 +163,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                     }
                   >
                     <MessageBubble
-                      message={{ ...msg, content: displayText }}
+                      message={{ ...msg, content: msg.displayText }}
                       isStreaming={msg.id === streamingMsgId}
                       onStreamingComplete={() => {}}
                       mode={mode}
