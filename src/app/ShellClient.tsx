@@ -38,13 +38,6 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     setActiveSessionId(id);
   }, [pathname]);
 
-  // Ensure client-side providers refresh after server-side auth transitions (e.g. login via server action).
-  useEffect(() => {
-    // These might be redundant if data is passed from server, but nice for re-validation on focus/nav
-    refreshSessions();
-    refreshProfile();
-  }, [refreshProfile, refreshSessions]);
-
   const { headerContent } = useHeader();
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
