@@ -16,7 +16,7 @@ type MarketingAppProps = { initialLang?: Language };
 export default function MarketingApp({ initialLang = 'en' }: MarketingAppProps) {
   return (
     <LanguageProvider initialLang={initialLang}>
-      <Box className="min-h-screen bg-background overflow-x-hidden">
+      <Box className="marketing-app min-h-screen bg-background overflow-x-hidden">
         <Navbar />
         <HeroSection />
         <FeaturesSection />

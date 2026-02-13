@@ -28,7 +28,7 @@ const Navbar = () => {
       className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50"
     >
       <Container size={1280} px={24}>
-        <Group justify="space-between" h={64} wrap="nowrap">
+        <Group justify="space-between" h={72} wrap="nowrap">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2" style={{ flexShrink: 0 }}>
             <Box className="w-10 h-10 flex items-center justify-center">
@@ -47,7 +47,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <Group gap={24} visibleFrom="md" wrap="nowrap">
+          <Group gap={32} visibleFrom="md" wrap="nowrap">
             <Anchor href="#features" className={navLinkClassName} underline="never" c="inherit">
               {t.nav.features}
             </Anchor>
@@ -63,7 +63,7 @@ const Navbar = () => {
           </Group>
 
           {/* CTA Buttons */}
-          <Group gap="xs" visibleFrom="md" wrap="nowrap" style={{ flexShrink: 0 }}>
+          <Group gap="sm" visibleFrom="md" wrap="nowrap" style={{ flexShrink: 0 }}>
             <LanguageSwitcher />
             <Button variant="subtle" color="gray" radius="md" component={Link} href="/login">
               {t.nav.login}

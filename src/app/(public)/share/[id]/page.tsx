@@ -44,8 +44,8 @@ export default async function SharedSessionPage({ params }: PageProps) {
               href="/login"
               variant="light"
               color="violet"
-              size="xs"
-              leftSection={<LogIn size={14} />}
+              size="sm"
+              leftSection={<LogIn size={16} />}
             >
               Sign In to Chat
             </Button>
@@ -61,12 +61,12 @@ export default async function SharedSessionPage({ params }: PageProps) {
               {session.title || session.course.code}
             </Title>
             <Group justify="space-between">
-              <Text c="dimmed" size="sm">
+              <Text c="dimmed">
                 {session.course.code}: {session.course.name} • {session.mode}
               </Text>
               <Group gap="xs">
-                <Calendar size={14} className="text-gray-500" />
-                <Text c="dimmed" size="xs">
+                <Calendar size={16} className="text-gray-500" />
+                <Text c="dimmed" size="sm">
                   {new Date(session.lastUpdated).toLocaleDateString()}
                 </Text>
               </Group>
@@ -100,7 +100,7 @@ export default async function SharedSessionPage({ params }: PageProps) {
                   >
                     <Text
                       c={msg.role === 'user' ? 'dark.9' : 'dark.8'}
-                      size="sm"
+                      size="md"
                       style={{ whiteSpace: 'pre-wrap' }}
                     >
                       <ReactMarkdown

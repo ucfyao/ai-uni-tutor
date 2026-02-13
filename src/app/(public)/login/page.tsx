@@ -68,16 +68,16 @@ export default function LoginPage() {
 
   const inputStyles = {
     label: {
-      marginBottom: 4,
+      marginBottom: 6,
       fontWeight: 600,
-      fontSize: 13,
+      fontSize: 14,
       color: 'var(--mantine-color-slate-7)',
     },
     input: {
       backgroundColor: 'var(--mantine-color-slate-0)',
       border: '1px solid var(--mantine-color-slate-2)',
-      fontSize: 14,
-      minHeight: 40,
+      fontSize: 15,
+      minHeight: 44,
       transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
     },
   };
@@ -94,23 +94,25 @@ export default function LoginPage() {
         overflowY: 'auto',
       }}
     >
-      <Container size={420} w="100%" px={0} style={{ position: 'relative', zIndex: 1 }}>
-        <Stack align="center" gap="xs" mb="md">
-          <Logo size={48} alt="AI Uni Tutor" />
+      <Container size={460} w="100%" px={0} style={{ position: 'relative', zIndex: 1 }}>
+        <Stack align="center" gap="sm" mb="lg">
+          <Logo size={52} alt="AI Uni Tutor" />
           <Title
             order={1}
             fw={700}
             className="login-page-title"
-            style={{ fontSize: 'clamp(22px, 2.2vw, 28px)', lineHeight: 1.2 }}
+            style={{ fontSize: 'clamp(24px, 2.4vw, 32px)', lineHeight: 1.2 }}
           >
             {isSignUp ? 'Join AI Tutor' : 'Welcome Back'}
           </Title>
-          <Text c="dimmed" size="xs" fw={500}>
-            {isSignUp ? 'Start your learning journey' : 'Continue where you left off'}
+          <Text c="dimmed" size="sm" fw={500}>
+            {isSignUp
+              ? 'Begin your personalized learning journey'
+              : 'Your AI tutor is ready for you'}
           </Text>
         </Stack>
 
-        <Paper radius="lg" p={24} className="login-page-card" style={{}}>
+        <Paper radius="lg" p={28} className="login-page-card" style={{}}>
           {error && (
             <Alert
               icon={<AlertCircle size={14} />}
@@ -148,12 +150,12 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleAuth}>
-            <Stack gap="xs">
+            <Stack gap="sm">
               <TextInput
                 label="Email"
                 placeholder="you@university.edu"
                 required
-                size="sm"
+                size="md"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 leftSection={<Mail size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
@@ -167,7 +169,7 @@ export default function LoginPage() {
                   label="Password"
                   placeholder={isSignUp ? 'Strong password' : 'Your password'}
                   required
-                  size="sm"
+                  size="md"
                   mt={2}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -187,7 +189,7 @@ export default function LoginPage() {
                     label="Confirm"
                     placeholder="Re-enter password"
                     required
-                    size="sm"
+                    size="md"
                     mt="sm"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -201,8 +203,8 @@ export default function LoginPage() {
                 )}
 
                 {!isSignUp && (
-                  <Group justify="flex-end" mt={2}>
-                    <Anchor href="#" size="xs" fw={600} c="indigo.6">
+                  <Group justify="flex-end" mt={4}>
+                    <Anchor href="#" size="sm" fw={600} c="indigo.6">
                       Forgot password?
                     </Anchor>
                   </Group>
@@ -211,7 +213,7 @@ export default function LoginPage() {
 
               <Button
                 fullWidth
-                size="sm"
+                size="md"
                 radius="md"
                 type="submit"
                 loading={loading}
@@ -233,16 +235,16 @@ export default function LoginPage() {
           <Divider
             label="Or continue with"
             labelPosition="center"
-            my="md"
+            my="lg"
             styles={{
-              label: { fontSize: 12, color: 'var(--mantine-color-slate-5)', fontWeight: 500 },
+              label: { fontSize: 13, color: 'var(--mantine-color-slate-5)', fontWeight: 500 },
             }}
           />
 
           <Group grow gap="xs">
             <Button
               variant="default"
-              size="sm"
+              size="md"
               radius="md"
               disabled
               style={{
@@ -256,7 +258,7 @@ export default function LoginPage() {
             </Button>
             <Button
               variant="default"
-              size="sm"
+              size="md"
               radius="md"
               disabled
               style={{
@@ -270,14 +272,14 @@ export default function LoginPage() {
             </Button>
           </Group>
 
-          <Center mt="md">
-            <Text size="xs" c="dimmed" span>
+          <Center mt="lg">
+            <Text size="sm" c="dimmed" span>
               {isSignUp ? 'Already have an account? ' : 'New? '}
               <Anchor<'a'>
                 href="#"
                 fw={600}
                 c="indigo.6"
-                size="xs"
+                size="sm"
                 onClick={(e) => {
                   e.preventDefault();
                   setIsSignUp(!isSignUp);
@@ -292,7 +294,7 @@ export default function LoginPage() {
           </Center>
         </Paper>
 
-        <Text ta="center" size="xs" c="dimmed" mt="md">
+        <Text ta="center" size="sm" c="dimmed" mt="lg">
           &copy; {new Date().getFullYear()} AI Uni Tutor
         </Text>
       </Container>

@@ -6,13 +6,13 @@ const TestimonialsSection = () => {
   const { t } = useLanguage();
 
   return (
-    <Box component="section" id="testimonials" className="py-16 md:py-20 relative scroll-mt-24">
+    <Box component="section" id="testimonials" className="py-16 md:py-24 relative scroll-mt-24">
       {/* Background */}
       <Box className="absolute inset-0 bg-gradient-to-b from-background via-secondary/10 to-background" />
 
       <Container size={1280} px={24} className="relative z-10">
         {/* Section Header */}
-        <Box className="text-center mb-10 md:mb-14">
+        <Box className="text-center mb-12 md:mb-16">
           <Title order={2} fz={{ base: '2.25rem', sm: '3rem' }} fw={700} mb="1rem">
             {t.testimonials.title}{' '}
             <span className="gradient-text">{t.testimonials.titleHighlight}</span>
@@ -23,7 +23,7 @@ const TestimonialsSection = () => {
         </Box>
 
         {/* Testimonials Grid */}
-        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing={{ base: 24, sm: 32 }}>
+        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing={{ base: 24, sm: 36 }}>
           {t.testimonials.items.map((testimonial, index) => (
             <Box
               key={index}
