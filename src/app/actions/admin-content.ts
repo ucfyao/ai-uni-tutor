@@ -2,9 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
-import { parsePDF } from '@/lib/pdf';
-import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
+import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { requireAdmin } from '@/lib/supabase/server';
@@ -133,50 +131,22 @@ export async function uploadAdminContent(
     revalidatePath('/admin/content');
     revalidatePath('/knowledge');
 
-    // Parse PDF
+    // Process document via DocumentProcessingService (mechanical chunking for admin)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const processingService = getDocumentProcessingService();
 
-    let pdfData;
     try {
-      pdfData = await parsePDF(buffer);
+      await processingService.processWithChunking({
+        documentId: doc.id,
+        buffer,
+      });
     } catch (e) {
-      console.error('Error parsing PDF:', e);
-      await documentService.updateStatus(doc.id, 'error', 'Failed to parse PDF');
+      console.error('Error processing document:', e);
+      const msg = e instanceof Error ? e.message : 'Failed to process document';
+      await documentService.updateStatus(doc.id, 'error', msg);
       revalidatePath('/admin/content');
-      return { status: 'error', message: 'Failed to parse PDF content' };
-    }
-
-    // Chunk Text
-    const { chunkPages } = await import('@/lib/rag/chunking');
-    const chunks = await chunkPages(pdfData.pages);
-
-    // Generate Embeddings & Store Chunks
-    const chunksData: CreateDocumentChunkDTO[] = [];
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-      const batch = chunks.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (chunk) => {
-          const embedding = await generateEmbeddingWithRetry(chunk.content);
-          chunksData.push({
-            documentId: doc.id,
-            content: chunk.content,
-            embedding,
-            metadata: chunk.metadata,
-          });
-        }),
-      );
-    }
-
-    if (chunksData.length > 0) {
-      try {
-        await documentService.saveChunks(chunksData);
-      } catch {
-        await documentService.updateStatus(doc.id, 'error', 'Failed to save chunks');
-        revalidatePath('/admin/content');
-        return { status: 'error', message: 'Failed to save document chunks' };
-      }
+      return { status: 'error', message: msg };
     }
 
     await documentService.updateStatus(doc.id, 'ready');
