@@ -27,13 +27,23 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host'); // original origin before load balancer
+      const forwardedHost = request.headers.get('x-forwarded-host');
       const isLocalEnv = process.env.NODE_ENV === 'development';
+
       if (isLocalEnv) {
-        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
         return NextResponse.redirect(`${origin}${next}`);
       } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+        // Validate forwarded host against known domains
+        const allowedHosts = [
+          process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, ''),
+          'ai-uni-tutor.vercel.app',
+        ].filter(Boolean);
+
+        if (allowedHosts.some((h) => forwardedHost === h)) {
+          return NextResponse.redirect(`https://${forwardedHost}${next}`);
+        }
+        // Fall through to origin if host not recognized
+        return NextResponse.redirect(`${origin}${next}`);
       } else {
         return NextResponse.redirect(`${origin}${next}`);
       }
