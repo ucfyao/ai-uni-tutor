@@ -90,6 +90,76 @@ export class ProfileRepository implements IProfileRepository {
       currentPeriodEnd: data.current_period_end ? new Date(data.current_period_end) : null,
     };
   }
+
+  async getStripeCustomerId(userId: string): Promise<string | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch Stripe customer ID: ${error.message}`, error);
+    }
+    return data?.stripe_customer_id ?? null;
+  }
+
+  async updateStripeCustomerId(userId: string, customerId: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        stripe_customer_id: customerId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) throw new DatabaseError(`Failed to update Stripe customer ID: ${error.message}`, error);
+  }
+
+  async updateSubscription(
+    userId: string,
+    data: {
+      stripe_subscription_id?: string | null;
+      stripe_customer_id?: string;
+      subscription_status: string;
+      current_period_end?: string | null;
+      stripe_price_id?: string | null;
+    },
+  ): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) throw new DatabaseError(`Failed to update subscription: ${error.message}`, error);
+  }
+
+  async updateSubscriptionBySubscriptionId(
+    subscriptionId: string,
+    data: {
+      subscription_status: string;
+      current_period_end?: string | null;
+      stripe_price_id?: string | null;
+    },
+  ): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('stripe_subscription_id', subscriptionId);
+
+    if (error) throw new DatabaseError(`Failed to update subscription by ID: ${error.message}`, error);
+  }
 }
 
 let _profileRepository: ProfileRepository | null = null;
