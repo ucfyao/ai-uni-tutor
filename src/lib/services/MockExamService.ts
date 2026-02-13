@@ -500,10 +500,16 @@ Return JSON with these exact fields:
   }
 
   /**
-   * Look up a mock exam ID from a chat session ID.
+   * Look up a mock exam ID from a chat session ID, verifying user ownership.
    */
-  async getMockIdBySessionId(sessionId: string): Promise<string | null> {
-    return this.mockRepo.findBySessionId(sessionId);
+  async getMockIdBySessionId(sessionId: string, userId: string): Promise<string | null> {
+    const mockId = await this.mockRepo.findBySessionId(sessionId);
+    if (!mockId) return null;
+
+    // Verify that the mock exam belongs to the requesting user
+    if (!(await this.mockRepo.verifyOwnership(mockId, userId))) return null;
+
+    return mockId;
   }
 
   /**
