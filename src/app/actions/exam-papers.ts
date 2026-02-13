@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { QuotaExceededError } from '@/lib/errors';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { getQuotaService } from '@/lib/services/QuotaService';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
 import type { ExamPaper, PaperFilters } from '@/types/exam';
 
@@ -80,19 +80,8 @@ export async function getExamPaperDetail(paperId: string) {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  // Verify user owns the paper or the paper is public
-  const supabase = await createClient();
-  const { data: paper } = await supabase
-    .from('exam_papers')
-    .select('id, user_id, visibility')
-    .eq('id', paperId)
-    .single();
-
-  if (!paper) return null;
-  if (paper.visibility !== 'public' && paper.user_id !== user.id) return null;
-
   const service = getExamPaperService();
-  return service.getPaperWithQuestions(paperId);
+  return service.getPaperDetail(paperId, user.id);
 }
 
 export async function deleteExamPaper(paperId: string) {

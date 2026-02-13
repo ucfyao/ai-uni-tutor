@@ -180,6 +180,26 @@ export class ExamPaperService {
   }
 
   /**
+   * Get a paper with questions, enforcing visibility rules.
+   * Returns null if the paper doesn't exist or the user lacks access.
+   */
+  async getPaperDetail(
+    paperId: string,
+    userId: string,
+  ): Promise<{ paper: ExamPaper; questions: ExamQuestion[] } | null> {
+    const paper = await this.repo.findById(paperId);
+    if (!paper) return null;
+
+    // Visibility check: private papers are only accessible to the owner
+    if (paper.visibility !== 'public' && paper.userId !== userId) {
+      return null;
+    }
+
+    const questions = await this.repo.findQuestionsByPaperId(paperId);
+    return { paper, questions };
+  }
+
+  /**
    * Delete a paper. Cascade handles question deletion.
    */
   async deletePaper(userId: string, paperId: string): Promise<void> {
