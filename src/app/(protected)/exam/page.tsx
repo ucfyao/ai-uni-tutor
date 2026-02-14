@@ -1,13 +1,10 @@
 import { Box, Container } from '@mantine/core';
-import { getExamPaperList } from '@/app/actions/exam-papers';
-import { getMockExamList } from '@/app/actions/mock-exams';
+import { COURSES, UNIVERSITIES } from '@/constants';
 import { ExamEntryClient } from './ExamEntryClient';
 
-export default async function ExamPage() {
-  const [papers, mockExams] = await Promise.all([getExamPaperList(), getMockExamList()]);
-
+export default function ExamPage() {
   return (
-    <Container size="xl" py={48} style={{ position: 'relative' }}>
+    <Container size="md" py={48} style={{ position: 'relative' }}>
       <Box
         style={{
           position: 'absolute',
@@ -24,7 +21,7 @@ export default async function ExamPage() {
         }}
       />
       <Box style={{ position: 'relative', zIndex: 1 }}>
-        <ExamEntryClient papers={papers} recentMocks={mockExams.slice(0, 5)} />
+        <ExamEntryClient courses={COURSES} universities={UNIVERSITIES} />
       </Box>
     </Container>
   );

@@ -17,7 +17,6 @@ import {
   Group,
   Progress,
   ScrollArea,
-  SegmentedControl,
   Stack,
   Switch,
   Text,
@@ -27,7 +26,7 @@ import {
 import { batchSubmitMockAnswers, submitMockAnswer } from '@/app/actions/mock-exams';
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
-import type { ExamMode, MockExam, MockExamResponse } from '@/types/exam';
+import type { MockExam, MockExamResponse } from '@/types/exam';
 
 interface Props {
   initialMock: MockExam;
@@ -46,8 +45,8 @@ export function MockExamClient({ initialMock }: Props) {
   const [mock, setMock] = useState(initialMock);
   const [isPending, startTransition] = useTransition();
 
-  // Mode
-  const [mode, setMode] = useState<ExamMode>('practice');
+  // Mode locked from record
+  const mode = mock.mode;
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
   // Navigation
@@ -241,7 +240,6 @@ export function MockExamClient({ initialMock }: Props) {
     return null;
   };
 
-  const earnedPoints = mock.responses.reduce((sum, r) => sum + r.score, 0);
   const answeredCount =
     mode === 'exam'
       ? Object.values(examAnswers).filter((v) => v.trim()).length
@@ -268,32 +266,19 @@ export function MockExamClient({ initialMock }: Props) {
         </Box>
 
         {!isCompleted && (
-          <Group gap="md">
-            <SegmentedControl
-              value={mode}
-              onChange={(v) => setMode(v as ExamMode)}
-              data={[
-                { label: 'Practice', value: 'practice' },
-                { label: 'Exam', value: 'exam' },
-              ]}
-              disabled={hasSubmitted}
+          <Group gap="xs">
+            <Switch
+              label="Timer"
               size="sm"
+              checked={timerEnabled}
+              onChange={(e) => setTimerEnabled(e.currentTarget.checked)}
+              disabled={hasSubmitted}
             />
-
-            <Group gap="xs">
-              <Switch
-                label="Timer"
-                size="sm"
-                checked={timerEnabled}
-                onChange={(e) => setTimerEnabled(e.currentTarget.checked)}
-                disabled={hasSubmitted}
-              />
-              {timerEnabled && (
-                <Text size="sm" fw={700} ff="monospace" c={timeRemaining < 300 ? 'red' : undefined}>
-                  {formatTime(timeRemaining)}
-                </Text>
-              )}
-            </Group>
+            {timerEnabled && (
+              <Text size="sm" fw={700} ff="monospace" c={timeRemaining < 300 ? 'red' : undefined}>
+                {formatTime(timeRemaining)}
+              </Text>
+            )}
           </Group>
         )}
 
