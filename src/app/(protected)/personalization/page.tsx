@@ -6,7 +6,6 @@ import {
   Avatar,
   Box,
   Button,
-  Container,
   Divider,
   Group,
   Modal,
@@ -16,11 +15,11 @@ import {
   Switch,
   Text,
   TextInput,
-  Title,
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { PageShell } from '@/components/PageShell';
 import { PLACEHOLDERS } from '@/constants/placeholders';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useProfile } from '@/context/ProfileContext';
@@ -73,109 +72,96 @@ export default function PersonalizationPage() {
           </Button>
         </Stack>
       </Modal>
-      <Container size={700} py={60}>
-        <Stack gap={40}>
-          <Box>
-            <Title order={1} fz={32} fw={800} mb="xs">
-              Personalization
-            </Title>
-            <Text c="dimmed" fz="lg">
-              Customize your AI Tutor experience
-            </Text>
-          </Box>
-
-          <Paper withBorder p="xl" radius="lg">
-            <Stack gap="lg">
-              <Group justify="space-between">
-                <Group gap="md">
-                  <Avatar color="violet" radius="md">
-                    <User size={20} />
-                  </Avatar>
-                  <Box>
-                    <Text fw={600}>Profile Information</Text>
-                    <Text size="sm" c="dimmed">
-                      {loading
-                        ? 'Loading...'
-                        : profile?.full_name || profile?.email || 'Update your personal details'}
-                    </Text>
-                  </Box>
-                </Group>
-                <Button variant="light" color="violet" onClick={open} loading={loading}>
-                  Edit Profile
-                </Button>
+      <PageShell title="Personalization" subtitle="Customize your AI Tutor experience">
+        <Paper withBorder p="xl" radius="lg">
+          <Stack gap="lg">
+            <Group justify="space-between">
+              <Group gap="md">
+                <Avatar color="violet" radius="md">
+                  <User size={20} />
+                </Avatar>
+                <Box>
+                  <Text fw={600}>Profile Information</Text>
+                  <Text size="sm" c="dimmed">
+                    {loading
+                      ? 'Loading...'
+                      : profile?.full_name || profile?.email || 'Update your personal details'}
+                  </Text>
+                </Box>
               </Group>
+              <Button variant="light" color="violet" onClick={open} loading={loading}>
+                Edit Profile
+              </Button>
+            </Group>
 
-              <Divider />
+            <Divider />
 
-              <Group justify="space-between">
-                <Group gap="md">
-                  <Avatar color="blue" radius="md">
-                    <Globe size={20} />
-                  </Avatar>
-                  <Box>
-                    <Text fw={600}>Language</Text>
-                    <Text size="sm" c="dimmed">
-                      Preferred language for AI responses
-                    </Text>
-                  </Box>
-                </Group>
-                <Select
-                  w={140}
-                  defaultValue="en"
-                  data={[
-                    { value: 'en', label: 'English' },
-                    { value: 'es', label: 'Spanish' },
-                    { value: 'fr', label: 'French' },
-                    { value: 'zh', label: 'Chinese' },
-                  ]}
-                />
+            <Group justify="space-between">
+              <Group gap="md">
+                <Avatar color="blue" radius="md">
+                  <Globe size={20} />
+                </Avatar>
+                <Box>
+                  <Text fw={600}>Language</Text>
+                  <Text size="sm" c="dimmed">
+                    Preferred language for AI responses
+                  </Text>
+                </Box>
               </Group>
+              <Select
+                w={140}
+                defaultValue="en"
+                data={[
+                  { value: 'en', label: 'English' },
+                  { value: 'es', label: 'Spanish' },
+                  { value: 'fr', label: 'French' },
+                  { value: 'zh', label: 'Chinese' },
+                ]}
+              />
+            </Group>
 
-              <Divider />
+            <Divider />
 
-              <Group justify="space-between">
-                <Group gap="md">
-                  <Avatar color="dark" radius="md">
-                    {computedColorScheme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
-                  </Avatar>
-                  <Box>
-                    <Text fw={600}>Theme</Text>
-                    <Text size="sm" c="dimmed">
-                      Toggle dark mode
-                    </Text>
-                  </Box>
-                </Group>
-                <Switch
-                  size="md"
-                  onLabel="ON"
-                  offLabel="OFF"
-                  checked={computedColorScheme === 'dark'}
-                  onChange={() =>
-                    setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')
-                  }
-                />
+            <Group justify="space-between">
+              <Group gap="md">
+                <Avatar color="dark" radius="md">
+                  {computedColorScheme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+                </Avatar>
+                <Box>
+                  <Text fw={600}>Theme</Text>
+                  <Text size="sm" c="dimmed">
+                    Toggle dark mode
+                  </Text>
+                </Box>
               </Group>
+              <Switch
+                size="md"
+                onLabel="ON"
+                offLabel="OFF"
+                checked={computedColorScheme === 'dark'}
+                onChange={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
+              />
+            </Group>
 
-              <Divider />
+            <Divider />
 
-              <Group justify="space-between">
-                <Group gap="md">
-                  <Avatar color="orange" radius="md">
-                    <Bell size={20} />
-                  </Avatar>
-                  <Box>
-                    <Text fw={600}>Notifications</Text>
-                    <Text size="sm" c="dimmed">
-                      Receive email updates
-                    </Text>
-                  </Box>
-                </Group>
-                <Switch defaultChecked size="md" color="violet" />
+            <Group justify="space-between">
+              <Group gap="md">
+                <Avatar color="orange" radius="md">
+                  <Bell size={20} />
+                </Avatar>
+                <Box>
+                  <Text fw={600}>Notifications</Text>
+                  <Text size="sm" c="dimmed">
+                    Receive email updates
+                  </Text>
+                </Box>
               </Group>
-            </Stack>
-          </Paper>
-        </Stack>
-      </Container>
+              <Switch defaultChecked size="md" color="violet" />
+            </Group>
+          </Stack>
+        </Paper>
+      </PageShell>
     </>
   );
 }

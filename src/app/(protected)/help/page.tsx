@@ -1,56 +1,21 @@
 'use client';
 
-import { FileText, GraduationCap, HelpCircle, Search, Sparkles } from 'lucide-react';
-import {
-  Accordion,
-  ActionIcon,
-  Container,
-  Input,
-  Paper,
-  Stack,
-  Text,
-  ThemeIcon,
-  Title,
-} from '@mantine/core';
+import { FileText, GraduationCap, Sparkles } from 'lucide-react';
+import { Accordion, Paper, Stack, Text } from '@mantine/core';
+import { PageShell } from '@/components/PageShell';
 
 export default function HelpPage() {
   return (
-    <Container size="lg" py={80}>
-      <Stack align="center" gap="xl" mb={60}>
-        <ThemeIcon size={80} radius="100%" variant="light" color="blue" mb="md">
-          <HelpCircle size={40} />
-        </ThemeIcon>
-        <Title order={1} size={48} fw={900} ta="center">
-          How can we help?
-        </Title>
-        <Text c="dimmed" size="lg" ta="center" maw={600}>
-          Search our knowledge base or browse frequently asked questions to find the answers you
-          need.
-        </Text>
-
-        <Paper
-          withBorder
-          radius="xl"
-          p="xs"
-          w="100%"
-          maw={600}
-          style={{ display: 'flex', alignItems: 'center' }}
-        >
-          <Input
-            variant="unstyled"
-            placeholder="Search for help..."
-            style={{ flex: 1, paddingLeft: 16 }}
-          />
-          <ActionIcon size="xl" radius="xl" variant="filled" color="blue">
-            <Search size={20} />
-          </ActionIcon>
-        </Paper>
-      </Stack>
-
-      <Container size="sm">
-        <Stack gap="xl">
-          <Title order={2}>Frequently Asked Questions</Title>
-          <Accordion variant="separated" radius="lg">
+    <PageShell
+      title="Help"
+      subtitle="Browse frequently asked questions to find the answers you need"
+    >
+      <Paper withBorder p="xl" radius="lg">
+        <Stack gap="md">
+          <Text fw={600} fz="lg">
+            Frequently Asked Questions
+          </Text>
+          <Accordion variant="separated" radius="md">
             <Accordion.Item value="upload">
               <Accordion.Control icon={<FileText size={20} />}>
                 How do I upload course materials?
@@ -84,7 +49,7 @@ export default function HelpPage() {
             </Accordion.Item>
           </Accordion>
         </Stack>
-      </Container>
-    </Container>
+      </Paper>
+    </PageShell>
   );
 }
