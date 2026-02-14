@@ -14,7 +14,6 @@ import {
   Box,
   Button,
   Card,
-  Container,
   Group,
   Progress,
   ScrollArea,
@@ -254,65 +253,78 @@ export function MockExamClient({ initialMock }: Props) {
     mode === 'practice' && mock.responses.some((r) => r.questionIndex === currentQuestionIndex);
 
   return (
-    <Container size="xl" py={32}>
-      <Stack gap="md">
-        {/* Header */}
-        <Group justify="space-between" align="center">
-          <div style={{ flex: 1 }}>
-            <Text size="sm" fw={500}>
-              {mock.title}
-            </Text>
-          </div>
+    <Stack gap="md">
+      {/* Header */}
+      <Group justify="space-between" align="flex-start" className="animate-fade-in-up">
+        <Box>
+          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
+            {mock.title}
+          </Title>
+          <Text c="dimmed" size="md" fw={400} mt={2}>
+            {isCompleted
+              ? `Completed · ${totalQuestions} questions`
+              : `${mode === 'practice' ? 'Practice' : 'Exam'} Mode · ${totalQuestions} questions`}
+          </Text>
+        </Box>
 
-          {!isCompleted && (
-            <Group gap="md">
-              <SegmentedControl
-                value={mode}
-                onChange={(v) => setMode(v as ExamMode)}
-                data={[
-                  { label: 'Practice', value: 'practice' },
-                  { label: 'Exam', value: 'exam' },
-                ]}
-                disabled={hasSubmitted}
-                size="sm"
-              />
+        {!isCompleted && (
+          <Group gap="md">
+            <SegmentedControl
+              value={mode}
+              onChange={(v) => setMode(v as ExamMode)}
+              data={[
+                { label: 'Practice', value: 'practice' },
+                { label: 'Exam', value: 'exam' },
+              ]}
+              disabled={hasSubmitted}
+              size="sm"
+            />
 
-              <Group gap="xs">
-                <Switch
-                  label="Timer"
-                  size="sm"
-                  checked={timerEnabled}
-                  onChange={(e) => setTimerEnabled(e.currentTarget.checked)}
-                  disabled={hasSubmitted}
-                />
-                {timerEnabled && (
-                  <Text
-                    size="sm"
-                    fw={700}
-                    ff="monospace"
-                    c={timeRemaining < 300 ? 'red' : undefined}
-                  >
-                    {formatTime(timeRemaining)}
-                  </Text>
-                )}
-              </Group>
-            </Group>
-          )}
-
-          {isCompleted && mock.score !== null && (
             <Group gap="xs">
-              <IconTrophy size={18} color="gold" />
-              <Text fw={700}>
-                {mock.score}/{mock.totalPoints}
-              </Text>
+              <Switch
+                label="Timer"
+                size="sm"
+                checked={timerEnabled}
+                onChange={(e) => setTimerEnabled(e.currentTarget.checked)}
+                disabled={hasSubmitted}
+              />
+              {timerEnabled && (
+                <Text size="sm" fw={700} ff="monospace" c={timeRemaining < 300 ? 'red' : undefined}>
+                  {formatTime(timeRemaining)}
+                </Text>
+              )}
             </Group>
-          )}
-        </Group>
+          </Group>
+        )}
 
-        {/* Progress bar */}
+        {isCompleted && mock.score !== null && (
+          <Group gap="xs">
+            <IconTrophy size={18} color="gold" />
+            <Text fw={700}>
+              {mock.score}/{mock.totalPoints}
+            </Text>
+          </Group>
+        )}
+      </Group>
+
+      {/* Progress bar */}
+      <Box className="animate-fade-in-up animate-delay-100" style={{ opacity: 0 }}>
         <Progress value={progressValue} size="sm" color="indigo" />
+      </Box>
 
-        {/* Two-column layout */}
+      {/* Two-column layout */}
+      <Card
+        withBorder
+        radius="lg"
+        p={0}
+        className="animate-fade-in-up animate-delay-200"
+        style={{
+          borderColor: 'var(--mantine-color-gray-2)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+          overflow: 'hidden',
+          opacity: 0,
+        }}
+      >
         <Group align="flex-start" gap={0} wrap="nowrap" style={{ minHeight: 500 }}>
           {/* Left sidebar — Question list */}
           <Box
@@ -384,7 +396,16 @@ export function MockExamClient({ initialMock }: Props) {
                 mock.score !== null &&
                 currentQuestionIndex === 0 &&
                 !currentFeedback && (
-                  <Card withBorder radius="lg" p="xl" ta="center">
+                  <Card
+                    withBorder
+                    radius="lg"
+                    p="xl"
+                    ta="center"
+                    style={{
+                      borderColor: 'var(--mantine-color-gray-2)',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                    }}
+                  >
                     <IconTrophy size={48} color="gold" />
                     <Title order={2} mt="md">
                       Exam Completed!
@@ -504,7 +525,7 @@ export function MockExamClient({ initialMock }: Props) {
             </Stack>
           </Box>
         </Group>
-      </Stack>
-    </Container>
+      </Card>
+    </Stack>
   );
 }
