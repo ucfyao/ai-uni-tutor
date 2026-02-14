@@ -507,9 +507,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           ) : filteredDocuments.length > 0 ? (
             <KnowledgeTable documents={filteredDocuments} onDeleted={handleDocumentDeleted} />
           ) : (
-            <Stack align="center" gap="xs" py="xl">
-              <Text size="sm" c="dimmed">
+            <Stack align="center" gap="xs" py={48}>
+              <FileText size={40} color="var(--mantine-color-gray-4)" />
+              <Text size="sm" fw={500} c="dimmed">
                 {t.knowledge.noDocuments}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {t.knowledge.uploadGuide}
               </Text>
             </Stack>
           )}
