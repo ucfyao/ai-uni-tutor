@@ -8,8 +8,8 @@ import {
   Box,
   Button,
   Group,
-  Loader,
   Progress,
+  Skeleton,
   rem,
   ScrollArea,
   SegmentedControl,
@@ -495,9 +495,15 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
 
           {/* ── Document List ── */}
           {isLoading ? (
-            <Group justify="center" py="xl">
-              <Loader size="sm" />
-            </Group>
+            isMobile ? (
+              <Stack gap="sm">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} height={100} radius="lg" />
+                ))}
+              </Stack>
+            ) : (
+              <Skeleton height={200} radius="lg" />
+            )
           ) : filteredDocuments.length > 0 ? (
             <KnowledgeTable documents={filteredDocuments} onDeleted={handleDocumentDeleted} />
           ) : (
