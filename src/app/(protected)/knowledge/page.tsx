@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import { redirect } from 'next/navigation';
-import { Alert, Container } from '@mantine/core';
+import { Alert, Box, Container } from '@mantine/core';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { createClient, getCurrentUser } from '@/lib/supabase/server';
 import { KnowledgeClient } from './KnowledgeClient';
@@ -51,8 +51,25 @@ export default async function KnowledgePage() {
   }));
 
   return (
-    <Container size="md" py={48}>
-      <KnowledgeClient initialDocuments={initialDocuments} initialDocType={DEFAULT_DOC_TYPE} />
+    <Container size="md" py={48} style={{ position: 'relative' }}>
+      <Box
+        style={{
+          position: 'absolute',
+          top: -40,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '120%',
+          height: 200,
+          background:
+            'radial-gradient(ellipse at center, var(--mantine-color-indigo-0) 0%, transparent 70%)',
+          pointerEvents: 'none',
+          zIndex: 0,
+          opacity: 0.7,
+        }}
+      />
+      <Box style={{ position: 'relative', zIndex: 1 }}>
+        <KnowledgeClient initialDocuments={initialDocuments} initialDocType={DEFAULT_DOC_TYPE} />
+      </Box>
     </Container>
   );
 }

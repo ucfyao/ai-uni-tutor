@@ -132,12 +132,12 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   return (
     <Stack gap="lg">
       {/* ── Header Row: title left, upload button right ── */}
-      <Group justify="space-between" align="flex-start">
+      <Group justify="space-between" align="flex-start" className="animate-fade-in-up">
         <Box>
-          <Title order={2} fw={700}>
+          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
             {t.knowledge.knowledgeBase}
           </Title>
-          <Text c="dimmed" size="sm" mt={2}>
+          <Text c="dimmed" size="md" fw={400} mt={2}>
             {t.knowledge.knowledgeBaseSubtitle}
           </Text>
         </Box>
@@ -161,243 +161,263 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       </Group>
 
       {/* ── Doc Type Filter: SegmentedControl ── */}
-      <SegmentedControl
-        value={activeTab}
-        onChange={(v) => setActiveTab(v)}
-        data={DOC_TYPES.map((dt) => ({
-          value: dt.value,
-          label: dt.label,
-        }))}
-        radius="xl"
-        size="sm"
-        styles={{
-          root: {
-            backgroundColor: 'var(--mantine-color-gray-0)',
-            border: '1px solid var(--mantine-color-gray-2)',
-          },
-        }}
-      />
-
-      {/* ── Upload Area (collapsible) ── */}
-      <Collapse in={uploadExpanded} transitionDuration={250}>
-        <Card
-          radius="lg"
-          p="lg"
-          withBorder
-          style={{
-            borderColor: 'var(--mantine-color-gray-2)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+      <Box className="animate-fade-in-up animate-delay-100" style={{ opacity: 0 }}>
+        <SegmentedControl
+          value={activeTab}
+          onChange={(v) => setActiveTab(v)}
+          data={DOC_TYPES.map((dt) => ({
+            value: dt.value,
+            label: (
+              <Group gap={6} wrap="nowrap" justify="center">
+                <Box
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    backgroundColor: `var(--mantine-color-${dt.color}-5)`,
+                    flexShrink: 0,
+                  }}
+                />
+                <span>{dt.label}</span>
+              </Group>
+            ),
+          }))}
+          radius="xl"
+          size="sm"
+          styles={{
+            root: {
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              border: '1px solid var(--mantine-color-gray-2)',
+            },
           }}
-        >
-          <Stack gap="sm">
-            {/* ── File Zone: compact bar when empty, pill when file selected ── */}
-            {selectedFile ? (
-              <Transition mounted transition="slide-up" duration={200}>
-                {(transitionStyles) => (
+        />
+      </Box>
+
+      <Box className="animate-fade-in-up animate-delay-200" style={{ opacity: 0 }}>
+        {/* ── Upload Area (collapsible) ── */}
+        <Collapse in={uploadExpanded} transitionDuration={250}>
+          <Card
+            radius="lg"
+            p="lg"
+            withBorder
+            style={{
+              borderColor: 'var(--mantine-color-gray-2)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <Stack gap="sm">
+              {/* ── File Zone: compact bar when empty, pill when file selected ── */}
+              {selectedFile ? (
+                <Transition mounted transition="slide-up" duration={200}>
+                  {(transitionStyles) => (
+                    <Group
+                      gap="sm"
+                      p="sm"
+                      style={{
+                        ...transitionStyles,
+                        borderRadius: 'var(--mantine-radius-md)',
+                        background: 'var(--mantine-color-body)',
+                        border: '1px solid var(--mantine-color-gray-2)',
+                      }}
+                    >
+                      <FileText size={18} color="var(--mantine-color-indigo-5)" />
+                      <Box style={{ flex: 1, minWidth: 0 }}>
+                        <Text size="sm" fw={600} truncate>
+                          {selectedFile.name}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {formatFileSize(selectedFile.size)}
+                        </Text>
+                      </Box>
+                      <Tooltip label={t.knowledge.replaceFile}>
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          onClick={() => setSelectedFile(null)}
+                          aria-label="Remove file"
+                        >
+                          <X size={14} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+                  )}
+                </Transition>
+              ) : (
+                <Dropzone
+                  onDrop={(files) => setSelectedFile(files[0])}
+                  onReject={() =>
+                    showNotification({
+                      title: 'File rejected',
+                      message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`,
+                      color: 'red',
+                    })
+                  }
+                  maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5') * 1024 * 1024}
+                  accept={PDF_MIME_TYPE}
+                  multiple={false}
+                  styles={{
+                    root: {
+                      borderStyle: 'dashed',
+                      borderWidth: 1.5,
+                      borderColor: 'var(--mantine-color-gray-3)',
+                      background: 'transparent',
+                      transition: 'all 0.15s ease',
+                      '&:hover': {
+                        borderColor: 'var(--mantine-color-indigo-5)',
+                      },
+                    },
+                  }}
+                >
                   <Group
+                    justify="center"
                     gap="sm"
-                    p="sm"
-                    style={{
-                      ...transitionStyles,
-                      borderRadius: 'var(--mantine-radius-md)',
-                      background: 'var(--mantine-color-body)',
-                      border: '1px solid var(--mantine-color-gray-2)',
-                    }}
+                    style={{ minHeight: rem(80), pointerEvents: 'none' }}
                   >
-                    <FileText size={18} color="var(--mantine-color-indigo-5)" />
-                    <Box style={{ flex: 1, minWidth: 0 }}>
-                      <Text size="sm" fw={600} truncate>
-                        {selectedFile.name}
+                    <Dropzone.Accept>
+                      <Upload size={22} color="var(--mantine-color-indigo-6)" />
+                    </Dropzone.Accept>
+                    <Dropzone.Reject>
+                      <X size={22} color="var(--mantine-color-red-6)" />
+                    </Dropzone.Reject>
+                    <Dropzone.Idle>
+                      <Upload
+                        size={20}
+                        color="var(--mantine-color-indigo-4)"
+                        style={{ flexShrink: 0 }}
+                      />
+                    </Dropzone.Idle>
+                    <Box>
+                      <Text size="sm" fw={500} c="dimmed">
+                        {t.knowledge.dropPdfHere}{' '}
+                        <Text span c="indigo" fw={600}>
+                          {t.knowledge.browse}
+                        </Text>
                       </Text>
-                      <Text size="xs" c="dimmed">
-                        {formatFileSize(selectedFile.size)}
+                      <Text size="xs" c="dimmed" mt={1}>
+                        {t.knowledge.upToSize} {process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB
                       </Text>
                     </Box>
-                    <Tooltip label={t.knowledge.replaceFile}>
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="sm"
-                        onClick={() => setSelectedFile(null)}
-                        aria-label="Remove file"
-                      >
-                        <X size={14} />
-                      </ActionIcon>
-                    </Tooltip>
                   </Group>
-                )}
-              </Transition>
-            ) : (
-              <Dropzone
-                onDrop={(files) => setSelectedFile(files[0])}
-                onReject={() =>
-                  showNotification({
-                    title: 'File rejected',
-                    message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`,
-                    color: 'red',
-                  })
-                }
-                maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5') * 1024 * 1024}
-                accept={PDF_MIME_TYPE}
-                multiple={false}
-                styles={{
-                  root: {
-                    borderStyle: 'dashed',
-                    borderWidth: 1.5,
-                    borderColor: 'var(--mantine-color-gray-3)',
-                    background: 'transparent',
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      borderColor: 'var(--mantine-color-indigo-5)',
-                    },
-                  },
-                }}
-              >
-                <Group
-                  justify="center"
-                  gap="sm"
-                  style={{ minHeight: rem(80), pointerEvents: 'none' }}
-                >
-                  <Dropzone.Accept>
-                    <Upload size={22} color="var(--mantine-color-indigo-6)" />
-                  </Dropzone.Accept>
-                  <Dropzone.Reject>
-                    <X size={22} color="var(--mantine-color-red-6)" />
-                  </Dropzone.Reject>
-                  <Dropzone.Idle>
-                    <Upload
-                      size={20}
-                      color="var(--mantine-color-indigo-4)"
-                      style={{ flexShrink: 0 }}
-                    />
-                  </Dropzone.Idle>
-                  <Box>
-                    <Text size="sm" fw={500} c="dimmed">
-                      {t.knowledge.dropPdfHere}{' '}
-                      <Text span c="indigo" fw={600}>
-                        {t.knowledge.browse}
-                      </Text>
-                    </Text>
-                    <Text size="xs" c="dimmed" mt={1}>
-                      {t.knowledge.upToSize} {process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB
-                    </Text>
-                  </Box>
-                </Group>
-              </Dropzone>
-            )}
+                </Dropzone>
+              )}
 
-            {/* ── Metadata + Start ── */}
-            <Group gap="sm" align="flex-end" wrap="nowrap">
-              <Select
-                label={t.knowledge.university}
-                placeholder="Select"
-                data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
-                value={selectedUniId}
-                onChange={(val) => {
-                  setSelectedUniId(val);
-                  setSelectedCourseId(null);
-                }}
-                searchable
-                style={{ flex: 1 }}
-              />
-              <Select
-                label={t.knowledge.course}
-                placeholder={selectedUniId ? 'Select' : 'University first'}
-                data={filteredCourses.map((c) => ({
-                  value: c.id,
-                  label: `${c.code}: ${c.name}`,
-                }))}
-                value={selectedCourseId}
-                onChange={setSelectedCourseId}
-                disabled={!selectedUniId}
-                searchable
-                style={{ flex: 1 }}
-              />
-              <Tooltip
-                label={
-                  !selectedFile
-                    ? 'Select a PDF first'
-                    : !isFormValid
-                      ? 'Fill in all fields'
-                      : 'Start parsing'
-                }
-                openDelay={300}
-                disabled={!!isFormValid}
-              >
-                <Button
-                  leftSection={<Play size={14} />}
-                  disabled={!isFormValid}
-                  onClick={handleStartParse}
-                  color="indigo"
-                  radius="md"
-                  style={{ flexShrink: 0 }}
+              {/* ── Metadata + Start ── */}
+              <Group gap="sm" align="flex-end" wrap="nowrap">
+                <Select
+                  label={t.knowledge.university}
+                  placeholder="Select"
+                  data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
+                  value={selectedUniId}
+                  onChange={(val) => {
+                    setSelectedUniId(val);
+                    setSelectedCourseId(null);
+                  }}
+                  searchable
+                  style={{ flex: 1 }}
+                />
+                <Select
+                  label={t.knowledge.course}
+                  placeholder={selectedUniId ? 'Select' : 'University first'}
+                  data={filteredCourses.map((c) => ({
+                    value: c.id,
+                    label: `${c.code}: ${c.name}`,
+                  }))}
+                  value={selectedCourseId}
+                  onChange={setSelectedCourseId}
+                  disabled={!selectedUniId}
+                  searchable
+                  style={{ flex: 1 }}
+                />
+                <Tooltip
+                  label={
+                    !selectedFile
+                      ? 'Select a PDF first'
+                      : !isFormValid
+                        ? 'Fill in all fields'
+                        : 'Start parsing'
+                  }
+                  openDelay={300}
+                  disabled={!!isFormValid}
                 >
-                  {t.knowledge.startParsing}
-                </Button>
-              </Tooltip>
-            </Group>
-          </Stack>
-        </Card>
-      </Collapse>
+                  <Button
+                    leftSection={<Play size={14} />}
+                    disabled={!isFormValid}
+                    onClick={handleStartParse}
+                    color="indigo"
+                    radius="md"
+                    style={{ flexShrink: 0 }}
+                  >
+                    {t.knowledge.startParsing}
+                  </Button>
+                </Tooltip>
+              </Group>
+            </Stack>
+          </Card>
+        </Collapse>
 
-      {/* ── Document List ── */}
-      {isLoading ? (
-        <Group justify="center" py="xl">
-          <Loader size="sm" />
-        </Group>
-      ) : documents.length > 0 ? (
-        <KnowledgeTable documents={documents} onDeleted={handleDocumentDeleted} />
-      ) : (
-        <Card
-          radius="lg"
-          p="xl"
-          withBorder
-          style={{
-            borderColor: 'var(--mantine-color-gray-2)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-          }}
-        >
-          <Stack align="center" gap="md" py="lg">
-            <Box
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: '50%',
-                background: 'var(--mantine-color-indigo-0)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+        {/* ── Document List ── */}
+        {isLoading ? (
+          <Group justify="center" py="xl">
+            <Loader size="sm" />
+          </Group>
+        ) : documents.length > 0 ? (
+          <KnowledgeTable documents={documents} onDeleted={handleDocumentDeleted} />
+        ) : (
+          <Card
+            radius="lg"
+            p="xl"
+            withBorder
+            style={{
+              borderColor: 'var(--mantine-color-gray-2)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <Stack align="center" gap="md" py="lg">
               {(() => {
                 const docType = DOC_TYPES.find((dt) => dt.value === activeTab);
                 const Icon = docType?.icon ?? FileText;
-                return <Icon size={32} color="var(--mantine-color-indigo-4)" />;
+                const color = docType?.color ?? 'indigo';
+                return (
+                  <Box
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: '50%',
+                      background: `var(--mantine-color-${color}-0)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon size={32} color={`var(--mantine-color-${color}-4)`} />
+                  </Box>
+                );
               })()}
-            </Box>
-            <Box ta="center">
-              <Text fw={500} size="md">
-                {t.knowledge.noDocuments}
-              </Text>
-              <Text size="sm" c="dimmed" mt={4}>
-                {t.knowledge.uploadFirstSubtitle}
-              </Text>
-            </Box>
-            {!uploadExpanded && (
-              <Button
-                variant="light"
-                color="indigo"
-                size="sm"
-                leftSection={<Plus size={14} />}
-                onClick={() => setUploadExpanded(true)}
-                radius="md"
-              >
-                {t.knowledge.uploadFirst}
-              </Button>
-            )}
-          </Stack>
-        </Card>
-      )}
+              <Box ta="center">
+                <Text fw={500} size="md">
+                  {t.knowledge.noDocuments}
+                </Text>
+                <Text size="sm" c="dimmed" mt={4}>
+                  {t.knowledge.uploadFirstSubtitle}
+                </Text>
+              </Box>
+              {!uploadExpanded && (
+                <Button
+                  variant="light"
+                  color="indigo"
+                  size="sm"
+                  leftSection={<Plus size={14} />}
+                  onClick={() => setUploadExpanded(true)}
+                  radius="md"
+                >
+                  {t.knowledge.uploadFirst}
+                </Button>
+              )}
+            </Stack>
+          </Card>
+        )}
+      </Box>
     </Stack>
   );
 }
