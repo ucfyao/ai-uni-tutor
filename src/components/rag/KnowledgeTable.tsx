@@ -80,7 +80,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     return sortDir === 'desc' ? sorted.reverse() : sorted;
   }, [documents, sortField, sortDir]);
 
-  const SortIcon = ({ field }: { field: SortField }) => {
+  const renderSortIcon = (field: SortField) => {
     if (sortField !== field) return null;
     return sortDir === 'asc' ? (
       <ArrowUp size={12} style={{ marginLeft: 4 }} />
@@ -348,7 +348,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
               >
                 <Group gap={2} wrap="nowrap">
                   {t.knowledge.name}
-                  <SortIcon field="name" />
+                  {renderSortIcon('name')}
                 </Group>
               </Table.Th>
               <Table.Th w="14%" style={thStyle}>
@@ -364,7 +364,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
               >
                 <Group gap={2} wrap="nowrap">
                   {t.knowledge.date}
-                  <SortIcon field="date" />
+                  {renderSortIcon('date')}
                 </Group>
               </Table.Th>
               <Table.Th w="24%" style={thStyle}>
