@@ -13,6 +13,7 @@ import type { BatchSubmitResult, MockExam, MockExamResponse } from '@/types/exam
 export async function startMockExamSession(
   sessionId: string,
   courseCode: string,
+  mode: 'practice' | 'exam' = 'practice',
 ): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
   try {
     const user = await getCurrentUser();
@@ -21,10 +22,9 @@ export async function startMockExamSession(
     await getQuotaService().enforce(user.id);
 
     const service = getMockExamService();
-    const result = await service.startFromCourse(user.id, sessionId, courseCode);
+    const result = await service.startFromCourse(user.id, sessionId, courseCode, mode);
 
     revalidatePath('/exam');
-    revalidatePath('/exam/history');
     return { success: true, mockId: result.mockId };
   } catch (error) {
     if (error instanceof QuotaExceededError) {
@@ -67,7 +67,6 @@ export async function generateMockFromTopic(
     });
 
     revalidatePath('/exam');
-    revalidatePath('/exam/history');
     return { success: true, mockId };
   } catch (error) {
     if (error instanceof QuotaExceededError) {
@@ -82,19 +81,26 @@ export async function generateMockFromTopic(
 }
 
 export async function generateMockExam(
-  paperId: string,
+  courseCode: string,
+  mode: 'practice' | 'exam',
 ): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    if (!courseCode.trim()) return { success: false, error: 'Course is required' };
+    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+
     await getQuotaService().enforce(user.id);
 
     const service = getMockExamService();
-    const { mockId } = await service.generateMock(user.id, paperId);
+    const paperId = await service.findPaperByCourse(courseCode);
+    if (!paperId) {
+      return { success: false, error: 'No exam papers available for this course' };
+    }
+    const { mockId } = await service.generateMock(user.id, paperId, mode);
 
     revalidatePath('/exam');
-    revalidatePath('/exam/history');
     return { success: true, mockId };
   } catch (error) {
     if (error instanceof QuotaExceededError) {

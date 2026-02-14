@@ -289,6 +289,7 @@ export interface Database {
           total_points: number;
           current_index: number;
           status: 'in_progress' | 'completed';
+          mode: 'practice' | 'exam';
           created_at: string;
         };
         Insert: {
@@ -297,6 +298,7 @@ export interface Database {
           paper_id: string;
           session_id?: string | null;
           title: string;
+          mode?: 'practice' | 'exam';
           questions?: Json;
           responses?: Json;
           score?: number | null;
@@ -311,6 +313,7 @@ export interface Database {
           paper_id?: string;
           session_id?: string | null;
           title?: string;
+          mode?: 'practice' | 'exam';
           questions?: Json;
           responses?: Json;
           score?: number | null;
