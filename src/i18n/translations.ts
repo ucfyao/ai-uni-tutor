@@ -254,6 +254,8 @@ export const translations = {
       replaceFile: '替换文件',
       closeUpload: '关闭',
       uploadNewDocument: '上传新文档',
+      confirmDeletePrefix: '确定要删除',
+      confirmDeleteSuffix: '吗？',
     },
     // Exam
     exam: {
@@ -626,6 +628,8 @@ export const translations = {
       replaceFile: 'Replace file',
       closeUpload: 'Close',
       uploadNewDocument: 'Upload new document',
+      confirmDeletePrefix: 'Are you sure you want to delete',
+      confirmDeleteSuffix: '?',
     },
     // Exam
     exam: {

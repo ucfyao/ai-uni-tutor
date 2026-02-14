@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { AlertCircle, CheckCircle, Clock, Eye, FileText, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertCircle, Eye, FileText, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
@@ -21,6 +21,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, retryDocument } from '@/app/actions/documents';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
+import classes from './KnowledgeTable.module.css';
 
 export interface KnowledgeDocument {
   id: string;
@@ -93,14 +94,14 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
   const renderStatusBadge = (doc: KnowledgeDocument) => {
     if (doc.status === 'ready') {
       return (
-        <Badge color="green" variant="light" leftSection={<CheckCircle size={12} />}>
+        <Badge color="green" variant="dot" size="sm">
           {t.knowledge.ready}
         </Badge>
       );
     }
     if (doc.status === 'processing') {
       return (
-        <Badge color="blue" variant="light" leftSection={<Clock size={12} />}>
+        <Badge color="blue" variant="dot" size="sm">
           {doc.status_message || t.knowledge.processing}
         </Badge>
       );
@@ -108,7 +109,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     if (doc.status === 'error') {
       return (
         <Group gap={4}>
-          <Badge color="red" variant="light" leftSection={<AlertCircle size={12} />}>
+          <Badge color="red" variant="dot" size="sm">
             Error
           </Badge>
           {doc.status_message && (
@@ -147,16 +148,32 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
       title={t.knowledge.deleteConfirm}
       centered
       size="sm"
+      radius="lg"
     >
-      <Text size="sm" mb="lg">
-        Are you sure you want to delete{' '}
-        <Text span fw={600}>
-          {deleteTargetDoc?.name}
+      <Stack align="center" gap="md">
+        <Box
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            background: 'var(--mantine-color-red-0)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Trash2 size={22} color="var(--mantine-color-red-5)" />
+        </Box>
+        <Text size="sm" ta="center">
+          {t.knowledge.confirmDeletePrefix}{' '}
+          <Text span fw={600}>
+            {deleteTargetDoc?.name}
+          </Text>
+          {t.knowledge.confirmDeleteSuffix} {t.knowledge.deleteDocConfirm}
         </Text>
-        ? {t.knowledge.deleteDocConfirm}
-      </Text>
-      <Group justify="flex-end">
-        <Button variant="default" onClick={() => setDeleteTarget(null)}>
+      </Stack>
+      <Group justify="flex-end" mt="lg" gap="sm">
+        <Button variant="default" onClick={() => setDeleteTarget(null)} radius="md">
           {t.knowledge.cancel}
         </Button>
         <Button
@@ -165,6 +182,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
           onClick={() => {
             if (deleteTarget) deleteMutation.mutate(deleteTarget);
           }}
+          radius="md"
         >
           {t.knowledge.delete}
         </Button>
@@ -188,10 +206,12 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                 key={doc.id}
                 withBorder
                 padding="sm"
-                radius="md"
+                radius="lg"
+                className={classes.mobileCard}
                 style={{
                   cursor: 'pointer',
-                  transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
+                  borderColor: 'var(--mantine-color-gray-2)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
                 }}
                 onClick={() => router.push(`/knowledge/${doc.id}`)}
               >
@@ -199,7 +219,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                   <Group gap="xs" style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
                     <FileText
                       size={18}
-                      color="var(--mantine-color-gray-5)"
+                      color="var(--mantine-color-indigo-4)"
                       style={{ flexShrink: 0 }}
                     />
                     <Tooltip label={doc.name} multiline maw={280} openDelay={300}>
@@ -254,9 +274,9 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
   return (
     <>
       {deleteModal}
-      <Box style={{ overflowX: 'auto' }}>
+      <Card withBorder radius="lg" p={0} style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}>
         <Table
-          verticalSpacing="sm"
+          verticalSpacing="md"
           layout="fixed"
           highlightOnHover
           highlightOnHoverColor="var(--mantine-color-gray-0)"
@@ -264,19 +284,49 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th w="26%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
+              <Table.Th w="26%" style={{
+                  color: 'var(--mantine-color-gray-5)',
+                  fontWeight: 500,
+                  fontSize: 'var(--mantine-font-size-xs)',
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px',
+                }}>
                 {t.knowledge.name}
               </Table.Th>
-              <Table.Th w="14%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
+              <Table.Th w="14%" style={{
+                  color: 'var(--mantine-color-gray-5)',
+                  fontWeight: 500,
+                  fontSize: 'var(--mantine-font-size-xs)',
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px',
+                }}>
                 {t.knowledge.university}
               </Table.Th>
-              <Table.Th w="14%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
+              <Table.Th w="14%" style={{
+                  color: 'var(--mantine-color-gray-5)',
+                  fontWeight: 500,
+                  fontSize: 'var(--mantine-font-size-xs)',
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px',
+                }}>
                 {t.knowledge.course}
               </Table.Th>
-              <Table.Th w="12%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
+              <Table.Th w="12%" style={{
+                  color: 'var(--mantine-color-gray-5)',
+                  fontWeight: 500,
+                  fontSize: 'var(--mantine-font-size-xs)',
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px',
+                }}>
                 {t.knowledge.date}
               </Table.Th>
-              <Table.Th w="24%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
+              <Table.Th w="24%" style={{
+                  color: 'var(--mantine-color-gray-5)',
+                  fontWeight: 500,
+                  fontSize: 'var(--mantine-font-size-xs)',
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px',
+                }}>
                 {t.knowledge.status}
               </Table.Th>
               {!readOnly && <Table.Th w="10%"></Table.Th>}
@@ -286,6 +336,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
             {documents.map((doc) => (
               <Table.Tr
                 key={doc.id}
+                className={classes.tableRow}
                 style={{
                   cursor: 'pointer',
                   transition: 'background 0.12s ease',
@@ -300,7 +351,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                       style={{ flexShrink: 0 }}
                     />
                     <Tooltip label={doc.name} multiline maw={300} openDelay={300}>
-                      <Text size="sm" fw={500} truncate c="indigo">
+                      <Text size="sm" fw={500} truncate c="indigo" className={classes.fileName}>
                         {doc.name}
                       </Text>
                     </Tooltip>
@@ -324,7 +375,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                 <Table.Td>{renderStatusBadge(doc)}</Table.Td>
                 {!readOnly && (
                   <Table.Td>
-                    <Group gap={4}>
+                    <Group gap={4} className={classes.actions}>
                       <ActionIcon
                         variant="subtle"
                         color="gray"
@@ -364,7 +415,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
             )}
           </Table.Tbody>
         </Table>
-      </Box>
+      </Card>
     </>
   );
 }
