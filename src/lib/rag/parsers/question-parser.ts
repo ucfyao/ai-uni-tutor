@@ -3,7 +3,9 @@ import { getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
 import type { ParsedQuestion } from './types';
 
-export async function parseQuestions(
+const PAGE_BATCH_SIZE = 10;
+
+async function parseQuestionsBatch(
   pages: PDFPage[],
   hasAnswers: boolean,
 ): Promise<ParsedQuestion[]> {
@@ -40,4 +42,27 @@ ${pagesText}`;
   const text = response.text ?? '';
   const parsed = JSON.parse(text) as ParsedQuestion[];
   return parsed;
+}
+
+export async function parseQuestions(
+  pages: PDFPage[],
+  hasAnswers: boolean,
+): Promise<ParsedQuestion[]> {
+  if (pages.length <= PAGE_BATCH_SIZE) {
+    return parseQuestionsBatch(pages, hasAnswers);
+  }
+
+  const seen = new Map();
+
+  for (let i = 0; i < pages.length; i += PAGE_BATCH_SIZE) {
+    const batch = pages.slice(i, i + PAGE_BATCH_SIZE);
+    const batchResults = await parseQuestionsBatch(batch, hasAnswers);
+    for (const q of batchResults) {
+      if (!seen.has(q.questionNumber)) {
+        seen.set(q.questionNumber, q);
+      }
+    }
+  }
+
+  return Array.from(seen.values());
 }

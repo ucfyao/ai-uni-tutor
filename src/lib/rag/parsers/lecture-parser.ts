@@ -3,7 +3,9 @@ import { getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
 import type { KnowledgePoint } from './types';
 
-export async function parseLecture(pages: PDFPage[]): Promise<KnowledgePoint[]> {
+const PAGE_BATCH_SIZE = 10;
+
+async function parseLectureBatch(pages: PDFPage[]): Promise<KnowledgePoint[]> {
   const genAI = getGenAI();
   const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
 
@@ -33,4 +35,24 @@ ${pagesText}`;
   const text = response.text ?? '';
   const parsed = JSON.parse(text) as KnowledgePoint[];
   return parsed;
+}
+
+export async function parseLecture(pages: PDFPage[]): Promise<KnowledgePoint[]> {
+  if (pages.length <= PAGE_BATCH_SIZE) {
+    return parseLectureBatch(pages);
+  }
+
+  const seen = new Map<string, KnowledgePoint>();
+
+  for (let i = 0; i < pages.length; i += PAGE_BATCH_SIZE) {
+    const batch = pages.slice(i, i + PAGE_BATCH_SIZE);
+    const batchResults = await parseLectureBatch(batch);
+    for (const kp of batchResults) {
+      if (!seen.has(kp.title)) {
+        seen.set(kp.title, kp);
+      }
+    }
+  }
+
+  return Array.from(seen.values());
 }
