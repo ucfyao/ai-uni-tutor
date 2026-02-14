@@ -1,0 +1,28 @@
+.tableRow:hover .actions {
+  opacity: 1;
+}
+
+.actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tableRow {
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tableRow:hover {
+  box-shadow: inset 2px 0 0 0 var(--mantine-color-indigo-5);
+}
+
+.fileName:hover {
+  text-decoration: underline;
+}
+
+.mobileCard {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.mobileCard:active {
+  transform: scale(0.98);
+}
