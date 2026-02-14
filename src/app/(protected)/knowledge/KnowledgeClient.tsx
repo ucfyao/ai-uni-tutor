@@ -299,24 +299,54 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             />
 
             <Group gap={8} wrap="nowrap">
-              {/* Search: collapsed icon or expanded input */}
-              {searchExpanded ? (
+              {/* Search: animated expand/collapse */}
+              <Box
+                style={{
+                  width: searchExpanded ? 220 : 36,
+                  height: 36,
+                  transition: 'width 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  position: 'relative',
+                }}
+              >
+                {/* Collapsed icon — fades out when expanded */}
+                <ActionIcon
+                  variant="default"
+                  size="lg"
+                  radius="xl"
+                  onClick={() => setSearchExpanded(true)}
+                  aria-label={t.knowledge.searchDocuments}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: searchExpanded ? 0 : 1,
+                    pointerEvents: searchExpanded ? 'none' : 'auto',
+                    transition: 'opacity 0.2s ease',
+                  }}
+                >
+                  <Search size={16} />
+                </ActionIcon>
+
+                {/* Expanded input — fades in when expanded */}
                 <TextInput
                   ref={searchRef}
                   placeholder={t.knowledge.searchDocuments}
                   leftSection={<Search size={14} />}
                   rightSection={
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      size="xs"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSearchExpanded(false);
-                      }}
-                    >
-                      <X size={12} />
-                    </ActionIcon>
+                    searchExpanded ? (
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="xs"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSearchExpanded(false);
+                        }}
+                      >
+                        <X size={12} />
+                      </ActionIcon>
+                    ) : undefined
                   }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.currentTarget.value)}
@@ -325,21 +355,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   }}
                   size="sm"
                   radius="xl"
-                  style={{ width: 200, transition: 'width 0.2s ease' }}
+                  style={{
+                    width: 220,
+                    opacity: searchExpanded ? 1 : 0,
+                    transition: 'opacity 0.25s ease 0.1s',
+                  }}
                 />
-              ) : (
-                <Tooltip label={t.knowledge.searchDocuments}>
-                  <ActionIcon
-                    variant="default"
-                    size="lg"
-                    radius="xl"
-                    onClick={() => setSearchExpanded(true)}
-                    aria-label={t.knowledge.searchDocuments}
-                  >
-                    <Search size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
+              </Box>
 
               {/* Upload button */}
               <Tooltip label={t.knowledge.uploadDocument}>
