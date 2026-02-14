@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { toggleSessionShare } from '@/app/actions/chat';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatSession } from '../types/index';
 
 interface ShareModalProps {
@@ -24,6 +25,7 @@ interface ShareModalProps {
 
 const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpdateSession }) => {
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   if (!session) return null;
 
@@ -38,7 +40,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpd
       await toggleSessionShare(session.id, checked);
     } catch (error) {
       console.error('Failed to toggle share', error);
-      // Revert on error? For now assume success or user sees visual feedback of failure if we had toast
       onUpdateSession(session.id, !checked);
     } finally {
       setLoading(false);
@@ -46,20 +47,19 @@ const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpd
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Share Chat" centered size="md">
+    <Modal opened={opened} onClose={onClose} title={t.modals.shareChat} centered size="md">
       <Stack gap="lg">
         <Group justify="space-between" align="start">
           <Box style={{ flex: 1 }}>
             <Group gap="xs" mb={4}>
               <Globe size={18} className="text-indigo-600" />
-              <Text fw={600}>Share to Web</Text>
+              <Text fw={600}>{t.modals.shareToWeb}</Text>
             </Group>
             <Text size="sm" c="dimmed">
-              Publish this chat session to a public URL. Anyone with the link can view the
-              conversation.
+              {t.modals.shareDesc}
             </Text>
             <Text size="xs" c="orange.7" mt={4} fw={500}>
-              Links automatically expire after 1 hour.
+              {t.modals.shareExpiry}
             </Text>
           </Box>
           <Switch
@@ -74,7 +74,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpd
         {session.isShared && (
           <Box>
             <Text size="xs" fw={700} mb={4} ml={2} c="dimmed" tt="uppercase">
-              Public Link
+              {t.modals.publicLink}
             </Text>
             <Group gap="xs">
               <TextInput
@@ -84,7 +84,11 @@ const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpd
                 rightSection={
                   <CopyButton value={shareUrl} timeout={2000}>
                     {({ copied, copy }) => (
-                      <Tooltip label={copied ? 'Copied' : 'Copy'} withArrow position="right">
+                      <Tooltip
+                        label={copied ? t.modals.copied : t.modals.copy}
+                        withArrow
+                        position="right"
+                      >
                         <ActionIcon
                           color={copied ? 'teal' : 'gray'}
                           variant="subtle"
