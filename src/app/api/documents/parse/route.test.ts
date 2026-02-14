@@ -76,7 +76,7 @@ const MOCK_QUESTION = {
 };
 
 /** Build valid PDF bytes (starting with %PDF- magic bytes) */
-function makePDFBytes(content = 'some text'): Uint8Array {
+function makePDFBytes(content = 'some text') {
   const header = '%PDF-1.4\n';
   const body = content;
   const encoder = new TextEncoder();
@@ -85,7 +85,7 @@ function makePDFBytes(content = 'some text'): Uint8Array {
   const combined = new Uint8Array(headerBytes.length + bodyBytes.length);
   combined.set(headerBytes, 0);
   combined.set(bodyBytes, headerBytes.length);
-  return combined;
+  return new Blob([combined]);
 }
 
 /** Create a FormData-based Request for the parse endpoint. */
@@ -246,7 +246,7 @@ describe('POST /api/documents/parse', () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
 
       const { QuotaExceededError } = await import('@/lib/errors');
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError('Document quota exceeded'));
+      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
 
       const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
