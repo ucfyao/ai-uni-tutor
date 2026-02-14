@@ -289,7 +289,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             {/* ── Metadata + Start ── */}
             <Group gap="sm" align="flex-end" wrap="nowrap">
               <Select
-                label="University"
+                label={t.knowledge.university}
                 placeholder="Select"
                 data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
                 value={selectedUniId}
@@ -301,7 +301,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 style={{ flex: 1 }}
               />
               <Select
-                label="Course"
+                label={t.knowledge.course}
                 placeholder={selectedUniId ? 'Select' : 'University first'}
                 data={filteredCourses.map((c) => ({
                   value: c.id,
