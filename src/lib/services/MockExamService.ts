@@ -174,6 +174,7 @@ ${typesInstruction}
       paperId,
       sessionId: null,
       title,
+      mode: 'practice',
       questions: mockQuestions as unknown as Json,
       responses: [] as unknown as Json,
       totalPoints,
@@ -185,6 +186,13 @@ ${typesInstruction}
   }
 
   /**
+   * Find an exam paper for a course code.
+   */
+  async findPaperByCourse(courseCode: string): Promise<string | null> {
+    return this.paperRepo.findByCourse(courseCode);
+  }
+
+  /**
    * Start a mock exam from a course code.
    * Finds an available exam paper for the course, generates a mock, and links it to the session.
    */
@@ -192,6 +200,7 @@ ${typesInstruction}
     userId: string,
     sessionId: string,
     courseCode: string,
+    mode: 'practice' | 'exam' = 'practice',
   ): Promise<{ mockId: string }> {
     // Find an exam paper for this course (public or user's own)
     const paperId = await this.paperRepo.findByCourse(courseCode);
@@ -204,7 +213,7 @@ ${typesInstruction}
     }
 
     // Generate mock exam from the found paper
-    const { mockId } = await this.generateMock(userId, paperId, sessionId);
+    const { mockId } = await this.generateMock(userId, paperId, mode, sessionId);
     return { mockId };
   }
 
@@ -214,6 +223,7 @@ ${typesInstruction}
   async generateMock(
     userId: string,
     paperId: string,
+    mode: 'practice' | 'exam' = 'practice',
     sessionId?: string,
   ): Promise<{ mockId: string }> {
     // Fetch all original questions for the paper
@@ -311,6 +321,7 @@ Return JSON with these exact fields:
       paperId,
       sessionId: sessionId ?? null,
       title,
+      mode,
       questions: generatedQuestions as unknown as Json,
       responses: [] as unknown as Json,
       totalPoints,

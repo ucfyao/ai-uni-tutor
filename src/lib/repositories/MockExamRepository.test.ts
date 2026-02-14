@@ -57,6 +57,7 @@ describe('MockExamRepository', () => {
       const result = await repo.create({
         userId: 'user-free-001',
         paperId: 'paper-001',
+        mode: 'practice',
         sessionId: 'session-001',
         title: 'CS101 Midterm Practice',
         questions: mockExamQuestions as unknown as import('@/types/database').Json,
@@ -71,6 +72,7 @@ describe('MockExamRepository', () => {
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith({
         user_id: 'user-free-001',
         paper_id: 'paper-001',
+        mode: 'practice',
         session_id: 'session-001',
         title: 'CS101 Midterm Practice',
         questions: mockExamQuestions,
@@ -90,6 +92,7 @@ describe('MockExamRepository', () => {
       await repo.create({
         userId: 'user-free-001',
         paperId: 'paper-001',
+        mode: 'practice',
         title: 'Minimal Mock',
         questions: [] as unknown as import('@/types/database').Json,
         responses: [] as unknown as import('@/types/database').Json,
@@ -99,6 +102,7 @@ describe('MockExamRepository', () => {
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith({
         user_id: 'user-free-001',
         paper_id: 'paper-001',
+        mode: 'practice',
         session_id: null,
         title: 'Minimal Mock',
         questions: [],
@@ -117,6 +121,7 @@ describe('MockExamRepository', () => {
         repo.create({
           userId: 'user-free-001',
           paperId: 'paper-001',
+          mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
           responses: [] as unknown as import('@/types/database').Json,
@@ -127,6 +132,7 @@ describe('MockExamRepository', () => {
         repo.create({
           userId: 'user-free-001',
           paperId: 'paper-001',
+          mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
           responses: [] as unknown as import('@/types/database').Json,
@@ -142,6 +148,7 @@ describe('MockExamRepository', () => {
         repo.create({
           userId: 'user-free-001',
           paperId: 'paper-001',
+          mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
           responses: [] as unknown as import('@/types/database').Json,

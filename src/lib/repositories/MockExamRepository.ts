@@ -20,6 +20,7 @@ export class MockExamRepository implements IMockExamRepository {
       id: row.id,
       userId: row.user_id,
       paperId: row.paper_id,
+      mode: (row.mode ?? 'practice') as 'practice' | 'exam',
       title: row.title,
       questions: (row.questions ?? []) as unknown as MockExamQuestion[],
       responses: (row.responses ?? []) as unknown as MockExamResponse[],
@@ -36,6 +37,7 @@ export class MockExamRepository implements IMockExamRepository {
     paperId: string;
     sessionId?: string | null;
     title: string;
+    mode: 'practice' | 'exam';
     questions: Json;
     responses: Json;
     totalPoints: number;
@@ -50,6 +52,7 @@ export class MockExamRepository implements IMockExamRepository {
         paper_id: data.paperId,
         session_id: data.sessionId ?? null,
         title: data.title,
+        mode: data.mode,
         questions: data.questions,
         responses: data.responses,
         score: null,

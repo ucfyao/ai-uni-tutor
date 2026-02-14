@@ -122,6 +122,7 @@ const MOCK_EXAM: MockExam = {
   id: MOCK_ID,
   userId: USER_ID,
   paperId: PAPER_ID,
+  mode: 'practice',
   title: 'Calculus Final #1',
   questions: MOCK_QUESTIONS,
   responses: [],
@@ -349,7 +350,7 @@ describe('MockExamService', () => {
       );
       mockAISequence(aiCalls);
 
-      const result = await service.generateMock(USER_ID, PAPER_ID);
+      const result = await service.generateMock(USER_ID, PAPER_ID, 'practice');
 
       expect(result).toEqual({ mockId: MOCK_ID });
       expect(paperRepo.findQuestionsByPaperId).toHaveBeenCalledWith(PAPER_ID);
@@ -384,7 +385,7 @@ describe('MockExamService', () => {
       );
       mockAISequence(aiCalls);
 
-      await service.generateMock(USER_ID, PAPER_ID, SESSION_ID);
+      await service.generateMock(USER_ID, PAPER_ID, 'practice', SESSION_ID);
 
       expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -397,7 +398,7 @@ describe('MockExamService', () => {
     it('should throw NOT_FOUND when paper has no questions', async () => {
       paperRepo.findQuestionsByPaperId.mockResolvedValue([]);
 
-      await expect(service.generateMock(USER_ID, PAPER_ID)).rejects.toThrow(
+      await expect(service.generateMock(USER_ID, PAPER_ID, 'practice')).rejects.toThrow(
         'No questions found for this paper',
       );
     });
@@ -406,7 +407,9 @@ describe('MockExamService', () => {
       paperRepo.findQuestionsByPaperId.mockResolvedValue(EXAM_QUESTIONS);
       paperRepo.findById.mockResolvedValue(null);
 
-      await expect(service.generateMock(USER_ID, PAPER_ID)).rejects.toThrow('Paper not found');
+      await expect(service.generateMock(USER_ID, PAPER_ID, 'practice')).rejects.toThrow(
+        'Paper not found',
+      );
     });
 
     it('should fallback to original question when AI variant generation fails', async () => {
@@ -424,7 +427,7 @@ describe('MockExamService', () => {
         models: { generateContent },
       } as unknown as ReturnType<typeof geminiModule.getGenAI>);
 
-      const result = await service.generateMock(USER_ID, PAPER_ID);
+      const result = await service.generateMock(USER_ID, PAPER_ID, 'practice');
 
       expect(result).toEqual({ mockId: MOCK_ID });
 
@@ -480,7 +483,7 @@ describe('MockExamService', () => {
         models: { generateContent },
       } as unknown as ReturnType<typeof geminiModule.getGenAI>);
 
-      await service.generateMock(USER_ID, PAPER_ID);
+      await service.generateMock(USER_ID, PAPER_ID, 'practice');
 
       // 5 questions in total: batch of 3 + batch of 2
       expect(generateContent).toHaveBeenCalledTimes(5);
