@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, Play, Upload, X } from 'lucide-react';
+import { BookOpen, FileText, Play, Search, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
@@ -16,9 +16,10 @@ import {
   Select,
   Stack,
   Text,
+  TextInput,
 } from '@mantine/core';
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
-import { useMediaQuery } from '@mantine/hooks';
+import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, fetchDocuments } from '@/app/actions/documents';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { DOC_TYPES } from '@/constants/doc-types';
@@ -82,6 +83,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const [activeTab, setActiveTab] = useState<string>(initialDocType);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 200);
 
   // Fetch documents by type via server action
   const queryClient = useQueryClient();
@@ -93,6 +96,14 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     },
     initialData: activeTab === initialDocType ? initialDocuments : undefined,
   });
+
+  const filteredDocuments = useMemo(
+    () =>
+      debouncedSearch
+        ? documents.filter((d) => d.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
+        : documents,
+    [documents, debouncedSearch],
+  );
 
   // Upload form state (docType always follows activeTab)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -268,6 +279,16 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 border: '1px solid var(--mantine-color-gray-2)',
               },
             }}
+          />
+
+          {/* ── Search Box ── */}
+          <TextInput
+            placeholder={t.knowledge.searchDocuments}
+            leftSection={<Search size={16} />}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.currentTarget.value)}
+            size="sm"
+            radius="md"
           />
 
           {/* ── Upload Bar (always visible) ── */}
@@ -477,8 +498,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             <Group justify="center" py="xl">
               <Loader size="sm" />
             </Group>
-          ) : documents.length > 0 ? (
-            <KnowledgeTable documents={documents} onDeleted={handleDocumentDeleted} />
+          ) : filteredDocuments.length > 0 ? (
+            <KnowledgeTable documents={filteredDocuments} onDeleted={handleDocumentDeleted} />
           ) : (
             <Stack align="center" gap="xs" py="xl">
               <Text size="sm" c="dimmed">
