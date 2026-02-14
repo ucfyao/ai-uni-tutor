@@ -15,6 +15,7 @@ import {
   type MantineColor,
 } from '@mantine/core';
 import { PLACEHOLDERS } from '@/constants/placeholders';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
 
@@ -51,6 +52,7 @@ const KnowledgeCardItem = memo(
     onInputChange,
     setRef,
   }: KnowledgeCardItemProps) => {
+    const { t } = useLanguage();
     const accentColor: MantineColor = card.origin === 'user' ? 'violet' : 'indigo';
     const panelId = `kc-panel-${card.id}`;
 
@@ -184,7 +186,7 @@ const KnowledgeCardItem = memo(
                   <Group gap={8}>
                     <Loader size={12} color={accentColor} />
                     <Text size="xs" c="gray.5" fw={500}>
-                      Generating explanation...
+                      {t.chat.generatingExplanation}
                     </Text>
                   </Group>
                   <Skeleton height={8} width="90%" radius={4} animate />
@@ -255,7 +257,7 @@ const KnowledgeCardItem = memo(
               <Group gap={8} mb={12}>
                 <Loader size={14} color={accentColor} />
                 <Text size="xs" c="gray.5" fw={500}>
-                  Thinking...
+                  {t.chat.thinking}
                 </Text>
               </Group>
             )}

@@ -3,6 +3,7 @@
 import { IconCircleCheck } from '@tabler/icons-react';
 import dynamic from 'next/dynamic';
 import { Badge, Box, Card, Group, Paper, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import type { MockExamQuestion } from '@/types/exam';
 
 const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export function QuestionCard({ question, index, total, value, onChange, disabled }: Props) {
+  const { t } = useLanguage();
+
   return (
     <Card withBorder radius="lg" p="lg">
       <Stack gap="md">
@@ -30,7 +33,7 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
           <Group gap="xs">
             <Badge variant="dot">{question.type}</Badge>
             <Badge variant="light" color="violet">
-              {question.points} pts
+              {question.points} {t.exam.points}
             </Badge>
           </Group>
         </Group>
@@ -80,14 +83,14 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
           </Stack>
         ) : question.type === 'fill_blank' || question.type === 'true_false' ? (
           <TextInput
-            placeholder="Enter your answer..."
+            placeholder={t.exam.enterAnswer}
             value={value}
             onChange={(e) => onChange(e.currentTarget.value)}
             disabled={disabled}
           />
         ) : (
           <Textarea
-            placeholder="Write your answer..."
+            placeholder={t.exam.writeAnswer}
             value={value}
             onChange={(e) => onChange(e.currentTarget.value)}
             minRows={4}

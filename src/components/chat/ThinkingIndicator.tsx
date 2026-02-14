@@ -1,18 +1,21 @@
 import React from 'react';
 import { Box, Group, Text } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';
-
-const THINKING_TEXT: Record<string, string> = {
-  'Lecture Helper': 'Analyzing concepts...',
-  'Assignment Coach': 'Organizing thoughts...',
-};
 
 interface ThinkingIndicatorProps {
   mode?: TutoringMode | null;
 }
 
 export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) => {
-  const text = (mode && THINKING_TEXT[mode]) || 'Thinking...';
+  const { t } = useLanguage();
+
+  const THINKING_TEXT: Record<string, string> = {
+    'Lecture Helper': t.chat.analyzingConcepts,
+    'Assignment Coach': t.chat.organizingThoughts,
+  };
+
+  const text = (mode && THINKING_TEXT[mode]) || t.chat.thinking;
   const color =
     mode === 'Assignment Coach' ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-indigo-5)';
 

@@ -4,6 +4,7 @@ import { ActionIcon, Box, Group, Menu, Text, ThemeIcon } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { MODES_METADATA } from '@/constants/modes';
 import { useHeader } from '@/context/HeaderContext';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatSession } from '@/types';
 
 interface ChatPageLayoutProps {
@@ -31,6 +32,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
   onKnowledgePanelToggle,
   children,
 }) => {
+  const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
   const isCompact = useMediaQuery('(max-width: 75em)', false); // 1200px (lg breakpoint)
   const { setHeaderContent } = useHeader();
@@ -75,7 +77,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
             }
             truncate
           >
-            {session.mode || 'Select Mode'}
+            {session.mode || t.chat.selectMode}
           </Text>
         </Group>
 
@@ -121,20 +123,20 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Item leftSection={<Share2 size={14} />} onClick={onShare}>
-                Share
+                {t.chat.share}
               </Menu.Item>
               <Menu.Item leftSection={<PenLine size={14} />} onClick={onRename}>
-                Rename
+                {t.chat.rename}
               </Menu.Item>
               <Menu.Item
                 leftSection={session.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
                 onClick={onPin}
               >
-                {session.isPinned ? 'Unpin chat' : 'Pin chat'}
+                {session.isPinned ? t.chat.unpinChat : t.chat.pinChat}
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item leftSection={<Trash size={14} />} color="red" onClick={onDelete}>
-                Delete
+                {t.chat.delete}
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
@@ -142,6 +144,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
       </Group>
     ),
     [
+      t,
       session.course.code,
       session.mode,
       session.isPinned,

@@ -13,6 +13,7 @@ import {
   Transition,
 } from '@mantine/core';
 import { MODES_METADATA } from '@/constants/modes';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';
 
 interface WelcomeScreenProps {
@@ -26,6 +27,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   courseCode,
   onPromptSelect,
 }) => {
+  const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const metadata = MODES_METADATA[mode];
   const Icon = metadata?.icon || Sparkles;
@@ -107,7 +109,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   ta="center"
                   style={{ letterSpacing: '0.05em' }}
                 >
-                  Suggested Actions
+                  {t.chat.suggestedActions}
                 </Text>
                 <Grid gutter="xs">
                   {metadata.suggestedPrompts?.map((prompt, index) => (

@@ -3,6 +3,7 @@
 import { IconCheck, IconX } from '@tabler/icons-react';
 import dynamic from 'next/dynamic';
 import { Box, Card, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import type { MockExamResponse } from '@/types/exam';
 
 const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
@@ -17,6 +18,8 @@ interface Props {
 }
 
 export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
+  const { t } = useLanguage();
+
   return (
     <Card
       withBorder
@@ -40,7 +43,8 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
             {feedback.isCorrect ? <IconCheck size={12} /> : <IconX size={12} />}
           </ThemeIcon>
           <Text fw={600} c={feedback.isCorrect ? 'green' : 'red'}>
-            {feedback.isCorrect ? 'Correct!' : 'Incorrect'} ({feedback.score} pts)
+            {feedback.isCorrect ? t.exam.correct : t.exam.incorrect} ({feedback.score}{' '}
+            {t.exam.points})
           </Text>
         </Group>
 
@@ -49,15 +53,15 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
           <Group grow gap="sm">
             <Paper withBorder radius="md" p="sm" bg="red.0">
               <Text size="xs" fw={600} c="red.7" mb={4}>
-                Your Answer
+                {t.exam.yourAnswer}
               </Text>
               <Text size="sm" c="red.8">
-                {feedback.userAnswer || '(no answer)'}
+                {feedback.userAnswer || t.exam.noAnswer}
               </Text>
             </Paper>
             <Paper withBorder radius="md" p="sm" bg="green.0">
               <Text size="xs" fw={600} c="green.7" mb={4}>
-                Correct Answer
+                {t.exam.correctAnswer}
               </Text>
               <Text size="sm" c="green.8">
                 {correctAnswer}
@@ -68,14 +72,14 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
 
         <div>
           <Text size="xs" fw={600} c="dimmed" mb={4}>
-            AI Feedback:
+            {t.exam.feedback}
           </Text>
           <Text size="sm">{feedback.aiFeedback}</Text>
         </div>
 
         <Paper withBorder radius="md" p="sm" bg="white">
           <Text size="xs" fw={600} c="dimmed" mb={4}>
-            Detailed Explanation:
+            {t.exam.detailedExplanation}
           </Text>
           <MarkdownRenderer content={explanation} />
         </Paper>

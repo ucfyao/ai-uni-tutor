@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { ModeMetadata, MODES_LIST } from '@/constants/modes';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatMessage, ChatSession, TutoringMode } from '@/types';
 
 interface ModeSelectionGridProps {
@@ -29,6 +30,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
   onModeSelect,
   fillWidth = false,
 }) => {
+  const { t } = useLanguage();
   const isStandalone = !session;
 
   const handleModeSelect = (mode: ModeMetadata) => {
@@ -80,7 +82,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
                 textBalance: 'balance',
               }}
             >
-              Welcome to{' '}
+              {t.chat.welcomeMessage}{' '}
               <span
                 style={{
                   background:
@@ -101,7 +103,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
               lh={1.6}
               style={{ textWrap: 'balance' }}
             >
-              Choose your learning path below to start the conversation.
+              {t.chat.chooseLearningPath}
             </Text>
           </Stack>
         </Stack>
@@ -231,7 +233,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
 
                     <Group gap={6} align="center" style={{ opacity: 0.9 }}>
                       <Text size="sm" fw={700} tt="uppercase" lts={0.5} c={`${mode.color}.6`}>
-                        Start Session
+                        {t.chat.startSession}
                       </Text>
                       <ArrowUp
                         size={16}

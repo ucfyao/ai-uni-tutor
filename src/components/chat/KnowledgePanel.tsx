@@ -15,6 +15,7 @@ import {
   Text,
   ThemeIcon,
 } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
 import KnowledgeCardItem from './KnowledgeCardItem';
@@ -57,6 +58,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   prefillInput,
   onPrefillConsumed,
 }) => {
+  const { t } = useLanguage();
   const [inputs, setInputs] = useState<{ [key: string]: string }>({});
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -241,7 +243,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
             <BookOpen size={16} />
           </ThemeIcon>
           <Text size="sm" fw={600} c="gray.8" lineClamp={1} style={{ lineHeight: 1.1 }}>
-            Knowledge Cards
+            {t.chat.knowledgeCards}
           </Text>
           {totalCards > 0 && (
             <Badge
@@ -291,7 +293,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                       <BookOpen size={24} strokeWidth={1.5} />
                     </ThemeIcon>
                     <Text size="sm" fw={600} c="gray.7" ta="center">
-                      No cards yet
+                      {t.chat.noCardsYet}
                     </Text>
                   </Stack>
                 </Center>
@@ -362,7 +364,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             }}
                           />
                           <Text size="sm" fw={600} c="gray.8" lineClamp={1}>
-                            Official cards
+                            {t.chat.officialCards}
                           </Text>
                         </Group>
                         <Badge
@@ -422,7 +424,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             }}
                           />
                           <Text size="sm" fw={600} c="gray.8" lineClamp={1}>
-                            My cards
+                            {t.chat.myCards}
                           </Text>
                         </Group>
                         <Badge
@@ -468,16 +470,16 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
       <Modal
         opened={!!deleteCardId}
         onClose={() => setDeleteCardId(null)}
-        title="Delete Card"
+        title={t.chat.deleteCard}
         centered
         size="xs"
       >
         <Text size="xs" c="gray.6" mb="md">
-          Are you sure you want to delete this card?
+          {t.chat.deleteCardConfirm}
         </Text>
         <Group justify="flex-end" gap="xs">
           <Button variant="subtle" color="gray" size="xs" onClick={() => setDeleteCardId(null)}>
-            Cancel
+            {t.chat.cancel}
           </Button>
           <Button
             color="red"
@@ -487,7 +489,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
               setDeleteCardId(null);
             }}
           >
-            Delete
+            {t.chat.delete}
           </Button>
         </Group>
       </Modal>

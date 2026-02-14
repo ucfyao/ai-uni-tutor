@@ -17,6 +17,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import 'katex/dist/katex.min.css';
 
 interface MarkdownRendererProps {
@@ -30,7 +31,10 @@ interface MarkdownRendererProps {
   tight?: boolean;
 }
 
-const CopyCodeButton: React.FC<{ code: string }> = ({ code }) => {
+const CopyCodeButton: React.FC<{ code: string; t: { copyCode: string; copied: string } }> = ({
+  code,
+  t,
+}) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -46,7 +50,7 @@ const CopyCodeButton: React.FC<{ code: string }> = ({ code }) => {
   }, [code]);
 
   return (
-    <Tooltip label={copied ? 'Copied!' : 'Copy code'} position="left" withArrow>
+    <Tooltip label={copied ? t.copied : t.copyCode} position="left" withArrow>
       <ActionIcon
         variant="subtle"
         color={copied ? 'teal' : 'gray'}
@@ -75,6 +79,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   compact = false,
   tight = false,
 }) => {
+  const { t } = useLanguage();
   const safeContent = content ?? '';
   const isTightSpacing = compact || tight;
   return (
@@ -189,7 +194,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                   {children}
                 </Code>
               </Paper>
-              <CopyCodeButton code={String(children).replace(/\n$/, '')} />
+              <CopyCodeButton code={String(children).replace(/\n$/, '')} t={t.chat} />
             </Box>
           );
         },

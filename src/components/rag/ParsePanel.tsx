@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { Alert, Badge, Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { DOC_TYPE_MAP } from '@/constants/doc-types';
 import type { StreamingParseState } from '@/hooks/useStreamingParse';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { ParsedItemCard } from './ParsedItemCard';
 import { ParseTimeline } from './ParseTimeline';
 
@@ -30,6 +31,7 @@ function formatTotalTime(stageTimes: Record<string, { start: number; end?: numbe
 }
 
 export function ParsePanel({ parseState, fileName, docType, onBack }: ParsePanelProps) {
+  const { t } = useLanguage();
   const { items, status, progress, savedChunkIds, stageTimes, error } = parseState;
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +60,7 @@ export function ParsePanel({ parseState, fileName, docType, onBack }: ParsePanel
             leftSection={<ArrowLeft size={16} />}
             onClick={onBack}
           >
-            Back to List
+            {t.chat.backToList}
           </Button>
           <Text fw={600} size="lg" truncate="end" maw={400}>
             {fileName}
@@ -86,8 +88,10 @@ export function ParsePanel({ parseState, fileName, docType, onBack }: ParsePanel
         <Group gap="xs" justify="center">
           <CheckCircle2 size={18} color="var(--mantine-color-green-6)" />
           <Text size="sm" c="green" fw={500}>
-            Successfully extracted {items.length}{' '}
-            {items[0]?.type === 'knowledge_point' ? 'knowledge points' : 'questions'}
+            {t.knowledge.successfullyExtracted} {items.length}{' '}
+            {items[0]?.type === 'knowledge_point'
+              ? t.knowledge.knowledgePoints
+              : t.knowledge.questions}
             {formatTotalTime(stageTimes) ? ` in ${formatTotalTime(stageTimes)}` : ''}
           </Text>
         </Group>
@@ -95,15 +99,15 @@ export function ParsePanel({ parseState, fileName, docType, onBack }: ParsePanel
 
       {/* ── Error Alert ── */}
       {isError && (
-        <Alert icon={<AlertCircle size={16} />} color="red" title="Parsing Error">
-          {error || 'An unexpected error occurred during parsing.'}
+        <Alert icon={<AlertCircle size={16} />} color="red" title={t.knowledge.parsingError}>
+          {error || t.knowledge.parsingError}
         </Alert>
       )}
 
       {/* ── Complete Alert (no content) ── */}
       {isComplete && items.length === 0 && (
-        <Alert icon={<AlertCircle size={16} />} color="yellow" title="No Content">
-          No extractable content was found in this PDF.
+        <Alert icon={<AlertCircle size={16} />} color="yellow" title={t.knowledge.noContent}>
+          {t.knowledge.noContentFound}
         </Alert>
       )}
 
@@ -111,7 +115,9 @@ export function ParsePanel({ parseState, fileName, docType, onBack }: ParsePanel
       {items.length > 0 && (
         <Stack gap="sm">
           <Title order={4}>
-            {items[0]?.type === 'knowledge_point' ? 'Knowledge Points' : 'Questions'}
+            {items[0]?.type === 'knowledge_point'
+              ? t.knowledge.knowledgePoints
+              : t.knowledge.questions}
           </Title>
           {items.map((item, i) => (
             <ParsedItemCard
@@ -147,7 +153,7 @@ export function ParsePanel({ parseState, fileName, docType, onBack }: ParsePanel
             leftSection={<ArrowLeft size={16} />}
             onClick={onBack}
           >
-            Back to List
+            {t.chat.backToList}
           </Button>
         </Group>
       )}
