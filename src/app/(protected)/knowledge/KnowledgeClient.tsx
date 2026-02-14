@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, FileText, Play, Search, Upload, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
@@ -80,6 +81,7 @@ interface KnowledgeClientProps {
 
 export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeClientProps) {
   const { t } = useLanguage();
+  const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const [activeTab, setActiveTab] = useState<string>(initialDocType);
@@ -215,16 +217,6 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     }
     return () => setHeaderContent(null);
   }, [isMobile, headerNode, setHeaderContent]);
-
-  // Auto-dismiss progress bar 3s after completion
-  useEffect(() => {
-    if (parseState.status === 'complete') {
-      const timer = setTimeout(() => {
-        handleDismissParse();
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [parseState.status, handleDismissParse]);
 
   // ── Shared Layout ──
   return (
@@ -466,10 +458,34 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                         <ElapsedTimer startTime={parseState.stageTimes.parsing_pdf.start} />
                       </Text>
                     )}
-                  {(parseState.status === 'complete' || parseState.status === 'error') && (
+                  {parseState.status === 'complete' && parseState.documentId && (
+                    <Group gap="xs" wrap="nowrap">
+                      <Button
+                        variant="subtle"
+                        color="indigo"
+                        size="compact-xs"
+                        onClick={() => {
+                          handleDismissParse();
+                          router.push(`/knowledge/${parseState.documentId}`);
+                        }}
+                      >
+                        {t.knowledge.viewDetailsLink}
+                      </Button>
+                      <ActionIcon
+                        variant="subtle"
+                        color="green"
+                        size="xs"
+                        onClick={handleDismissParse}
+                        aria-label="Dismiss"
+                      >
+                        <X size={12} />
+                      </ActionIcon>
+                    </Group>
+                  )}
+                  {parseState.status === 'error' && (
                     <ActionIcon
                       variant="subtle"
-                      color={parseState.status === 'complete' ? 'green' : 'red'}
+                      color="red"
                       size="xs"
                       onClick={handleDismissParse}
                       aria-label="Dismiss"
