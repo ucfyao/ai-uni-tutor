@@ -351,37 +351,48 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         <Card
           radius="lg"
           p="xl"
+          withBorder
           style={{
-            borderStyle: 'dashed',
-            borderColor: 'var(--mantine-color-gray-3)',
+            borderColor: 'var(--mantine-color-gray-2)',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
           }}
         >
-          <Stack align="center" gap="xs">
+          <Stack align="center" gap="md" py="lg">
             <Box
               style={{
-                width: 56,
-                height: 56,
+                width: 72,
+                height: 72,
                 borderRadius: '50%',
-                background: 'var(--mantine-color-gray-1)',
+                background: 'var(--mantine-color-indigo-0)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <FileText size={24} color="var(--mantine-color-gray-5)" />
+              {(() => {
+                const docType = DOC_TYPES.find((dt) => dt.value === activeTab);
+                const Icon = docType?.icon ?? FileText;
+                return <Icon size={32} color="var(--mantine-color-indigo-4)" />;
+              })()}
             </Box>
-            <Text fw={500} size="sm" c="dimmed">
-              No {activeTab} documents yet
-            </Text>
+            <Box ta="center">
+              <Text fw={500} size="md">
+                {t.knowledge.noDocuments}
+              </Text>
+              <Text size="sm" c="dimmed" mt={4}>
+                {t.knowledge.uploadFirstSubtitle}
+              </Text>
+            </Box>
             {!uploadExpanded && (
               <Button
                 variant="light"
-                size="xs"
+                color="indigo"
+                size="sm"
                 leftSection={<Plus size={14} />}
                 onClick={() => setUploadExpanded(true)}
-                mt={4}
+                radius="md"
               >
-                Upload your first
+                {t.knowledge.uploadFirst}
               </Button>
             )}
           </Stack>
