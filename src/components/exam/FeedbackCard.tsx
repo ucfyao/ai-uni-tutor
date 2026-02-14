@@ -1,9 +1,14 @@
 'use client';
 
 import { IconCheck, IconX } from '@tabler/icons-react';
-import { Card, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
-import MarkdownRenderer from '@/components/MarkdownRenderer';
+import dynamic from 'next/dynamic';
+import { Box, Card, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
 import type { MockExamResponse } from '@/types/exam';
+
+const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
+  ssr: false,
+  loading: () => <Box style={{ minHeight: 20 }} />,
+});
 
 interface Props {
   feedback: MockExamResponse;

@@ -1,9 +1,14 @@
 'use client';
 
 import { IconCircleCheck } from '@tabler/icons-react';
-import { Badge, Card, Group, Paper, Stack, Text, Textarea, TextInput } from '@mantine/core';
-import MarkdownRenderer from '@/components/MarkdownRenderer';
+import dynamic from 'next/dynamic';
+import { Badge, Box, Card, Group, Paper, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import type { MockExamQuestion } from '@/types/exam';
+
+const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
+  ssr: false,
+  loading: () => <Box style={{ minHeight: 20 }} />,
+});
 
 interface Props {
   question: MockExamQuestion;

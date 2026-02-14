@@ -17,6 +17,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
+import 'katex/dist/katex.min.css';
 
 interface MarkdownRendererProps {
   content: string;
