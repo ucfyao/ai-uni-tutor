@@ -1,9 +1,9 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { AlertCircle, Eye, FileText, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, Eye, FileText, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -49,6 +49,45 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
   const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // Sort state
+  type SortField = 'name' | 'date' | null;
+  type SortDir = 'asc' | 'desc';
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDir === 'asc') {
+        setSortDir('desc');
+      } else {
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedDocuments = useMemo(() => {
+    if (!sortField) return documents;
+    const sorted = [...documents].sort((a, b) => {
+      if (sortField === 'name') {
+        return a.name.localeCompare(b.name);
+      }
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+    return sortDir === 'desc' ? sorted.reverse() : sorted;
+  }, [documents, sortField, sortDir]);
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDir === 'asc' ? (
+      <ArrowUp size={12} style={{ marginLeft: 4 }} />
+    ) : (
+      <ArrowDown size={12} style={{ marginLeft: 4 }} />
+    );
+  };
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -196,12 +235,12 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
       <>
         {deleteModal}
         <Stack gap="sm">
-          {documents.length === 0 ? (
+          {sortedDocuments.length === 0 ? (
             <Text c="dimmed" size="sm" py="xl" ta="center">
               {t.knowledge.noDocuments}
             </Text>
           ) : (
-            documents.map((doc) => (
+            sortedDocuments.map((doc) => (
               <Card
                 key={doc.id}
                 withBorder
@@ -302,8 +341,15 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th w="26%" style={thStyle}>
-                {t.knowledge.name}
+              <Table.Th
+                w="26%"
+                style={{ ...thStyle, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => toggleSort('name')}
+              >
+                <Group gap={2} wrap="nowrap">
+                  {t.knowledge.name}
+                  <SortIcon field="name" />
+                </Group>
               </Table.Th>
               <Table.Th w="14%" style={thStyle}>
                 {t.knowledge.university}
@@ -311,8 +357,15 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
               <Table.Th w="14%" style={thStyle}>
                 {t.knowledge.course}
               </Table.Th>
-              <Table.Th w="12%" style={thStyle}>
-                {t.knowledge.date}
+              <Table.Th
+                w="12%"
+                style={{ ...thStyle, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => toggleSort('date')}
+              >
+                <Group gap={2} wrap="nowrap">
+                  {t.knowledge.date}
+                  <SortIcon field="date" />
+                </Group>
               </Table.Th>
               <Table.Th w="24%" style={thStyle}>
                 {t.knowledge.status}
@@ -321,7 +374,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {documents.map((doc) => (
+            {sortedDocuments.map((doc) => (
               <Table.Tr
                 key={doc.id}
                 className={classes.tableRow}
@@ -382,7 +435,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                 )}
               </Table.Tr>
             ))}
-            {documents.length === 0 && (
+            {sortedDocuments.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={readOnly ? 5 : 6} align="center">
                   <Text c="dimmed" size="sm" py="xl">
