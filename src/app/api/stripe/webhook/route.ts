@@ -1,9 +1,9 @@
 import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
-import { getProfileService } from '@/lib/services/ProfileService';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
 
   // Idempotency: skip already-processed events
-  const { data: existing } = await (supabase as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await supabase
     .from('stripe_events')
     .select('id')
     .eq('event_id', event.id)
@@ -52,9 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Mark event as processed
-    await (supabase as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-      .from('stripe_events')
-      .insert({ event_id: event.id, event_type: event.type });
+    await supabase.from('stripe_events').insert({ event_id: event.id, event_type: event.type });
 
     return new NextResponse(null, { status: 200 });
   } catch (error) {
@@ -76,7 +74,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     throw new Error('Missing subscription in checkout session');
   }
 
-  const subscription = (await stripe.subscriptions.retrieve(session.subscription as string)) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
   const profileService = getProfileService();
 
   await profileService.updateSubscription(session.metadata.userId, {
@@ -88,14 +86,13 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
 }
 
 async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const invoice = event.data.object as any;
+  const invoice = event.data.object as Stripe.Invoice;
 
   if (!invoice.subscription) {
     return; // One-off invoice, not subscription-related
   }
 
-  const subscription = (await stripe.subscriptions.retrieve(invoice.subscription as string)) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
   const profileService = getProfileService();
 
   await profileService.updateSubscriptionBySubscriptionId(subscription.id, {
@@ -110,9 +107,7 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
 
   await profileService.updateSubscriptionBySubscriptionId(subscription.id, {
     subscription_status: subscription.status,
-    current_period_end: new Date(
-      (subscription as any).current_period_end * 1000, // eslint-disable-line @typescript-eslint/no-explicit-any
-    ).toISOString(),
+    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
     stripe_price_id: subscription.items.data[0]?.price?.id ?? null,
   });
 }

@@ -36,8 +36,7 @@ export default function PricingPage() {
     } catch (error) {
       showNotification({
         title: 'Error',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        message: (error as any).message || 'An error occurred',
+        message: error instanceof Error ? error.message : 'An error occurred',
         color: 'red',
       });
     } finally {
