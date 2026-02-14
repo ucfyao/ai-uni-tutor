@@ -8,7 +8,6 @@ import { theme } from '@/theme';
 import './globals.css';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
-import 'katex/dist/katex.min.css';
 
 const outfit = localFont({
   src: '../../public/fonts/Outfit-VariableFont_wght.ttf',

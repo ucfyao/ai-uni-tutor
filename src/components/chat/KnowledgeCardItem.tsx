@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { BookOpen, ChevronRight, Send, Trash2 } from 'lucide-react'; // Re-imported Send
-
+import dynamic from 'next/dynamic';
 import React, { memo } from 'react';
 import {
   ActionIcon,
@@ -17,7 +17,11 @@ import {
 import { PLACEHOLDERS } from '@/constants/placeholders';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage } from '@/types';
-import MarkdownRenderer from '../MarkdownRenderer';
+
+const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
+  ssr: false,
+  loading: () => <Box style={{ minHeight: 20 }} />,
+});
 
 interface KnowledgeCardItemProps {
   card: KnowledgeCard;

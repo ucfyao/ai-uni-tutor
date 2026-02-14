@@ -1,4 +1,5 @@
 import { Check, Copy, Quote, RefreshCw } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActionIcon,
@@ -13,7 +14,11 @@ import {
 } from '@mantine/core';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
-import MarkdownRenderer from '../MarkdownRenderer';
+
+const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
+  ssr: false,
+  loading: () => <Box style={{ minHeight: 20 }} />,
+});
 
 // Relative time formatting (hoisted outside component)
 function formatRelativeTime(timestamp: number): string {
