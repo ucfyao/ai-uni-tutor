@@ -12,10 +12,11 @@ import {
   Group,
   Loader,
   rem,
+  SegmentedControl,
   Select,
   Stack,
-  Tabs,
   Text,
+  Title,
   Tooltip,
   Transition,
 } from '@mantine/core';
@@ -26,6 +27,7 @@ import { ParsePanel } from '@/components/rag/ParsePanel';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { COURSES, UNIVERSITIES } from '@/constants/index';
 import { useStreamingParse } from '@/hooks/useStreamingParse';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -37,6 +39,7 @@ interface KnowledgeClientProps {
 }
 
 export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeClientProps) {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<PageMode>('list');
   const [activeTab, setActiveTab] = useState<string>(initialDocType);
   const [uploadExpanded, setUploadExpanded] = useState(false);
@@ -128,88 +131,99 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   // ── List Mode ──
   return (
     <Stack gap="lg">
-      {/* ── Tab Bar + Upload Toggle ── */}
-      <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? initialDocType)}>
-        <Tabs.List>
-          {DOC_TYPES.map((dt) => {
-            const Icon = dt.icon;
-            return (
-              <Tabs.Tab key={dt.value} value={dt.value} leftSection={<Icon size={16} />}>
-                {dt.label}
-              </Tabs.Tab>
-            );
-          })}
-          <Tooltip label={uploadExpanded ? 'Close' : 'Upload new document'} openDelay={400}>
-            <ActionIcon
-              variant={uploadExpanded ? 'light' : 'subtle'}
-              color={uploadExpanded ? 'indigo' : 'gray'}
-              size="md"
-              radius="xl"
-              ml="auto"
-              onClick={() => setUploadExpanded((v) => !v)}
-              aria-label="Upload document"
-            >
-              <Plus
-                size={18}
-                strokeWidth={2.5}
-                style={{
-                  transform: uploadExpanded ? 'rotate(45deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                }}
-              />
-            </ActionIcon>
-          </Tooltip>
-        </Tabs.List>
-      </Tabs>
+      {/* ── Header Row: title left, upload button right ── */}
+      <Group justify="space-between" align="flex-start">
+        <Box>
+          <Title order={2} fw={700}>
+            {t.knowledge.knowledgeBase}
+          </Title>
+          <Text c="dimmed" size="sm" mt={2}>
+            {t.knowledge.knowledgeBaseSubtitle}
+          </Text>
+        </Box>
+        <Button
+          variant={uploadExpanded ? 'light' : 'filled'}
+          color="indigo"
+          leftSection={
+            <Plus
+              size={16}
+              style={{
+                transform: uploadExpanded ? 'rotate(45deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          }
+          onClick={() => setUploadExpanded((v) => !v)}
+          radius="md"
+        >
+          {uploadExpanded ? t.knowledge.closeUpload : t.knowledge.uploadNewDocument}
+        </Button>
+      </Group>
+
+      {/* ── Doc Type Filter: SegmentedControl ── */}
+      <SegmentedControl
+        value={activeTab}
+        onChange={(v) => setActiveTab(v)}
+        data={DOC_TYPES.map((dt) => ({
+          value: dt.value,
+          label: dt.label,
+        }))}
+        radius="xl"
+        size="sm"
+        styles={{
+          root: {
+            backgroundColor: 'var(--mantine-color-gray-0)',
+            border: '1px solid var(--mantine-color-gray-2)',
+          },
+        }}
+      />
 
       {/* ── Upload Area (collapsible) ── */}
       <Collapse in={uploadExpanded} transitionDuration={250}>
         <Card
           radius="lg"
-          p="md"
+          p="lg"
+          withBorder
           style={{
-            background:
-              'linear-gradient(135deg, var(--mantine-color-indigo-0) 0%, var(--mantine-color-body) 60%)',
-            borderColor: 'var(--mantine-color-indigo-2)',
+            borderColor: 'var(--mantine-color-gray-2)',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
           }}
         >
           <Stack gap="sm">
             {/* ── File Zone: compact bar when empty, pill when file selected ── */}
             {selectedFile ? (
-              <Transition mounted transition="fade" duration={200}>
+              <Transition mounted transition="slide-up" duration={200}>
                 {(transitionStyles) => (
                   <Group
                     gap="sm"
-                    p="xs"
+                    p="sm"
                     style={{
                       ...transitionStyles,
-                      borderRadius: 'var(--mantine-radius-lg)',
-                      background: 'var(--mantine-color-green-0)',
-                      border: '1px solid var(--mantine-color-green-3)',
+                      borderRadius: 'var(--mantine-radius-md)',
+                      background: 'var(--mantine-color-body)',
+                      border: '1px solid var(--mantine-color-gray-2)',
                     }}
                   >
-                    <FileText size={18} color="var(--mantine-color-green-7)" />
+                    <FileText size={18} color="var(--mantine-color-indigo-5)" />
                     <Box style={{ flex: 1, minWidth: 0 }}>
-                      <Text size="sm" fw={600} c="green.8" truncate>
+                      <Text size="sm" fw={600} truncate>
                         {selectedFile.name}
                       </Text>
                       <Text size="xs" c="dimmed">
                         {formatFileSize(selectedFile.size)}
                       </Text>
                     </Box>
-                    <Group gap={4}>
-                      <Tooltip label="Replace file">
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          size="sm"
-                          onClick={() => setSelectedFile(null)}
-                          aria-label="Remove file"
-                        >
-                          <X size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
+                    <Tooltip label={t.knowledge.replaceFile}>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        onClick={() => setSelectedFile(null)}
+                        aria-label="Remove file"
+                      >
+                        <X size={14} />
+                      </ActionIcon>
+                    </Tooltip>
                   </Group>
                 )}
               </Transition>
@@ -230,7 +244,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   root: {
                     borderStyle: 'dashed',
                     borderWidth: 1.5,
-                    borderColor: 'var(--mantine-color-indigo-3)',
+                    borderColor: 'var(--mantine-color-gray-3)',
                     background: 'transparent',
                     transition: 'all 0.15s ease',
                     '&:hover': {
@@ -242,7 +256,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 <Group
                   justify="center"
                   gap="sm"
-                  style={{ minHeight: rem(56), pointerEvents: 'none' }}
+                  style={{ minHeight: rem(80), pointerEvents: 'none' }}
                 >
                   <Dropzone.Accept>
                     <Upload size={22} color="var(--mantine-color-indigo-6)" />
@@ -259,13 +273,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   </Dropzone.Idle>
                   <Box>
                     <Text size="sm" fw={500} c="dimmed">
-                      Drop a PDF here or{' '}
+                      {t.knowledge.dropPdfHere}{' '}
                       <Text span c="indigo" fw={600}>
-                        browse
+                        {t.knowledge.browse}
                       </Text>
                     </Text>
                     <Text size="xs" c="dimmed" mt={1}>
-                      Up to {process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB
+                      {t.knowledge.upToSize} {process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB
                     </Text>
                   </Box>
                 </Group>
@@ -275,7 +289,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             {/* ── Metadata + Start ── */}
             <Group gap="sm" align="flex-end" wrap="nowrap">
               <Select
-                label="University"
+                label={t.knowledge.university}
                 placeholder="Select"
                 data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
                 value={selectedUniId}
@@ -287,7 +301,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 style={{ flex: 1 }}
               />
               <Select
-                label="Course"
+                label={t.knowledge.course}
                 placeholder={selectedUniId ? 'Select' : 'University first'}
                 data={filteredCourses.map((c) => ({
                   value: c.id,
@@ -314,9 +328,11 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   leftSection={<Play size={14} />}
                   disabled={!isFormValid}
                   onClick={handleStartParse}
+                  color="indigo"
+                  radius="md"
                   style={{ flexShrink: 0 }}
                 >
-                  Start
+                  {t.knowledge.startParsing}
                 </Button>
               </Tooltip>
             </Group>
@@ -335,37 +351,48 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         <Card
           radius="lg"
           p="xl"
+          withBorder
           style={{
-            borderStyle: 'dashed',
-            borderColor: 'var(--mantine-color-gray-3)',
+            borderColor: 'var(--mantine-color-gray-2)',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
           }}
         >
-          <Stack align="center" gap="xs">
+          <Stack align="center" gap="md" py="lg">
             <Box
               style={{
-                width: 56,
-                height: 56,
+                width: 72,
+                height: 72,
                 borderRadius: '50%',
-                background: 'var(--mantine-color-gray-1)',
+                background: 'var(--mantine-color-indigo-0)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <FileText size={24} color="var(--mantine-color-gray-5)" />
+              {(() => {
+                const docType = DOC_TYPES.find((dt) => dt.value === activeTab);
+                const Icon = docType?.icon ?? FileText;
+                return <Icon size={32} color="var(--mantine-color-indigo-4)" />;
+              })()}
             </Box>
-            <Text fw={500} size="sm" c="dimmed">
-              No {activeTab} documents yet
-            </Text>
+            <Box ta="center">
+              <Text fw={500} size="md">
+                {t.knowledge.noDocuments}
+              </Text>
+              <Text size="sm" c="dimmed" mt={4}>
+                {t.knowledge.uploadFirstSubtitle}
+              </Text>
+            </Box>
             {!uploadExpanded && (
               <Button
                 variant="light"
-                size="xs"
+                color="indigo"
+                size="sm"
                 leftSection={<Plus size={14} />}
                 onClick={() => setUploadExpanded(true)}
-                mt={4}
+                radius="md"
               >
-                Upload your first
+                {t.knowledge.uploadFirst}
               </Button>
             )}
           </Stack>
