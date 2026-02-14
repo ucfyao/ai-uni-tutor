@@ -134,10 +134,10 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       {/* ── Header Row: title left, upload button right ── */}
       <Group justify="space-between" align="flex-start">
         <Box>
-          <Title order={2} fw={700}>
+          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
             {t.knowledge.knowledgeBase}
           </Title>
-          <Text c="dimmed" size="sm" mt={2}>
+          <Text c="dimmed" size="md" fw={400} mt={2}>
             {t.knowledge.knowledgeBaseSubtitle}
           </Text>
         </Box>
@@ -166,7 +166,20 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         onChange={(v) => setActiveTab(v)}
         data={DOC_TYPES.map((dt) => ({
           value: dt.value,
-          label: dt.label,
+          label: (
+            <Group gap={6} wrap="nowrap" justify="center">
+              <Box
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: `var(--mantine-color-${dt.color}-5)`,
+                  flexShrink: 0,
+                }}
+              />
+              <span>{dt.label}</span>
+            </Group>
+          ),
         }))}
         radius="xl"
         size="sm"
@@ -358,23 +371,26 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           }}
         >
           <Stack align="center" gap="md" py="lg">
-            <Box
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: '50%',
-                background: 'var(--mantine-color-indigo-0)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {(() => {
-                const docType = DOC_TYPES.find((dt) => dt.value === activeTab);
-                const Icon = docType?.icon ?? FileText;
-                return <Icon size={32} color="var(--mantine-color-indigo-4)" />;
-              })()}
-            </Box>
+            {(() => {
+              const docType = DOC_TYPES.find((dt) => dt.value === activeTab);
+              const Icon = docType?.icon ?? FileText;
+              const color = docType?.color ?? 'indigo';
+              return (
+                <Box
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: '50%',
+                    background: `var(--mantine-color-${color}-0)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon size={32} color={`var(--mantine-color-${color}-4)`} />
+                </Box>
+              );
+            })()}
             <Box ta="center">
               <Text fw={500} size="md">
                 {t.knowledge.noDocuments}
