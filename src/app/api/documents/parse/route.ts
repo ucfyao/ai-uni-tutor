@@ -180,19 +180,37 @@ export async function POST(request: Request) {
       }>;
 
       try {
+        const onBatchProgress = (current: number, total: number) => {
+          send('progress', { current, total });
+        };
+
         if (doc_type === 'lecture') {
           const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
-          const knowledgePoints = await parseLecture(pdfData.pages);
+          const knowledgePoints = await parseLecture(pdfData.pages, onBatchProgress);
           items = knowledgePoints.map((kp) => ({ type: 'knowledge_point' as const, data: kp }));
         } else {
           const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-          const questions = await parseQuestions(pdfData.pages, has_answers);
+          const questions = await parseQuestions(pdfData.pages, has_answers, onBatchProgress);
           items = questions.map((q) => ({ type: 'question' as const, data: q }));
         }
       } catch (e) {
         console.error('LLM extraction error:', e);
-        await documentService.updateStatus(doc.id, 'error', 'Failed to extract content');
-        send('error', { message: 'Failed to extract content from PDF', code: 'EXTRACTION_ERROR' });
+
+        // Detect quota / rate-limit errors from the LLM provider
+        const isQuotaError =
+          (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
+          (typeof e === 'object' && e !== null && 'status' in e && (e as { status: number }).status === 429);
+
+        if (isQuotaError) {
+          await documentService.updateStatus(doc.id, 'error', 'AI quota exceeded');
+          send('error', {
+            message: 'AI service quota exceeded. Please contact your administrator.',
+            code: 'LLM_QUOTA_EXCEEDED',
+          });
+        } else {
+          await documentService.updateStatus(doc.id, 'error', 'Failed to extract content');
+          send('error', { message: 'Failed to extract content from PDF', code: 'EXTRACTION_ERROR' });
+        }
         return;
       }
 

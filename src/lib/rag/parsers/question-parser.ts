@@ -47,14 +47,22 @@ ${pagesText}`;
 export async function parseQuestions(
   pages: PDFPage[],
   hasAnswers: boolean,
+  onBatchProgress?: (current: number, total: number) => void,
 ): Promise<ParsedQuestion[]> {
+  const totalBatches = Math.ceil(pages.length / PAGE_BATCH_SIZE);
+
   if (pages.length <= PAGE_BATCH_SIZE) {
-    return parseQuestionsBatch(pages, hasAnswers);
+    onBatchProgress?.(0, totalBatches);
+    const result = await parseQuestionsBatch(pages, hasAnswers);
+    onBatchProgress?.(1, totalBatches);
+    return result;
   }
 
   const seen = new Map();
 
   for (let i = 0; i < pages.length; i += PAGE_BATCH_SIZE) {
+    const batchIndex = Math.floor(i / PAGE_BATCH_SIZE);
+    onBatchProgress?.(batchIndex, totalBatches);
     const batch = pages.slice(i, i + PAGE_BATCH_SIZE);
     const batchResults = await parseQuestionsBatch(batch, hasAnswers);
     for (const q of batchResults) {
@@ -62,6 +70,7 @@ export async function parseQuestions(
         seen.set(q.questionNumber, q);
       }
     }
+    onBatchProgress?.(batchIndex + 1, totalBatches);
   }
 
   return Array.from(seen.values());
