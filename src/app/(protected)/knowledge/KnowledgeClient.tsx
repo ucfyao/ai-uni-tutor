@@ -358,6 +358,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   style={{
                     width: 220,
                     opacity: searchExpanded ? 1 : 0,
+                    pointerEvents: searchExpanded ? 'auto' : 'none',
                     transition: 'opacity 0.25s ease 0.1s',
                   }}
                 />
