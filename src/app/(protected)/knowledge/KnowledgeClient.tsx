@@ -56,14 +56,15 @@ function getProgressPercent(
   savedCount: number,
 ): number {
   if (status === 'complete') return 100;
-  if (status === 'parsing_pdf') return 10;
+  if (status === 'parsing_pdf') return 5;
   if (status === 'extracting') {
+    // progress events now fire per-batch during extraction
     const extractPct = progress.total > 0 ? progress.current / progress.total : 0;
-    return 20 + extractPct * 50;
+    return 10 + extractPct * 55;
   }
   if (status === 'embedding') {
     const embedPct = progress.total > 0 ? savedCount / progress.total : 0;
-    return 70 + embedPct * 30;
+    return 65 + embedPct * 35;
   }
   return 0;
 }
@@ -522,7 +523,9 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               <Text size="sm" fw={500} c={STAGE_COLORS[parseState.status]}>
                 {parseState.status === 'parsing_pdf' && t.knowledge.parsingPdf}
                 {parseState.status === 'extracting' &&
-                  `${t.knowledge.successfullyExtracted} ${parseState.progress.current}${parseState.progress.total > 0 ? `/${parseState.progress.total}` : ''}`}
+                  (parseState.progress.total > 1
+                    ? `${t.knowledge.extracting} (${parseState.progress.current}/${parseState.progress.total})`
+                    : t.knowledge.extracting)}
                 {parseState.status === 'embedding' &&
                   `${t.knowledge.savingToDatabase.replace('...', '')} ${parseState.savedChunkIds.size}/${parseState.progress.total}`}
                 {parseState.status === 'complete' &&

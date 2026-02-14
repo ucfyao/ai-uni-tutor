@@ -37,14 +37,24 @@ ${pagesText}`;
   return parsed;
 }
 
-export async function parseLecture(pages: PDFPage[]): Promise<KnowledgePoint[]> {
+export async function parseLecture(
+  pages: PDFPage[],
+  onBatchProgress?: (current: number, total: number) => void,
+): Promise<KnowledgePoint[]> {
+  const totalBatches = Math.ceil(pages.length / PAGE_BATCH_SIZE);
+
   if (pages.length <= PAGE_BATCH_SIZE) {
-    return parseLectureBatch(pages);
+    onBatchProgress?.(0, totalBatches);
+    const result = await parseLectureBatch(pages);
+    onBatchProgress?.(1, totalBatches);
+    return result;
   }
 
   const seen = new Map<string, KnowledgePoint>();
 
   for (let i = 0; i < pages.length; i += PAGE_BATCH_SIZE) {
+    const batchIndex = Math.floor(i / PAGE_BATCH_SIZE);
+    onBatchProgress?.(batchIndex, totalBatches);
     const batch = pages.slice(i, i + PAGE_BATCH_SIZE);
     const batchResults = await parseLectureBatch(batch);
     for (const kp of batchResults) {
@@ -52,6 +62,7 @@ export async function parseLecture(pages: PDFPage[]): Promise<KnowledgePoint[]> 
         seen.set(kp.title, kp);
       }
     }
+    onBatchProgress?.(batchIndex + 1, totalBatches);
   }
 
   return Array.from(seen.values());

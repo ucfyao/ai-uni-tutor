@@ -37,6 +37,7 @@ export interface StreamingParseState {
   progress: { current: number; total: number };
   savedChunkIds: Set<string>;
   error: string | null;
+  errorCode: string | null;
   documentId: string | null;
   stageTimes: Record<string, StageTime>;
   reset: () => void;
@@ -48,6 +49,7 @@ export function useStreamingParse(): StreamingParseState {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [savedChunkIds, setSavedChunkIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [stageTimes, setStageTimes] = useState<Record<string, StageTime>>({});
   const abortRef = useRef<AbortController | null>(null);
@@ -60,6 +62,7 @@ export function useStreamingParse(): StreamingParseState {
     setProgress({ current: 0, total: 0 });
     setSavedChunkIds(new Set());
     setError(null);
+    setErrorCode(null);
     setDocumentId(null);
     setStageTimes({});
     currentStageRef.current = null;
@@ -72,6 +75,7 @@ export function useStreamingParse(): StreamingParseState {
     setProgress({ current: 0, total: 0 });
     setSavedChunkIds(new Set());
     setError(null);
+    setErrorCode(null);
     setDocumentId(null);
     const initialTime = Date.now();
     setStageTimes({ parsing_pdf: { start: initialTime } });
@@ -198,6 +202,7 @@ export function useStreamingParse(): StreamingParseState {
           const errorData = data as SSEEventMap['error'];
           setStatus('error');
           setError(errorData.message);
+          setErrorCode(errorData.code);
           break;
         }
         case 'document_created': {
@@ -216,6 +221,7 @@ export function useStreamingParse(): StreamingParseState {
     progress,
     savedChunkIds,
     error,
+    errorCode,
     documentId,
     stageTimes,
     reset,
