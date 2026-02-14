@@ -76,12 +76,6 @@ export class MessageRepository implements IMessageRepository {
 
     if (error) throw new DatabaseError(`Failed to create message: ${error.message}`, error);
 
-    // Update session's updated_at timestamp
-    await supabase
-      .from('chat_sessions')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', dto.sessionId);
-
     return this.mapToEntity(data as MessageRow);
   }
 

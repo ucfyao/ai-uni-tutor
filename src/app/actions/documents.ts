@@ -233,7 +233,7 @@ export async function regenerateEmbeddings(
   revalidatePath(`/knowledge/${documentId}`);
 
   try {
-    const chunks = await documentService.getChunks(documentId);
+    const chunks = await documentService.getChunksWithEmbeddings(documentId);
     for (const chunk of chunks) {
       const embedding = await generateEmbeddingWithRetry(chunk.content);
       await documentService.updateChunkEmbedding(chunk.id, embedding, documentId);

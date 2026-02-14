@@ -17,14 +17,14 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
     document_id: string;
     content: string;
     metadata: Json;
-    embedding: number[] | null;
+    embedding?: number[] | null;
   }): DocumentChunkEntity {
     return {
       id: row.id,
       documentId: row.document_id,
       content: row.content,
       metadata: row.metadata,
-      embedding: row.embedding,
+      embedding: row.embedding ?? null,
     };
   }
 
@@ -72,7 +72,7 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('document_chunks')
-      .select('id, document_id, content, metadata, embedding')
+      .select('id, document_id, content, metadata')
       .eq('document_id', documentId)
       .order('created_at', { ascending: true });
     if (error) throw new DatabaseError(`Failed to fetch chunks: ${error.message}`, error);
@@ -103,6 +103,17 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
 
     const { error } = await query;
     if (error) throw new DatabaseError(`Failed to update embedding: ${error.message}`, error);
+  }
+
+  async findByDocumentIdWithEmbeddings(documentId: string): Promise<DocumentChunkEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('document_chunks')
+      .select('id, document_id, content, metadata, embedding')
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: true });
+    if (error) throw new DatabaseError('Failed to fetch chunks: ' + error.message, error);
+    return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
   async verifyChunksBelongToDocument(chunkIds: string[], documentId: string): Promise<boolean> {
