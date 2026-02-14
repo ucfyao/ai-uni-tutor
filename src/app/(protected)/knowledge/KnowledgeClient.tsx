@@ -12,10 +12,11 @@ import {
   Group,
   Loader,
   rem,
+  SegmentedControl,
   Select,
   Stack,
-  Tabs,
   Text,
+  Title,
   Tooltip,
   Transition,
 } from '@mantine/core';
@@ -26,6 +27,7 @@ import { ParsePanel } from '@/components/rag/ParsePanel';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { COURSES, UNIVERSITIES } from '@/constants/index';
 import { useStreamingParse } from '@/hooks/useStreamingParse';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -37,6 +39,7 @@ interface KnowledgeClientProps {
 }
 
 export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeClientProps) {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<PageMode>('list');
   const [activeTab, setActiveTab] = useState<string>(initialDocType);
   const [uploadExpanded, setUploadExpanded] = useState(false);
@@ -128,39 +131,52 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   // ── List Mode ──
   return (
     <Stack gap="lg">
-      {/* ── Tab Bar + Upload Toggle ── */}
-      <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? initialDocType)}>
-        <Tabs.List>
-          {DOC_TYPES.map((dt) => {
-            const Icon = dt.icon;
-            return (
-              <Tabs.Tab key={dt.value} value={dt.value} leftSection={<Icon size={16} />}>
-                {dt.label}
-              </Tabs.Tab>
-            );
-          })}
-          <Tooltip label={uploadExpanded ? 'Close' : 'Upload new document'} openDelay={400}>
-            <ActionIcon
-              variant={uploadExpanded ? 'light' : 'subtle'}
-              color={uploadExpanded ? 'indigo' : 'gray'}
-              size="md"
-              radius="xl"
-              ml="auto"
-              onClick={() => setUploadExpanded((v) => !v)}
-              aria-label="Upload document"
-            >
-              <Plus
-                size={18}
-                strokeWidth={2.5}
-                style={{
-                  transform: uploadExpanded ? 'rotate(45deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                }}
-              />
-            </ActionIcon>
-          </Tooltip>
-        </Tabs.List>
-      </Tabs>
+      {/* ── Header Row: title left, upload button right ── */}
+      <Group justify="space-between" align="flex-start">
+        <Box>
+          <Title order={2} fw={700}>
+            {t.knowledge.knowledgeBase}
+          </Title>
+          <Text c="dimmed" size="sm" mt={2}>
+            {t.knowledge.knowledgeBaseSubtitle}
+          </Text>
+        </Box>
+        <Button
+          variant={uploadExpanded ? 'light' : 'filled'}
+          color="indigo"
+          leftSection={
+            <Plus
+              size={16}
+              style={{
+                transform: uploadExpanded ? 'rotate(45deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          }
+          onClick={() => setUploadExpanded((v) => !v)}
+          radius="md"
+        >
+          {uploadExpanded ? t.knowledge.closeUpload : t.knowledge.uploadNewDocument}
+        </Button>
+      </Group>
+
+      {/* ── Doc Type Filter: SegmentedControl ── */}
+      <SegmentedControl
+        value={activeTab}
+        onChange={(v) => setActiveTab(v)}
+        data={DOC_TYPES.map((dt) => ({
+          value: dt.value,
+          label: dt.label,
+        }))}
+        radius="xl"
+        size="sm"
+        styles={{
+          root: {
+            backgroundColor: 'var(--mantine-color-gray-0)',
+            border: '1px solid var(--mantine-color-gray-2)',
+          },
+        }}
+      />
 
       {/* ── Upload Area (collapsible) ── */}
       <Collapse in={uploadExpanded} transitionDuration={250}>
