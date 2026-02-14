@@ -182,50 +182,48 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       <Collapse in={uploadExpanded} transitionDuration={250}>
         <Card
           radius="lg"
-          p="md"
+          p="lg"
+          withBorder
           style={{
-            background:
-              'linear-gradient(135deg, var(--mantine-color-indigo-0) 0%, var(--mantine-color-body) 60%)',
-            borderColor: 'var(--mantine-color-indigo-2)',
+            borderColor: 'var(--mantine-color-gray-2)',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
           }}
         >
           <Stack gap="sm">
             {/* ── File Zone: compact bar when empty, pill when file selected ── */}
             {selectedFile ? (
-              <Transition mounted transition="fade" duration={200}>
+              <Transition mounted transition="slide-up" duration={200}>
                 {(transitionStyles) => (
                   <Group
                     gap="sm"
-                    p="xs"
+                    p="sm"
                     style={{
                       ...transitionStyles,
-                      borderRadius: 'var(--mantine-radius-lg)',
-                      background: 'var(--mantine-color-green-0)',
-                      border: '1px solid var(--mantine-color-green-3)',
+                      borderRadius: 'var(--mantine-radius-md)',
+                      background: 'var(--mantine-color-body)',
+                      border: '1px solid var(--mantine-color-gray-2)',
                     }}
                   >
-                    <FileText size={18} color="var(--mantine-color-green-7)" />
+                    <FileText size={18} color="var(--mantine-color-indigo-5)" />
                     <Box style={{ flex: 1, minWidth: 0 }}>
-                      <Text size="sm" fw={600} c="green.8" truncate>
+                      <Text size="sm" fw={600} truncate>
                         {selectedFile.name}
                       </Text>
                       <Text size="xs" c="dimmed">
                         {formatFileSize(selectedFile.size)}
                       </Text>
                     </Box>
-                    <Group gap={4}>
-                      <Tooltip label="Replace file">
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          size="sm"
-                          onClick={() => setSelectedFile(null)}
-                          aria-label="Remove file"
-                        >
-                          <X size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
+                    <Tooltip label={t.knowledge.replaceFile}>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        onClick={() => setSelectedFile(null)}
+                        aria-label="Remove file"
+                      >
+                        <X size={14} />
+                      </ActionIcon>
+                    </Tooltip>
                   </Group>
                 )}
               </Transition>
@@ -246,7 +244,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   root: {
                     borderStyle: 'dashed',
                     borderWidth: 1.5,
-                    borderColor: 'var(--mantine-color-indigo-3)',
+                    borderColor: 'var(--mantine-color-gray-3)',
                     background: 'transparent',
                     transition: 'all 0.15s ease',
                     '&:hover': {
@@ -258,7 +256,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 <Group
                   justify="center"
                   gap="sm"
-                  style={{ minHeight: rem(56), pointerEvents: 'none' }}
+                  style={{ minHeight: rem(80), pointerEvents: 'none' }}
                 >
                   <Dropzone.Accept>
                     <Upload size={22} color="var(--mantine-color-indigo-6)" />
@@ -275,13 +273,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   </Dropzone.Idle>
                   <Box>
                     <Text size="sm" fw={500} c="dimmed">
-                      Drop a PDF here or{' '}
+                      {t.knowledge.dropPdfHere}{' '}
                       <Text span c="indigo" fw={600}>
-                        browse
+                        {t.knowledge.browse}
                       </Text>
                     </Text>
                     <Text size="xs" c="dimmed" mt={1}>
-                      Up to {process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB
+                      {t.knowledge.upToSize} {process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB
                     </Text>
                   </Box>
                 </Group>
@@ -330,9 +328,11 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   leftSection={<Play size={14} />}
                   disabled={!isFormValid}
                   onClick={handleStartParse}
+                  color="indigo"
+                  radius="md"
                   style={{ flexShrink: 0 }}
                 >
-                  Start
+                  {t.knowledge.startParsing}
                 </Button>
               </Tooltip>
             </Group>
