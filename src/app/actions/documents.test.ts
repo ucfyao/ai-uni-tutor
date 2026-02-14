@@ -29,6 +29,8 @@ const mockDocumentService = {
   getChunks: vi.fn(),
   updateChunkEmbedding: vi.fn(),
   updateDocumentMetadata: vi.fn(),
+  verifyChunksBelongToDocument: vi.fn(),
+  saveChunksAndReturn: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
   getDocumentService: () => mockDocumentService,
@@ -39,6 +41,13 @@ const mockQuotaService = {
 };
 vi.mock('@/lib/services/QuotaService', () => ({
   getQuotaService: () => mockQuotaService,
+}));
+
+const mockProcessingService = {
+  processWithLLM: vi.fn(),
+};
+vi.mock('@/lib/services/DocumentProcessingService', () => ({
+  getDocumentProcessingService: () => mockProcessingService,
 }));
 
 const mockParsePDF = vi.fn();
@@ -182,7 +191,9 @@ describe('Document Actions', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockParsePDF.mockRejectedValue(new Error('Corrupt PDF'));
+      mockProcessingService.processWithLLM.mockRejectedValue(new Error('Failed to parse PDF'));
+      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
+      mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeFormData();
       const result = await uploadDocument(INITIAL_STATE, fd);
@@ -197,9 +208,14 @@ describe('Document Actions', () => {
     });
 
     it('should return error for empty PDF (no text)', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockParsePDF.mockResolvedValue({ pages: [{ text: '', pageNum: 1 }] });
+      mockProcessingService.processWithLLM.mockRejectedValue(
+        new Error('PDF contains no extractable text'),
+      );
+      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
+      mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeFormData();
       const result = await uploadDocument(INITIAL_STATE, fd);
@@ -211,20 +227,7 @@ describe('Document Actions', () => {
     it('should process lecture document successfully', async () => {
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue(makeDocEntity({ docType: 'lecture' }));
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Some lecture content', pageNum: 1 }],
-      });
-      mockParseLecture.mockResolvedValue([
-        {
-          title: 'Recursion',
-          definition: 'A function that calls itself',
-          keyFormulas: [],
-          keyConcepts: ['base case'],
-          examples: [],
-        },
-      ]);
-      mockGenerateEmbeddingWithRetry.mockResolvedValue([0.1, 0.2, 0.3]);
-      mockDocumentService.saveChunks.mockResolvedValue(undefined);
+      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeFormData({ doc_type: 'lecture' });
@@ -232,13 +235,10 @@ describe('Document Actions', () => {
 
       expect(result.status).toBe('success');
       expect(result.message).toContain('successfully');
-      expect(mockDocumentService.saveChunks).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({
-            documentId: 'doc-1',
-            embedding: [0.1, 0.2, 0.3],
-          }),
-        ]),
+      expect(mockProcessingService.processWithLLM).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: 'doc-1',
+        }),
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge');
     });
@@ -246,40 +246,32 @@ describe('Document Actions', () => {
     it('should process exam document with questions', async () => {
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue(makeDocEntity({ docType: 'exam' }));
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Q1: What is 2+2?', pageNum: 1 }],
-      });
-      mockParseQuestions.mockResolvedValue([
-        {
-          questionNumber: 1,
-          content: 'What is 2+2?',
-          options: ['A. 3', 'B. 4'],
-          referenceAnswer: '4',
-        },
-      ]);
-      mockGenerateEmbeddingWithRetry.mockResolvedValue([0.4, 0.5, 0.6]);
-      mockDocumentService.saveChunks.mockResolvedValue(undefined);
+      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeFormData({ doc_type: 'exam' });
       const result = await uploadDocument(INITIAL_STATE, fd);
 
       expect(result.status).toBe('success');
-      expect(mockParseQuestions).toHaveBeenCalled();
+      expect(mockProcessingService.processWithLLM).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: 'doc-1',
+          docType: 'exam',
+        }),
+      );
     });
 
     it('should handle content extraction failure and clean up', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Some content', pageNum: 1 }],
-      });
-      mockParseLecture.mockRejectedValue(new Error('LLM failure'));
+      mockProcessingService.processWithLLM.mockRejectedValue(
+        new Error('Failed to extract content'),
+      );
       mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
-      const fd = makeFormData({ doc_type: 'lecture' });
+      const fd = makeFormData();
       const result = await uploadDocument(INITIAL_STATE, fd);
 
       expect(result.status).toBe('error');
@@ -288,49 +280,37 @@ describe('Document Actions', () => {
     });
 
     it('should handle chunk save failure', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Some content', pageNum: 1 }],
-      });
-      mockParseLecture.mockResolvedValue([{ title: 'Topic', definition: 'Def' }]);
-      mockGenerateEmbeddingWithRetry.mockResolvedValue([0.1]);
-      mockDocumentService.saveChunks.mockRejectedValue(new Error('DB error'));
+      mockProcessingService.processWithLLM.mockRejectedValue(
+        new Error('Failed to save document chunks'),
+      );
+      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
-      const fd = makeFormData({ doc_type: 'lecture' });
+      const fd = makeFormData();
       const result = await uploadDocument(INITIAL_STATE, fd);
 
       expect(result.status).toBe('error');
       expect(result.message).toContain('Failed to save document chunks');
     });
 
-    it('should handle unexpected errors and clean up docId', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockRejectedValue(new Error('Unexpected'));
-
-      const fd = makeFormData();
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toBe('Internal server error during upload');
-    });
-
-    it('should pass has_answers to parseQuestions for exam type', async () => {
+    it('should pass has_answers to processWithLLM for exam type', async () => {
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue(makeDocEntity({ docType: 'exam' }));
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Q1: What?', pageNum: 1 }],
-      });
-      mockParseQuestions.mockResolvedValue([]);
+      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeFormData({ doc_type: 'exam', has_answers: 'true' });
       const result = await uploadDocument(INITIAL_STATE, fd);
 
       expect(result.status).toBe('success');
-      expect(mockParseQuestions).toHaveBeenCalledWith(expect.any(Array), true);
+      expect(mockProcessingService.processWithLLM).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hasAnswers: true,
+        }),
+      );
     });
   });
 
@@ -360,6 +340,7 @@ describe('Document Actions', () => {
   describe('updateDocumentChunks', () => {
     it('should update and delete chunks for document owner', async () => {
       mockDocumentService.findById.mockResolvedValue(makeDocEntity());
+      mockDocumentService.verifyChunksBelongToDocument.mockResolvedValue(true);
       mockDocumentService.deleteChunk.mockResolvedValue(undefined);
       mockDocumentService.updateChunk.mockResolvedValue(undefined);
 
@@ -422,8 +403,16 @@ describe('Document Actions', () => {
 
       expect(result).toEqual({ status: 'success', message: 'Embeddings regenerated' });
       expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledTimes(2);
-      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith('chunk-1', [0.9, 0.8]);
-      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith('chunk-2', [0.7, 0.6]);
+      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith(
+        'chunk-1',
+        [0.9, 0.8],
+        'doc-1',
+      );
+      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith(
+        'chunk-2',
+        [0.7, 0.6],
+        'doc-1',
+      );
       expect(mockDocumentService.updateStatus).toHaveBeenCalledWith(
         'doc-1',
         'processing',

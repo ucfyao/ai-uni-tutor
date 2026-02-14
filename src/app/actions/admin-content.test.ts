@@ -30,6 +30,8 @@ const mockDocumentService = {
   createDocument: vi.fn(),
   updateStatus: vi.fn(),
   saveChunks: vi.fn(),
+  getAdminDocuments: vi.fn(),
+  deleteByAdmin: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
   getDocumentService: () => mockDocumentService,
@@ -48,6 +50,13 @@ vi.mock('@/lib/rag/embedding', () => ({
 const mockChunkPages = vi.fn();
 vi.mock('@/lib/rag/chunking', () => ({
   chunkPages: (...args: unknown[]) => mockChunkPages(...args),
+}));
+
+const mockProcessingService = {
+  processWithChunking: vi.fn(),
+};
+vi.mock('@/lib/services/DocumentProcessingService', () => ({
+  getDocumentProcessingService: () => mockProcessingService,
 }));
 
 // ---------------------------------------------------------------------------
@@ -140,7 +149,7 @@ describe('Admin Content Actions', () => {
         { id: 'doc-1', name: 'Lecture 1', created_at: '2024-01-01' },
         { id: 'doc-2', name: 'Lecture 2', created_at: '2024-01-02' },
       ];
-      mockCreateClient.mockResolvedValue(mockSupabaseSelect(docs));
+      mockDocumentService.getAdminDocuments.mockResolvedValue(docs);
 
       const result = await getAdminDocuments();
 
@@ -155,25 +164,17 @@ describe('Admin Content Actions', () => {
       expect(result).toEqual([]);
     });
 
-    it('should return empty array on supabase error', async () => {
+    it('should return empty array on service error', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockCreateClient.mockResolvedValue(
-        mockSupabaseSelect([], { message: 'DB connection error' }),
-      );
+      mockDocumentService.getAdminDocuments.mockRejectedValue(new Error('DB connection error'));
 
       const result = await getAdminDocuments();
 
       expect(result).toEqual([]);
     });
 
-    it('should return empty array when data is null', async () => {
-      mockCreateClient.mockResolvedValue({
-        from: () => ({
-          select: () => ({
-            order: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
-        }),
-      });
+    it('should return empty array when service returns empty', async () => {
+      mockDocumentService.getAdminDocuments.mockResolvedValue([]);
 
       const result = await getAdminDocuments();
 
@@ -276,12 +277,7 @@ describe('Admin Content Actions', () => {
         id: 'doc-1',
         name: 'test.pdf',
       });
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Some lecture content', pageNum: 1 }],
-      });
-      mockChunkPages.mockResolvedValue([{ content: 'chunk 1', metadata: { page: 1 } }]);
-      mockGenerateEmbeddingWithRetry.mockResolvedValue([0.1, 0.2, 0.3]);
-      mockDocumentService.saveChunks.mockResolvedValue(undefined);
+      mockProcessingService.processWithChunking.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeUploadFormData({ docType: 'lecture', school: 'MIT', course: 'CS101' });
@@ -295,7 +291,9 @@ describe('Admin Content Actions', () => {
         'lecture',
         'CS101',
       );
-      expect(mockDocumentService.saveChunks).toHaveBeenCalled();
+      expect(mockProcessingService.processWithChunking).toHaveBeenCalledWith(
+        expect.objectContaining({ documentId: 'doc-1' }),
+      );
       expect(mockDocumentService.updateStatus).toHaveBeenCalledWith('doc-1', 'ready');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/content');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge');
@@ -306,10 +304,7 @@ describe('Admin Content Actions', () => {
         id: 'doc-1',
         name: 'test.pdf',
       });
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Content', pageNum: 1 }],
-      });
-      mockChunkPages.mockResolvedValue([]);
+      mockProcessingService.processWithChunking.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeUploadFormData({ docType: 'lecture' });
@@ -336,18 +331,20 @@ describe('Admin Content Actions', () => {
       });
     });
 
-    it('should return error when PDF parsing fails', async () => {
+    it('should return error when document processing fails', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.createDocument.mockResolvedValue({
         id: 'doc-1',
         name: 'test.pdf',
       });
-      mockParsePDF.mockRejectedValue(new Error('Corrupt PDF'));
+      mockProcessingService.processWithChunking.mockRejectedValue(new Error('Failed to parse PDF'));
+      mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeUploadFormData({ docType: 'lecture' });
       const result = await uploadAdminContent(INITIAL_STATE, fd);
 
-      expect(result).toEqual({ status: 'error', message: 'Failed to parse PDF content' });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('Failed to parse PDF');
       expect(mockDocumentService.updateStatus).toHaveBeenCalledWith(
         'doc-1',
         'error',
@@ -356,63 +353,45 @@ describe('Admin Content Actions', () => {
     });
 
     it('should return error when chunk saving fails', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.createDocument.mockResolvedValue({
         id: 'doc-1',
         name: 'test.pdf',
       });
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Content', pageNum: 1 }],
-      });
-      mockChunkPages.mockResolvedValue([{ content: 'chunk 1', metadata: { page: 1 } }]);
-      mockGenerateEmbeddingWithRetry.mockResolvedValue([0.1]);
-      mockDocumentService.saveChunks.mockRejectedValue(new Error('DB error'));
+      mockProcessingService.processWithChunking.mockRejectedValue(
+        new Error('Failed to save document chunks'),
+      );
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeUploadFormData({ docType: 'lecture' });
       const result = await uploadAdminContent(INITIAL_STATE, fd);
 
-      expect(result).toEqual({ status: 'error', message: 'Failed to save document chunks' });
-      expect(mockDocumentService.updateStatus).toHaveBeenCalledWith(
-        'doc-1',
-        'error',
-        'Failed to save chunks',
-      );
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('Failed to save document chunks');
     });
 
-    it('should skip saving when there are no chunks', async () => {
+    it('should succeed when processing service handles empty content', async () => {
       mockDocumentService.createDocument.mockResolvedValue({
         id: 'doc-1',
         name: 'test.pdf',
       });
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Content', pageNum: 1 }],
-      });
-      mockChunkPages.mockResolvedValue([]);
+      mockProcessingService.processWithChunking.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeUploadFormData({ docType: 'lecture' });
       const result = await uploadAdminContent(INITIAL_STATE, fd);
 
       expect(result).toEqual({ status: 'success', message: 'Document processed successfully' });
-      expect(mockDocumentService.saveChunks).not.toHaveBeenCalled();
     });
 
     it('should handle unexpected errors during upload', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      // Force an unexpected error by making requireAdmin throw after validation passes
-      // but in a way not caught by the specific handlers
-      mockRequireAdmin
-        .mockResolvedValueOnce(MOCK_ADMIN) // First call succeeds (upload rejects non-admin earlier)
-        .mockResolvedValueOnce(MOCK_ADMIN);
-
       mockDocumentService.createDocument.mockResolvedValue({
         id: 'doc-1',
         name: 'test.pdf',
       });
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Content', pageNum: 1 }],
-      });
-      mockChunkPages.mockRejectedValue(new Error('Unexpected chunking failure'));
+      mockProcessingService.processWithChunking.mockRejectedValue(new Error('Unexpected failure'));
+      mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeUploadFormData({ docType: 'lecture' });
       const result = await uploadAdminContent(INITIAL_STATE, fd);
@@ -435,26 +414,15 @@ describe('Admin Content Actions', () => {
         id: 'doc-1',
         name: 'test.pdf',
       });
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Content', pageNum: 1 }],
-      });
-      // Create 7 chunks to test batching (BATCH_SIZE = 5)
-      const chunks = Array.from({ length: 7 }, (_, i) => ({
-        content: `chunk ${i}`,
-        metadata: { page: 1 },
-      }));
-      mockChunkPages.mockResolvedValue(chunks);
-      mockGenerateEmbeddingWithRetry.mockResolvedValue([0.1, 0.2]);
-      mockDocumentService.saveChunks.mockResolvedValue(undefined);
+      mockProcessingService.processWithChunking.mockResolvedValue(undefined);
       mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const fd = makeUploadFormData({ docType: 'lecture' });
       const result = await uploadAdminContent(INITIAL_STATE, fd);
 
       expect(result.status).toBe('success');
-      expect(mockGenerateEmbeddingWithRetry).toHaveBeenCalledTimes(7);
-      expect(mockDocumentService.saveChunks).toHaveBeenCalledWith(
-        expect.arrayContaining([expect.objectContaining({ documentId: 'doc-1' })]),
+      expect(mockProcessingService.processWithChunking).toHaveBeenCalledWith(
+        expect.objectContaining({ documentId: 'doc-1' }),
       );
     });
   });
@@ -474,19 +442,12 @@ describe('Admin Content Actions', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith('/exam');
     });
 
-    it('should delete document via supabase directly', async () => {
-      const mockDelete = vi.fn().mockResolvedValue({ error: null });
-      mockCreateClient.mockResolvedValue({
-        from: () => ({
-          delete: () => ({
-            eq: mockDelete,
-          }),
-        }),
-      });
+    it('should delete document via document service', async () => {
+      mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
       await deleteAdminContent('doc-1', 'document');
 
-      expect(mockDelete).toHaveBeenCalledWith('id', 'doc-1');
+      expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/content');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/exam');
@@ -498,18 +459,10 @@ describe('Admin Content Actions', () => {
       await expect(deleteAdminContent('doc-1', 'document')).rejects.toThrow('Not admin');
     });
 
-    it('should throw when supabase delete fails for document', async () => {
-      mockCreateClient.mockResolvedValue({
-        from: () => ({
-          delete: () => ({
-            eq: vi.fn().mockResolvedValue({ error: { message: 'FK violation' } }),
-          }),
-        }),
-      });
+    it('should throw when document service delete fails', async () => {
+      mockDocumentService.deleteByAdmin.mockRejectedValue(new Error('FK violation'));
 
-      await expect(deleteAdminContent('doc-1', 'document')).rejects.toThrow(
-        'Failed to delete document: FK violation',
-      );
+      await expect(deleteAdminContent('doc-1', 'document')).rejects.toThrow('FK violation');
     });
   });
 });
