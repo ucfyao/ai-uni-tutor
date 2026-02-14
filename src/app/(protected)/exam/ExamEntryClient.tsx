@@ -17,7 +17,6 @@ import {
   Box,
   Button,
   Card,
-  Container,
   Group,
   Loader,
   Modal,
@@ -127,58 +126,86 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
   };
 
   return (
-    <Container size="xl" py={48}>
-      <Stack gap="xl">
-        {/* Header */}
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Title order={1} fw={800} mb={4}>
-              Exam Practice
-            </Title>
-            <Text c="dimmed" size="lg">
-              Generate mock exams from real past papers
-            </Text>
-          </div>
-          <Group>
-            <Button
-              leftSection={<IconBolt size={16} />}
-              variant="gradient"
-              gradient={{ from: 'teal', to: 'cyan' }}
-              onClick={() => setQuickGenOpen(true)}
-            >
-              Quick Generate
-            </Button>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              variant="gradient"
-              gradient={{ from: 'indigo', to: 'violet' }}
-              onClick={() => setUploadOpen(true)}
-            >
-              Upload Exam Paper
-            </Button>
-            <Button variant="subtle" onClick={() => router.push('/exam/history')}>
-              View History
-            </Button>
-          </Group>
-        </Group>
-
-        {/* Paper Bank — Two-Column Layout */}
-        <div>
-          <Title order={4} mb="md">
-            Paper Bank
+    <Stack gap="lg">
+      {/* Header */}
+      <Group justify="space-between" align="flex-start" className="animate-fade-in-up">
+        <Box>
+          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
+            Exam Practice
           </Title>
-          {papers.length === 0 ? (
-            <Card withBorder radius="lg" p="xl" ta="center">
-              <IconFileText size={48} style={{ opacity: 0.3, margin: '0 auto' }} />
-              <Text c="dimmed" mt="sm">
-                No exam papers yet. Upload one or generate from a topic.
-              </Text>
-              <Group justify="center" mt="md">
+          <Text c="dimmed" size="md" fw={400} mt={2}>
+            Generate mock exams from real past papers
+          </Text>
+        </Box>
+        <Group>
+          <Button
+            leftSection={<IconBolt size={16} />}
+            variant="gradient"
+            gradient={{ from: 'teal', to: 'cyan' }}
+            onClick={() => setQuickGenOpen(true)}
+            radius="md"
+          >
+            Quick Generate
+          </Button>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            variant="gradient"
+            gradient={{ from: 'indigo', to: 'violet' }}
+            onClick={() => setUploadOpen(true)}
+            radius="md"
+          >
+            Upload Exam Paper
+          </Button>
+          <Button variant="subtle" onClick={() => router.push('/exam/history')} radius="md">
+            View History
+          </Button>
+        </Group>
+      </Group>
+
+      {/* Paper Bank — Two-Column Layout */}
+      <Box className="animate-fade-in-up animate-delay-100" style={{ opacity: 0 }}>
+        <Title order={4} mb="md">
+          Paper Bank
+        </Title>
+        {papers.length === 0 ? (
+          <Card
+            radius="lg"
+            p="xl"
+            withBorder
+            style={{
+              borderColor: 'var(--mantine-color-gray-2)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <Stack align="center" gap="md" py="lg">
+              <Box
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: '50%',
+                  background: 'var(--mantine-color-violet-0)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <IconFileText size={32} color="var(--mantine-color-violet-4)" />
+              </Box>
+              <Box ta="center">
+                <Text fw={500} size="md">
+                  No exam papers yet
+                </Text>
+                <Text size="sm" c="dimmed" mt={4}>
+                  Upload a paper or generate from a topic to get started.
+                </Text>
+              </Box>
+              <Group justify="center" mt="xs">
                 <Button
                   leftSection={<IconBolt size={16} />}
                   variant="gradient"
                   gradient={{ from: 'teal', to: 'cyan' }}
                   onClick={() => setQuickGenOpen(true)}
+                  radius="md"
                 >
                   Generate from Topic
                 </Button>
@@ -186,12 +213,24 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
                   leftSection={<IconPlus size={16} />}
                   variant="light"
                   onClick={() => setUploadOpen(true)}
+                  radius="md"
                 >
                   Upload Paper
                 </Button>
               </Group>
-            </Card>
-          ) : (
+            </Stack>
+          </Card>
+        ) : (
+          <Card
+            withBorder
+            radius="lg"
+            p={0}
+            style={{
+              borderColor: 'var(--mantine-color-gray-2)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              overflow: 'hidden',
+            }}
+          >
             <Group align="flex-start" gap={0} wrap="nowrap" style={{ minHeight: 400 }}>
               {/* Left sidebar — Paper list */}
               <Box
@@ -337,6 +376,7 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
                       disabled={isPending}
                       onClick={() => handleGenerate(selectedPaperId)}
                       size="md"
+                      radius="md"
                     >
                       Generate Mock Exam
                     </Button>
@@ -348,147 +388,156 @@ export function ExamEntryClient({ papers, recentMocks }: Props) {
                 )}
               </Box>
             </Group>
-          )}
-        </div>
-
-        {/* Recent Mock Exams */}
-        {recentMocks.length > 0 && (
-          <div>
-            <Group justify="space-between" mb="md">
-              <Title order={4}>Recent Mock Exams</Title>
-              <Button variant="subtle" size="xs" onClick={() => router.push('/exam/history')}>
-                View All
-              </Button>
-            </Group>
-            <ScrollArea>
-              <Group gap="md" wrap="nowrap">
-                {recentMocks.map((mock) => (
-                  <Card
-                    key={mock.id}
-                    withBorder
-                    radius="lg"
-                    p="md"
-                    miw={250}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => router.push(`/exam/mock/${mock.id}`)}
-                  >
-                    <Text fw={500} size="sm" lineClamp={1}>
-                      {mock.title}
-                    </Text>
-                    <Group gap="xs" mt="xs">
-                      {mock.status === 'completed' ? (
-                        <>
-                          <IconTrophy size={14} color="gold" />
-                          <Text size="sm" fw={600}>
-                            {mock.score}/{mock.totalPoints}
-                          </Text>
-                        </>
-                      ) : (
-                        <>
-                          <IconClock size={14} style={{ opacity: 0.5 }} />
-                          <Text size="xs" c="dimmed">
-                            {mock.currentIndex}/{mock.questions.length} answered
-                          </Text>
-                        </>
-                      )}
-                    </Group>
-                    {mock.status === 'completed' && (
-                      <Progress
-                        value={(mock.score! / mock.totalPoints) * 100}
-                        mt="xs"
-                        size="xs"
-                        color={mock.score! / mock.totalPoints >= 0.6 ? 'green' : 'red'}
-                      />
-                    )}
-                  </Card>
-                ))}
-              </Group>
-            </ScrollArea>
-          </div>
+          </Card>
         )}
+      </Box>
 
-        <ExamPaperUploadModal opened={uploadOpen} onClose={() => setUploadOpen(false)} />
-
-        {/* Quick Generate Modal */}
-        <Modal
-          opened={quickGenOpen}
-          onClose={() => {
-            setQuickGenOpen(false);
-            setQuickGenError(null);
-          }}
-          title="Quick Generate Mock Exam"
-          size="md"
-          centered
-        >
-          <Stack gap="md">
-            <TextInput
-              label="Topic / Course"
-              placeholder="e.g. Linear Algebra, Organic Chemistry"
-              required
-              value={quickGenTopic}
-              onChange={(e) => setQuickGenTopic(e.currentTarget.value)}
-            />
-            <Select
-              label="Number of Questions"
-              data={[
-                { value: '5', label: '5 questions' },
-                { value: '10', label: '10 questions' },
-                { value: '15', label: '15 questions' },
-                { value: '20', label: '20 questions' },
-              ]}
-              value={quickGenNum}
-              onChange={(v) => setQuickGenNum(v ?? '10')}
-            />
-            <Select
-              label="Difficulty"
-              data={[
-                { value: 'mixed', label: 'Mixed' },
-                { value: 'easy', label: 'Easy' },
-                { value: 'medium', label: 'Medium' },
-                { value: 'hard', label: 'Hard' },
-              ]}
-              value={quickGenDifficulty}
-              onChange={(v) => setQuickGenDifficulty(v ?? 'mixed')}
-            />
-            <MultiSelect
-              label="Question Types (optional)"
-              placeholder="Leave empty for auto"
-              data={[
-                { value: 'choice', label: 'Multiple Choice' },
-                { value: 'true_false', label: 'True / False' },
-                { value: 'fill_blank', label: 'Fill in the Blank' },
-                { value: 'short_answer', label: 'Short Answer' },
-                { value: 'calculation', label: 'Calculation' },
-                { value: 'essay', label: 'Essay' },
-              ]}
-              value={quickGenTypes}
-              onChange={setQuickGenTypes}
-            />
-            {quickGenError && (
-              <Text size="sm" c="red">
-                {quickGenError}
-              </Text>
-            )}
+      {/* Recent Mock Exams */}
+      {recentMocks.length > 0 && (
+        <Box className="animate-fade-in-up animate-delay-200" style={{ opacity: 0 }}>
+          <Group justify="space-between" mb="md">
+            <Title order={4}>Recent Mock Exams</Title>
             <Button
-              variant="gradient"
-              gradient={{ from: 'teal', to: 'cyan' }}
-              leftSection={
-                quickGenLoading ? (
-                  <IconLoader2 size={16} className="animate-spin" />
-                ) : (
-                  <IconBolt size={16} />
-                )
-              }
-              loading={quickGenLoading}
-              disabled={!quickGenTopic.trim()}
-              onClick={handleQuickGenerate}
-              fullWidth
+              variant="subtle"
+              size="xs"
+              onClick={() => router.push('/exam/history')}
+              radius="md"
             >
-              Generate Exam
+              View All
             </Button>
-          </Stack>
-        </Modal>
-      </Stack>
-    </Container>
+          </Group>
+          <ScrollArea>
+            <Group gap="md" wrap="nowrap">
+              {recentMocks.map((mock) => (
+                <Card
+                  key={mock.id}
+                  withBorder
+                  radius="lg"
+                  p="md"
+                  miw={250}
+                  style={{
+                    cursor: 'pointer',
+                    borderColor: 'var(--mantine-color-gray-2)',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                  }}
+                  onClick={() => router.push(`/exam/mock/${mock.id}`)}
+                >
+                  <Text fw={500} size="sm" lineClamp={1}>
+                    {mock.title}
+                  </Text>
+                  <Group gap="xs" mt="xs">
+                    {mock.status === 'completed' ? (
+                      <>
+                        <IconTrophy size={14} color="gold" />
+                        <Text size="sm" fw={600}>
+                          {mock.score}/{mock.totalPoints}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <IconClock size={14} style={{ opacity: 0.5 }} />
+                        <Text size="xs" c="dimmed">
+                          {mock.currentIndex}/{mock.questions.length} answered
+                        </Text>
+                      </>
+                    )}
+                  </Group>
+                  {mock.status === 'completed' && (
+                    <Progress
+                      value={(mock.score! / mock.totalPoints) * 100}
+                      mt="xs"
+                      size="xs"
+                      color={mock.score! / mock.totalPoints >= 0.6 ? 'green' : 'red'}
+                    />
+                  )}
+                </Card>
+              ))}
+            </Group>
+          </ScrollArea>
+        </Box>
+      )}
+
+      <ExamPaperUploadModal opened={uploadOpen} onClose={() => setUploadOpen(false)} />
+
+      {/* Quick Generate Modal */}
+      <Modal
+        opened={quickGenOpen}
+        onClose={() => {
+          setQuickGenOpen(false);
+          setQuickGenError(null);
+        }}
+        title="Quick Generate Mock Exam"
+        size="md"
+        centered
+      >
+        <Stack gap="md">
+          <TextInput
+            label="Topic / Course"
+            placeholder="e.g. Linear Algebra, Organic Chemistry"
+            required
+            value={quickGenTopic}
+            onChange={(e) => setQuickGenTopic(e.currentTarget.value)}
+          />
+          <Select
+            label="Number of Questions"
+            data={[
+              { value: '5', label: '5 questions' },
+              { value: '10', label: '10 questions' },
+              { value: '15', label: '15 questions' },
+              { value: '20', label: '20 questions' },
+            ]}
+            value={quickGenNum}
+            onChange={(v) => setQuickGenNum(v ?? '10')}
+          />
+          <Select
+            label="Difficulty"
+            data={[
+              { value: 'mixed', label: 'Mixed' },
+              { value: 'easy', label: 'Easy' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'hard', label: 'Hard' },
+            ]}
+            value={quickGenDifficulty}
+            onChange={(v) => setQuickGenDifficulty(v ?? 'mixed')}
+          />
+          <MultiSelect
+            label="Question Types (optional)"
+            placeholder="Leave empty for auto"
+            data={[
+              { value: 'choice', label: 'Multiple Choice' },
+              { value: 'true_false', label: 'True / False' },
+              { value: 'fill_blank', label: 'Fill in the Blank' },
+              { value: 'short_answer', label: 'Short Answer' },
+              { value: 'calculation', label: 'Calculation' },
+              { value: 'essay', label: 'Essay' },
+            ]}
+            value={quickGenTypes}
+            onChange={setQuickGenTypes}
+          />
+          {quickGenError && (
+            <Text size="sm" c="red">
+              {quickGenError}
+            </Text>
+          )}
+          <Button
+            variant="gradient"
+            gradient={{ from: 'teal', to: 'cyan' }}
+            leftSection={
+              quickGenLoading ? (
+                <IconLoader2 size={16} className="animate-spin" />
+              ) : (
+                <IconBolt size={16} />
+              )
+            }
+            loading={quickGenLoading}
+            disabled={!quickGenTopic.trim()}
+            onClick={handleQuickGenerate}
+            fullWidth
+          >
+            Generate Exam
+          </Button>
+        </Stack>
+      </Modal>
+    </Stack>
   );
 }
