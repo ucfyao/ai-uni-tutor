@@ -30,7 +30,12 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
 
   // Idempotency: skip already-processed events
-  const { data: existing } = await (supabase as any); // eslint-disable-line @typescript-eslint/no-explicit-any -- stripe_events table not in Database schema.from('stripe_events').select('id').eq('event_id', event.id).single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stripe_events table not in Database type
+  const { data: existing } = await (supabase as any)
+    .from('stripe_events')
+    .select('id')
+    .eq('event_id', event.id)
+    .single();
 
   if (existing) {
     return new NextResponse(null, { status: 200 });
@@ -48,7 +53,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Mark event as processed
-    await (supabase as any); // eslint-disable-line @typescript-eslint/no-explicit-any -- stripe_events table not in Database schema.from('stripe_events').insert({ event_id: event.id, event_type: event.type });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stripe_events table not in Database type
+    await (supabase as any)
+      .from('stripe_events')
+      .insert({ event_id: event.id, event_type: event.type });
 
     return new NextResponse(null, { status: 200 });
   } catch (error) {

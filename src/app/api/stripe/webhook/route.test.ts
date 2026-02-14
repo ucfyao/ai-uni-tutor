@@ -18,6 +18,14 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue(mockSupabase),
 }));
 
+const mockProfileService = {
+  updateSubscription: vi.fn(),
+  updateSubscriptionBySubscriptionId: vi.fn(),
+};
+vi.mock('@/lib/services/ProfileService', () => ({
+  getProfileService: () => mockProfileService,
+}));
+
 const mockConstructEvent = vi.fn();
 const mockSubscriptionsRetrieve = vi.fn();
 
@@ -236,7 +244,8 @@ describe('POST /api/stripe/webhook', () => {
 
       expect(response.status).toBe(200);
       expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith('sub_123');
-      expect(mockSupabase.update).toHaveBeenCalledWith(
+      expect(mockProfileService.updateSubscription).toHaveBeenCalledWith(
+        'user-1',
         expect.objectContaining({
           stripe_subscription_id: 'sub_123',
           stripe_customer_id: 'cus_456',
@@ -326,7 +335,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'sig_test'));
 
       expect(response.status).toBe(200);
-      expect(mockSupabase.update).toHaveBeenCalledWith(
+      expect(mockProfileService.updateSubscriptionBySubscriptionId).toHaveBeenCalledWith(
+        'sub_789',
         expect.objectContaining({
           subscription_status: 'past_due',
           stripe_price_id: 'price_new',
@@ -369,7 +379,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'sig_test'));
 
       expect(response.status).toBe(200);
-      expect(mockSupabase.update).toHaveBeenCalledWith(
+      expect(mockProfileService.updateSubscriptionBySubscriptionId).toHaveBeenCalledWith(
+        'sub_canceled',
         expect.objectContaining({
           subscription_status: 'canceled',
         }),
@@ -498,17 +509,10 @@ describe('POST /api/stripe/webhook', () => {
       mockConstructEvent.mockReturnValue(mockEvent);
       setupIdempotency(false);
 
-      let eqCallCount = 0;
-      mockSupabase.eq.mockImplementation(() => {
-        eqCallCount++;
-        if (eqCallCount >= 2) {
-          return Promise.resolve({
-            data: null,
-            error: { message: 'Row not found' },
-          });
-        }
-        return mockSupabase;
-      });
+      // Mock ProfileService to throw an error
+      mockProfileService.updateSubscriptionBySubscriptionId.mockRejectedValue(
+        new Error('Row not found'),
+      );
 
       const response = await POST(makeRequest('body', 'sig_test'));
 
