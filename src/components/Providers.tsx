@@ -7,6 +7,7 @@ import { HeaderProvider } from '@/context/HeaderContext';
 import { ProfileProvider } from '@/context/ProfileContext';
 import { SessionProvider } from '@/context/SessionContext';
 import { SidebarProvider } from '@/context/SidebarContext';
+import { LanguageProvider } from '@/i18n/LanguageContext';
 import { ChatSession } from '@/types/index';
 
 interface ProvidersProps {
@@ -32,13 +33,15 @@ export function Providers({ children, initialSessions, initialProfile }: Provide
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ProfileProvider initialProfile={initialProfile}>
-        <SidebarProvider>
-          <HeaderProvider>
-            <SessionProvider initialSessions={initialSessions}>{children}</SessionProvider>
-          </HeaderProvider>
-        </SidebarProvider>
-      </ProfileProvider>
+      <LanguageProvider>
+        <ProfileProvider initialProfile={initialProfile}>
+          <SidebarProvider>
+            <HeaderProvider>
+              <SessionProvider initialSessions={initialSessions}>{children}</SessionProvider>
+            </HeaderProvider>
+          </SidebarProvider>
+        </ProfileProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

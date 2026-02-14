@@ -1,18 +1,15 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { Box } from '@mantine/core';
+import CTASection from '@/components/marketing/CTASection';
+import FeaturesSection from '@/components/marketing/FeaturesSection';
+import Footer from '@/components/marketing/Footer';
 import HeroSection from '@/components/marketing/HeroSection';
+import HowItWorksSection from '@/components/marketing/HowItWorksSection';
 import Navbar from '@/components/marketing/Navbar';
+import TestimonialsSection from '@/components/marketing/TestimonialsSection';
 import { LanguageProvider } from '@/i18n/LanguageContext';
 import { Language } from '@/i18n/translations';
-
-// Lazy-load below-fold sections to reduce initial bundle
-const FeaturesSection = dynamic(() => import('@/components/marketing/FeaturesSection'));
-const HowItWorksSection = dynamic(() => import('@/components/marketing/HowItWorksSection'));
-const TestimonialsSection = dynamic(() => import('@/components/marketing/TestimonialsSection'));
-const CTASection = dynamic(() => import('@/components/marketing/CTASection'));
-const Footer = dynamic(() => import('@/components/marketing/Footer'));
 
 type MarketingAppProps = { initialLang?: Language };
 

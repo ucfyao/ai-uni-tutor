@@ -11,11 +11,20 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-type LanguageProviderProps = { children: ReactNode; initialLang: Language };
+type LanguageProviderProps = { children: ReactNode; initialLang?: Language };
 
-export const LanguageProvider = ({ children, initialLang }: LanguageProviderProps) => {
-  // URL is source of truth: server passes initialLang so HTML matches (SEO + hydration).
+export const LanguageProvider = ({ children, initialLang = 'en' }: LanguageProviderProps) => {
   const [language, setLanguage] = useState<Language>(initialLang);
+
+  // On mount, sync with localStorage (for protected routes where URL doesn't indicate language)
+  useEffect(() => {
+    if (!initialLang || initialLang === 'en') {
+      const stored = localStorage.getItem('language');
+      if (stored === 'en' || stored === 'zh') {
+        setLanguage(stored);
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     localStorage.setItem('language', language);
