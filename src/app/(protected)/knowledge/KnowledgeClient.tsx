@@ -132,14 +132,9 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   return (
     <Stack gap="lg">
       {/* ── Header ── */}
-      <Box className="animate-fade-in-up">
-        <Title order={3} fw={700} style={{ letterSpacing: '-0.02em' }}>
-          {t.knowledge.knowledgeBase}
-        </Title>
-        <Text c="dimmed" size="sm" fw={400} mt={2}>
-          {t.knowledge.knowledgeBaseSubtitle}
-        </Text>
-      </Box>
+      <Title order={3} fw={700} style={{ letterSpacing: '-0.02em' }} className="animate-fade-in-up">
+        {t.knowledge.knowledgeBase}
+      </Title>
 
       {/* ── Doc Type Filter + Upload Toggle ── */}
       <Group
