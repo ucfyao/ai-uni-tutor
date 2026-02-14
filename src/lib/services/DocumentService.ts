@@ -90,8 +90,8 @@ export class DocumentService {
     await this.chunkRepo.deleteByDocumentId(docId);
   }
 
-  async updateChunkEmbedding(chunkId: string, embedding: number[]): Promise<void> {
-    await this.chunkRepo.updateEmbedding(chunkId, embedding);
+  async updateChunkEmbedding(chunkId: string, embedding: number[], documentId?: string): Promise<void> {
+    await this.chunkRepo.updateEmbedding(chunkId, embedding, documentId);
   }
 
   async updateDocumentMetadata(
@@ -99,6 +99,18 @@ export class DocumentService {
     updates: { name?: string; metadata?: Json; docType?: string },
   ): Promise<void> {
     await this.docRepo.updateMetadata(docId, updates);
+  }
+
+  async verifyChunksBelongToDocument(chunkIds: string[], documentId: string): Promise<boolean> {
+    return this.chunkRepo.verifyChunksBelongToDocument(chunkIds, documentId);
+  }
+
+  async getAdminDocuments(): Promise<DocumentEntity[]> {
+    return this.docRepo.findAll();
+  }
+
+  async deleteByAdmin(docId: string): Promise<void> {
+    await this.docRepo.deleteById(docId);
   }
 }
 

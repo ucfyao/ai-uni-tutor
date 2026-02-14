@@ -6,17 +6,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetCurrentUser = vi.fn();
 
-const mockSupabase = {
-  from: vi.fn().mockReturnThis(),
-  select: vi.fn().mockReturnThis(),
-  update: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  single: vi.fn(),
-};
-
 vi.mock('@/lib/supabase/server', () => ({
   getCurrentUser: () => mockGetCurrentUser(),
-  createClient: vi.fn().mockResolvedValue(mockSupabase),
+}));
+
+const mockProfileService = {
+  getStripeCustomerId: vi.fn(),
+  updateStripeCustomerId: vi.fn(),
+};
+vi.mock('@/lib/services/ProfileService', () => ({
+  getProfileService: () => mockProfileService,
 }));
 
 const mockStripe = {
@@ -59,12 +58,6 @@ describe('POST /api/stripe/checkout', () => {
     vi.clearAllMocks();
     vi.stubEnv('STRIPE_PRICE_ID', 'price_test_123');
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://example.com');
-
-    // Default chain resets
-    mockSupabase.from.mockReturnThis();
-    mockSupabase.select.mockReturnThis();
-    mockSupabase.update.mockReturnThis();
-    mockSupabase.eq.mockReturnThis();
   });
 
   // =========================================================================
@@ -91,9 +84,7 @@ describe('POST /api/stripe/checkout', () => {
     it('returns 500 when STRIPE_PRICE_ID is not set', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
       vi.stubEnv('STRIPE_PRICE_ID', '');
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
 
       const response = await POST();
 
@@ -110,9 +101,7 @@ describe('POST /api/stripe/checkout', () => {
   describe('existing Stripe customer', () => {
     it('uses existing stripe_customer_id from profile', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockResolvedValue({
         url: 'https://checkout.stripe.com/session/cs_test',
       });
@@ -137,9 +126,7 @@ describe('POST /api/stripe/checkout', () => {
 
     it('creates checkout session with correct line items', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockResolvedValue({
         url: 'https://checkout.stripe.com/session/cs_test',
       });
@@ -160,9 +147,7 @@ describe('POST /api/stripe/checkout', () => {
 
     it('creates checkout session with correct success and cancel URLs', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockResolvedValue({
         url: 'https://checkout.stripe.com/session/cs_test',
       });
@@ -179,9 +164,7 @@ describe('POST /api/stripe/checkout', () => {
 
     it('includes userId in session metadata', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockResolvedValue({
         url: 'https://checkout.stripe.com/session/cs_test',
       });
@@ -203,9 +186,8 @@ describe('POST /api/stripe/checkout', () => {
   describe('new Stripe customer', () => {
     it('creates a new Stripe customer when profile has no stripe_customer_id', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: null },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue(null);
+      mockProfileService.updateStripeCustomerId.mockResolvedValue(undefined);
       mockStripe.customers.create.mockResolvedValue({
         id: 'cus_new',
       });
@@ -226,10 +208,7 @@ describe('POST /api/stripe/checkout', () => {
       });
 
       // Should update profile with new customer ID
-      expect(mockSupabase.from).toHaveBeenCalledWith('profiles');
-      expect(mockSupabase.update).toHaveBeenCalledWith({
-        stripe_customer_id: 'cus_new',
-      });
+      expect(mockProfileService.updateStripeCustomerId).toHaveBeenCalledWith('user-1', 'cus_new');
 
       // Should use new customer ID for checkout
       expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -248,9 +227,7 @@ describe('POST /api/stripe/checkout', () => {
     it('uses localhost:3000 as default when NEXT_PUBLIC_SITE_URL is not set', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
       vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockResolvedValue({
         url: 'https://checkout.stripe.com/session/cs_test',
       });
@@ -273,9 +250,7 @@ describe('POST /api/stripe/checkout', () => {
   describe('error handling', () => {
     it('returns 500 when Stripe API throws an error', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockRejectedValue(new Error('Stripe API rate limit'));
 
       const response = await POST();
@@ -287,9 +262,8 @@ describe('POST /api/stripe/checkout', () => {
 
     it('returns 500 when customer creation fails', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: null },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue(null);
+      mockProfileService.updateStripeCustomerId.mockResolvedValue(undefined);
       mockStripe.customers.create.mockRejectedValue(new Error('Stripe customer creation failed'));
 
       const response = await POST();
@@ -307,9 +281,7 @@ describe('POST /api/stripe/checkout', () => {
   describe('billing configuration', () => {
     it('sets billing_address_collection to auto', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockSupabase.single.mockResolvedValue({
-        data: { stripe_customer_id: 'cus_existing' },
-      });
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockResolvedValue({
         url: 'https://checkout.stripe.com/session/cs_test',
       });

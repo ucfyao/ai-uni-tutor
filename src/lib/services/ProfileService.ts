@@ -31,6 +31,38 @@ export class ProfileService {
   async updateProfile(userId: string, dto: UpdateProfileDTO): Promise<void> {
     await this.profileRepo.update(userId, dto);
   }
+
+  async getStripeCustomerId(userId: string): Promise<string | null> {
+    return this.profileRepo.getStripeCustomerId(userId);
+  }
+
+  async updateStripeCustomerId(userId: string, customerId: string): Promise<void> {
+    await this.profileRepo.updateStripeCustomerId(userId, customerId);
+  }
+
+  async updateSubscription(
+    userId: string,
+    data: {
+      stripe_subscription_id?: string | null;
+      stripe_customer_id?: string;
+      subscription_status: string;
+      current_period_end?: string | null;
+      stripe_price_id?: string | null;
+    },
+  ): Promise<void> {
+    await this.profileRepo.updateSubscription(userId, data);
+  }
+
+  async updateSubscriptionBySubscriptionId(
+    subscriptionId: string,
+    data: {
+      subscription_status: string;
+      current_period_end?: string | null;
+      stripe_price_id?: string | null;
+    },
+  ): Promise<void> {
+    await this.profileRepo.updateSubscriptionBySubscriptionId(subscriptionId, data);
+  }
 }
 
 let _profileService: ProfileService | null = null;

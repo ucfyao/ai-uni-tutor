@@ -2,10 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { QuotaExceededError } from '@/lib/errors';
-import { parsePDF } from '@/lib/pdf';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
+import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -120,111 +119,38 @@ export async function uploadDocument(
 
     revalidatePath('/knowledge');
 
-    // 2. Parse PDF
+    // 2. Process document via DocumentProcessingService
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-
-    let pdfData;
-    try {
-      pdfData = await parsePDF(buffer);
-    } catch (e) {
-      console.error('Error parsing PDF:', e);
-      await documentService.updateStatus(doc.id, 'error', 'Failed to parse PDF');
-      revalidatePath('/knowledge');
-      return { status: 'error', message: 'Failed to parse PDF content' };
-    }
-
-    // Check for empty PDF
-    const totalText = pdfData.pages.reduce((acc, p) => acc + p.text.trim(), '');
-    if (totalText.length === 0) {
-      await documentService.updateStatus(doc.id, 'error', 'PDF contains no extractable text');
-      revalidatePath('/knowledge');
-      return { status: 'error', message: 'PDF contains no extractable text' };
-    }
-
-    await documentService.updateStatus(doc.id, 'processing', 'Parsing PDF...');
-    revalidatePath('/knowledge');
-
-    // 3. Parse content based on doc_type
-    const chunksData: CreateDocumentChunkDTO[] = [];
-
-    await documentService.updateStatus(doc.id, 'processing', 'Extracting content...');
-    revalidatePath('/knowledge');
+    const processingService = getDocumentProcessingService();
 
     try {
-      if (doc_type === 'lecture') {
-        // Lecture: Extract structured knowledge points via LLM
-        const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
-        const knowledgePoints = await parseLecture(pdfData.pages);
-
-        for (const kp of knowledgePoints) {
-          const content = [
-            kp.title,
-            kp.definition,
-            kp.keyFormulas?.length ? `Formulas: ${kp.keyFormulas.join('; ')}` : '',
-            kp.keyConcepts?.length ? `Concepts: ${kp.keyConcepts.join(', ')}` : '',
-            kp.examples?.length ? `Examples: ${kp.examples.join('; ')}` : '',
-          ]
-            .filter(Boolean)
-            .join('\n');
-          const embedding = await generateEmbeddingWithRetry(content);
-          chunksData.push({
-            documentId: doc.id,
-            content,
-            embedding,
-            metadata: { type: 'knowledge_point', ...kp },
-          });
-        }
-      } else {
-        // Exam / Assignment: Extract structured questions via LLM
-        const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-        const questions = await parseQuestions(pdfData.pages, has_answers);
-
-        for (const q of questions) {
-          const content = [
-            `Q${q.questionNumber}: ${q.content}`,
-            q.options?.length ? `Options: ${q.options.join(' | ')}` : '',
-            q.referenceAnswer ? `Answer: ${q.referenceAnswer}` : '',
-          ]
-            .filter(Boolean)
-            .join('\n');
-          const embedding = await generateEmbeddingWithRetry(content);
-          chunksData.push({
-            documentId: doc.id,
-            content,
-            embedding,
-            metadata: { type: 'question', ...q },
-          });
-        }
-      }
+      await processingService.processWithLLM({
+        documentId: doc.id,
+        buffer,
+        docType: doc_type,
+        hasAnswers: has_answers,
+        callbacks: {
+          onProgress: (stage, message) => {
+            // Status updates are fire-and-forget for server actions
+            documentService.updateStatus(doc.id, 'processing', message).catch(() => {});
+          },
+        },
+      });
     } catch (e) {
-      console.error('Error during content extraction:', e);
-      // Clean up any partially created chunks
+      console.error('Error during document processing:', e);
       try {
         await documentService.deleteChunksByDocumentId(doc.id);
       } catch {
         /* ignore cleanup errors */
       }
-      await documentService.updateStatus(doc.id, 'error', 'Failed to extract content from PDF');
+      const msg = e instanceof Error ? e.message : 'Failed to process document';
+      await documentService.updateStatus(doc.id, 'error', msg);
       revalidatePath('/knowledge');
-      return { status: 'error', message: 'Failed to extract content from PDF' };
+      return { status: 'error', message: msg };
     }
 
-    // 4. Save chunks
-    await documentService.updateStatus(doc.id, 'processing', 'Generating embeddings & saving...');
-    revalidatePath('/knowledge');
-
-    if (chunksData.length > 0) {
-      try {
-        await documentService.saveChunks(chunksData);
-      } catch {
-        await documentService.updateStatus(doc.id, 'error', 'Failed to save chunks');
-        revalidatePath('/knowledge');
-        return { status: 'error', message: 'Failed to save document chunks' };
-      }
-    }
-
-    // 5. Update Document Status
+    // 3. Update Document Status
     await documentService.updateStatus(doc.id, 'ready');
 
     revalidatePath('/knowledge');
@@ -272,6 +198,15 @@ export async function updateDocumentChunks(
   const doc = await documentService.findById(documentId);
   if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
 
+  // Verify all chunk IDs belong to this document (IDOR protection)
+  const allChunkIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allChunkIds.length > 0) {
+    const chunksValid = await documentService.verifyChunksBelongToDocument(allChunkIds, documentId);
+    if (!chunksValid) {
+      return { status: 'error', message: 'Invalid chunk IDs' };
+    }
+  }
+
   for (const id of deletedIds) {
     await documentService.deleteChunk(id);
   }
@@ -301,7 +236,7 @@ export async function regenerateEmbeddings(
     const chunks = await documentService.getChunks(documentId);
     for (const chunk of chunks) {
       const embedding = await generateEmbeddingWithRetry(chunk.content);
-      await documentService.updateChunkEmbedding(chunk.id, embedding);
+      await documentService.updateChunkEmbedding(chunk.id, embedding, documentId);
     }
     await documentService.updateStatus(doc.id, 'ready');
   } catch (e) {

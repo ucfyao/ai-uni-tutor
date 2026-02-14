@@ -22,6 +22,7 @@ const mockExamPaperService = {
   parsePaper: vi.fn(),
   getPapers: vi.fn(),
   getPaperWithQuestions: vi.fn(),
+  getPaperDetail: vi.fn(),
   deletePaper: vi.fn(),
 };
 vi.mock('@/lib/services/ExamPaperService', () => ({
@@ -258,48 +259,31 @@ describe('Exam Paper Actions', () => {
   // =========================================================================
   describe('getExamPaperDetail', () => {
     it('should return paper detail when user owns the paper', async () => {
-      const mockSupabase = mockSupabaseQuery({
-        id: 'paper-1',
-        user_id: 'user-1',
-        visibility: 'private',
-      });
-      mockCreateClient.mockResolvedValue(mockSupabase);
-      const paperDetail = { ...makeExamPaper(), questions: [] };
-      mockExamPaperService.getPaperWithQuestions.mockResolvedValue(paperDetail);
+      const paperDetail = { paper: makeExamPaper(), questions: [] };
+      mockExamPaperService.getPaperDetail.mockResolvedValue(paperDetail);
 
       const result = await getExamPaperDetail('paper-1');
 
       expect(result).toEqual(paperDetail);
-      expect(mockExamPaperService.getPaperWithQuestions).toHaveBeenCalledWith('paper-1');
+      expect(mockExamPaperService.getPaperDetail).toHaveBeenCalledWith('paper-1', 'user-1');
     });
 
     it('should return paper detail for public paper owned by another user', async () => {
-      const mockSupabase = mockSupabaseQuery({
-        id: 'paper-1',
-        user_id: 'other-user',
-        visibility: 'public',
-      });
-      mockCreateClient.mockResolvedValue(mockSupabase);
-      const paperDetail = { ...makeExamPaper({ visibility: 'public' }), questions: [] };
-      mockExamPaperService.getPaperWithQuestions.mockResolvedValue(paperDetail);
+      const paperDetail = { paper: makeExamPaper({ visibility: 'public' }), questions: [] };
+      mockExamPaperService.getPaperDetail.mockResolvedValue(paperDetail);
 
       const result = await getExamPaperDetail('paper-1');
 
       expect(result).toEqual(paperDetail);
+      expect(mockExamPaperService.getPaperDetail).toHaveBeenCalledWith('paper-1', 'user-1');
     });
 
     it('should return null for private paper owned by another user', async () => {
-      const mockSupabase = mockSupabaseQuery({
-        id: 'paper-1',
-        user_id: 'other-user',
-        visibility: 'private',
-      });
-      mockCreateClient.mockResolvedValue(mockSupabase);
+      mockExamPaperService.getPaperDetail.mockResolvedValue(null);
 
       const result = await getExamPaperDetail('paper-1');
 
       expect(result).toBeNull();
-      expect(mockExamPaperService.getPaperWithQuestions).not.toHaveBeenCalled();
     });
 
     it('should return null when user is not authenticated', async () => {
@@ -311,8 +295,7 @@ describe('Exam Paper Actions', () => {
     });
 
     it('should return null when paper is not found', async () => {
-      const mockSupabase = mockSupabaseQuery(null);
-      mockCreateClient.mockResolvedValue(mockSupabase);
+      mockExamPaperService.getPaperDetail.mockResolvedValue(null);
 
       const result = await getExamPaperDetail('nonexistent');
 
@@ -320,8 +303,6 @@ describe('Exam Paper Actions', () => {
     });
   });
 
-  // =========================================================================
-  // deleteExamPaper
   // =========================================================================
   describe('deleteExamPaper', () => {
     it('should delete paper for authenticated user', async () => {

@@ -50,6 +50,9 @@ function createMockDocRepo(): Record<keyof DocumentRepository, ReturnType<typeof
     updateMetadata: vi.fn(),
     delete: vi.fn(),
     verifyOwnership: vi.fn(),
+    findByUserId: vi.fn(),
+    findAll: vi.fn(),
+    deleteById: vi.fn(),
   };
 }
 
@@ -62,6 +65,7 @@ function createMockChunkRepo(): Record<keyof DocumentChunkRepository, ReturnType
     updateChunk: vi.fn(),
     deleteChunk: vi.fn(),
     updateEmbedding: vi.fn(),
+    verifyChunksBelongToDocument: vi.fn(),
   };
 }
 
@@ -346,7 +350,7 @@ describe('DocumentService', () => {
       const embedding = [0.1, 0.2, 0.3];
       await service.updateChunkEmbedding('chunk-1', embedding);
 
-      expect(chunkRepo.updateEmbedding).toHaveBeenCalledWith('chunk-1', embedding);
+      expect(chunkRepo.updateEmbedding).toHaveBeenCalledWith('chunk-1', embedding, undefined);
     });
   });
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
+import { getProfileService } from '@/lib/services/ProfileService';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -41,13 +42,13 @@ export async function POST(req: NextRequest) {
 
   try {
     if (event.type === 'checkout.session.completed') {
-      await handleCheckoutCompleted(event, supabase);
+      await handleCheckoutCompleted(event);
     } else if (event.type === 'invoice.payment_succeeded') {
-      await handleInvoicePaymentSucceeded(event, supabase);
+      await handleInvoicePaymentSucceeded(event);
     } else if (event.type === 'customer.subscription.updated') {
-      await handleSubscriptionUpdated(event, supabase);
+      await handleSubscriptionUpdated(event);
     } else if (event.type === 'customer.subscription.deleted') {
-      await handleSubscriptionDeleted(event, supabase);
+      await handleSubscriptionDeleted(event);
     }
 
     // Mark event as processed
@@ -64,10 +65,7 @@ export async function POST(req: NextRequest) {
 
 // ---------- Event Handlers ----------
 
-async function handleCheckoutCompleted(
-  event: Stripe.Event,
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+async function handleCheckoutCompleted(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session;
 
   if (!session?.metadata?.userId) {
@@ -79,26 +77,17 @@ async function handleCheckoutCompleted(
   }
 
   const subscription = (await stripe.subscriptions.retrieve(session.subscription as string)) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const profileService = getProfileService();
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      stripe_subscription_id: subscription.id,
-      stripe_customer_id: subscription.customer as string,
-      subscription_status: subscription.status,
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-    })
-    .eq('id', session.metadata.userId);
-
-  if (error) {
-    throw new Error(`Failed to update profile for checkout: ${error.message}`);
-  }
+  await profileService.updateSubscription(session.metadata.userId, {
+    stripe_subscription_id: subscription.id,
+    stripe_customer_id: subscription.customer as string,
+    subscription_status: subscription.status,
+    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+  });
 }
 
-async function handleInvoicePaymentSucceeded(
-  event: Stripe.Event,
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const invoice = event.data.object as any;
 
@@ -107,57 +96,33 @@ async function handleInvoicePaymentSucceeded(
   }
 
   const subscription = (await stripe.subscriptions.retrieve(invoice.subscription as string)) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const profileService = getProfileService();
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      subscription_status: subscription.status,
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-    })
-    .eq('stripe_subscription_id', subscription.id);
-
-  if (error) {
-    throw new Error(`Failed to update profile for invoice: ${error.message}`);
-  }
+  await profileService.updateSubscriptionBySubscriptionId(subscription.id, {
+    subscription_status: subscription.status,
+    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+  });
 }
 
-async function handleSubscriptionUpdated(
-  event: Stripe.Event,
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+async function handleSubscriptionUpdated(event: Stripe.Event) {
   const subscription = event.data.object as Stripe.Subscription;
+  const profileService = getProfileService();
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      subscription_status: subscription.status,
-      current_period_end: new Date(
-        (subscription as any).current_period_end * 1000, // eslint-disable-line @typescript-eslint/no-explicit-any
-      ).toISOString(),
-      stripe_price_id: subscription.items.data[0]?.price?.id ?? null,
-    })
-    .eq('stripe_subscription_id', subscription.id);
-
-  if (error) {
-    throw new Error(`Failed to update profile for subscription update: ${error.message}`);
-  }
+  await profileService.updateSubscriptionBySubscriptionId(subscription.id, {
+    subscription_status: subscription.status,
+    current_period_end: new Date(
+      (subscription as any).current_period_end * 1000, // eslint-disable-line @typescript-eslint/no-explicit-any
+    ).toISOString(),
+    stripe_price_id: subscription.items.data[0]?.price?.id ?? null,
+  });
 }
 
-async function handleSubscriptionDeleted(
-  event: Stripe.Event,
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+async function handleSubscriptionDeleted(event: Stripe.Event) {
   const subscription = event.data.object as Stripe.Subscription;
+  const profileService = getProfileService();
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      subscription_status: 'canceled',
-      current_period_end: new Date().toISOString(),
-    })
-    .eq('stripe_subscription_id', subscription.id);
-
-  if (error) {
-    throw new Error(`Failed to update profile for subscription deletion: ${error.message}`);
-  }
+  await profileService.updateSubscriptionBySubscriptionId(subscription.id, {
+    subscription_status: 'canceled',
+    current_period_end: new Date().toISOString(),
+  });
 }
