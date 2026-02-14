@@ -304,13 +304,16 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 style={{
                   width: searchExpanded ? 220 : 36,
                   height: 36,
-                  transition: 'width 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                  /* spring overshoot on expand, smooth ease on collapse */
+                  transition: searchExpanded
+                    ? 'width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                    : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   overflow: 'hidden',
                   flexShrink: 0,
                   position: 'relative',
                 }}
               >
-                {/* Collapsed icon — fades out when expanded */}
+                {/* Collapsed icon — scales down & spins out when expanding */}
                 <ActionIcon
                   variant="default"
                   size="lg"
@@ -321,14 +324,17 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                     position: 'absolute',
                     inset: 0,
                     opacity: searchExpanded ? 0 : 1,
+                    transform: searchExpanded ? 'scale(0.5) rotate(90deg)' : 'scale(1) rotate(0deg)',
                     pointerEvents: searchExpanded ? 'none' : 'auto',
-                    transition: 'opacity 0.2s ease',
+                    transition: searchExpanded
+                      ? 'opacity 0.15s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                      : 'opacity 0.2s ease 0.15s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s',
                   }}
                 >
                   <Search size={16} />
                 </ActionIcon>
 
-                {/* Expanded input — fades in when expanded */}
+                {/* Expanded input — slides in from right with fade */}
                 <TextInput
                   ref={searchRef}
                   placeholder={t.knowledge.searchDocuments}
@@ -342,6 +348,11 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                         onClick={() => {
                           setSearchQuery('');
                           setSearchExpanded(false);
+                        }}
+                        style={{
+                          transform: 'rotate(0deg)',
+                          transition: 'transform 0.2s ease',
+                          '&:hover': { transform: 'rotate(90deg)' },
                         }}
                       >
                         <X size={12} />
@@ -358,8 +369,11 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   style={{
                     width: 220,
                     opacity: searchExpanded ? 1 : 0,
+                    transform: searchExpanded ? 'translateX(0)' : 'translateX(12px)',
                     pointerEvents: searchExpanded ? 'auto' : 'none',
-                    transition: 'opacity 0.25s ease 0.1s',
+                    transition: searchExpanded
+                      ? 'opacity 0.25s ease 0.12s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s'
+                      : 'opacity 0.15s ease, transform 0.2s ease',
                   }}
                 />
               </Box>
