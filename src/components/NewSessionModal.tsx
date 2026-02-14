@@ -13,6 +13,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { MODES_METADATA } from '@/constants/modes';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { COURSES, UNIVERSITIES } from '../constants/index';
 import { PLACEHOLDERS } from '../constants/placeholders';
 import { Course, TutoringMode } from '../types/index';
@@ -24,10 +25,13 @@ interface NewSessionModalProps {
   preSelectedMode?: TutoringMode | null;
 }
 
-const MODE_LABELS: Record<TutoringMode, string> = {
-  'Lecture Helper': 'Lecture',
-  'Assignment Coach': 'Assignment',
-  'Mock Exam': 'Mock Exam',
+const MODE_LABEL_KEYS: Record<
+  TutoringMode,
+  'newLectureSession' | 'newAssignmentSession' | 'newMockExamSession'
+> = {
+  'Lecture Helper': 'newLectureSession',
+  'Assignment Coach': 'newAssignmentSession',
+  'Mock Exam': 'newMockExamSession',
 };
 
 const buttonShadowColors: Record<string, string> = {
@@ -71,6 +75,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { t } = useLanguage();
 
   React.useEffect(() => {
     const lastUni = localStorage.getItem('lastUniId');
@@ -108,8 +113,8 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
   }, [preSelectedMode]);
 
   const modalTitle = preSelectedMode
-    ? `New ${MODE_LABELS[preSelectedMode]} Session`
-    : 'New Session';
+    ? t.modals[MODE_LABEL_KEYS[preSelectedMode]]
+    : t.modals.newSession;
 
   const FormRow = ({
     icon: Icon,
@@ -229,7 +234,12 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
         </Group>
 
         <Stack gap={12}>
-          <FormRow icon={Building2} label="Institution" color={activeThemeColor} active={true}>
+          <FormRow
+            icon={Building2}
+            label={t.modals.institution}
+            color={activeThemeColor}
+            active={true}
+          >
             <Select
               data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
               value={selectedUniId}
@@ -247,7 +257,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
 
           <FormRow
             icon={Book}
-            label="Target Subject"
+            label={t.modals.targetSubject}
             color={activeThemeColor}
             active={!!selectedUniId}
           >
@@ -296,7 +306,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
           }}
           rightSection={!isLoading && isFormValid && <ArrowRight size={18} strokeWidth={3} />}
         >
-          {isLoading ? 'Initializing...' : 'Start Session'}
+          {isLoading ? t.modals.initializing : t.modals.startSession}
         </Button>
       </Stack>
     </Modal>

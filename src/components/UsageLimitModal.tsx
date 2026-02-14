@@ -4,6 +4,7 @@ import { ArrowUp, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 import { Box, Button, Group, Modal, Stack, Text, ThemeIcon } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface UsageLimitModalProps {
   opened: boolean;
@@ -13,6 +14,7 @@ interface UsageLimitModalProps {
 
 export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   return (
     <Modal
@@ -22,7 +24,7 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
         <Group gap="xs">
           <Sparkles size={20} className="text-violet-600" />
           <Text fw={700} c="violet.7" size="lg">
-            Unlock Unlimited AI
+            {t.modals.unlockUnlimited}
           </Text>
         </Group>
       }
@@ -45,18 +47,16 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
 
         <Box>
           <Text size="xl" fw={800} mb="xs">
-            Daily Usage Limit Reached
+            {t.modals.dailyLimitReached}
           </Text>
           <Text c="dimmed" lh={1.5}>
-            You&apos;ve hit your daily message limit on the Free tier. Upgrade to{' '}
-            <span className="font-semibold text-violet-700">Pro</span> to remove limits and help us
-            maintain the service.
+            {t.modals.dailyLimitDesc}
           </Text>
         </Box>
 
         <Group w="100%" justify="center">
           <Button variant="default" onClick={onClose} radius="md">
-            Maybe Later
+            {t.modals.maybeLater}
           </Button>
           <Button
             variant="gradient"
@@ -68,7 +68,7 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
             }}
             rightSection={<ArrowUp size={16} className="rotate-45" />}
           >
-            Upgrade Now
+            {t.modals.upgradeNow}
           </Button>
         </Group>
       </Stack>

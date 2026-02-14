@@ -41,6 +41,7 @@ import {
 } from '@mantine/core';
 import { Logo } from '@/components/Logo';
 import { useProfile } from '@/context/ProfileContext';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { createClient } from '@/lib/supabase/client';
 import { ChatSession, TutoringMode } from '../types/index';
 
@@ -51,20 +52,27 @@ import { ChatSession, TutoringMode } from '../types/index';
 const CHAT_MODULES = [
   {
     mode: 'Lecture Helper' as TutoringMode,
-    label: 'Lectures',
+    labelKey: 'lectures' as const,
     icon: Presentation,
     color: 'indigo',
   },
   {
     mode: 'Assignment Coach' as TutoringMode,
-    label: 'Assignments',
+    labelKey: 'assignments' as const,
     icon: Compass,
     color: 'violet',
   },
-  { mode: 'Mock Exam' as TutoringMode, label: 'Mock Exams', icon: FileQuestion, color: 'purple' },
+  {
+    mode: 'Mock Exam' as TutoringMode,
+    labelKey: 'mockExams' as const,
+    icon: FileQuestion,
+    color: 'purple',
+  },
 ];
 
-const JUMP_LINKS = [{ label: 'Knowledge Base', icon: GraduationCap, href: '/knowledge' }];
+const JUMP_LINKS = [
+  { labelKey: 'knowledgeBase' as const, icon: GraduationCap, href: '/knowledge' },
+];
 
 // ============================================================================
 // SIDEBAR
@@ -99,6 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   opened,
 }) => {
   const { profile, loading } = useProfile();
+  const { t } = useLanguage();
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
@@ -163,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Toggle button */}
         <Box h={52} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Tooltip label="Open sidebar" position="right" color="dark" radius="md">
+          <Tooltip label={t.sidebar.openSidebar} position="right" color="dark" radius="md">
             <ActionIcon
               variant="subtle"
               color="gray"
@@ -180,7 +189,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {JUMP_LINKS.map((link) => {
           const Icon = link.icon;
           return (
-            <Tooltip key={link.href} label={link.label} position="right">
+            <Tooltip key={link.href} label={t.sidebar[link.labelKey]} position="right">
               <ActionIcon
                 onClick={() => router.push(link.href)}
                 variant="subtle"
@@ -199,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {CHAT_MODULES.map((mod) => {
           const Icon = mod.icon;
           return (
-            <Tooltip key={mod.mode} label={mod.label} position="right">
+            <Tooltip key={mod.mode} label={t.sidebar[mod.labelKey]} position="right">
               <ActionIcon
                 onClick={() => {
                   onToggleSidebar();
@@ -249,23 +258,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                   leftSection={<Sparkles size={14} />}
                   onClick={() => router.push('/pricing')}
                 >
-                  Upgrade plan
+                  {t.sidebar.upgradePlan}
                 </Menu.Item>
               )}
               <Menu.Item
                 leftSection={<Settings size={14} />}
                 onClick={() => router.push('/settings')}
               >
-                Settings
+                {t.sidebar.settings}
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item leftSection={<LogOut size={14} />} onClick={handleSignOut}>
-                Log out
+                {t.sidebar.logOut}
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
         ) : !loading ? (
-          <Tooltip label="Sign In" position="right">
+          <Tooltip label={t.sidebar.signIn} position="right">
             <ActionIcon
               variant="filled"
               size={28}
@@ -304,7 +313,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <Logo size={22} alt="Logo" />
         </UnstyledButton>
-        <Tooltip label="Close sidebar" position="right">
+        <Tooltip label={t.sidebar.closeSidebar} position="right">
           <ActionIcon variant="subtle" color="gray" onClick={onToggleSidebar} size={36} radius="md">
             <PanelLeft size={20} strokeWidth={1.5} />
           </ActionIcon>
@@ -331,7 +340,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Group gap={10} wrap="nowrap">
                   <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
                   <Text size="sm" c="gray.8">
-                    {link.label}
+                    {t.sidebar[link.labelKey]}
                   </Text>
                   <ChevronRight
                     size={12}
@@ -349,7 +358,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ModuleSection
               key={mod.mode}
               mode={mod.mode}
-              label={mod.label}
+              label={t.sidebar[mod.labelKey]}
               icon={mod.icon}
               color={mod.color}
               sessions={sessionsByMode[mod.mode] || []}
@@ -416,27 +425,27 @@ const Sidebar: React.FC<SidebarProps> = ({
                   leftSection={<Sparkles size={14} />}
                   onClick={() => router.push('/pricing')}
                 >
-                  Upgrade plan
+                  {t.sidebar.upgradePlan}
                 </Menu.Item>
               )}
               <Menu.Item
                 leftSection={<Wand2 size={14} />}
                 onClick={() => router.push('/personalization')}
               >
-                Personalization
+                {t.sidebar.personalization}
               </Menu.Item>
               <Menu.Item
                 leftSection={<Settings size={14} />}
                 onClick={() => router.push('/settings')}
               >
-                Settings
+                {t.sidebar.settings}
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item leftSection={<LifeBuoy size={14} />} onClick={() => router.push('/help')}>
-                Help
+                {t.sidebar.help}
               </Menu.Item>
               <Menu.Item leftSection={<LogOut size={14} />} onClick={handleSignOut}>
-                Log out
+                {t.sidebar.logOut}
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
@@ -452,7 +461,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Group gap={8}>
               <LogIn size={16} color="var(--mantine-color-gray-5)" />
               <Text size="sm" c="gray.7">
-                Sign in
+                {t.sidebar.signIn}
               </Text>
             </Group>
           </UnstyledButton>
@@ -499,10 +508,11 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
   onShareSession,
 }) => {
   const [hovered, setHovered] = useState(false);
+  const { t } = useLanguage();
 
   return (
     <Box>
-      {/* Module header row — <div> to allow nested <button> (ActionIcon) without HTML nesting violation */}
+      {/* Module header row */}
       <Box
         onClick={onToggle}
         onMouseEnter={() => setHovered(true)}
@@ -564,7 +574,7 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
           ))}
           {sessions.length === 0 && (
             <Text size="xs" c="dimmed" ta="center" py={8} px="md">
-              No conversations yet
+              {t.sidebar.noConversations}
             </Text>
           )}
         </Stack>
@@ -599,6 +609,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
   indent,
 }) => {
   const [hovered, setHovered] = useState(false);
+  const { t } = useLanguage();
 
   return (
     <UnstyledButton
@@ -650,7 +661,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
                   onShare?.(session.id);
                 }}
               >
-                Share
+                {t.sidebar.share}
               </Menu.Item>
               <Menu.Item
                 leftSection={<PenLine size={14} />}
@@ -659,7 +670,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
                   onRename?.(session.id, session.title || session.course.code);
                 }}
               >
-                Rename
+                {t.sidebar.rename}
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item
@@ -669,7 +680,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
                   onTogglePin?.(session.id, !session.isPinned);
                 }}
               >
-                {session.isPinned ? 'Unpin' : 'Pin'}
+                {session.isPinned ? t.sidebar.unpin : t.sidebar.pin}
               </Menu.Item>
               <Menu.Item
                 leftSection={<Trash size={14} />}
@@ -679,7 +690,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
                   onDelete?.(session.id);
                 }}
               >
-                Delete
+                {t.sidebar.delete}
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>

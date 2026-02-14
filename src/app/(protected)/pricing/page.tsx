@@ -15,11 +15,12 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 
 export default function PricingPage() {
-  // const router = useRouter(); // Unused
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const handleUpgrade = async () => {
     setLoading(true);
@@ -35,7 +36,7 @@ export default function PricingPage() {
       }
     } catch (error) {
       showNotification({
-        title: 'Error',
+        title: t.pricing.errorTitle,
         message: error instanceof Error ? error.message : 'An error occurred',
         color: 'red',
       });
@@ -44,26 +45,17 @@ export default function PricingPage() {
     }
   };
 
-  const features = [
-    'Unlimited document uploads',
-    'Advanced RAG with hybrid search',
-    'Higher rate limits',
-    'Priority support',
-    'Early access to new features',
-  ];
-
   return (
     <Container size="lg" py={80}>
       <Stack align="center" gap="xl" mb={60}>
         <Badge variant="light" color="violet" size="lg">
-          Pricing
+          {t.pricing.badge}
         </Badge>
         <Title order={1} size={48} fw={900} ta="center">
-          Simple, transparent pricing
+          {t.pricing.title}
         </Title>
         <Text c="dimmed" size="lg" ta="center" maw={600}>
-          Choose the plan that&apos;s right for you. Upgrade anytime to unlock the full potential of
-          your AI Tutor.
+          {t.pricing.subtitle}
         </Text>
       </Stack>
 
@@ -85,19 +77,19 @@ export default function PricingPage() {
                     <Sparkles size={20} />
                   </ThemeIcon>
                   <Title order={2} c="violet.9">
-                    Pro Plan
+                    {t.pricing.proPlan}
                   </Title>
                 </Group>
                 <Text size="md" c="gray.6">
-                  Everything you need to excel.
+                  {t.pricing.proDesc}
                 </Text>
               </Stack>
               <Box style={{ textAlign: 'right' }}>
                 <Text fz={48} fw={800} c="violet.9" lh={1}>
-                  $9.99
+                  {t.pricing.price}
                 </Text>
                 <Text size="sm" c="dimmed" fw={600}>
-                  per month
+                  {t.pricing.perMonth}
                 </Text>
               </Box>
             </Group>
@@ -112,7 +104,7 @@ export default function PricingPage() {
                 </ThemeIcon>
               }
             >
-              {features.map((feature, index) => (
+              {t.pricing.features.map((feature, index) => (
                 <List.Item key={index}>{feature}</List.Item>
               ))}
             </List>
@@ -126,10 +118,10 @@ export default function PricingPage() {
               loading={loading}
               leftSection={<CreditCard size={20} />}
             >
-              Get Started
+              {t.pricing.getStarted}
             </Button>
             <Text size="xs" c="dimmed" ta="center">
-              Secure payment via Stripe. Cancel anytime.
+              {t.pricing.securePayment}
             </Text>
           </Stack>
         </Card>
@@ -137,5 +129,3 @@ export default function PricingPage() {
     </Container>
   );
 }
-
-// Helper Box component already imported

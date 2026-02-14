@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button, Group, Modal, Text } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface DeleteSessionModalProps {
   opened: boolean;
@@ -14,14 +15,16 @@ const DeleteSessionModal: React.FC<DeleteSessionModalProps> = ({
   sessionId,
   onDelete,
 }) => {
+  const { t } = useLanguage();
+
   return (
-    <Modal opened={opened} onClose={onClose} title="Delete Chat?" centered size="sm">
+    <Modal opened={opened} onClose={onClose} title={t.modals.deleteChat} centered size="sm">
       <Text size="sm" mb="lg">
-        This will permanently delete the chat session. This action cannot be undone.
+        {t.modals.deleteConfirm}
       </Text>
       <Group justify="flex-end">
         <Button variant="default" onClick={onClose}>
-          Cancel
+          {t.modals.cancel}
         </Button>
         <Button
           color="red"
@@ -32,7 +35,7 @@ const DeleteSessionModal: React.FC<DeleteSessionModalProps> = ({
             }
           }}
         >
-          Delete
+          {t.modals.delete}
         </Button>
       </Group>
     </Modal>
