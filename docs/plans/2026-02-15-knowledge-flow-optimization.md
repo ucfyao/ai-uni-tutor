@@ -2,13 +2,13 @@
 
 ## Goal
 
-Optimize the entire Knowledge Base flow: detail page refactor, list page enhancement (search, sort, inline progress, skeleton, empty state), and UX coherence.
+Optimize the entire Knowledge Base flow: detail page refactor, list page enhancement (search, sort, skeleton, empty state), and UX coherence.
 
 ## Current State
 
 - **List page** (`/knowledge`): Already optimized — always-visible drop bar, localStorage prefs, inline progress bar above table, KnowledgeTable with Eye button navigation
 - **Detail page** (`/knowledge/[id]`): 1017-line single file, no i18n, hardcoded English, card-based chunk display, inconsistent with list page design language
-- **UX flow**: Upload completion has no guidance, no search/sort, processing status is just a badge
+- **UX flow**: Upload completion has no guidance, no search/sort
 
 ---
 
@@ -172,22 +172,7 @@ Click Name or Date column headers to toggle sort:
 - Implementation: `useMemo` to derive sorted list from `[documents, sortField, sortDir]`
 - Sortable columns: Name, Date (others not sortable — keeps it simple)
 
-### 2.3 Inline Progress in Table Rows
-
-Processing documents show a mini progress bar instead of just a "Processing" badge:
-
-```
-● Ready          ← green dot badge (unchanged)
-◉ ████░░ 60%    ← 6px Progress bar + percentage
-✕ Error [↻]      ← red dot + retry (unchanged)
-```
-
-- Mantine `<Progress size={6} radius="xl">` inside status column
-- Poll processing documents every 5s to update status
-- When status changes to 'ready', invalidate document query
-- Compact: fits within the existing status column width
-
-### 2.4 Skeleton Loading
+### 2.3 Skeleton Loading
 
 Replace `<Loader size="sm" />` with skeleton rows:
 
@@ -195,7 +180,7 @@ Replace `<Loader size="sm" />` with skeleton rows:
 - Mobile: 3 skeleton Cards matching card layout
 - Smooth fade transition to real data
 
-### 2.5 Empty State Guidance
+### 2.4 Empty State Guidance
 
 Replace plain "No documents" text:
 
@@ -257,14 +242,14 @@ All notifications use i18n keys:
 
 ## Components Affected
 
-| File                       | Change                                                         |
-| -------------------------- | -------------------------------------------------------------- |
-| `DocumentDetailClient.tsx` | Rewrite: ChatPageLayout + table + inline edit                  |
-| `DocumentDetailHeader.tsx` | New: header bar component                                      |
-| `ChunkTable.tsx`           | New: table display by doc_type                                 |
-| `ChunkEditForm.tsx`        | New: inline edit form by doc_type                              |
-| `ChunkActionBar.tsx`       | New: sticky footer component                                   |
-| `KnowledgeClient.tsx`      | Add: search, skeleton, empty state, view details link, polling |
-| `KnowledgeTable.tsx`       | Add: sortable headers, inline progress, skeleton support       |
-| `translations.ts`          | Add ~30 new keys (EN + ZH)                                     |
-| `[id]/page.tsx`            | Minor: pass doc_type to client                                 |
+| File                       | Change                                                |
+| -------------------------- | ----------------------------------------------------- |
+| `DocumentDetailClient.tsx` | Rewrite: ChatPageLayout + table + inline edit         |
+| `DocumentDetailHeader.tsx` | New: header bar component                             |
+| `ChunkTable.tsx`           | New: table display by doc_type                        |
+| `ChunkEditForm.tsx`        | New: inline edit form by doc_type                     |
+| `ChunkActionBar.tsx`       | New: sticky footer component                          |
+| `KnowledgeClient.tsx`      | Add: search, skeleton, empty state, view details link |
+| `KnowledgeTable.tsx`       | Add: sortable headers, skeleton support               |
+| `translations.ts`          | Add ~30 new keys (EN + ZH)                            |
+| `[id]/page.tsx`            | Minor: pass doc_type to client                        |
