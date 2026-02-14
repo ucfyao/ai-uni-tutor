@@ -30,8 +30,8 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
   const [session, setSession] = useState<ChatSession | null>(initialSession);
   const [loading, setLoading] = useState(false);
 
-  // Track saved message IDs to prevent duplicate saves
-  const savedMsgIdsRef = useRef<Set<string>>(new Set());
+  // Track last saved message index to prevent duplicate saves (O(1) lookup)
+  const lastSavedIndexRef = useRef(0);
 
   // Modal state
   const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -59,7 +59,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
       // Check if we need to update messages from sidebar list?
       // For now, assume initialSession is fresh from server.
       // But we still want to respect savedMsgIdsRef initialization
-      savedMsgIdsRef.current = new Set(initialSession.messages.map((m) => m.id));
+      lastSavedIndexRef.current = initialSession.messages.length;
       setSession(initialSession);
       setLoading(false);
       return;
@@ -67,7 +67,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
 
     setLoading(true);
     setSession(null);
-    savedMsgIdsRef.current = new Set();
+    lastSavedIndexRef.current = 0;
 
     // ... existing fetch logic for client-side navigation fallback ...
     let cancelled = false;
@@ -86,7 +86,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           }
 
           const data: ChatSession = { ...fromList, messages };
-          savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
+          lastSavedIndexRef.current = messages.length;
           setSession(data);
           setLoading(false);
           return;
@@ -101,7 +101,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           return;
         }
 
-        savedMsgIdsRef.current = new Set(data.messages.map((m) => m.id));
+        lastSavedIndexRef.current = data.messages.length;
         setSession(data);
         setLoading(false);
       } catch (error) {
@@ -122,9 +122,10 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
     async (updated: ChatSession, options?: { streamingMessageId?: string | null }) => {
       setSession(updated);
 
-      // Save new messages that haven't been saved yet
-      for (const msg of updated.messages) {
-        if (savedMsgIdsRef.current.has(msg.id)) continue;
+      // Save new messages that haven't been saved yet (slice from last saved index)
+      const unsavedMessages = updated.messages.slice(lastSavedIndexRef.current);
+
+      for (const msg of unsavedMessages) {
         if (!msg.content || msg.content.trim().length === 0) continue;
 
         // Don't persist the message that is still streaming; wait until stream completes (streamingMessageId null/undefined)
@@ -136,13 +137,12 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           if (streamIdx > 0 && updated.messages[streamIdx - 1].id === msg.id) continue;
         }
 
-        savedMsgIdsRef.current.add(msg.id);
-
         try {
           await saveChatMessage(updated.id, msg);
+          lastSavedIndexRef.current++;
         } catch (e) {
-          savedMsgIdsRef.current.delete(msg.id);
           console.error('Failed to save message:', e);
+          break; // Stop saving on error to maintain consistency
         }
       }
 
