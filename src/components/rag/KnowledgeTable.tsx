@@ -206,10 +206,12 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                 key={doc.id}
                 withBorder
                 padding="sm"
-                radius="md"
+                radius="lg"
+                className={classes.mobileCard}
                 style={{
                   cursor: 'pointer',
-                  transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
+                  borderColor: 'var(--mantine-color-gray-2)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
                 }}
                 onClick={() => router.push(`/knowledge/${doc.id}`)}
               >
@@ -217,7 +219,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                   <Group gap="xs" style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
                     <FileText
                       size={18}
-                      color="var(--mantine-color-gray-5)"
+                      color="var(--mantine-color-indigo-4)"
                       style={{ flexShrink: 0 }}
                     />
                     <Tooltip label={doc.name} multiline maw={280} openDelay={300}>
