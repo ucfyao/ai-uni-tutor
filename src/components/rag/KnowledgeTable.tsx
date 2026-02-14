@@ -276,7 +276,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
       {deleteModal}
       <Card withBorder radius="lg" p={0} style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}>
         <Table
-          verticalSpacing="md"
+          verticalSpacing="sm"
           layout="fixed"
           highlightOnHover
           highlightOnHoverColor="var(--mantine-color-gray-0)"

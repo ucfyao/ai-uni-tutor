@@ -131,37 +131,23 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   // ── List Mode ──
   return (
     <Stack gap="lg">
-      {/* ── Header Row: title left, upload button right ── */}
-      <Group justify="space-between" align="flex-start" className="animate-fade-in-up">
-        <Box>
-          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
-            {t.knowledge.knowledgeBase}
-          </Title>
-          <Text c="dimmed" size="md" fw={400} mt={2}>
-            {t.knowledge.knowledgeBaseSubtitle}
-          </Text>
-        </Box>
-        <Button
-          variant={uploadExpanded ? 'light' : 'filled'}
-          color="indigo"
-          leftSection={
-            <Plus
-              size={16}
-              style={{
-                transform: uploadExpanded ? 'rotate(45deg)' : 'rotate(0deg)',
-                transition: 'transform 0.2s ease',
-              }}
-            />
-          }
-          onClick={() => setUploadExpanded((v) => !v)}
-          radius="md"
-        >
-          {uploadExpanded ? t.knowledge.closeUpload : t.knowledge.uploadNewDocument}
-        </Button>
-      </Group>
+      {/* ── Header ── */}
+      <Box className="animate-fade-in-up">
+        <Title order={3} fw={700} style={{ letterSpacing: '-0.02em' }}>
+          {t.knowledge.knowledgeBase}
+        </Title>
+        <Text c="dimmed" size="sm" fw={400} mt={2}>
+          {t.knowledge.knowledgeBaseSubtitle}
+        </Text>
+      </Box>
 
-      {/* ── Doc Type Filter: SegmentedControl ── */}
-      <Box className="animate-fade-in-up animate-delay-100" style={{ opacity: 0 }}>
+      {/* ── Doc Type Filter + Upload Toggle ── */}
+      <Group
+        justify="space-between"
+        align="center"
+        className="animate-fade-in-up animate-delay-100"
+        style={{ opacity: 0 }}
+      >
         <SegmentedControl
           value={activeTab}
           onChange={(v) => setActiveTab(v)}
@@ -183,7 +169,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             ),
           }))}
           radius="xl"
-          size="sm"
+          size="md"
           styles={{
             root: {
               backgroundColor: 'var(--mantine-color-gray-0)',
@@ -191,7 +177,25 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             },
           }}
         />
-      </Box>
+        <Tooltip label={uploadExpanded ? t.knowledge.closeUpload : t.knowledge.uploadNewDocument}>
+          <ActionIcon
+            variant={uploadExpanded ? 'light' : 'filled'}
+            color="indigo"
+            size="lg"
+            radius="md"
+            onClick={() => setUploadExpanded((v) => !v)}
+            aria-label="Upload document"
+          >
+            <Plus
+              size={18}
+              style={{
+                transform: uploadExpanded ? 'rotate(45deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
 
       <Box className="animate-fade-in-up animate-delay-200" style={{ opacity: 0 }}>
         {/* ── Upload Area (collapsible) ── */}
