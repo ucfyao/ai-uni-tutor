@@ -3,7 +3,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Eye, FileText, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -78,7 +78,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     try {
       const result = await retryDocument(id);
       if (result.status === 'success') {
-        showNotification({ title: t.knowledge.deleted, message: result.message, color: 'green' });
+        showNotification({ title: t.knowledge.success, message: result.message, color: 'green' });
       } else {
         showNotification({ title: t.knowledge.error, message: result.message, color: 'red' });
       }
@@ -209,11 +209,9 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                 radius="lg"
                 className={classes.mobileCard}
                 style={{
-                  cursor: 'pointer',
                   borderColor: 'var(--mantine-color-gray-2)',
                   boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
                 }}
-                onClick={() => router.push(`/knowledge/${doc.id}`)}
               >
                 <Group justify="space-between" mb="xs">
                   <Group gap="xs" style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
@@ -228,20 +226,27 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                       </Text>
                     </Tooltip>
                   </Group>
-                  {!readOnly && (
+                  <Group gap={4} wrap="nowrap">
                     <ActionIcon
                       variant="subtle"
-                      color="red"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(doc.id);
-                      }}
-                      loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
-                      aria-label="Delete document"
+                      color="gray"
+                      onClick={() => router.push(`/knowledge/${doc.id}`)}
+                      aria-label="View document details"
                     >
-                      <Trash2 size={16} />
+                      <Eye size={16} />
                     </ActionIcon>
-                  )}
+                    {!readOnly && (
+                      <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        onClick={() => handleDelete(doc.id)}
+                        loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
+                        aria-label="Delete document"
+                      >
+                        <Trash2 size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
                 </Group>
 
                 <Group gap="xs" mb="xs">
@@ -270,11 +275,24 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     );
   }
 
+  const thStyle: CSSProperties = {
+    color: 'var(--mantine-color-gray-5)',
+    fontWeight: 500,
+    fontSize: 'var(--mantine-font-size-xs)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  };
+
   // Desktop Table View
   return (
     <>
       {deleteModal}
-      <Card withBorder radius="lg" p={0} style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}>
+      <Card
+        withBorder
+        radius="lg"
+        p={0}
+        style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}
+      >
         <Table
           verticalSpacing="sm"
           layout="fixed"
@@ -284,49 +302,19 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th w="26%" style={{
-                  color: 'var(--mantine-color-gray-5)',
-                  fontWeight: 500,
-                  fontSize: 'var(--mantine-font-size-xs)',
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.5px',
-                }}>
+              <Table.Th w="26%" style={thStyle}>
                 {t.knowledge.name}
               </Table.Th>
-              <Table.Th w="14%" style={{
-                  color: 'var(--mantine-color-gray-5)',
-                  fontWeight: 500,
-                  fontSize: 'var(--mantine-font-size-xs)',
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.5px',
-                }}>
+              <Table.Th w="14%" style={thStyle}>
                 {t.knowledge.university}
               </Table.Th>
-              <Table.Th w="14%" style={{
-                  color: 'var(--mantine-color-gray-5)',
-                  fontWeight: 500,
-                  fontSize: 'var(--mantine-font-size-xs)',
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.5px',
-                }}>
+              <Table.Th w="14%" style={thStyle}>
                 {t.knowledge.course}
               </Table.Th>
-              <Table.Th w="12%" style={{
-                  color: 'var(--mantine-color-gray-5)',
-                  fontWeight: 500,
-                  fontSize: 'var(--mantine-font-size-xs)',
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.5px',
-                }}>
+              <Table.Th w="12%" style={thStyle}>
                 {t.knowledge.date}
               </Table.Th>
-              <Table.Th w="24%" style={{
-                  color: 'var(--mantine-color-gray-5)',
-                  fontWeight: 500,
-                  fontSize: 'var(--mantine-font-size-xs)',
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.5px',
-                }}>
+              <Table.Th w="24%" style={thStyle}>
                 {t.knowledge.status}
               </Table.Th>
               {!readOnly && <Table.Th w="10%"></Table.Th>}
@@ -337,11 +325,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
               <Table.Tr
                 key={doc.id}
                 className={classes.tableRow}
-                style={{
-                  cursor: 'pointer',
-                  transition: 'background 0.12s ease',
-                }}
-                onClick={() => router.push(`/knowledge/${doc.id}`)}
+                style={{ transition: 'background 0.12s ease' }}
               >
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
@@ -379,10 +363,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                       <ActionIcon
                         variant="subtle"
                         color="gray"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/knowledge/${doc.id}`);
-                        }}
+                        onClick={() => router.push(`/knowledge/${doc.id}`)}
                         aria-label="View document details"
                       >
                         <Eye size={16} />
@@ -390,10 +371,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                       <ActionIcon
                         variant="subtle"
                         color="red"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(doc.id);
-                        }}
+                        onClick={() => handleDelete(doc.id)}
                         loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
                         aria-label="Delete document"
                       >
