@@ -205,55 +205,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     [isUser, onAddCard],
   );
 
-  // Keyboard shortcut: Enter to explain, Escape to cancel
-  useEffect(() => {
-    if (!selection) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const active = document.activeElement as HTMLElement | null;
-      if (active) {
-        const tag = active.tagName;
-        if (tag === 'TEXTAREA' || tag === 'INPUT' || active.isContentEditable) return;
-      }
-
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleExplainSelection();
-      } else if (e.key === 'Escape') {
-        setSelection(null);
-        window.getSelection()?.removeAllRanges();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selection, handleExplainSelection]);
-
-  // Clear selection on outside click or when native selection is lost
-  useEffect(() => {
-    if (!selection) return;
-    const onMouseDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('[data-quick-add-btn]')) return;
-      if (target.closest('[data-message-bubble]')) return;
-      setSelection(null);
-    };
-    // After any click completes, check if native selection was cleared
-    const onMouseUp = () => {
-      requestAnimationFrame(() => {
-        if (!window.getSelection()?.toString().trim()) {
-          setSelection(null);
-        }
-      });
-    };
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mouseup', onMouseUp);
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [selection]);
-
   // Preserve native selection highlight after rendering the floating action.
   // Force-restore the selection range to keep the active highlight visible.
   useLayoutEffect(() => {
@@ -276,12 +227,44 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   }, [selection]);
 
-  // Safari/Chrome can still drop the highlight after the next paint if the DOM reflows.
-  // Re-assert the selection on the next frame if the selected text disappears.
+  // Consolidated selection event listeners
   useEffect(() => {
     if (!selection) return;
 
-    const id = requestAnimationFrame(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active) {
+        const tag = active.tagName;
+        if (tag === 'TEXTAREA' || tag === 'INPUT' || active.isContentEditable) return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleExplainSelection();
+      } else if (e.key === 'Escape') {
+        setSelection(null);
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-quick-add-btn]')) return;
+      if (target.closest('[data-message-bubble]')) return;
+      setSelection(null);
+    };
+
+    const onMouseUp = () => {
+      requestAnimationFrame(() => {
+        if (!window.getSelection()?.toString().trim()) {
+          setSelection(null);
+        }
+      });
+    };
+
+    const clear = () => setSelection(null);
+
+    const rafId = requestAnimationFrame(() => {
       const current = window.getSelection();
       const currentText = (current?.toString() ?? '').trim();
       if (currentText && currentText === selection.text) return;
@@ -296,20 +279,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       }
     });
 
-    return () => cancelAnimationFrame(id);
-  }, [selection]);
-
-  // Clear selection on scroll/resize (prevents floating UI from drifting)
-  useEffect(() => {
-    if (!selection) return;
-    const clear = () => setSelection(null);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mouseup', onMouseUp);
     window.addEventListener('scroll', clear, true);
     window.addEventListener('resize', clear);
+
     return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('scroll', clear, true);
       window.removeEventListener('resize', clear);
     };
-  }, [selection]);
+  }, [selection, handleExplainSelection]);
 
   // Process content to add links for knowledge cards
   const processedContent = React.useMemo(() => {
