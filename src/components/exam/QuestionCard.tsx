@@ -24,7 +24,15 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
   const { t } = useLanguage();
 
   return (
-    <Card withBorder radius="lg" p="lg">
+    <Card
+      withBorder
+      radius="lg"
+      p="lg"
+      style={{
+        borderColor: 'var(--mantine-color-gray-2)',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+      }}
+    >
       <Stack gap="md">
         <Group justify="space-between">
           <Badge variant="light" color="indigo">
