@@ -240,7 +240,7 @@ describe('DocumentChunkRepository', () => {
 
       expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith(
-        'id, document_id, content, metadata, embedding',
+        'id, document_id, content, metadata',
       );
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('document_id', 'doc-001');
       expect(mockSupabase.client._chain.order).toHaveBeenCalledWith('created_at', {

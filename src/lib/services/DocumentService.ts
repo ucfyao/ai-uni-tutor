@@ -78,6 +78,10 @@ export class DocumentService {
     return this.chunkRepo.findByDocumentId(docId);
   }
 
+  async getChunksWithEmbeddings(docId: string) {
+    return this.chunkRepo.findByDocumentIdWithEmbeddings(docId);
+  }
+
   async updateChunk(chunkId: string, content: string, metadata?: Json): Promise<void> {
     await this.chunkRepo.updateChunk(chunkId, content, metadata);
   }
@@ -90,7 +94,11 @@ export class DocumentService {
     await this.chunkRepo.deleteByDocumentId(docId);
   }
 
-  async updateChunkEmbedding(chunkId: string, embedding: number[], documentId?: string): Promise<void> {
+  async updateChunkEmbedding(
+    chunkId: string,
+    embedding: number[],
+    documentId?: string,
+  ): Promise<void> {
     await this.chunkRepo.updateEmbedding(chunkId, embedding, documentId);
   }
 

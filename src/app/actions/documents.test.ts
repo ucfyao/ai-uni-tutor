@@ -27,6 +27,7 @@ const mockDocumentService = {
   deleteChunk: vi.fn(),
   updateChunk: vi.fn(),
   getChunks: vi.fn(),
+  getChunksWithEmbeddings: vi.fn(),
   updateChunkEmbedding: vi.fn(),
   updateDocumentMetadata: vi.fn(),
   verifyChunksBelongToDocument: vi.fn(),
@@ -389,7 +390,7 @@ describe('Document Actions', () => {
   describe('regenerateEmbeddings', () => {
     it('should regenerate embeddings for all chunks', async () => {
       mockDocumentService.findById.mockResolvedValue(makeDocEntity({ status: 'ready' }));
-      mockDocumentService.getChunks.mockResolvedValue([
+      mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([
         { id: 'chunk-1', content: 'content 1', embedding: [0.1], metadata: {} },
         { id: 'chunk-2', content: 'content 2', embedding: [0.2], metadata: {} },
       ]);
@@ -448,7 +449,7 @@ describe('Document Actions', () => {
     it('should handle embedding regeneration error gracefully', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.findById.mockResolvedValue(makeDocEntity());
-      mockDocumentService.getChunks.mockResolvedValue([
+      mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([
         { id: 'chunk-1', content: 'content 1', embedding: [0.1], metadata: {} },
       ]);
       mockGenerateEmbeddingWithRetry.mockRejectedValue(new Error('Embedding API down'));
