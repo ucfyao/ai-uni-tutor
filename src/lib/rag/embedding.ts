@@ -23,3 +23,18 @@ export async function generateEmbeddingWithRetry(text: string, maxRetries = 3): 
   }
   throw new Error('Unreachable');
 }
+
+const EMBEDDING_BATCH_SIZE = 10;
+
+export async function generateEmbeddingBatch(
+  texts: string[],
+  concurrency = EMBEDDING_BATCH_SIZE,
+): Promise<number[][]> {
+  const results: number[][] = [];
+  for (let i = 0; i < texts.length; i += concurrency) {
+    const batch = texts.slice(i, i + concurrency);
+    const embeddings = await Promise.all(batch.map((text) => generateEmbeddingWithRetry(text)));
+    results.push(...embeddings);
+  }
+  return results;
+}

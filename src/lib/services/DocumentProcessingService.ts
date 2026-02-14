@@ -12,9 +12,8 @@
 
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { parsePDF } from '@/lib/pdf';
-import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
-import type { KnowledgePoint } from '@/lib/rag/parsers/types';
-import type { ParsedQuestion } from '@/lib/rag/parsers/types';
+import { generateEmbeddingBatch } from '@/lib/rag/embedding';
+import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import type { DocumentService } from './DocumentService';
 import { getDocumentService } from './DocumentService';
 
@@ -61,7 +60,10 @@ export class DocumentProcessingService {
   /**
    * Build chunk content string from an extracted item.
    */
-  buildChunkContent(item: KnowledgePoint | ParsedQuestion, type: 'knowledge_point' | 'question'): string {
+  buildChunkContent(
+    item: KnowledgePoint | ParsedQuestion,
+    type: 'knowledge_point' | 'question',
+  ): string {
     if (type === 'knowledge_point') {
       const kp = item as KnowledgePoint;
       return [
@@ -94,26 +96,21 @@ export class DocumentProcessingService {
     type: 'knowledge_point' | 'question',
     callbacks?: ProcessingCallbacks,
   ): Promise<CreateDocumentChunkDTO[]> {
-    const chunks: CreateDocumentChunkDTO[] = [];
-
-    for (let i = 0; i < items.length; i++) {
-      if (callbacks?.signal?.aborted) {
-        throw new Error('Processing aborted');
-      }
-
-      const item = items[i];
-      const content = this.buildChunkContent(item, type);
-      const embedding = await generateEmbeddingWithRetry(content);
-
-      chunks.push({
-        documentId,
-        content,
-        embedding,
-        metadata: { type, ...item },
-      });
-
-      callbacks?.onItem?.(i + 1, items.length, type);
+    if (callbacks?.signal?.aborted) {
+      throw new Error('Processing aborted');
     }
+
+    const contents = items.map((item) => this.buildChunkContent(item, type));
+    const embeddings = await generateEmbeddingBatch(contents);
+
+    const chunks: CreateDocumentChunkDTO[] = items.map((item, i) => ({
+      documentId,
+      content: contents[i],
+      embedding: embeddings[i],
+      metadata: { type, ...item },
+    }));
+
+    callbacks?.onItem?.(items.length, items.length, type);
 
     return chunks;
   }
@@ -201,22 +198,15 @@ export class DocumentProcessingService {
     const { chunkPages } = await import('@/lib/rag/chunking');
     const textChunks = await chunkPages(pdfData.pages);
 
-    const chunksData: CreateDocumentChunkDTO[] = [];
+    const contents = textChunks.map((chunk) => chunk.content);
+    const embeddings = await generateEmbeddingBatch(contents, batchSize);
 
-    for (let i = 0; i < textChunks.length; i += batchSize) {
-      const batch = textChunks.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(async (chunk) => {
-          const embedding = await generateEmbeddingWithRetry(chunk.content);
-          chunksData.push({
-            documentId,
-            content: chunk.content,
-            embedding,
-            metadata: chunk.metadata,
-          });
-        }),
-      );
-    }
+    const chunksData: CreateDocumentChunkDTO[] = textChunks.map((chunk, i) => ({
+      documentId,
+      content: chunk.content,
+      embedding: embeddings[i],
+      metadata: chunk.metadata,
+    }));
 
     if (chunksData.length > 0) {
       await this.documentService.saveChunks(chunksData);
