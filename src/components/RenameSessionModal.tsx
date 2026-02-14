@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Group, Modal, TextInput } from '@mantine/core';
 import { PLACEHOLDERS } from '@/constants/placeholders';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface RenameSessionModalProps {
   opened: boolean;
@@ -18,13 +19,14 @@ const RenameSessionModal: React.FC<RenameSessionModalProps> = ({
   onRename,
 }) => {
   const [editTitle, setEditTitle] = useState(currentTitle);
+  const { t } = useLanguage();
 
   useEffect(() => {
     setEditTitle(currentTitle);
   }, [currentTitle, opened]);
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Rename Session" centered size="sm">
+    <Modal opened={opened} onClose={onClose} title={t.modals.renameSession} centered size="sm">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -43,10 +45,10 @@ const RenameSessionModal: React.FC<RenameSessionModalProps> = ({
         />
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
-            Cancel
+            {t.modals.cancel}
           </Button>
           <Button type="submit" color="indigo">
-            Save
+            {t.modals.save}
           </Button>
         </Group>
       </form>
