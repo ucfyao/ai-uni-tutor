@@ -13,6 +13,7 @@ export interface IMockExamRepository {
     paperId: string;
     sessionId?: string | null;
     title: string;
+    mode: 'practice' | 'exam';
     questions: Json;
     responses: Json;
     totalPoints: number;
