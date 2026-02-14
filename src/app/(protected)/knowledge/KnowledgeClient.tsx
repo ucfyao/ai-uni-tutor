@@ -9,6 +9,7 @@ import {
   Button,
   Group,
   Loader,
+  Progress,
   rem,
   ScrollArea,
   SegmentedControl,
@@ -20,7 +21,6 @@ import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, fetchDocuments } from '@/app/actions/documents';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
-import { ParsePanel } from '@/components/rag/ParsePanel';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { COURSES, UNIVERSITIES } from '@/constants/index';
 import { useHeader } from '@/context/HeaderContext';
@@ -30,6 +30,47 @@ import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 
 const PREFS_KEY = 'knowledge-upload-prefs';
+
+function ElapsedTimer({ startTime }: { startTime: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 100);
+    return () => clearInterval(id);
+  }, []);
+  const sec = (Date.now() - startTime) / 1000;
+  if (sec < 60) return <>{sec.toFixed(1)}s</>;
+  return (
+    <>
+      {Math.floor(sec / 60)}m {Math.round(sec % 60)}s
+    </>
+  );
+}
+
+function getProgressPercent(
+  status: string,
+  progress: { current: number; total: number },
+  savedCount: number,
+): number {
+  if (status === 'complete') return 100;
+  if (status === 'parsing_pdf') return 10;
+  if (status === 'extracting') {
+    const extractPct = progress.total > 0 ? progress.current / progress.total : 0;
+    return 20 + extractPct * 50;
+  }
+  if (status === 'embedding') {
+    const embedPct = progress.total > 0 ? savedCount / progress.total : 0;
+    return 70 + embedPct * 30;
+  }
+  return 0;
+}
+
+const STAGE_COLORS: Record<string, string> = {
+  parsing_pdf: 'indigo',
+  extracting: 'blue',
+  embedding: 'teal',
+  complete: 'green',
+  error: 'red',
+};
 
 interface KnowledgeClientProps {
   initialDocuments: KnowledgeDocument[];
@@ -163,6 +204,16 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     }
     return () => setHeaderContent(null);
   }, [isMobile, headerNode, setHeaderContent]);
+
+  // Auto-dismiss progress bar 3s after completion
+  useEffect(() => {
+    if (parseState.status === 'complete') {
+      const timer = setTimeout(() => {
+        handleDismissParse();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [parseState.status, handleDismissParse]);
 
   // ── Shared Layout ──
   return (
@@ -358,8 +409,68 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             )}
           </Box>
 
-          {/* ── Inline Parse Progress ── */}
-          {isParsing && <ParsePanel parseState={parseState} onBack={handleDismissParse} />}
+          {/* ── Inline Progress ── */}
+          {isParsing && (
+            <Box
+              px="md"
+              py="sm"
+              style={{
+                borderRadius: 'var(--mantine-radius-lg)',
+                border: `1px solid var(--mantine-color-${parseState.status === 'error' ? 'red' : parseState.status === 'complete' ? 'green' : 'gray'}-3)`,
+                background:
+                  parseState.status === 'error'
+                    ? 'var(--mantine-color-red-0)'
+                    : parseState.status === 'complete'
+                      ? 'var(--mantine-color-green-0)'
+                      : 'var(--mantine-color-gray-0)',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <Group gap="sm" mb={6} justify="space-between" wrap="nowrap">
+                <Text size="xs" fw={500} c={STAGE_COLORS[parseState.status]}>
+                  {parseState.status === 'parsing_pdf' && t.knowledge.parsingPdf}
+                  {parseState.status === 'extracting' &&
+                    `${t.knowledge.successfullyExtracted} ${parseState.progress.current}${parseState.progress.total > 0 ? `/${parseState.progress.total}` : ''}`}
+                  {parseState.status === 'embedding' &&
+                    `${t.knowledge.savingToDatabase.replace('...', '')} ${parseState.savedChunkIds.size}/${parseState.progress.total}`}
+                  {parseState.status === 'complete' &&
+                    `${parseState.items.length} ${parseState.items[0]?.type === 'knowledge_point' ? t.knowledge.knowledgePoints : t.knowledge.questions}`}
+                  {parseState.status === 'error' && (parseState.error || t.knowledge.parsingError)}
+                </Text>
+                <Group gap="xs" wrap="nowrap">
+                  {parseState.status !== 'complete' &&
+                    parseState.status !== 'error' &&
+                    parseState.stageTimes.parsing_pdf && (
+                      <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        <ElapsedTimer startTime={parseState.stageTimes.parsing_pdf.start} />
+                      </Text>
+                    )}
+                  {(parseState.status === 'complete' || parseState.status === 'error') && (
+                    <ActionIcon
+                      variant="subtle"
+                      color={parseState.status === 'complete' ? 'green' : 'red'}
+                      size="xs"
+                      onClick={handleDismissParse}
+                      aria-label="Dismiss"
+                    >
+                      <X size={12} />
+                    </ActionIcon>
+                  )}
+                </Group>
+              </Group>
+              <Progress
+                value={getProgressPercent(
+                  parseState.status,
+                  parseState.progress,
+                  parseState.savedChunkIds.size,
+                )}
+                color={STAGE_COLORS[parseState.status] || 'indigo'}
+                size="sm"
+                radius="xl"
+                animated={parseState.status !== 'complete' && parseState.status !== 'error'}
+              />
+            </Box>
+          )}
 
           {/* ── Document List ── */}
           {isLoading ? (
