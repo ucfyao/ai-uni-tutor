@@ -179,7 +179,7 @@ describe('MessageRepository', () => {
       );
     });
 
-    it('should update session updated_at after message insert', async () => {
+    it('should not update session timestamp (handled at service layer)', async () => {
       mockSupabase.setSingleResponse(userMessageRow);
 
       const dto = {
@@ -191,12 +191,10 @@ describe('MessageRepository', () => {
 
       await repo.create(dto);
 
-      // The second call to `from` should be for updating the session timestamp.
-      // First call: from('chat_messages').insert(...).select().single()
-      // Second call: from('chat_sessions').update(...).eq(...)
+      // Session timestamp update was moved to SessionService
       const fromCalls = mockSupabase.client.from.mock.calls;
-      expect(fromCalls.length).toBeGreaterThanOrEqual(2);
-      expect(fromCalls[1][0]).toBe('chat_sessions');
+      expect(fromCalls).toHaveLength(1);
+      expect(fromCalls[0][0]).toBe('chat_messages');
     });
 
     it('should throw DatabaseError on insert failure', async () => {

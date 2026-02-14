@@ -156,6 +156,9 @@ export class SessionService {
       cardId: message.cardId,
       timestamp: message.timestamp,
     });
+
+    // Update session timestamp once per turn (not per message)
+    await this.sessionRepo.update(sessionId, {});
   }
 
   /**

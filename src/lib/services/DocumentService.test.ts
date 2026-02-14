@@ -66,6 +66,7 @@ function createMockChunkRepo(): Record<keyof DocumentChunkRepository, ReturnType
     deleteChunk: vi.fn(),
     updateEmbedding: vi.fn(),
     verifyChunksBelongToDocument: vi.fn(),
+    findByDocumentIdWithEmbeddings: vi.fn(),
   };
 }
 
