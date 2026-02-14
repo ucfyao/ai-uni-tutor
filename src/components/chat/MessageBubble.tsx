@@ -12,6 +12,7 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 
@@ -78,6 +79,7 @@ const MessageActionBar: React.FC<{
   timestamp: number;
   onRegenerate?: (messageId: string) => void;
 }> = ({ isUser, content, messageId, timestamp, onRegenerate }) => {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -97,7 +99,7 @@ const MessageActionBar: React.FC<{
       className="message-actions"
       style={{ opacity: 0, transition: 'opacity 0.15s ease' }}
     >
-      <Tooltip label={copied ? 'Copied!' : 'Copy'} position="bottom" withArrow>
+      <Tooltip label={copied ? t.chat.copied : t.chat.copy} position="bottom" withArrow>
         <ActionIcon
           variant="subtle"
           color={copied ? 'teal' : 'gray'}
@@ -110,7 +112,7 @@ const MessageActionBar: React.FC<{
       </Tooltip>
 
       {!isUser && onRegenerate && (
-        <Tooltip label="Regenerate" position="bottom" withArrow>
+        <Tooltip label={t.chat.regenerate} position="bottom" withArrow>
           <ActionIcon
             variant="subtle"
             color="gray"
@@ -141,6 +143,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onAddCard,
   onRegenerate,
 }) => {
+  const { t } = useLanguage();
   const isUser = message.role === 'user';
   const [selection, setSelection] = useState<{
     text: string;
@@ -440,7 +443,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     label: { fontWeight: 650 },
                   }}
                 >
-                  Explain
+                  {t.chat.explain}
                 </Button>
               </Box>
             </Box>

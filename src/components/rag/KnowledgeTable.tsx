@@ -19,6 +19,7 @@ import {
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, retryDocument } from '@/app/actions/documents';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 
 export interface KnowledgeDocument {
@@ -43,6 +44,7 @@ interface KnowledgeTableProps {
 }
 
 export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTableProps) {
+  const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -54,14 +56,18 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
       onDeleted?.(id);
       setDeleteTarget(null);
       showNotification({
-        title: 'Deleted',
-        message: 'Document deleted successfully',
+        title: t.knowledge.deleted,
+        message: t.knowledge.documentDeleted,
         color: 'green',
       });
     },
     onError: () => {
       setDeleteTarget(null);
-      showNotification({ title: 'Error', message: 'Failed to delete document', color: 'red' });
+      showNotification({
+        title: t.knowledge.error,
+        message: t.knowledge.failedToDelete,
+        color: 'red',
+      });
     },
   });
 
@@ -71,12 +77,16 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     try {
       const result = await retryDocument(id);
       if (result.status === 'success') {
-        showNotification({ title: 'Removed', message: result.message, color: 'green' });
+        showNotification({ title: t.knowledge.deleted, message: result.message, color: 'green' });
       } else {
-        showNotification({ title: 'Error', message: result.message, color: 'red' });
+        showNotification({ title: t.knowledge.error, message: result.message, color: 'red' });
       }
     } catch {
-      showNotification({ title: 'Error', message: 'Failed to retry', color: 'red' });
+      showNotification({
+        title: t.knowledge.error,
+        message: t.knowledge.failedToRetry,
+        color: 'red',
+      });
     }
   };
 
@@ -84,14 +94,14 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     if (doc.status === 'ready') {
       return (
         <Badge color="green" variant="light" leftSection={<CheckCircle size={12} />}>
-          Ready
+          {t.knowledge.ready}
         </Badge>
       );
     }
     if (doc.status === 'processing') {
       return (
         <Badge color="blue" variant="light" leftSection={<Clock size={12} />}>
-          {doc.status_message || 'Processing'}
+          {doc.status_message || t.knowledge.processing}
         </Badge>
       );
     }
@@ -111,7 +121,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
             </Tooltip>
           )}
           {!readOnly && (
-            <Tooltip label="Remove and re-upload">
+            <Tooltip label={t.knowledge.retryProcessing}>
               <ActionIcon
                 variant="subtle"
                 color="orange"
@@ -134,7 +144,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     <Modal
       opened={deleteTarget !== null}
       onClose={() => setDeleteTarget(null)}
-      title="Delete Document?"
+      title={t.knowledge.deleteConfirm}
       centered
       size="sm"
     >
@@ -143,11 +153,11 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
         <Text span fw={600}>
           {deleteTargetDoc?.name}
         </Text>
-        ? This action cannot be undone.
+        ? {t.knowledge.deleteDocConfirm}
       </Text>
       <Group justify="flex-end">
         <Button variant="default" onClick={() => setDeleteTarget(null)}>
-          Cancel
+          {t.knowledge.cancel}
         </Button>
         <Button
           color="red"
@@ -156,7 +166,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
             if (deleteTarget) deleteMutation.mutate(deleteTarget);
           }}
         >
-          Delete
+          {t.knowledge.delete}
         </Button>
       </Group>
     </Modal>
@@ -170,7 +180,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
         <Stack gap="sm">
           {documents.length === 0 ? (
             <Text c="dimmed" size="sm" py="xl" ta="center">
-              No documents uploaded yet
+              {t.knowledge.noDocuments}
             </Text>
           ) : (
             documents.map((doc) => (
@@ -255,19 +265,19 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
           <Table.Thead>
             <Table.Tr>
               <Table.Th w="26%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
-                Name
+                {t.knowledge.name}
               </Table.Th>
               <Table.Th w="14%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
-                University
+                {t.knowledge.university}
               </Table.Th>
               <Table.Th w="14%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
-                Course
+                {t.knowledge.course}
               </Table.Th>
               <Table.Th w="12%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
-                Date
+                {t.knowledge.date}
               </Table.Th>
               <Table.Th w="24%" style={{ color: 'var(--mantine-color-dimmed)', fontWeight: 500 }}>
-                Status
+                {t.knowledge.status}
               </Table.Th>
               {!readOnly && <Table.Th w="10%"></Table.Th>}
             </Table.Tr>
@@ -347,7 +357,7 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
               <Table.Tr>
                 <Table.Td colSpan={readOnly ? 5 : 6} align="center">
                   <Text c="dimmed" size="sm" py="xl">
-                    No documents uploaded yet
+                    {t.knowledge.noDocuments}
                   </Text>
                 </Table.Td>
               </Table.Tr>

@@ -12,6 +12,7 @@ import {
   Textarea,
   Tooltip,
 } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface ChatInputProps {
   input: string;
@@ -51,6 +52,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onStop,
   isStreaming,
 }) => {
+  const { t } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = React.useRef(0);
 
@@ -191,7 +193,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <Group gap={6}>
                 <Upload size={16} color="var(--mantine-color-indigo-5)" />
                 <Text size="sm" c="indigo.5" fw={500}>
-                  Drop to attach images
+                  {t.chat.dropToAttach}
                 </Text>
               </Group>
             </Box>
@@ -206,7 +208,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onChange={onFileSelect}
           />
 
-          <Tooltip label="Attach images" position="top" withArrow>
+          <Tooltip label={t.chat.attachImages} position="top" withArrow>
             <ActionIcon
               variant="subtle"
               c="gray.6"
@@ -232,7 +234,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             minRows={1}
             maxRows={8}
             variant="unstyled"
-            placeholder="Ask me anything about your course..."
+            placeholder={t.chat.typeMessage}
             size="md"
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
@@ -254,7 +256,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           {isStreaming ? (
-            <Tooltip label="Stop generating" position="top" withArrow>
+            <Tooltip label={t.chat.stopGenerating} position="top" withArrow>
               <ActionIcon
                 size={32}
                 radius="xl"
@@ -292,7 +294,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
         <Group justify="center" gap="xs" opacity={0.55} px="xs">
           <Text size="xs" c="dimmed" fw={500} ta="center">
-            AI can make mistakes. Please verify important information.
+            {t.chat.aiDisclaimer}
           </Text>
         </Group>
       </Stack>

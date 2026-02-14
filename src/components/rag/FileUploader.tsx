@@ -7,6 +7,7 @@ import { Dropzone, DropzoneProps, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { uploadDocument } from '@/app/actions/documents';
 import { COURSES, UNIVERSITIES } from '@/constants/index';
 import { PLACEHOLDERS } from '@/constants/placeholders';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 
 type ProcessingStage =
@@ -18,17 +19,29 @@ type ProcessingStage =
   | 'saving'
   | 'complete';
 
-const STAGE_INFO: Record<ProcessingStage, { label: string; progress: number }> = {
-  idle: { label: '', progress: 0 },
-  uploading: { label: 'Uploading file...', progress: 10 },
-  parsing: { label: 'Parsing PDF content...', progress: 30 },
-  chunking: { label: 'Splitting into chunks...', progress: 50 },
-  embedding: { label: 'Generating embeddings...', progress: 70 },
-  saving: { label: 'Saving to database...', progress: 90 },
-  complete: { label: 'Complete!', progress: 100 },
+const STAGE_PROGRESS: Record<ProcessingStage, number> = {
+  idle: 0,
+  uploading: 10,
+  parsing: 30,
+  chunking: 50,
+  embedding: 70,
+  saving: 90,
+  complete: 100,
 };
 
 export function FileUploader(props: Partial<DropzoneProps>) {
+  const { t } = useLanguage();
+
+  const STAGE_LABELS: Record<ProcessingStage, string> = {
+    idle: '',
+    uploading: t.knowledge.uploadingFile,
+    parsing: t.knowledge.parsingPdf,
+    chunking: t.knowledge.splittingChunks,
+    embedding: t.knowledge.generatingEmbeddings,
+    saving: t.knowledge.savingToDatabase,
+    complete: t.knowledge.complete,
+  };
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
@@ -70,14 +83,14 @@ export function FileUploader(props: Partial<DropzoneProps>) {
 
     // Only PDF for now
     if (file.type !== 'application/pdf') {
-      setError('Only PDF files are supported currently.');
+      setError(t.knowledge.pdfOnly);
       setLoading(false);
       setFileName(null);
       return;
     }
 
     if (!selectedUniId || !selectedCourseId) {
-      setError('Please select a valid University and Course before uploading.');
+      setError(t.knowledge.selectUniAndCourse);
       setLoading(false);
       setFileName(null);
       return;
@@ -108,8 +121,8 @@ export function FileUploader(props: Partial<DropzoneProps>) {
       if (result.status === 'success') {
         setStage('complete');
         showNotification({
-          title: 'Success',
-          message: 'Document uploaded and processed!',
+          title: t.knowledge.success,
+          message: t.knowledge.documentUploaded,
           color: 'green',
         });
         // Reset selections after successful upload
@@ -173,10 +186,10 @@ export function FileUploader(props: Partial<DropzoneProps>) {
 
           <div>
             <Text size="xl" inline>
-              Drag PDF here or click to select
+              {t.knowledge.dragAndDrop}
             </Text>
             <Text size="sm" c="dimmed" inline mt={7}>
-              Attach a course syllabus, reading material, or lecture notes.
+              {t.knowledge.attachDescription}
             </Text>
           </div>
         </Group>
@@ -193,18 +206,18 @@ export function FileUploader(props: Partial<DropzoneProps>) {
                   {fileName}
                 </Text>
               )}
-              {STAGE_INFO[stage].label}
+              {STAGE_LABELS[stage]}
             </Text>
           </Group>
           <Progress
-            value={STAGE_INFO[stage].progress}
+            value={STAGE_PROGRESS[stage]}
             size="sm"
             radius="xl"
             color={stage === 'complete' ? 'green' : 'indigo'}
             animated={stage !== 'complete'}
           />
           <Text size="xs" c="dimmed" mt="xs" ta="right">
-            {STAGE_INFO[stage].progress}%
+            {STAGE_PROGRESS[stage]}%
           </Text>
         </Box>
       )}
@@ -237,7 +250,12 @@ export function FileUploader(props: Partial<DropzoneProps>) {
       </SimpleGrid>
 
       {error && (
-        <Alert variant="light" color="red" title="Upload Failed" icon={<AlertCircle size={16} />}>
+        <Alert
+          variant="light"
+          color="red"
+          title={t.knowledge.uploadFailed}
+          icon={<AlertCircle size={16} />}
+        >
           {error}
         </Alert>
       )}

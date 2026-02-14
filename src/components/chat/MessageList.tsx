@@ -1,6 +1,7 @@
 import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActionIcon, Box, Button, Container, Group, ScrollArea, Stack, Text } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MessageBubble } from './MessageBubble';
@@ -44,6 +45,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onPromptSelect,
   onRegenerate,
 }) => {
+  const { t } = useLanguage();
   const viewport = useRef<HTMLDivElement>(null);
   const isAutoScrollingRef = useRef(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -193,7 +195,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                     <AlertCircle size={20} color="#c00" />
                     <Box style={{ flex: 1 }}>
                       <Text size="sm" c="red.8" fw={500}>
-                        Error
+                        {t.chat.error}
                       </Text>
                       <Text size="sm" c="red.7">
                         {lastError.message}
@@ -207,7 +209,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           onClick={onRetry}
                           mt="xs"
                         >
-                          Retry
+                          {t.chat.retry}
                         </Button>
                       )}
                     </Box>
