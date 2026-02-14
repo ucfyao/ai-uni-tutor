@@ -1,14 +1,15 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, Play, Search, Upload, X } from 'lucide-react';
+import { BookOpen, FileText, Play, Plus, Search, Upload, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
   Box,
   Button,
   Group,
+  Modal,
   Progress,
   Skeleton,
   rem,
@@ -18,6 +19,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Tooltip,
 } from '@mantine/core';
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
@@ -86,7 +88,12 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const { setHeaderContent } = useHeader();
   const [activeTab, setActiveTab] = useState<string>(initialDocType);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [debouncedSearch] = useDebouncedValue(searchQuery, 200);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Upload modal state
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   // Fetch documents by type via server action
   const queryClient = useQueryClient();
@@ -143,6 +150,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     }
   }, [selectedUniId, selectedCourseId]);
 
+  const isParsing = parseState.status !== 'idle';
+
   const resetForm = useCallback(() => {
     setSelectedFile(null);
   }, []);
@@ -161,8 +170,6 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     });
   };
 
-  const isParsing = parseState.status !== 'idle';
-
   const handleDismissParse = useCallback(async () => {
     // Auto-delete the document record if parsing failed
     if (parseState.status === 'error' && parseState.documentId) {
@@ -176,6 +183,15 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     parseState.reset();
     queryClient.invalidateQueries({ queryKey: queryKeys.documents.byType(activeTab) });
   }, [resetForm, parseState, queryClient, activeTab]);
+
+  const handleCloseModal = useCallback(() => {
+    if (isParsing && parseState.status !== 'complete' && parseState.status !== 'error') {
+      // Don't close while actively processing
+      return;
+    }
+    handleDismissParse();
+    setUploadModalOpen(false);
+  }, [isParsing, parseState.status, handleDismissParse]);
 
   const handleDocumentDeleted = useCallback(
     (id: string) => {
@@ -218,6 +234,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     return () => setHeaderContent(null);
   }, [isMobile, headerNode, setHeaderContent]);
 
+  // Focus search input when expanded
+  useEffect(() => {
+    if (searchExpanded && searchRef.current) {
+      searchRef.current.focus();
+    }
+  }, [searchExpanded]);
+
   // ── Shared Layout ──
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -241,273 +264,97 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="lg" p="lg" maw={900} mx="auto">
-          {/* ── Doc Type Filter ── */}
-          <SegmentedControl
-            value={activeTab}
-            onChange={(v) => setActiveTab(v)}
-            data={DOC_TYPES.map((dt) => ({
-              value: dt.value,
-              label: (
-                <Group gap={6} wrap="nowrap" justify="center">
-                  <Box
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor: `var(--mantine-color-${dt.color}-5)`,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span>{dt.label}</span>
-                </Group>
-              ),
-            }))}
-            radius="xl"
-            size="md"
-            withItemsBorders={false}
-            styles={{
-              root: {
-                backgroundColor: 'var(--mantine-color-gray-0)',
-                border: '1px solid var(--mantine-color-gray-2)',
-              },
-            }}
-          />
-
-          {/* ── Search Box ── */}
-          <TextInput
-            placeholder={t.knowledge.searchDocuments}
-            leftSection={<Search size={16} />}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.currentTarget.value)}
-            size="sm"
-            radius="md"
-          />
-
-          {/* ── Upload Bar (always visible) ── */}
-          <Box
-            style={{
-              borderRadius: 'var(--mantine-radius-lg)',
-              border: selectedFile
-                ? '1px solid var(--mantine-color-gray-3)'
-                : '1.5px dashed var(--mantine-color-gray-3)',
-              opacity: isParsing ? 0.5 : 1,
-              pointerEvents: isParsing ? 'none' : 'auto',
-              transition: 'all 0.2s ease',
-              overflow: 'hidden',
-            }}
-          >
-            {selectedFile ? (
-              <Stack gap={0}>
-                {/* File pill row */}
-                <Group
-                  gap="sm"
-                  px="md"
-                  py="sm"
-                  style={{ background: 'var(--mantine-color-gray-0)' }}
-                >
-                  <FileText size={16} color="var(--mantine-color-indigo-5)" />
-                  <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
-                    {selectedFile.name}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    {formatFileSize(selectedFile.size)}
-                  </Text>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="xs"
-                    onClick={() => setSelectedFile(null)}
-                    aria-label="Remove file"
-                  >
-                    <X size={12} />
-                  </ActionIcon>
-                </Group>
-
-                {/* Metadata row */}
-                <Group
-                  gap="sm"
-                  px="md"
-                  py="sm"
-                  align="center"
-                  wrap={isMobile ? 'wrap' : 'nowrap'}
-                  style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
-                >
-                  <Select
-                    placeholder={t.knowledge.university}
-                    data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
-                    value={selectedUniId}
-                    onChange={(val) => {
-                      setSelectedUniId(val);
-                      setSelectedCourseId(null);
-                    }}
-                    searchable
-                    size="sm"
-                    style={{ flex: 1, minWidth: isMobile ? '100%' : undefined }}
-                  />
-                  <Select
-                    placeholder={t.knowledge.course}
-                    data={filteredCourses.map((c) => ({
-                      value: c.id,
-                      label: `${c.code}: ${c.name}`,
-                    }))}
-                    value={selectedCourseId}
-                    onChange={setSelectedCourseId}
-                    disabled={!selectedUniId}
-                    searchable
-                    size="sm"
-                    style={{ flex: 1, minWidth: isMobile ? '100%' : undefined }}
-                  />
-                  <Button
-                    leftSection={<Play size={14} />}
-                    disabled={!isFormValid || isParsing}
-                    onClick={handleStartParse}
-                    color="indigo"
-                    size="sm"
-                    radius="md"
-                    style={{ flexShrink: 0, width: isMobile ? '100%' : undefined }}
-                  >
-                    {t.knowledge.startParsing}
-                  </Button>
-                </Group>
-              </Stack>
-            ) : (
-              <Dropzone
-                onDrop={(files) => setSelectedFile(files[0])}
-                onReject={() =>
-                  showNotification({
-                    title: 'File rejected',
-                    message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`,
-                    color: 'red',
-                  })
-                }
-                maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5') * 1024 * 1024}
-                accept={PDF_MIME_TYPE}
-                multiple={false}
-                styles={{
-                  root: {
-                    border: 'none',
-                    background: 'transparent',
-                    '&:hover': {
-                      background: 'var(--mantine-color-gray-0)',
-                    },
-                  },
-                }}
-              >
-                <Group
-                  justify="center"
-                  gap="sm"
-                  style={{ minHeight: rem(48), pointerEvents: 'none' }}
-                >
-                  <Dropzone.Accept>
-                    <Upload size={18} color="var(--mantine-color-indigo-6)" />
-                  </Dropzone.Accept>
-                  <Dropzone.Reject>
-                    <X size={18} color="var(--mantine-color-red-6)" />
-                  </Dropzone.Reject>
-                  <Dropzone.Idle>
-                    <Upload
-                      size={16}
-                      color="var(--mantine-color-indigo-4)"
-                      style={{ flexShrink: 0 }}
+          {/* ── Toolbar: SegmentedControl + Search + Upload ── */}
+          <Group gap="sm" justify="space-between" wrap="nowrap">
+            <SegmentedControl
+              value={activeTab}
+              onChange={(v) => setActiveTab(v)}
+              data={DOC_TYPES.map((dt) => ({
+                value: dt.value,
+                label: (
+                  <Group gap={6} wrap="nowrap" justify="center">
+                    <Box
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: `var(--mantine-color-${dt.color}-5)`,
+                        flexShrink: 0,
+                      }}
                     />
-                  </Dropzone.Idle>
-                  <Text size="sm" c="dimmed">
-                    {t.knowledge.dropPdfHere}{' '}
-                    <Text span c="indigo" fw={600}>
-                      {t.knowledge.browse}
-                    </Text>
-                  </Text>
-                </Group>
-              </Dropzone>
-            )}
-          </Box>
-
-          {/* ── Inline Progress ── */}
-          {isParsing && (
-            <Box
-              px="md"
-              py="sm"
-              style={{
-                borderRadius: 'var(--mantine-radius-lg)',
-                border: `1px solid var(--mantine-color-${parseState.status === 'error' ? 'red' : parseState.status === 'complete' ? 'green' : 'gray'}-3)`,
-                background:
-                  parseState.status === 'error'
-                    ? 'var(--mantine-color-red-0)'
-                    : parseState.status === 'complete'
-                      ? 'var(--mantine-color-green-0)'
-                      : 'var(--mantine-color-gray-0)',
-                transition: 'all 0.3s ease',
+                    <span>{dt.label}</span>
+                  </Group>
+                ),
+              }))}
+              radius="xl"
+              size="sm"
+              withItemsBorders={false}
+              styles={{
+                root: {
+                  backgroundColor: 'var(--mantine-color-gray-0)',
+                  border: '1px solid var(--mantine-color-gray-2)',
+                },
               }}
-            >
-              <Group gap="sm" mb={6} justify="space-between" wrap="nowrap">
-                <Text size="xs" fw={500} c={STAGE_COLORS[parseState.status]}>
-                  {parseState.status === 'parsing_pdf' && t.knowledge.parsingPdf}
-                  {parseState.status === 'extracting' &&
-                    `${t.knowledge.successfullyExtracted} ${parseState.progress.current}${parseState.progress.total > 0 ? `/${parseState.progress.total}` : ''}`}
-                  {parseState.status === 'embedding' &&
-                    `${t.knowledge.savingToDatabase.replace('...', '')} ${parseState.savedChunkIds.size}/${parseState.progress.total}`}
-                  {parseState.status === 'complete' &&
-                    `${parseState.items.length} ${parseState.items[0]?.type === 'knowledge_point' ? t.knowledge.knowledgePoints : t.knowledge.questions}`}
-                  {parseState.status === 'error' && (parseState.error || t.knowledge.parsingError)}
-                </Text>
-                <Group gap="xs" wrap="nowrap">
-                  {parseState.status !== 'complete' &&
-                    parseState.status !== 'error' &&
-                    parseState.stageTimes.parsing_pdf && (
-                      <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        <ElapsedTimer startTime={parseState.stageTimes.parsing_pdf.start} />
-                      </Text>
-                    )}
-                  {parseState.status === 'complete' && parseState.documentId && (
-                    <Group gap="xs" wrap="nowrap">
-                      <Button
-                        variant="subtle"
-                        color="indigo"
-                        size="compact-xs"
-                        onClick={() => {
-                          handleDismissParse();
-                          router.push(`/knowledge/${parseState.documentId}`);
-                        }}
-                      >
-                        {t.knowledge.viewDetailsLink}
-                      </Button>
-                      <ActionIcon
-                        variant="subtle"
-                        color="green"
-                        size="xs"
-                        onClick={handleDismissParse}
-                        aria-label="Dismiss"
-                      >
-                        <X size={12} />
-                      </ActionIcon>
-                    </Group>
-                  )}
-                  {parseState.status === 'error' && (
+            />
+
+            <Group gap={8} wrap="nowrap">
+              {/* Search: collapsed icon or expanded input */}
+              {searchExpanded ? (
+                <TextInput
+                  ref={searchRef}
+                  placeholder={t.knowledge.searchDocuments}
+                  leftSection={<Search size={14} />}
+                  rightSection={
                     <ActionIcon
                       variant="subtle"
-                      color="red"
+                      color="gray"
                       size="xs"
-                      onClick={handleDismissParse}
-                      aria-label="Dismiss"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchExpanded(false);
+                      }}
                     >
                       <X size={12} />
                     </ActionIcon>
-                  )}
-                </Group>
-              </Group>
-              <Progress
-                value={getProgressPercent(
-                  parseState.status,
-                  parseState.progress,
-                  parseState.savedChunkIds.size,
-                )}
-                color={STAGE_COLORS[parseState.status] || 'indigo'}
-                size="sm"
-                radius="xl"
-                animated={parseState.status !== 'complete' && parseState.status !== 'error'}
-              />
-            </Box>
-          )}
+                  }
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                  onBlur={() => {
+                    if (!searchQuery) setSearchExpanded(false);
+                  }}
+                  size="sm"
+                  radius="xl"
+                  style={{ width: 200, transition: 'width 0.2s ease' }}
+                />
+              ) : (
+                <Tooltip label={t.knowledge.searchDocuments}>
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    radius="xl"
+                    onClick={() => setSearchExpanded(true)}
+                    aria-label={t.knowledge.searchDocuments}
+                  >
+                    <Search size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
+
+              {/* Upload button */}
+              <Tooltip label={t.knowledge.uploadDocument}>
+                <ActionIcon
+                  variant="filled"
+                  color="indigo"
+                  size="lg"
+                  radius="xl"
+                  onClick={() => setUploadModalOpen(true)}
+                  aria-label={t.knowledge.uploadDocument}
+                >
+                  <Plus size={18} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          </Group>
 
           {/* ── Document List ── */}
           {isLoading ? (
@@ -535,6 +382,210 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           )}
         </Stack>
       </ScrollArea>
+
+      {/* ── Upload Modal ── */}
+      <Modal
+        opened={uploadModalOpen}
+        onClose={handleCloseModal}
+        title={t.knowledge.uploadDocument}
+        centered
+        size="md"
+        radius="lg"
+        closeOnClickOutside={!isParsing}
+        closeOnEscape={!isParsing}
+        withCloseButton={!isParsing || parseState.status === 'complete' || parseState.status === 'error'}
+      >
+        {!isParsing ? (
+          /* ── Upload Form ── */
+          <Stack gap="md">
+            {/* Dropzone */}
+            <Box
+              style={{
+                borderRadius: 'var(--mantine-radius-lg)',
+                border: selectedFile
+                  ? '1px solid var(--mantine-color-gray-3)'
+                  : '1.5px dashed var(--mantine-color-gray-3)',
+                overflow: 'hidden',
+              }}
+            >
+              {selectedFile ? (
+                <Group gap="sm" px="md" py="sm" style={{ background: 'var(--mantine-color-gray-0)' }}>
+                  <FileText size={16} color="var(--mantine-color-indigo-5)" />
+                  <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
+                    {selectedFile.name}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {formatFileSize(selectedFile.size)}
+                  </Text>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="xs"
+                    onClick={() => setSelectedFile(null)}
+                    aria-label="Remove file"
+                  >
+                    <X size={12} />
+                  </ActionIcon>
+                </Group>
+              ) : (
+                <Dropzone
+                  onDrop={(files) => setSelectedFile(files[0])}
+                  onReject={() =>
+                    showNotification({
+                      title: 'File rejected',
+                      message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`,
+                      color: 'red',
+                    })
+                  }
+                  maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5') * 1024 * 1024}
+                  accept={PDF_MIME_TYPE}
+                  multiple={false}
+                  styles={{
+                    root: {
+                      border: 'none',
+                      background: 'transparent',
+                      '&:hover': { background: 'var(--mantine-color-gray-0)' },
+                    },
+                  }}
+                >
+                  <Group justify="center" gap="sm" style={{ minHeight: rem(80), pointerEvents: 'none' }}>
+                    <Dropzone.Accept>
+                      <Upload size={24} color="var(--mantine-color-indigo-6)" />
+                    </Dropzone.Accept>
+                    <Dropzone.Reject>
+                      <X size={24} color="var(--mantine-color-red-6)" />
+                    </Dropzone.Reject>
+                    <Dropzone.Idle>
+                      <Upload size={24} color="var(--mantine-color-indigo-4)" style={{ flexShrink: 0 }} />
+                    </Dropzone.Idle>
+                    <div style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="dimmed">
+                        {t.knowledge.dropPdfHere}{' '}
+                        <Text span c="indigo" fw={600}>
+                          {t.knowledge.browse}
+                        </Text>
+                      </Text>
+                      <Text size="xs" c="dimmed" mt={4}>
+                        {t.knowledge.pdfOnly}
+                      </Text>
+                    </div>
+                  </Group>
+                </Dropzone>
+              )}
+            </Box>
+
+            {/* University & Course */}
+            <Select
+              placeholder={t.knowledge.university}
+              data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
+              value={selectedUniId}
+              onChange={(val) => {
+                setSelectedUniId(val);
+                setSelectedCourseId(null);
+              }}
+              searchable
+              size="sm"
+              radius="md"
+            />
+            <Select
+              placeholder={t.knowledge.course}
+              data={filteredCourses.map((c) => ({
+                value: c.id,
+                label: `${c.code}: ${c.name}`,
+              }))}
+              value={selectedCourseId}
+              onChange={setSelectedCourseId}
+              disabled={!selectedUniId}
+              searchable
+              size="sm"
+              radius="md"
+            />
+
+            {/* Start button */}
+            <Button
+              leftSection={<Play size={14} />}
+              disabled={!isFormValid}
+              onClick={handleStartParse}
+              color="indigo"
+              size="md"
+              radius="md"
+              fullWidth
+            >
+              {t.knowledge.startParsing}
+            </Button>
+          </Stack>
+        ) : (
+          /* ── Progress View ── */
+          <Stack gap="md" py="sm">
+            {/* Status text */}
+            <Group gap="sm" justify="space-between" wrap="nowrap">
+              <Text size="sm" fw={500} c={STAGE_COLORS[parseState.status]}>
+                {parseState.status === 'parsing_pdf' && t.knowledge.parsingPdf}
+                {parseState.status === 'extracting' &&
+                  `${t.knowledge.successfullyExtracted} ${parseState.progress.current}${parseState.progress.total > 0 ? `/${parseState.progress.total}` : ''}`}
+                {parseState.status === 'embedding' &&
+                  `${t.knowledge.savingToDatabase.replace('...', '')} ${parseState.savedChunkIds.size}/${parseState.progress.total}`}
+                {parseState.status === 'complete' &&
+                  `${parseState.items.length} ${parseState.items[0]?.type === 'knowledge_point' ? t.knowledge.knowledgePoints : t.knowledge.questions}`}
+                {parseState.status === 'error' && (parseState.error || t.knowledge.parsingError)}
+              </Text>
+              {parseState.status !== 'complete' &&
+                parseState.status !== 'error' &&
+                parseState.stageTimes.parsing_pdf && (
+                  <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <ElapsedTimer startTime={parseState.stageTimes.parsing_pdf.start} />
+                  </Text>
+                )}
+            </Group>
+
+            {/* Progress bar */}
+            <Progress
+              value={getProgressPercent(
+                parseState.status,
+                parseState.progress,
+                parseState.savedChunkIds.size,
+              )}
+              color={STAGE_COLORS[parseState.status] || 'indigo'}
+              size="lg"
+              radius="xl"
+              animated={parseState.status !== 'complete' && parseState.status !== 'error'}
+            />
+
+            {/* Complete: View Details button */}
+            {parseState.status === 'complete' && parseState.documentId && (
+              <Button
+                color="indigo"
+                radius="md"
+                fullWidth
+                onClick={() => {
+                  const docId = parseState.documentId;
+                  handleDismissParse();
+                  setUploadModalOpen(false);
+                  router.push(`/knowledge/${docId}`);
+                }}
+              >
+                {t.knowledge.viewDetailsLink}
+              </Button>
+            )}
+
+            {/* Error: Dismiss button */}
+            {parseState.status === 'error' && (
+              <Button
+                variant="light"
+                color="red"
+                radius="md"
+                fullWidth
+                onClick={() => {
+                  handleDismissParse();
+                  // Keep modal open so user can retry
+                }}
+              >
+                {t.knowledge.retryProcessing}
+              </Button>
+            )}
+          </Stack>
+        )}
+      </Modal>
     </Box>
   );
 }

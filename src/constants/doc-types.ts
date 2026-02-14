@@ -10,8 +10,8 @@ export interface DocTypeConfig {
 
 export const DOC_TYPES: DocTypeConfig[] = [
   { value: 'lecture', label: 'Lecture', color: 'indigo', icon: BookOpen },
-  { value: 'exam', label: 'Exam', color: 'orange', icon: FileText },
   { value: 'assignment', label: 'Assignment', color: 'violet', icon: ClipboardCheck },
+  { value: 'exam', label: 'Exam', color: 'orange', icon: FileText },
 ];
 
 export const DOC_TYPE_MAP: Record<string, DocTypeConfig> = Object.fromEntries(
