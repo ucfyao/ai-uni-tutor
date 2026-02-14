@@ -30,6 +30,7 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
         borderColor: feedback.isCorrect
           ? 'var(--mantine-color-green-3)'
           : 'var(--mantine-color-red-3)',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
       }}
     >
       <Stack gap="sm">
