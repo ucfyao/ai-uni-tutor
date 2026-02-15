@@ -1,6 +1,7 @@
 'use client';
 
 import { CreditCard, Crown, ShieldCheck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   Badge,
@@ -27,6 +28,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import type { AccessLimits } from '@/lib/services/QuotaService';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { profile, loading: profileLoading } = useProfile();
   const { t } = useLanguage();
   const { setColorScheme } = useMantineColorScheme();
@@ -220,7 +222,7 @@ export default function SettingsPage() {
                   variant="light"
                   color="violet"
                   radius="md"
-                  onClick={() => (window.location.href = '/pricing')}
+                  onClick={() => router.push('/pricing')}
                 >
                   {t.settings.viewUpgradeOptions}
                 </Button>
