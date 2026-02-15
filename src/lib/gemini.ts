@@ -1,5 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 
+export const GEMINI_MODELS = {
+  chat: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash',
+  parse: process.env.GEMINI_PARSE_MODEL || 'gemini-2.0-flash',
+  embedding: process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001',
+} as const;
+
 let _genAI: GoogleGenAI | null = null;
 
 /** Lazy: validated on first use so pages/tests without GEMINI_API_KEY don't crash at import. */

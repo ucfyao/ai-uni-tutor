@@ -7,7 +7,7 @@
 
 import { parseAIResponse } from '@/lib/ai-utils';
 import { AppError } from '@/lib/errors';
-import { getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
@@ -222,7 +222,7 @@ ${typesInstruction}
 
     // Single Gemini call
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: GEMINI_MODELS.chat,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
         responseMimeType: 'application/json',
@@ -402,7 +402,7 @@ Return JSON with these exact fields:
 }`;
 
             const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
+              model: GEMINI_MODELS.chat,
               contents: [{ role: 'user', parts: [{ text: prompt }] }],
               config: {
                 responseMimeType: 'application/json',
@@ -495,7 +495,7 @@ Return JSON with these exact fields:
 }`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_MODELS.chat,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',

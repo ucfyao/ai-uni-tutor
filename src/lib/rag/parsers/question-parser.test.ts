@@ -7,9 +7,11 @@ vi.mock('server-only', () => ({}));
 
 let mockGemini: MockGeminiResult;
 
-vi.mock('@/lib/gemini', () => {
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
   mockGemini = createMockGemini();
   return {
+    ...actual,
     genAI: mockGemini.client,
     getGenAI: () => mockGemini.client,
   };
@@ -17,6 +19,7 @@ vi.mock('@/lib/gemini', () => {
 
 // Import after mocks
 const { parseQuestions } = await import('./question-parser');
+const { GEMINI_MODELS } = await import('@/lib/gemini');
 
 describe('question-parser', () => {
   beforeEach(() => {
@@ -146,7 +149,7 @@ describe('question-parser', () => {
 
       expect(mockGemini.client.models.generateContent).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gemini-2.0-flash',
+          model: GEMINI_MODELS.parse,
           config: {
             responseMimeType: 'application/json',
           },

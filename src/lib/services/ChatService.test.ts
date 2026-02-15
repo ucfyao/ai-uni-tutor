@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError } from '@/lib/errors';
+import { GEMINI_MODELS } from '@/lib/gemini';
 import type { Course, TutoringMode } from '@/types';
 import { ChatService, type ChatGenerationOptions } from './ChatService';
 
@@ -10,14 +11,18 @@ import { ChatService, type ChatGenerationOptions } from './ChatService';
 const mockGenerateContent = vi.fn();
 const mockGenerateContentStream = vi.fn();
 
-vi.mock('@/lib/gemini', () => ({
-  getGenAI: () => ({
-    models: {
-      generateContent: mockGenerateContent,
-      generateContentStream: mockGenerateContentStream,
-    },
-  }),
-}));
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
+  return {
+    ...actual,
+    getGenAI: () => ({
+      models: {
+        generateContent: mockGenerateContent,
+        generateContentStream: mockGenerateContentStream,
+      },
+    }),
+  };
+});
 
 const mockRetrieveContext = vi.fn();
 vi.mock('@/lib/rag/retrieval', () => ({
@@ -71,7 +76,7 @@ describe('ChatService', () => {
       expect(result).toBe('Recursion is...');
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gemini-2.5-flash',
+          model: GEMINI_MODELS.chat,
           config: expect.objectContaining({ temperature: 0.7 }),
         }),
       );
@@ -361,7 +366,7 @@ describe('ChatService', () => {
       expect(result).toBe('A stack is...');
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gemini-2.5-flash',
+          model: GEMINI_MODELS.chat,
           config: expect.objectContaining({
             temperature: 0.5,
           }),
