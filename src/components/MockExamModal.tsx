@@ -220,7 +220,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           onChange={(v) => setSource(v as Source)}
           data={sourceData}
           fullWidth
-          size="sm"
+          size="md"
           radius="md"
           color="purple"
         />
