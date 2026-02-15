@@ -1,17 +1,18 @@
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import {
   Box,
+  Button,
   Center,
   Container,
-  Grid,
-  Paper,
+  Group,
   Stack,
   Text,
   ThemeIcon,
   Title,
   Transition,
 } from '@mantine/core';
+import { IconMessageCircle } from '@tabler/icons-react';
 import { MODES_METADATA } from '@/constants/modes';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';
@@ -111,46 +112,29 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 >
                   {t.chat.suggestedActions}
                 </Text>
-                <Grid gutter="xs">
+                <Group gap="sm" wrap="wrap" justify="center">
                   {metadata.suggestedPrompts?.map((prompt, index) => (
-                    <Grid.Col span={{ base: 12, sm: 6 }} key={index}>
-                      <Paper
-                        component="button"
-                        onClick={() => onPromptSelect(prompt)}
-                        p="sm"
-                        radius="md"
-                        withBorder
-                        className="hover-lift"
-                        style={{
-                          width: '100%',
-                          minHeight: '68px',
-                          textAlign: 'left',
-                          borderColor: 'var(--mantine-color-default-border)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
+                    <Button
+                      key={index}
+                      variant="light"
+                      color="gray"
+                      radius="xl"
+                      size="sm"
+                      leftSection={<IconMessageCircle size={14} />}
+                      onClick={() => onPromptSelect(prompt)}
+                      styles={{
+                        root: {
                           transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = `var(--mantine-color-${metadata.color}-3)`;
-                          e.currentTarget.style.backgroundColor = `var(--mantine-color-${metadata.color}-0)`;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--mantine-color-default-border)';
-                          e.currentTarget.style.backgroundColor = '';
-                        }}
-                      >
-                        <Text size="sm" fw={500} lineClamp={2} style={{ flex: 1 }}>
-                          {prompt}
-                        </Text>
-                        <ThemeIcon variant="transparent" size="sm" c={`${metadata.color}.5`}>
-                          <ArrowRight size={14} />
-                        </ThemeIcon>
-                      </Paper>
-                    </Grid.Col>
+                          '&:hover': {
+                            backgroundColor: `var(--mantine-color-${metadata.color}-0)`,
+                          },
+                        },
+                      }}
+                    >
+                      {prompt}
+                    </Button>
                   ))}
-                </Grid>
+                </Group>
               </Box>
             )}
           </Transition>
