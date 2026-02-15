@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
-import { getMockExamIdBySessionId, startMockExamSession } from '@/app/actions/mock-exams';
+import { getMockExamIdBySessionId } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import { Logo } from '@/components/Logo';
 import NewSessionModal from '@/components/NewSessionModal';
@@ -56,6 +56,10 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   const [preSelectedMode, setPreSelectedMode] = useState<TutoringMode | null>(null);
 
   const openModalForMode = (mode: TutoringMode) => {
+    if (mode === 'Mock Exam') {
+      router.push('/exam');
+      return;
+    }
     setPreSelectedMode(mode);
     openModal();
   };
@@ -69,15 +73,9 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     }
 
     if (mode === 'Mock Exam') {
-      // Mock Exam: create session, then generate mock exam and navigate to it
-      const result = await startMockExamSession(newId, course.code);
-      if (result.success) {
-        const targetPath = `/exam/mock/${result.mockId}`;
-        setActiveSessionId(newId);
-        router.push(targetPath);
-      } else {
-        showNotification({ title: 'Error', message: result.error, color: 'red' });
-      }
+      // Mock Exam uses the dedicated /exam entry page
+      router.push('/exam');
+      return;
     } else {
       // Chat modes: navigate to chat page
       const modeRoute = MODES_METADATA[mode].id;
