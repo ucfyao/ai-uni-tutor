@@ -51,4 +51,5 @@ export interface IExamPaperRepository {
     >,
   ): Promise<void>;
   findByCourse(courseCode: string): Promise<string | null>; // returns first ready paper ID
+  findAllByCourse(courseCode: string): Promise<ExamPaper[]>;
 }
