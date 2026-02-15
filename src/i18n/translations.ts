@@ -384,11 +384,12 @@ export const translations = {
     },
     // Pricing Page
     pricing: {
-      title: '定价',
+      title: '选择你的方案',
       subtitle: '选择适合你的方案，随时升级解锁全部功能。',
       monthly: '月付',
       semester: '学期付',
       saveBadge: '省 33%',
+      semesterHint: '学期付可省 33%',
       free: {
         name: '免费版',
         price: '$0',
@@ -910,11 +911,12 @@ export const translations = {
     },
     // Pricing Page
     pricing: {
-      title: 'Pricing',
+      title: 'Choose Your Plan',
       subtitle: 'Choose the plan that fits you. Upgrade anytime to unlock full access.',
       monthly: 'Monthly',
       semester: 'Semester',
       saveBadge: 'Save 33%',
+      semesterHint: 'Save 33% with Semester',
       free: {
         name: 'Free',
         price: '$0',
