@@ -237,52 +237,34 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           />
         </Tooltip>
 
-        {/* University + Course — single row, no labels */}
-        <Group grow gap={10} style={{ flexWrap: 'nowrap' }}>
-          <Select
-            placeholder={t.exam.selectUniversity ?? 'University'}
-            data={uniOptions}
-            value={selectedUniId}
-            onChange={setSelectedUniId}
-            searchable
-            size="sm"
-            radius={12}
-            styles={{
-              input: {
-                backgroundColor: 'var(--mantine-color-gray-0)',
-                border: '1.5px solid var(--mantine-color-gray-2)',
-                fontSize: '14px',
-                fontWeight: 500,
-                '&:focus': { borderColor: 'var(--mantine-color-purple-4)' },
-              },
-              dropdown: inputStyles.dropdown,
-            }}
-          />
-          <Select
-            placeholder={
-              selectedUniId
-                ? (t.exam.selectCourse ?? 'Course')
-                : (t.exam.selectUniversityFirst ?? 'Select uni first')
-            }
-            data={courseOptions}
-            value={selectedCourseCode}
-            onChange={setSelectedCourseCode}
-            disabled={!selectedUniId}
-            searchable
-            size="sm"
-            radius={12}
-            styles={{
-              input: {
-                backgroundColor: 'var(--mantine-color-gray-0)',
-                border: '1.5px solid var(--mantine-color-gray-2)',
-                fontSize: '14px',
-                fontWeight: 500,
-                '&:focus': { borderColor: 'var(--mantine-color-purple-4)' },
-              },
-              dropdown: inputStyles.dropdown,
-            }}
-          />
-        </Group>
+        {/* University + Course */}
+        <Select
+          label={t.exam.university ?? 'University'}
+          placeholder={t.exam.selectUniversity ?? 'Select'}
+          data={uniOptions}
+          value={selectedUniId}
+          onChange={setSelectedUniId}
+          searchable
+          size="sm"
+          radius={R}
+          styles={inputStyles}
+        />
+        <Select
+          label={t.exam.course ?? 'Course'}
+          placeholder={
+            selectedUniId
+              ? (t.exam.selectCourse ?? 'Select')
+              : (t.exam.selectUniversityFirst ?? 'Select university first')
+          }
+          data={courseOptions}
+          value={selectedCourseCode}
+          onChange={setSelectedCourseCode}
+          disabled={!selectedUniId}
+          searchable
+          size="sm"
+          radius={R}
+          styles={inputStyles}
+        />
 
         {/* No papers warning */}
         {showNoPapers && (
