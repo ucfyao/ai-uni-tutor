@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Save } from 'lucide-react';
+import { Check, RefreshCw, Save } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card, Group, Text } from '@mantine/core';
 import {
@@ -40,9 +40,10 @@ export function ChunkActionBar({
       const result = await updateDocumentChunks(docId, updates, Array.from(deletedChunkIds));
       if (result.status === 'success') {
         showNotification({
-          title: t.documentDetail.saved,
-          message: result.message,
+          message: t.toast.changesSaved,
           color: 'green',
+          icon: <Check size={16} />,
+          autoClose: 3000,
         });
         onSaved();
       } else {

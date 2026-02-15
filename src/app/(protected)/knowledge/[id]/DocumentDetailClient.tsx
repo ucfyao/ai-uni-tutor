@@ -34,6 +34,7 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
   >(new Map());
   const [deletedChunkIds, setDeletedChunkIds] = useState<Set<string>>(new Set());
   const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   /* -- derived -- */
   const visibleChunks = chunks.filter((c) => !deletedChunkIds.has(c.id));
@@ -94,9 +95,35 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
     });
   }, []);
 
+  const handleToggleSelect = useCallback((chunkId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(chunkId)) next.delete(chunkId);
+      else next.add(chunkId);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === visibleChunks.length) return new Set();
+      return new Set(visibleChunks.map((c) => c.id));
+    });
+  }, [visibleChunks]);
+
+  const handleBulkDelete = useCallback(() => {
+    setDeletedChunkIds((prev) => {
+      const next = new Set(prev);
+      for (const id of selectedIds) next.add(id);
+      return next;
+    });
+    setSelectedIds(new Set());
+  }, [selectedIds]);
+
   const handleSaved = useCallback(() => {
     setEditedChunks(new Map());
     setDeletedChunkIds(new Set());
+    setSelectedIds(new Set());
   }, []);
 
   /* -- Header (mirrors ChatPageLayout pattern) -- */
@@ -151,6 +178,7 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
             docType={docType}
             editingChunkId={editingChunkId}
             expandedAnswers={expandedAnswers}
+            selectedIds={selectedIds}
             getEffectiveContent={getEffectiveContent}
             getEffectiveMetadata={getEffectiveMetadata}
             onStartEdit={(chunk) => setEditingChunkId(chunk.id)}
@@ -158,6 +186,9 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
             onSaveEdit={handleSaveEdit}
             onDelete={handleDelete}
             onToggleAnswer={handleToggleAnswer}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAll={handleToggleSelectAll}
+            onBulkDelete={handleBulkDelete}
           />
 
           {/* Sticky footer */}

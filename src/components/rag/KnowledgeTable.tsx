@@ -12,6 +12,7 @@ import {
   Card,
   Group,
   Modal,
+  Skeleton,
   Stack,
   Table,
   Text,
@@ -41,10 +42,28 @@ export interface KnowledgeDocument {
 interface KnowledgeTableProps {
   documents: KnowledgeDocument[];
   readOnly?: boolean;
+  isLoading?: boolean;
   onDeleted?: (id: string) => void;
 }
 
-export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTableProps) {
+function TableSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <Table.Tr key={i}>
+          <Table.Td><Skeleton height={16} width="70%" /></Table.Td>
+          <Table.Td><Skeleton height={16} width="50%" /></Table.Td>
+          <Table.Td><Skeleton height={16} width="50%" /></Table.Td>
+          <Table.Td><Skeleton height={16} width="60%" /></Table.Td>
+          <Table.Td><Skeleton height={20} width={60} radius="xl" /></Table.Td>
+          <Table.Td><Skeleton height={24} width={50} /></Table.Td>
+        </Table.Tr>
+      ))}
+    </>
+  );
+}
+
+export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: KnowledgeTableProps) {
   const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
   const router = useRouter();
@@ -140,7 +159,12 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
     }
     if (doc.status === 'processing') {
       return (
-        <Badge color="blue" variant="dot" size="sm">
+        <Badge
+          color="blue"
+          variant="dot"
+          size="sm"
+          style={{ animation: 'pulse 2s ease-in-out infinite' }}
+        >
           {doc.status_message || t.knowledge.processing}
         </Badge>
       );
@@ -374,7 +398,17 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {sortedDocuments.map((doc) => (
+            {isLoading ? (
+              <TableSkeleton />
+            ) : sortedDocuments.length === 0 ? (
+              <Table.Tr>
+                <Table.Td colSpan={readOnly ? 5 : 6} align="center">
+                  <Text c="dimmed" size="sm" py="xl">
+                    {t.knowledge.noDocuments}
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            ) : sortedDocuments.map((doc) => (
               <Table.Tr
                 key={doc.id}
                 className={classes.tableRow}
@@ -435,18 +469,18 @@ export function KnowledgeTable({ documents, readOnly, onDeleted }: KnowledgeTabl
                 )}
               </Table.Tr>
             ))}
-            {sortedDocuments.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={readOnly ? 5 : 6} align="center">
-                  <Text c="dimmed" size="sm" py="xl">
-                    {t.knowledge.noDocuments}
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            )}
           </Table.Tbody>
         </Table>
       </Card>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [style*="animation: pulse"] { animation: none !important; }
+        }
+      `}</style>
     </>
   );
 }
