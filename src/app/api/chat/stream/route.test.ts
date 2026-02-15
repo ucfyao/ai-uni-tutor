@@ -48,7 +48,7 @@ vi.mock('@/constants/modes', () => ({
 // Import route handler (after mocks are registered)
 // ---------------------------------------------------------------------------
 
-const { POST } = await import('./route');
+const { POST, sanitizeError } = await import('./route');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -466,5 +466,43 @@ describe('POST /api/chat/stream', () => {
         }),
       );
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeError — unit tests
+// ---------------------------------------------------------------------------
+
+describe('sanitizeError', () => {
+  it('redacts ?key= query parameter from URLs', () => {
+    const err = new Error('Request to https://api.google.com/v1?key=AIzaSyB123secret failed');
+    expect(sanitizeError(err)).not.toContain('AIzaSyB123secret');
+    expect(sanitizeError(err)).toContain('?key=[REDACTED]');
+  });
+
+  it('redacts &key= query parameter from URLs', () => {
+    const result = sanitizeError('https://api.google.com/v1?foo=bar&key=SECRET123 returned 400');
+    expect(result).not.toContain('SECRET123');
+    expect(result).toContain('?key=[REDACTED]');
+  });
+
+  it('redacts GEMINI_API_KEY env value by exact match', () => {
+    const result = sanitizeError(new Error('Auth failed for token test-key'));
+    expect(result).not.toContain('test-key');
+    expect(result).toContain('[REDACTED]');
+  });
+
+  it('handles non-Error values', () => {
+    expect(sanitizeError('url?key=SECRET')).toContain('[REDACTED]');
+    expect(sanitizeError(42)).toBe('42');
+    expect(sanitizeError(null)).toBe('null');
+  });
+
+  it('preserves useful error context after redaction', () => {
+    const err = new Error('429 RESOURCE_EXHAUSTED ?key=SECRET');
+    const sanitized = sanitizeError(err);
+    expect(sanitized).toContain('429');
+    expect(sanitized).toContain('RESOURCE_EXHAUSTED');
+    expect(sanitized).not.toContain('SECRET');
   });
 });
