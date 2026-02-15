@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, Play, Plus, Search, Upload, X } from 'lucide-react';
+import { BookOpen, FileText, Library, Play, Plus, Search, Upload, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -9,7 +9,6 @@ import {
   Box,
   Button,
   Group,
-  Modal,
   Progress,
   rem,
   ScrollArea,
@@ -19,11 +18,13 @@ import {
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   Tooltip,
 } from '@mantine/core';
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, fetchDocuments } from '@/app/actions/documents';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { COURSES, UNIVERSITIES } from '@/constants/index';
@@ -412,22 +413,37 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             )
           ) : filteredDocuments.length > 0 ? (
             <KnowledgeTable documents={filteredDocuments} onDeleted={handleDocumentDeleted} />
-          ) : (
+          ) : debouncedSearch ? (
             <Stack align="center" gap="xs" py={48}>
               <FileText size={40} color="var(--mantine-color-gray-4)" />
               <Text size="sm" fw={500} c="dimmed">
                 {t.knowledge.noDocuments}
               </Text>
-              <Text size="xs" c="dimmed">
-                {t.knowledge.uploadGuide}
+            </Stack>
+          ) : (
+            <Stack align="center" gap="md" py={60}>
+              <ThemeIcon size={64} radius="xl" variant="light" color="gray">
+                <Library size={32} />
+              </ThemeIcon>
+              <Text fw={500} fz="lg">
+                {t.knowledge.emptyTitle}
               </Text>
+              <Text c="dimmed" ta="center" maw={400}>
+                {t.knowledge.emptyDescription}
+              </Text>
+              <Button
+                leftSection={<Upload size={16} />}
+                onClick={() => setUploadModalOpen(true)}
+              >
+                {t.knowledge.uploadCTA}
+              </Button>
             </Stack>
           )}
         </Stack>
       </ScrollArea>
 
       {/* ── Upload Modal ── */}
-      <Modal
+      <FullScreenModal
         opened={uploadModalOpen}
         onClose={handleCloseModal}
         title={t.knowledge.uploadDocument}
@@ -652,7 +668,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             )}
           </Stack>
         )}
-      </Modal>
+      </FullScreenModal>
     </Box>
   );
 }
