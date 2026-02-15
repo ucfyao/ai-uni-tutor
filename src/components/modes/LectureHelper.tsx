@@ -460,12 +460,10 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
           <Box
             px={0}
+            className="chat-input-fade"
             style={{
               flexShrink: 0,
               zIndex: 5,
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 28%, rgba(255,255,255,1) 60%)',
-              backdropFilter: 'blur(8px)',
             }}
           >
             <Box style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
