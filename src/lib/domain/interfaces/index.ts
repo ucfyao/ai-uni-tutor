@@ -9,3 +9,6 @@ export type { IDocumentChunkRepository } from './IDocumentChunkRepository';
 export type { IProfileRepository } from './IProfileRepository';
 export type { IExamPaperRepository } from './IExamPaperRepository';
 export type { IMockExamRepository } from './IMockExamRepository';
+export type { IKnowledgeCardRepository } from './IKnowledgeCardRepository';
+export type { IUserCardRepository } from './IUserCardRepository';
+export type { ICardConversationRepository } from './ICardConversationRepository';

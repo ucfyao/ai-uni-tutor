@@ -40,15 +40,15 @@ ALTER TABLE knowledge_cards ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "knowledge_cards_select" ON knowledge_cards
   FOR SELECT TO authenticated USING (true);
 
--- Only service role can insert/update/delete (controlled via server actions)
+-- Authenticated users can insert/update/delete (controlled via server actions)
 CREATE POLICY "knowledge_cards_insert" ON knowledge_cards
-  FOR INSERT TO service_role WITH CHECK (true);
+  FOR INSERT TO authenticated WITH CHECK (true);
 
 CREATE POLICY "knowledge_cards_update" ON knowledge_cards
-  FOR UPDATE TO service_role USING (true);
+  FOR UPDATE TO authenticated USING (true);
 
 CREATE POLICY "knowledge_cards_delete" ON knowledge_cards
-  FOR DELETE TO service_role USING (true);
+  FOR DELETE TO authenticated USING (true);
 
 -- ============================================================================
 -- 2. User-created cards (per-user, from text selection)
