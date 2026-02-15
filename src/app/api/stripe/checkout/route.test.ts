@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,15 @@ const { POST } = await import('./route');
 
 const MOCK_USER = { id: 'user-1', email: 'test@example.com' };
 
+function createRequest(body?: Record<string, unknown>): NextRequest {
+  return new NextRequest('http://localhost:3000/api/stripe/checkout', {
+    method: 'POST',
+    ...(body
+      ? { body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }
+      : {}),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -56,7 +66,8 @@ const MOCK_USER = { id: 'user-1', email: 'test@example.com' };
 describe('POST /api/stripe/checkout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('STRIPE_PRICE_ID', 'price_test_123');
+    vi.stubEnv('STRIPE_PRICE_ID_MONTHLY', 'price_monthly_123');
+    vi.stubEnv('STRIPE_PRICE_ID_SEMESTER', 'price_semester_456');
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://example.com');
   });
 
@@ -68,7 +79,7 @@ describe('POST /api/stripe/checkout', () => {
     it('returns 401 when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      const response = await POST();
+      const response = await POST(createRequest());
 
       expect(response.status).toBe(401);
       const text = await response.text();
@@ -81,16 +92,82 @@ describe('POST /api/stripe/checkout', () => {
   // =========================================================================
 
   describe('missing price ID', () => {
-    it('returns 500 when STRIPE_PRICE_ID is not set', async () => {
+    it('returns 500 when monthly price ID is not set', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      vi.stubEnv('STRIPE_PRICE_ID', '');
+      vi.stubEnv('STRIPE_PRICE_ID_MONTHLY', '');
       mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
 
-      const response = await POST();
+      const response = await POST(createRequest());
 
       expect(response.status).toBe(500);
       const text = await response.text();
-      expect(text).toBe('Stripe Price ID is missing');
+      expect(text).toContain('monthly');
+    });
+
+    it('returns 500 when semester price ID is not set', async () => {
+      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      vi.stubEnv('STRIPE_PRICE_ID_SEMESTER', '');
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
+
+      const response = await POST(createRequest({ plan: 'semester' }));
+
+      expect(response.status).toBe(500);
+      const text = await response.text();
+      expect(text).toContain('semester');
+    });
+  });
+
+  // =========================================================================
+  // Plan selection
+  // =========================================================================
+
+  describe('plan selection', () => {
+    it('defaults to monthly when no body is provided', async () => {
+      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
+      mockStripe.checkout.sessions.create.mockResolvedValue({
+        url: 'https://checkout.stripe.com/session/cs_test',
+      });
+
+      await POST(createRequest());
+
+      expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: 'price_monthly_123', quantity: 1 }],
+        }),
+      );
+    });
+
+    it('uses monthly price when plan is monthly', async () => {
+      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
+      mockStripe.checkout.sessions.create.mockResolvedValue({
+        url: 'https://checkout.stripe.com/session/cs_test',
+      });
+
+      await POST(createRequest({ plan: 'monthly' }));
+
+      expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: 'price_monthly_123', quantity: 1 }],
+        }),
+      );
+    });
+
+    it('uses semester price when plan is semester', async () => {
+      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
+      mockStripe.checkout.sessions.create.mockResolvedValue({
+        url: 'https://checkout.stripe.com/session/cs_test',
+      });
+
+      await POST(createRequest({ plan: 'semester' }));
+
+      expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: 'price_semester_456', quantity: 1 }],
+        }),
+      );
     });
   });
 
@@ -106,7 +183,7 @@ describe('POST /api/stripe/checkout', () => {
         url: 'https://checkout.stripe.com/session/cs_test',
       });
 
-      const response = await POST();
+      const response = await POST(createRequest());
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -124,27 +201,6 @@ describe('POST /api/stripe/checkout', () => {
       );
     });
 
-    it('creates checkout session with correct line items', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-      mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
-      mockStripe.checkout.sessions.create.mockResolvedValue({
-        url: 'https://checkout.stripe.com/session/cs_test',
-      });
-
-      await POST();
-
-      expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          line_items: [
-            {
-              price: 'price_test_123',
-              quantity: 1,
-            },
-          ],
-        }),
-      );
-    });
-
     it('creates checkout session with correct success and cancel URLs', async () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
       mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
@@ -152,7 +208,7 @@ describe('POST /api/stripe/checkout', () => {
         url: 'https://checkout.stripe.com/session/cs_test',
       });
 
-      await POST();
+      await POST(createRequest());
 
       expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -169,7 +225,7 @@ describe('POST /api/stripe/checkout', () => {
         url: 'https://checkout.stripe.com/session/cs_test',
       });
 
-      await POST();
+      await POST(createRequest());
 
       expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -195,7 +251,7 @@ describe('POST /api/stripe/checkout', () => {
         url: 'https://checkout.stripe.com/session/cs_test',
       });
 
-      const response = await POST();
+      const response = await POST(createRequest());
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -232,7 +288,7 @@ describe('POST /api/stripe/checkout', () => {
         url: 'https://checkout.stripe.com/session/cs_test',
       });
 
-      await POST();
+      await POST(createRequest());
 
       expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -253,7 +309,7 @@ describe('POST /api/stripe/checkout', () => {
       mockProfileService.getStripeCustomerId.mockResolvedValue('cus_existing');
       mockStripe.checkout.sessions.create.mockRejectedValue(new Error('Stripe API rate limit'));
 
-      const response = await POST();
+      const response = await POST(createRequest());
 
       expect(response.status).toBe(500);
       const text = await response.text();
@@ -266,7 +322,7 @@ describe('POST /api/stripe/checkout', () => {
       mockProfileService.updateStripeCustomerId.mockResolvedValue(undefined);
       mockStripe.customers.create.mockRejectedValue(new Error('Stripe customer creation failed'));
 
-      const response = await POST();
+      const response = await POST(createRequest());
 
       expect(response.status).toBe(500);
       const text = await response.text();
@@ -286,7 +342,7 @@ describe('POST /api/stripe/checkout', () => {
         url: 'https://checkout.stripe.com/session/cs_test',
       });
 
-      await POST();
+      await POST(createRequest());
 
       expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
         expect.objectContaining({
