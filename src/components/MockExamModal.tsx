@@ -497,25 +497,6 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Stack>
         )}
 
-        {/* Mode */}
-        <SegmentedControl
-          value={selectedMode}
-          onChange={(v) => setSelectedMode(v as ExamMode)}
-          data={modeData}
-          fullWidth
-          size="sm"
-          radius="xl"
-          color="purple"
-          styles={{
-            root: {
-              backgroundColor: 'var(--mantine-color-gray-0)',
-              border: '1px solid var(--mantine-color-gray-1)',
-              padding: '3px',
-            },
-            label: { fontWeight: 600, fontSize: '13px' },
-          }}
-        />
-
         {/* Error */}
         {error && (
           <Box
@@ -532,6 +513,29 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             </Text>
           </Box>
         )}
+
+        {/* Mode — inline with label */}
+        <Group justify="space-between" align="center">
+          <Text size="13px" fw={600} c="dark.5">
+            {t.exam.answerMode}
+          </Text>
+          <SegmentedControl
+            value={selectedMode}
+            onChange={(v) => setSelectedMode(v as ExamMode)}
+            data={modeData}
+            size="xs"
+            radius="xl"
+            color="purple"
+            styles={{
+              root: {
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                border: '1px solid var(--mantine-color-gray-1)',
+                padding: '2px',
+              },
+              label: { fontWeight: 600, fontSize: '12px', padding: '4px 14px' },
+            }}
+          />
+        </Group>
 
         {/* Start */}
         <Button
