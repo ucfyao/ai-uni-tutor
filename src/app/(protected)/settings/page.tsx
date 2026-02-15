@@ -1,8 +1,8 @@
 'use client';
 
-import { CreditCard, Crown, ShieldCheck } from 'lucide-react';
+import { BarChart3, CreditCard, Crown, Settings2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Badge,
   Box,
@@ -22,20 +22,44 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { PageShell } from '@/components/PageShell';
+import { useMediaQuery } from '@mantine/hooks';
+import { useHeader } from '@/context/HeaderContext';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
+import type { Language } from '@/i18n/translations';
+import { showNotification } from '@/lib/notifications';
 import type { AccessLimits } from '@/lib/services/QuotaService';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { profile, loading: profileLoading } = useProfile();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+  const { setHeaderContent } = useHeader();
+  const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const [limits, setLimits] = useState<AccessLimits | null>(null);
   const [usage, setUsage] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const headerNode = useMemo(
+    () => (
+      <Text fw={650} size="md" c="dark.8" truncate>
+        {t.settings.title}
+      </Text>
+    ),
+    [t.settings.title],
+  );
+
+  useEffect(() => {
+    if (isMobile) {
+      setHeaderContent(headerNode);
+    } else {
+      setHeaderContent(null);
+    }
+    return () => setHeaderContent(null);
+  }, [isMobile, headerNode, setHeaderContent]);
 
   useEffect(() => {
     async function fetchLimits() {
@@ -54,18 +78,31 @@ export default function SettingsPage() {
     fetchLimits();
   }, []);
 
+  const handleManageSubscription = useCallback(async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to create portal session');
+      const data: { url: string } = await res.json();
+      window.location.href = data.url;
+    } catch (e) {
+      console.error('Failed to open Stripe portal', e);
+      showNotification({
+        title: t.common.error,
+        message: e instanceof Error ? e.message : 'Failed to open billing portal',
+        color: 'red',
+      });
+      setPortalLoading(false);
+    }
+  }, [t.common.error]);
+
   if (loading || profileLoading) {
     return (
       <Container size={700} py={60}>
-        <Stack gap={40}>
-          <Box>
-            <Skeleton h={28} w={200} mb="xs" />
-            <Skeleton h={16} w={350} />
-          </Box>
-          <Skeleton h={180} radius="lg" />
-          <Skeleton h={280} radius="lg" />
+        <Stack gap={24}>
           <Skeleton h={200} radius="lg" />
-          <Skeleton h={80} radius="lg" />
+          <Skeleton h={220} radius="lg" />
+          <Skeleton h={200} radius="lg" />
         </Stack>
       </Container>
     );
@@ -73,215 +110,210 @@ export default function SettingsPage() {
 
   const isPro =
     profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
+  const dailyLimit = isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3;
+  const usagePercent = (usage / dailyLimit) * 100;
+  const progressColor = usagePercent >= 100 ? 'red' : usagePercent >= 70 ? 'yellow' : 'indigo';
 
   return (
-    <PageShell title={t.settings.title} subtitle={t.settings.subtitle}>
-      {/* Preferences */}
-      <Paper withBorder p="xl" radius="lg">
-        <Stack gap="md">
-          <Title order={3} fw={700}>
-            {t.settings.preferences}
-          </Title>
+    <Container size={700} py={60}>
+      <Stack gap={24}>
+        {/* ── Preferences ── */}
+        <Paper withBorder p="xl" radius="lg">
+          <Stack gap="md">
+            <Group gap="sm">
+              <ThemeIcon variant="light" color="gray" size="lg" radius="md">
+                <Settings2 size={20} />
+              </ThemeIcon>
+              <Box>
+                <Title order={4} fw={700}>
+                  {t.settings.preferences}
+                </Title>
+              </Box>
+            </Group>
 
-          <Group justify="space-between">
-            <Box>
-              <Text fw={500}>{t.settings.theme}</Text>
-              <Text size="sm" c="dimmed">
-                {t.settings.themeDesc}
-              </Text>
-            </Box>
-            <Switch
-              size="md"
-              checked={computedColorScheme === 'dark'}
-              onChange={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
-            />
-          </Group>
+            <Divider />
 
-          <Divider />
+            <Group justify="space-between">
+              <Box>
+                <Text fw={500}>{t.settings.theme}</Text>
+                <Text size="sm" c="dimmed">
+                  {t.settings.themeDesc}
+                </Text>
+              </Box>
+              <Switch
+                size="md"
+                checked={computedColorScheme === 'dark'}
+                onChange={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
+              />
+            </Group>
 
-          <Group justify="space-between">
-            <Box>
-              <Text fw={500}>{t.settings.language}</Text>
-              <Text size="sm" c="dimmed">
-                {t.settings.languageDesc}
-              </Text>
-            </Box>
-            <Select
-              w={140}
-              defaultValue="en"
-              data={[
-                { value: 'en', label: 'English' },
-                { value: 'zh', label: '中文' },
-              ]}
-            />
-          </Group>
+            <Divider />
 
-          <Divider />
+            <Group justify="space-between">
+              <Box>
+                <Text fw={500}>{t.settings.language}</Text>
+                <Text size="sm" c="dimmed">
+                  {t.settings.languageDesc}
+                </Text>
+              </Box>
+              <Select
+                w={140}
+                value={language}
+                onChange={(val) => {
+                  if (val === 'en' || val === 'zh') setLanguage(val as Language);
+                }}
+                data={[
+                  { value: 'en', label: 'English' },
+                  { value: 'zh', label: '中文' },
+                ]}
+              />
+            </Group>
 
-          <Group justify="space-between">
-            <Box>
-              <Text fw={500}>{t.settings.notifications}</Text>
-              <Text size="sm" c="dimmed">
-                {t.settings.notificationsDesc}
-              </Text>
-            </Box>
-            <Switch defaultChecked size="md" />
-          </Group>
-        </Stack>
-      </Paper>
+            <Divider />
 
-      {/* Plan & Billing */}
-      <Paper
-        withBorder
-        p={0}
-        radius="lg"
-        style={{ overflow: 'hidden', border: '1px solid var(--mantine-color-gray-2)' }}
-      >
-        <Box p="xl">
-          <Group justify="space-between" mb="xs">
-            <Stack gap={4}>
-              <Title order={3} fw={700}>
-                {t.settings.planBilling}
-              </Title>
-              <Text size="sm" c="dimmed">
-                {t.settings.planBillingDesc}
-              </Text>
-            </Stack>
-            {isPro ? (
-              <Badge
-                size="xl"
-                variant="filled"
-                color="violet"
-                leftSection={<Crown size={14} />}
-                h={32}
-              >
-                {t.settings.plusMember}
-              </Badge>
-            ) : (
-              <Badge size="xl" variant="light" color="gray" h={32}>
-                {t.settings.freeTier}
-              </Badge>
-            )}
-          </Group>
-        </Box>
+            {/* TODO: Wire notification preferences to backend when email service is integrated */}
+            <Group justify="space-between">
+              <Box>
+                <Text fw={500}>{t.settings.notifications}</Text>
+                <Text size="sm" c="dimmed">
+                  {t.settings.notificationsDesc}
+                </Text>
+              </Box>
+              <Switch defaultChecked size="md" />
+            </Group>
+          </Stack>
+        </Paper>
 
-        <Divider color="gray.1" />
-
-        <Box p="xl">
-          {isPro ? (
-            <Stack gap="xl">
-              <Group align="flex-start" gap="xl">
-                <ThemeIcon color="green.1" c="green.7" variant="filled" size={54} radius="md">
-                  <ShieldCheck size={32} />
+        {/* ── Plan & Billing ── */}
+        <Paper withBorder p="xl" radius="lg">
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Group gap="sm">
+                <ThemeIcon variant="light" color="violet" size="lg" radius="md">
+                  <CreditCard size={20} />
                 </ThemeIcon>
-                <Box style={{ flex: 1 }}>
-                  <Text fw={700} fz="xl" mb={4}>
-                    {t.settings.subscriptionActive}
-                  </Text>
-                  <Text size="sm" c="dimmed" lh={1.6}>
-                    {t.settings.subscriptionActiveDesc}
-                  </Text>
-                  <Text size="sm" fw={600} mt="md" c="dark.3">
-                    {t.settings.nextInvoice}{' '}
-                    {profile?.current_period_end
-                      ? new Date(profile.current_period_end).toLocaleDateString(undefined, {
-                          dateStyle: 'long',
-                        })
-                      : 'N/A'}
+                <Box>
+                  <Title order={4} fw={700}>
+                    {t.settings.planBilling}
+                  </Title>
+                  <Text size="xs" c="dimmed">
+                    {t.settings.planBillingDesc}
                   </Text>
                 </Box>
               </Group>
-              <Button
-                variant="default"
-                radius="md"
-                size="md"
-                w="fit-content"
-                leftSection={<CreditCard size={18} />}
-              >
-                {t.settings.manageViaStripe}
-              </Button>
-            </Stack>
-          ) : (
-            <Paper withBorder p="xl" radius="md" bg="gray.0">
+              {isPro ? (
+                <Badge size="lg" variant="filled" color="violet" leftSection={<Crown size={14} />}>
+                  {t.settings.plusMember}
+                </Badge>
+              ) : (
+                <Badge size="lg" variant="light" color="gray">
+                  {t.settings.freeTier}
+                </Badge>
+              )}
+            </Group>
+
+            <Divider />
+
+            {isPro ? (
               <Stack gap="md">
-                <Group>
-                  <ThemeIcon size="lg" radius="md" variant="white" color="gray">
-                    <CreditCard size={20} />
+                <Group gap="md">
+                  <ThemeIcon color="green.1" c="green.7" variant="filled" size={48} radius="md">
+                    <ShieldCheck size={28} />
                   </ThemeIcon>
-                  <Box>
-                    <Text fw={600}>{t.settings.freeTierLabel}</Text>
+                  <Box style={{ flex: 1 }}>
+                    <Text fw={700} fz="lg">
+                      {t.settings.subscriptionActive}
+                    </Text>
                     <Text size="sm" c="dimmed">
-                      {t.settings.freeTierDesc}
+                      {t.settings.subscriptionActiveDesc}
+                    </Text>
+                    <Text size="sm" fw={600} mt="xs" c="dimmed">
+                      {t.settings.nextInvoice}{' '}
+                      {profile?.current_period_end
+                        ? new Date(profile.current_period_end).toLocaleDateString(undefined, {
+                            dateStyle: 'long',
+                          })
+                        : 'N/A'}
                     </Text>
                   </Box>
                 </Group>
+                <Button
+                  variant="default"
+                  radius="md"
+                  size="md"
+                  w="fit-content"
+                  leftSection={<CreditCard size={18} />}
+                  onClick={handleManageSubscription}
+                  loading={portalLoading}
+                >
+                  {t.settings.manageViaStripe}
+                </Button>
+              </Stack>
+            ) : (
+              <Stack gap="md">
                 <Text size="sm" c="dimmed">
-                  {t.settings.freeTierUpgrade}
+                  {t.settings.freeTierDesc} {t.settings.freeTierUpgrade}
                 </Text>
                 <Button
                   variant="light"
                   color="violet"
                   radius="md"
+                  w="fit-content"
                   onClick={() => router.push('/pricing')}
                 >
                   {t.settings.viewUpgradeOptions}
                 </Button>
               </Stack>
-            </Paper>
-          )}
-        </Box>
-      </Paper>
+            )}
+          </Stack>
+        </Paper>
 
-      {/* Usage & Limits */}
-      <Paper withBorder p="xl" radius="lg">
-        <Stack gap="md">
-          <Title order={3} fw={700}>
-            {t.settings.usageLimits}
-          </Title>
-          <Text size="sm" c="dimmed">
-            {t.settings.usageLimitsDesc}
-          </Text>
-
-          <Stack>
-            <Group justify="space-between" mb={5}>
-              <Text fw={500}>{t.settings.dailyLLMUsage}</Text>
-              <Text
-                size="sm"
-                c={
-                  usage >= (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3)
-                    ? 'red'
-                    : 'dimmed'
-                }
-              >
-                {usage} / {isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3}
-              </Text>
+        {/* ── Usage & Limits ── */}
+        <Paper withBorder p="xl" radius="lg">
+          <Stack gap="md">
+            <Group gap="sm">
+              <ThemeIcon variant="light" color="blue" size="lg" radius="md">
+                <BarChart3 size={20} />
+              </ThemeIcon>
+              <Box>
+                <Title order={4} fw={700}>
+                  {t.settings.usageLimits}
+                </Title>
+                <Text size="xs" c="dimmed">
+                  {t.settings.usageLimitsDesc}
+                </Text>
+              </Box>
             </Group>
-            <Progress
-              value={
-                (usage / (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3)) * 100
-              }
-              color={
-                usage >= (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3)
-                  ? 'red'
-                  : usage >=
-                      (isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3) * 0.7
-                    ? 'yellow'
-                    : 'indigo'
-              }
-              size="md"
-              radius="xl"
-              mb="sm"
-              animated
-            />
 
             <Divider />
+
+            <Box>
+              <Group justify="space-between" mb={6}>
+                <Text fw={500}>{t.settings.dailyLLMUsage}</Text>
+                <Text size="sm" c={usagePercent >= 100 ? 'red' : 'dimmed'}>
+                  {usage} / {dailyLimit}
+                </Text>
+              </Group>
+              <Progress
+                value={Math.min(usagePercent, 100)}
+                color={progressColor}
+                size="md"
+                radius="xl"
+                animated
+              />
+            </Box>
+
+            <Divider />
+
             <Group justify="space-between">
               <Text fw={500}>{t.settings.fileUploadSize}</Text>
               <Badge variant="light" color="blue">
                 {limits?.maxFileSizeMB || 5}MB {t.settings.perFile}
               </Badge>
             </Group>
+
             <Divider />
+
             <Group justify="space-between">
               <Text fw={500}>{t.settings.documentStorage}</Text>
               <Badge variant="light" color={isPro ? 'green' : 'gray'}>
@@ -289,8 +321,8 @@ export default function SettingsPage() {
               </Badge>
             </Group>
           </Stack>
-        </Stack>
-      </Paper>
-    </PageShell>
+        </Paper>
+      </Stack>
+    </Container>
   );
 }
