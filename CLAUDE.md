@@ -65,6 +65,8 @@ Scopes: `chat` `rag` `api` `ui` `auth` `stripe` `db` `deps` `config`
 
 Git hooks: pre-commit (lint-staged) · pre-push (build) · commit-msg (commitlint). Main branch is protected — must go through PR with Vercel check.
 
+**Before every push:** always `git fetch origin main && git merge origin/main --no-edit` first to keep the branch up-to-date. Stash local uncommitted changes if needed before merging.
+
 ## Key Rules
 
 - Public routes: `/`, `/zh`, `/login`, `/auth/callback`, `/share/[id]` — all others require auth
