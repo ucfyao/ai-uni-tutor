@@ -162,9 +162,10 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   };
 
   const isStartDisabled =
-    (source === 'ai' && !selectedCourseCode) ||
+    !selectedUniId ||
+    !selectedCourseCode ||
     (source === 'real' && !selectedPaper) ||
-    (source === 'random' && (!selectedCourseCode || papers.length === 0));
+    (source === 'random' && papers.length === 0);
 
   const showNoPapers =
     source !== 'ai' && selectedCourseCode && !loadingPapers && papers.length === 0;
