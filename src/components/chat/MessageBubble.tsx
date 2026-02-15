@@ -12,7 +12,9 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
+import { IconCheck } from '@tabler/icons-react';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { showNotification } from '@/lib/notifications';
 import { ChatMessage, TutoringMode } from '@/types/index';
 
 const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
@@ -85,9 +87,15 @@ const MessageActionBar: React.FC<{
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
+        showNotification({
+          message: t.toast.copiedToClipboard,
+          color: 'green',
+          icon: <IconCheck size={16} />,
+          autoClose: 3000,
+        });
       })
       .catch(() => {});
-  }, [content]);
+  }, [content, t.toast.copiedToClipboard]);
 
   return (
     <Group
@@ -115,7 +123,14 @@ const MessageActionBar: React.FC<{
             color="gray"
             size={28}
             radius="md"
-            onClick={() => onRegenerate(messageId)}
+            onClick={() => {
+              onRegenerate(messageId);
+              showNotification({
+                message: t.toast.regenerating,
+                color: 'indigo',
+                autoClose: 3000,
+              });
+            }}
           >
             <RefreshCw size={14} />
           </ActionIcon>

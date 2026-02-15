@@ -1,20 +1,20 @@
 import { BookOpen, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Accordion,
   Badge,
   Box,
   Button,
-  Center,
   CloseButton,
   Group,
   Modal,
-  Paper,
   ScrollArea,
   Stack,
   Text,
   ThemeIcon,
 } from '@mantine/core';
+import { IconArrowRight, IconBook2 } from '@tabler/icons-react';
 import { fetchCardConversations } from '@/app/actions/knowledge-cards';
 import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
 import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
@@ -310,18 +310,23 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         >
           <Stack gap={10} p="md">
             {totalCards === 0 && (
-              <Paper withBorder radius="md" p="lg">
-                <Center>
-                  <Stack gap="sm" align="center">
-                    <ThemeIcon size={56} radius="md" variant="light" color="indigo">
-                      <BookOpen size={24} strokeWidth={1.5} />
-                    </ThemeIcon>
-                    <Text size="sm" fw={600} c="dimmed" ta="center">
-                      {t.chat.noCardsYet}
-                    </Text>
-                  </Stack>
-                </Center>
-              </Paper>
+              <Stack align="center" gap="md" py="xl">
+                <ThemeIcon size={48} radius="xl" variant="light" color="gray">
+                  <IconBook2 size={24} />
+                </ThemeIcon>
+                <Text ta="center" c="dimmed" fz="sm">
+                  {t.chat.noKnowledgeFound}
+                </Text>
+                <Button
+                  component={Link}
+                  href="/knowledge"
+                  variant="subtle"
+                  size="xs"
+                  rightSection={<IconArrowRight size={14} />}
+                >
+                  {t.chat.uploadDocuments}
+                </Button>
+              </Stack>
             )}
 
             {(officialCards.length > 0 || userCards.length > 0) && (

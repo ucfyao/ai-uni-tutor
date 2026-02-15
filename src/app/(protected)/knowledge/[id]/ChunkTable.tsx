@@ -2,7 +2,20 @@
 
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import { type CSSProperties } from 'react';
-import { ActionIcon, Badge, Box, Card, Collapse, Group, Stack, Table, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Collapse,
+  Group,
+  Skeleton,
+  Stack,
+  Table,
+  Text,
+} from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChunkEditForm } from './ChunkEditForm';
@@ -13,6 +26,7 @@ interface ChunkTableProps {
   docType: DocType;
   editingChunkId: string | null;
   expandedAnswers: Set<string>;
+  selectedIds: Set<string>;
   getEffectiveContent: (chunk: Chunk) => string;
   getEffectiveMetadata: (chunk: Chunk) => Record<string, unknown>;
   onStartEdit: (chunk: Chunk) => void;
@@ -20,6 +34,9 @@ interface ChunkTableProps {
   onSaveEdit: (chunkId: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (chunkId: string) => void;
   onToggleAnswer: (chunkId: string) => void;
+  onToggleSelect: (chunkId: string) => void;
+  onToggleSelectAll: () => void;
+  onBulkDelete: () => void;
 }
 
 const thStyle: CSSProperties = {
@@ -35,6 +52,7 @@ export function ChunkTable({
   docType,
   editingChunkId,
   expandedAnswers,
+  selectedIds,
   getEffectiveContent,
   getEffectiveMetadata,
   onStartEdit,
@@ -42,6 +60,9 @@ export function ChunkTable({
   onSaveEdit,
   onDelete,
   onToggleAnswer,
+  onToggleSelect,
+  onToggleSelectAll,
+  onBulkDelete,
 }: ChunkTableProps) {
   const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 48em)', false);
@@ -54,12 +75,34 @@ export function ChunkTable({
         ? t.documentDetail.questions
         : t.documentDetail.chunks;
 
+  // Empty chunks skeleton
+  if (chunks.length === 0) {
+    return (
+      <Stack align="center" gap="md" py="xl">
+        <Skeleton height={16} width="60%" />
+        <Skeleton height={16} width="80%" />
+        <Skeleton height={16} width="50%" />
+        <Text c="dimmed" fz="sm">{t.knowledge.processingDocument}</Text>
+      </Stack>
+    );
+  }
+
   if (isMobile) {
     return (
       <Stack gap="md">
-        <Badge variant="filled" color="indigo" size="lg">
-          {chunks.length} {countLabel}
-        </Badge>
+        <Group justify="space-between" align="center">
+          <Badge variant="filled" color="indigo" size="lg">
+            {chunks.length} {countLabel}
+          </Badge>
+          {selectedIds.size > 0 && (
+            <Group gap="xs">
+              <Text fz="sm" c="dimmed">{selectedIds.size} selected</Text>
+              <Button size="xs" color="red" variant="light" onClick={onBulkDelete}>
+                {t.knowledge.bulkDelete}
+              </Button>
+            </Group>
+          )}
+        </Group>
         {chunks.map((chunk, index) => (
           <MobileChunkRow
             key={chunk.id}
@@ -68,6 +111,7 @@ export function ChunkTable({
             docType={docType}
             isEditing={editingChunkId === chunk.id}
             isExpanded={expandedAnswers.has(chunk.id)}
+            isSelected={selectedIds.has(chunk.id)}
             content={getEffectiveContent(chunk)}
             metadata={getEffectiveMetadata(chunk)}
             onEdit={() => onStartEdit(chunk)}
@@ -75,6 +119,7 @@ export function ChunkTable({
             onSave={onSaveEdit}
             onDelete={() => onDelete(chunk.id)}
             onToggleAnswer={() => onToggleAnswer(chunk.id)}
+            onToggleSelect={() => onToggleSelect(chunk.id)}
           />
         ))}
       </Stack>
@@ -84,9 +129,19 @@ export function ChunkTable({
   // Desktop table
   return (
     <Stack gap="md">
-      <Badge variant="filled" color="indigo" size="lg">
-        {chunks.length} {countLabel}
-      </Badge>
+      <Group justify="space-between" align="center">
+        <Badge variant="filled" color="indigo" size="lg">
+          {chunks.length} {countLabel}
+        </Badge>
+        {selectedIds.size > 0 && (
+          <Group gap="xs">
+            <Text fz="sm" c="dimmed">{selectedIds.size} selected</Text>
+            <Button size="xs" color="red" variant="light" onClick={onBulkDelete}>
+              {t.knowledge.bulkDelete}
+            </Button>
+          </Group>
+        )}
+      </Group>
       <Card withBorder radius="lg" p={0} style={{ overflow: 'auto' }}>
         <Table
           verticalSpacing="sm"
@@ -96,7 +151,16 @@ export function ChunkTable({
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th w="5%" style={thStyle}>
+              <Table.Th w="4%" style={thStyle}>
+                <Checkbox
+                  size="xs"
+                  checked={selectedIds.size === chunks.length && chunks.length > 0}
+                  indeterminate={selectedIds.size > 0 && selectedIds.size < chunks.length}
+                  onChange={onToggleSelectAll}
+                  aria-label="Select all"
+                />
+              </Table.Th>
+              <Table.Th w="4%" style={thStyle}>
                 #
               </Table.Th>
               {docType === 'lecture' && (
@@ -135,7 +199,8 @@ export function ChunkTable({
               const meta = getEffectiveMetadata(chunk);
               const content = getEffectiveContent(chunk);
               const isEditing = editingChunkId === chunk.id;
-              const colCount = docType === 'lecture' ? 4 : docType === 'exam' ? 5 : 3;
+              // +1 for checkbox column
+              const colCount = (docType === 'lecture' ? 4 : docType === 'exam' ? 5 : 3) + 1;
 
               return (
                 <DesktopChunkRows
@@ -146,6 +211,7 @@ export function ChunkTable({
                   colCount={colCount}
                   isEditing={isEditing}
                   isExpanded={expandedAnswers.has(chunk.id)}
+                  isSelected={selectedIds.has(chunk.id)}
                   content={content}
                   metadata={meta}
                   onEdit={() => onStartEdit(chunk)}
@@ -153,6 +219,7 @@ export function ChunkTable({
                   onSave={onSaveEdit}
                   onDelete={() => onDelete(chunk.id)}
                   onToggleAnswer={() => onToggleAnswer(chunk.id)}
+                  onToggleSelect={() => onToggleSelect(chunk.id)}
                 />
               );
             })}
@@ -172,6 +239,7 @@ function DesktopChunkRows({
   colCount,
   isEditing,
   isExpanded,
+  isSelected,
   content,
   metadata: meta,
   onEdit,
@@ -179,6 +247,7 @@ function DesktopChunkRows({
   onSave,
   onDelete,
   onToggleAnswer,
+  onToggleSelect,
 }: {
   chunk: Chunk;
   index: number;
@@ -186,6 +255,7 @@ function DesktopChunkRows({
   colCount: number;
   isEditing: boolean;
   isExpanded: boolean;
+  isSelected: boolean;
   content: string;
   metadata: Record<string, unknown>;
   onEdit: () => void;
@@ -193,6 +263,7 @@ function DesktopChunkRows({
   onSave: (id: string, content: string, meta: Record<string, unknown>) => void;
   onDelete: () => void;
   onToggleAnswer: () => void;
+  onToggleSelect: () => void;
 }) {
   const { t } = useLanguage();
   const answer = (meta.answer as string) || (meta.referenceAnswer as string) || '';
@@ -200,6 +271,14 @@ function DesktopChunkRows({
   return (
     <>
       <Table.Tr style={{ opacity: isEditing ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
+        <Table.Td>
+          <Checkbox
+            size="xs"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            aria-label={`Select row ${index + 1}`}
+          />
+        </Table.Td>
         <Table.Td>
           <Text size="sm" c="dimmed">
             {index + 1}
@@ -313,6 +392,7 @@ function MobileChunkRow({
   docType,
   isEditing,
   isExpanded,
+  isSelected,
   content,
   metadata: meta,
   onEdit,
@@ -320,12 +400,14 @@ function MobileChunkRow({
   onSave,
   onDelete,
   onToggleAnswer,
+  onToggleSelect,
 }: {
   chunk: Chunk;
   index: number;
   docType: DocType;
   isEditing: boolean;
   isExpanded: boolean;
+  isSelected: boolean;
   content: string;
   metadata: Record<string, unknown>;
   onEdit: () => void;
@@ -333,6 +415,7 @@ function MobileChunkRow({
   onSave: (id: string, content: string, meta: Record<string, unknown>) => void;
   onDelete: () => void;
   onToggleAnswer: () => void;
+  onToggleSelect: () => void;
 }) {
   const { t } = useLanguage();
   const answer = (meta.answer as string) || (meta.referenceAnswer as string) || '';
@@ -366,9 +449,18 @@ function MobileChunkRow({
     <Card withBorder radius="lg" p="sm">
       <Stack gap="xs">
         <Group justify="space-between" wrap="nowrap">
-          <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
-            {title}
-          </Text>
+          <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <Checkbox
+              size="xs"
+              checked={isSelected}
+              onChange={onToggleSelect}
+              aria-label={`Select ${title}`}
+              style={{ flexShrink: 0 }}
+            />
+            <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
+              {title}
+            </Text>
+          </Group>
           <Group gap={4} wrap="nowrap">
             {docType === 'exam' && answer && (
               <ActionIcon variant="subtle" color="gray" size="sm" onClick={onToggleAnswer}>

@@ -1,8 +1,8 @@
 'use client';
 
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { IconCircleCheck, IconCircleX } from '@tabler/icons-react';
 import dynamic from 'next/dynamic';
-import { Box, Card, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Box, Card, Group, Paper, Stack, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { MockExamResponse } from '@/types/exam';
 
@@ -35,14 +35,11 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
     >
       <Stack gap="sm">
         <Group gap={8}>
-          <ThemeIcon
-            size="sm"
-            radius="xl"
-            color={feedback.isCorrect ? 'green' : 'red'}
-            variant="filled"
-          >
-            {feedback.isCorrect ? <IconCheck size={12} /> : <IconX size={12} />}
-          </ThemeIcon>
+          {feedback.isCorrect ? (
+            <IconCircleCheck size={24} color="var(--mantine-color-green-6)" />
+          ) : (
+            <IconCircleX size={24} color="var(--mantine-color-red-6)" />
+          )}
           <Text fw={600} c={feedback.isCorrect ? 'green' : 'red'}>
             {feedback.isCorrect ? t.exam.correct : t.exam.incorrect} ({feedback.score}{' '}
             {t.exam.points})
