@@ -10,8 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   assistantMessageEntity,
   assistantMessageRow,
-  messageWithCardEntity,
-  messageWithCardRow,
   userMessageEntity,
   userMessageRow,
 } from '@/__tests__/fixtures/messages';
@@ -68,7 +66,7 @@ describe('MessageRepository', () => {
 
       expect(mockSupabase.client.from).toHaveBeenCalledWith('chat_messages');
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith(
-        'id, session_id, role, content, card_id, created_at',
+        'id, session_id, role, content, created_at',
       );
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('session_id', 'session-001');
       expect(mockSupabase.client._chain.order).toHaveBeenCalledWith('created_at', {
@@ -100,40 +98,6 @@ describe('MessageRepository', () => {
     });
   });
 
-  // ── findByCardId ──
-
-  describe('findByCardId', () => {
-    it('should return messages matching the card_id', async () => {
-      mockSupabase.setQueryResponse([messageWithCardRow]);
-
-      const result = await repo.findByCardId('card-001');
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual(messageWithCardEntity);
-    });
-
-    it('should query with correct field selection and ordering', async () => {
-      mockSupabase.setQueryResponse([]);
-
-      await repo.findByCardId('card-001');
-
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('chat_messages');
-      expect(mockSupabase.client._chain.select).toHaveBeenCalledWith(
-        'id, session_id, role, content, card_id, created_at',
-      );
-      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('card_id', 'card-001');
-      expect(mockSupabase.client._chain.order).toHaveBeenCalledWith('created_at', {
-        ascending: true,
-      });
-    });
-
-    it('should throw DatabaseError on error', async () => {
-      mockSupabase.setErrorResponse(dbError('Card query failed'));
-
-      await expect(repo.findByCardId('card-001')).rejects.toThrow(DatabaseError);
-    });
-  });
-
   // ── create ──
 
   describe('create', () => {
@@ -154,29 +118,8 @@ describe('MessageRepository', () => {
         session_id: 'session-001',
         role: 'user',
         content: 'What is recursion?',
-        card_id: null,
         created_at: expect.any(String),
       });
-    });
-
-    it('should include card_id when provided', async () => {
-      mockSupabase.setSingleResponse(messageWithCardRow);
-
-      const dto = {
-        sessionId: 'session-001',
-        role: 'user' as const,
-        content: 'Explain this concept from my notes.',
-        cardId: 'card-001',
-        timestamp: Date.now(),
-      };
-
-      await repo.create(dto);
-
-      expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          card_id: 'card-001',
-        }),
-      );
     });
 
     it('should not update session timestamp (handled at service layer)', async () => {
@@ -244,7 +187,6 @@ describe('MessageRepository', () => {
       const result = await repo.findBySessionId('session-001');
 
       expect(result[0].sessionId).toBe(userMessageRow.session_id);
-      expect(result[0].cardId).toBe(userMessageRow.card_id);
       expect(result[0].createdAt).toEqual(new Date(userMessageRow.created_at));
     });
 

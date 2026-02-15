@@ -9,3 +9,4 @@ export { QuotaService, getQuotaService } from './QuotaService';
 export type { QuotaStatus, QuotaCheckResult } from './QuotaService';
 export { DocumentService, getDocumentService } from './DocumentService';
 export { ProfileService, getProfileService } from './ProfileService';
+export { KnowledgeCardService, getKnowledgeCardService } from './KnowledgeCardService';

@@ -105,7 +105,6 @@ export interface Database {
           session_id: string;
           role: 'user' | 'assistant';
           content: string;
-          card_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -113,7 +112,6 @@ export interface Database {
           session_id: string;
           role: 'user' | 'assistant';
           content: string;
-          card_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -121,7 +119,120 @@ export interface Database {
           session_id?: string;
           role?: 'user' | 'assistant';
           content?: string;
-          card_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      knowledge_cards: {
+        Row: {
+          id: string;
+          title: string;
+          definition: string;
+          key_formulas: string[];
+          key_concepts: string[];
+          examples: string[];
+          source_pages: number[];
+          document_id: string | null;
+          embedding: number[] | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          definition: string;
+          key_formulas?: string[];
+          key_concepts?: string[];
+          examples?: string[];
+          source_pages?: number[];
+          document_id?: string | null;
+          embedding?: number[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          definition?: string;
+          key_formulas?: string[];
+          key_concepts?: string[];
+          examples?: string[];
+          source_pages?: number[];
+          document_id?: string | null;
+          embedding?: number[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_cards: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_id: string | null;
+          title: string;
+          content: string;
+          excerpt: string;
+          source_message_id: string | null;
+          source_role: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_id?: string | null;
+          title: string;
+          content?: string;
+          excerpt?: string;
+          source_message_id?: string | null;
+          source_role?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_id?: string | null;
+          title?: string;
+          content?: string;
+          excerpt?: string;
+          source_message_id?: string | null;
+          source_role?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      card_conversations: {
+        Row: {
+          id: string;
+          card_id: string;
+          card_type: 'knowledge' | 'user';
+          user_id: string;
+          session_id: string | null;
+          course_code: string | null;
+          role: 'user' | 'assistant';
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          card_id: string;
+          card_type: 'knowledge' | 'user';
+          user_id: string;
+          session_id?: string | null;
+          course_code?: string | null;
+          role: 'user' | 'assistant';
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          card_id?: string;
+          card_type?: 'knowledge' | 'user';
+          user_id?: string;
+          session_id?: string | null;
+          course_code?: string | null;
+          role?: 'user' | 'assistant';
+          content?: string;
           created_at?: string;
         };
         Relationships: [];
@@ -339,6 +450,25 @@ export interface Database {
           content: string;
           similarity: number;
           metadata: Json;
+        }[];
+      };
+      match_knowledge_cards: {
+        Args: {
+          query_embedding: number[];
+          match_count: number;
+        };
+        Returns: {
+          id: string;
+          title: string;
+          definition: string;
+          key_formulas: string[];
+          key_concepts: string[];
+          examples: string[];
+          source_pages: number[];
+          document_id: string | null;
+          created_at: string;
+          updated_at: string;
+          similarity: number;
         }[];
       };
       hybrid_search: {
