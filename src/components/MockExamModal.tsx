@@ -43,9 +43,9 @@ const selectStyles = {
     border: 'none',
     backgroundColor: 'transparent',
     padding: 0,
-    paddingRight: '24px',
+    paddingRight: '20px',
     height: 'auto',
-    fontSize: '15px',
+    fontSize: '13px',
     fontWeight: 600,
     color: 'var(--mantine-color-dark-9)',
     width: '100%',
@@ -213,8 +213,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </UnstyledButton>
         </Group>
 
-        {/* 1. University + Course — FormRow style */}
-        <Stack gap={12}>
+        {/* 1. University + Course — compact FormRow */}
+        <Stack gap={8}>
           <FormRow icon={Building2} label={t.exam.university ?? 'University'} active={true}>
             <Select
               data={uniOptions}
@@ -471,29 +471,29 @@ function FormRow({
   return (
     <Box
       style={{
-        borderRadius: '16px',
+        borderRadius: '12px',
         border: active ? `1.5px solid var(--mantine-color-${THEME}-3)` : '1.5px solid transparent',
         backgroundColor: active ? 'white' : 'var(--mantine-color-gray-0)',
         boxShadow: active ? `0 0 0 2px var(--mantine-color-${THEME}-0)` : 'none',
         overflow: 'hidden',
         transition: 'all 0.2s ease',
-        height: '64px',
+        height: '48px',
         display: 'flex',
         alignItems: 'center',
       }}
     >
       <Group gap={0} wrap="nowrap" align="stretch" w="100%" h="100%">
         <Center
-          w={60}
+          w={44}
           style={{ borderRight: active ? '1px solid var(--mantine-color-gray-1)' : 'none' }}
         >
           <ThemeIcon
             variant={active ? 'light' : 'transparent'}
             color={active ? THEME : 'gray'}
-            size={32}
-            radius="lg"
+            size={26}
+            radius="md"
           >
-            <Icon size={18} strokeWidth={2} />
+            <Icon size={14} strokeWidth={2} />
           </ThemeIcon>
         </Center>
         <Box
@@ -504,15 +504,16 @@ function FormRow({
             flexDirection: 'column',
             justifyContent: 'center',
           }}
-          px="md"
+          px="sm"
         >
           <Text
-            size="10px"
+            size="9px"
             fw={700}
             tt="uppercase"
-            lts={1}
+            lts={0.8}
             c={active ? `${THEME}.7` : 'gray.5'}
             mb={0}
+            lh={1}
           >
             {label}
           </Text>
@@ -528,7 +529,7 @@ function FormRow({
                 color: 'var(--mantine-color-gray-4)',
               }}
             >
-              <ChevronDown size={14} strokeWidth={2} />
+              <ChevronDown size={12} strokeWidth={2} />
             </Box>
           </Box>
         </Box>
