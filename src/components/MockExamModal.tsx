@@ -81,8 +81,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     }
     setSource('real');
     setError(null);
-    // Remount SegmentedControl after pop transition (180ms) to fix indicator
-    const timer = setTimeout(() => setSegKey((k) => k + 1), 200);
+    // Remount SegmentedControl after pop transition (200ms) to fix indicator
+    const timer = setTimeout(() => setSegKey((k) => k + 1), 220);
     const lastUni = localStorage.getItem('lastUniId');
     const lastCourse = localStorage.getItem('lastCourseId');
     if (lastUni) {
@@ -189,32 +189,33 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       opened={opened}
       onClose={onClose}
       withCloseButton={false}
-      radius={16}
+      radius={24}
       centered
-      padding={24}
-      size="460px"
-      overlayProps={{ backgroundOpacity: 0.25, blur: 6, color: '#1a1b1e' }}
-      transitionProps={{ transition: 'pop', duration: 180, timingFunction: 'ease' }}
+      padding={32}
+      size="500px"
+      overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
+      transitionProps={{ transition: 'pop', duration: 200, timingFunction: 'ease' }}
       styles={{
         content: {
-          boxShadow: '0 16px 40px -8px rgba(0,0,0,0.12)',
-          border: '1px solid var(--mantine-color-gray-2)',
+          boxShadow: '0 24px 48px -12px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(255,255,255,1)',
+          background: 'white',
         },
       }}
     >
-      <Stack gap={20}>
+      <Stack gap={24}>
         {/* Header */}
         <Group justify="space-between" align="center">
-          <Text fw={700} fz={16} c="dark.8" lts={-0.2}>
+          <Text fw={800} size="22px" lts={-0.2} c="dark.9">
             {t.exam.startExam}
           </Text>
           <UnstyledButton
             onClick={onClose}
-            w={28}
-            h={28}
+            w={36}
+            h={36}
             className="flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
           >
-            <X size={14} strokeWidth={2.5} color="var(--mantine-color-gray-5)" />
+            <X size={18} strokeWidth={3} color="var(--mantine-color-gray-4)" />
           </UnstyledButton>
         </Group>
 
