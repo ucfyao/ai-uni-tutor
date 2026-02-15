@@ -67,6 +67,53 @@ export class MockExamService {
   }
 
   /**
+   * Create a mock exam directly from an existing exam paper's original questions.
+   * No AI generation — uses the real questions as-is.
+   */
+  async createFromPaper(
+    userId: string,
+    paperId: string,
+    mode: 'practice' | 'exam' = 'practice',
+  ): Promise<{ mockId: string }> {
+    const paper = await this.paperRepo.findById(paperId);
+    if (!paper) throw new AppError('NOT_FOUND', 'Exam paper not found');
+
+    const questions = await this.paperRepo.findQuestionsByPaperId(paperId);
+    if (questions.length === 0) {
+      throw new AppError('NOT_FOUND', 'No questions found for this paper');
+    }
+
+    const count = await this.mockRepo.countByUserAndPaper(userId, paperId);
+    const title = `${paper.title} #${count + 1}`;
+
+    const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
+      content: q.content,
+      type: q.type,
+      options: q.options as Record<string, string> | null,
+      answer: q.answer,
+      explanation: q.explanation,
+      points: q.points,
+      sourceQuestionId: q.id,
+    }));
+
+    const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
+
+    const mockId = await this.mockRepo.create({
+      userId,
+      paperId,
+      title,
+      mode,
+      questions: mockQuestions as unknown as Json,
+      responses: [] as unknown as Json,
+      totalPoints,
+      currentIndex: 0,
+      status: 'in_progress',
+    });
+
+    return { mockId };
+  }
+
+  /**
    * Generate a mock exam from a topic using AI.
    * Creates a virtual exam paper (satisfying FK constraint) and a mock exam.
    */
