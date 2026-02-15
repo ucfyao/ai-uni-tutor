@@ -1,5 +1,4 @@
 import { Box, Container } from '@mantine/core';
-import { COURSES, UNIVERSITIES } from '@/constants';
 import { ExamEntryClient } from './ExamEntryClient';
 
 export default function ExamPage() {
@@ -21,7 +20,7 @@ export default function ExamPage() {
         }}
       />
       <Box style={{ position: 'relative', zIndex: 1 }}>
-        <ExamEntryClient courses={COURSES} universities={UNIVERSITIES} />
+        <ExamEntryClient />
       </Box>
     </Container>
   );

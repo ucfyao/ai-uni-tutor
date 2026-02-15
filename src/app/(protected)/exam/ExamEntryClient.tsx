@@ -21,16 +21,13 @@ import {
   generateMockFromTopic,
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
+import { COURSES, UNIVERSITIES } from '@/constants';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
-import type { Course, University } from '@/types/index';
 
-interface Props {
-  courses: Course[];
-  universities: University[];
-}
-
-export function ExamEntryClient({ courses, universities }: Props) {
+export function ExamEntryClient() {
+  const courses = COURSES;
+  const universities = UNIVERSITIES;
   const router = useRouter();
   const { t } = useLanguage();
   const [isPending, startTransition] = useTransition();
@@ -46,14 +43,16 @@ export function ExamEntryClient({ courses, universities }: Props) {
   const [difficulty, setDifficulty] = useState<string | null>('mixed');
   const [loadingPapers, setLoadingPapers] = useState(false);
 
-  const courseOptions = (courses ?? []).map((c) => {
-    const uni = universities.find((u) => u.id === c.universityId);
-    return {
-      value: c.code,
-      label: `${c.code} — ${c.name}`,
-      group: uni?.shortName ?? 'Other',
-    };
-  });
+  const courseOptions = (() => {
+    const groups: Record<string, { value: string; label: string }[]> = {};
+    for (const c of courses ?? []) {
+      const uni = (universities ?? []).find((u) => u.id === c.universityId);
+      const group = uni?.shortName ?? 'Other';
+      if (!groups[group]) groups[group] = [];
+      groups[group].push({ value: c.code, label: `${c.code} — ${c.name}` });
+    }
+    return Object.entries(groups).map(([group, items]) => ({ group, items }));
+  })();
 
   useEffect(() => {
     if (!selectedCourse) {
