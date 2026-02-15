@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getEnv } from '@/lib/env';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -20,7 +21,7 @@ export async function POST(_req: NextRequest) {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/settings`,
+      return_url: `${getEnv().NEXT_PUBLIC_SITE_URL}/settings`,
     });
 
     return NextResponse.json({ url: session.url });

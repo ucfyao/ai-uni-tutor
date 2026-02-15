@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getEnv } from '@/lib/env';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -54,8 +55,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/settings?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/settings?canceled=true`,
+      success_url: `${getEnv().NEXT_PUBLIC_SITE_URL}/settings?success=true`,
+      cancel_url: `${getEnv().NEXT_PUBLIC_SITE_URL}/settings?canceled=true`,
       metadata: {
         userId: user.id,
       },

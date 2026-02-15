@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getEnv } from '@/lib/env';
 import { createClient } from '@/lib/supabase/server';
 
 const ALLOWED_PATH_PREFIXES = [
@@ -52,14 +53,14 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const forwardedHost = request.headers.get('x-forwarded-host');
-      const isLocalEnv = process.env.NODE_ENV === 'development';
+      const env = getEnv();
 
-      if (isLocalEnv) {
+      if (env.NODE_ENV === 'development') {
         return NextResponse.redirect(`${origin}${next}`);
       } else if (forwardedHost) {
         // Validate forwarded host against known domains
         const allowedHosts = [
-          process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, ''),
+          env.NEXT_PUBLIC_SITE_URL.replace(/^https?:\/\//, ''),
           'ai-uni-tutor.vercel.app',
         ].filter(Boolean);
 

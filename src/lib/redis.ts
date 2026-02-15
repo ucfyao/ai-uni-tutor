@@ -8,6 +8,7 @@
  */
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { getRateLimitConfig } from '@/lib/env';
 
 let _redis: Redis | null = null;
 
@@ -46,13 +47,12 @@ export const redis = new Proxy({} as Redis, {
 /** DDoS: anonymous requests (proxy) */
 function getRatelimit(): Ratelimit {
   if (!_ratelimit) {
+    const cfg = getRateLimitConfig();
     _ratelimit = new Ratelimit({
       redis: getRedis(),
       limiter: Ratelimit.slidingWindow(
-        parseInt(process.env.RATE_LIMIT_PUBLIC_REQUESTS || '60', 10),
-        (process.env.RATE_LIMIT_PUBLIC_WINDOW || '60 s') as Parameters<
-          typeof Ratelimit.slidingWindow
-        >[1],
+        cfg.publicRequests,
+        cfg.publicWindow as Parameters<typeof Ratelimit.slidingWindow>[1],
       ),
       analytics: true,
       prefix: '@upstash/ratelimit/public',
@@ -64,13 +64,12 @@ function getRatelimit(): Ratelimit {
 /** DDoS: logged-in requests (proxy) */
 function getProRatelimit(): Ratelimit {
   if (!_proRatelimit) {
+    const cfg = getRateLimitConfig();
     _proRatelimit = new Ratelimit({
       redis: getRedis(),
       limiter: Ratelimit.slidingWindow(
-        parseInt(process.env.RATE_LIMIT_PRO_REQUESTS || '100', 10),
-        (process.env.RATE_LIMIT_PRO_WINDOW || '10 s') as Parameters<
-          typeof Ratelimit.slidingWindow
-        >[1],
+        cfg.proRequests,
+        cfg.proWindow as Parameters<typeof Ratelimit.slidingWindow>[1],
       ),
       analytics: true,
       prefix: '@upstash/ratelimit/pro',
@@ -82,13 +81,12 @@ function getProRatelimit(): Ratelimit {
 /** LLM: chat/LLM API per-window limit (free tier) */
 function getLlmFreeRatelimit(): Ratelimit {
   if (!_llmFreeRatelimit) {
+    const cfg = getRateLimitConfig();
     _llmFreeRatelimit = new Ratelimit({
       redis: getRedis(),
       limiter: Ratelimit.slidingWindow(
-        parseInt(process.env.RATE_LIMIT_LLM_FREE_REQUESTS || '3', 10),
-        (process.env.RATE_LIMIT_LLM_FREE_WINDOW || '60 s') as Parameters<
-          typeof Ratelimit.slidingWindow
-        >[1],
+        cfg.llmFreeRequests,
+        cfg.llmFreeWindow as Parameters<typeof Ratelimit.slidingWindow>[1],
       ),
       analytics: true,
       prefix: '@upstash/ratelimit/llm-free',
@@ -100,13 +98,12 @@ function getLlmFreeRatelimit(): Ratelimit {
 /** LLM: chat/LLM API per-window limit (pro tier) */
 function getLlmProRatelimit(): Ratelimit {
   if (!_llmProRatelimit) {
+    const cfg = getRateLimitConfig();
     _llmProRatelimit = new Ratelimit({
       redis: getRedis(),
       limiter: Ratelimit.slidingWindow(
-        parseInt(process.env.RATE_LIMIT_LLM_PRO_REQUESTS || '60', 10),
-        (process.env.RATE_LIMIT_LLM_PRO_WINDOW || '60 s') as Parameters<
-          typeof Ratelimit.slidingWindow
-        >[1],
+        cfg.llmProRequests,
+        cfg.llmProWindow as Parameters<typeof Ratelimit.slidingWindow>[1],
       ),
       analytics: true,
       prefix: '@upstash/ratelimit/llm-pro',

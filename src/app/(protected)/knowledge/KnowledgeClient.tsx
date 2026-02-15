@@ -490,11 +490,11 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   onReject={() =>
                     showNotification({
                       title: 'File rejected',
-                      message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 5}MB.`,
+                      message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 10}MB.`,
                       color: 'red',
                     })
                   }
-                  maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5') * 1024 * 1024}
+                  maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10') * 1024 * 1024}
                   accept={PDF_MIME_TYPE}
                   multiple={false}
                   styles={{

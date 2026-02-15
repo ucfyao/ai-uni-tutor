@@ -2,15 +2,17 @@ import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
+import { getEnv } from '@/lib/env';
 import type { Database } from '@/types/database';
 
 /** Per-request cached Supabase server client; deduplicates instances when multiple server code paths call createClient() in the same request. */
 export const createClient = cache(async (): Promise<SupabaseClient<Database>> => {
   const cookieStore = await cookies();
+  const env = getEnv();
 
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
+import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
@@ -14,8 +15,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BATCH_SIZE = 3;
-// [C1] Server-side file size limit (bytes)
-const MAX_FILE_SIZE = parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10', 10) * 1024 * 1024;
+// [C1] Server-side file size limit (bytes) — uses validated default from env.ts
+const MAX_FILE_SIZE = getEnv().NEXT_PUBLIC_MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const uploadSchema = z.object({
   doc_type: z.enum(['lecture', 'exam', 'assignment']).optional().default('lecture'),
