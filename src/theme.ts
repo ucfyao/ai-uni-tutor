@@ -6,6 +6,7 @@ const fontFamily =
 
 export const theme = createTheme({
   fontFamily,
+  primaryShade: { light: 6, dark: 7 },
   colors: {
     slate: [
       '#f8fafc',
@@ -19,17 +20,29 @@ export const theme = createTheme({
       '#1e293b',
       '#0f172a',
     ],
-    purple: [
-      '#faf5ff',
-      '#f3e8ff',
-      '#e9d5ff',
-      '#d8b4fe',
-      '#c084fc',
-      '#a855f7',
-      '#9333ea',
-      '#7e22ce',
-      '#6b21a8',
-      '#581c87',
+    indigo: [
+      '#EEF2FF',
+      '#E0E7FF',
+      '#C7D2FE',
+      '#A5B4FC',
+      '#818CF8',
+      '#6366F1',
+      '#4F46E5',
+      '#4338CA',
+      '#3730A3',
+      '#312E81',
+    ],
+    emerald: [
+      '#ecfdf5',
+      '#d1fae5',
+      '#a7f3d0',
+      '#6ee7b7',
+      '#34d399',
+      '#10b981',
+      '#059669',
+      '#047857',
+      '#065f46',
+      '#064e3b',
     ],
   },
   headings: {

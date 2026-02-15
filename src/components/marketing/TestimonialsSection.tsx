@@ -52,7 +52,7 @@ const TestimonialsSection = () => {
                   size={48}
                   color="indigo"
                   variant="gradient"
-                  gradient={{ from: 'indigo', to: 'grape' }}
+                  gradient={{ from: 'indigo.7', to: 'indigo.3' }}
                   radius="xl"
                 >
                   {testimonial.avatar}

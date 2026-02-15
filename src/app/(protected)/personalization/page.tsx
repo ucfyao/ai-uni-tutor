@@ -192,7 +192,7 @@ export default function PersonalizationPage() {
               {showSkeleton ? (
                 <Skeleton h={20} w={50} radius="xl" />
               ) : isPro ? (
-                <Badge variant="light" color="violet" size="sm" leftSection={<Crown size={12} />}>
+                <Badge variant="light" color="indigo" size="sm" leftSection={<Crown size={12} />}>
                   Pro
                 </Badge>
               ) : (
@@ -240,7 +240,7 @@ export default function PersonalizationPage() {
           radius="lg"
           style={{
             background:
-              'linear-gradient(135deg, var(--mantine-color-violet-6), var(--mantine-color-indigo-5))',
+              'linear-gradient(135deg, var(--mantine-color-indigo-7), var(--mantine-color-indigo-4))',
           }}
         >
           <Group gap="sm" align="flex-start">

@@ -313,7 +313,7 @@ export function ExamEntryClient() {
             size="lg"
             radius="md"
             variant="gradient"
-            gradient={{ from: 'indigo', to: 'violet' }}
+            gradient={{ from: 'indigo.7', to: 'indigo.3' }}
             leftSection={
               isPending ? (
                 <IconLoader2 size={20} className="animate-spin" />
@@ -354,8 +354,8 @@ function SourceCard({
         radius="md"
         p="md"
         style={{
-          borderColor: active ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-gray-3)',
-          backgroundColor: active ? 'var(--mantine-color-violet-0)' : undefined,
+          borderColor: active ? 'var(--mantine-color-indigo-5)' : 'var(--mantine-color-gray-3)',
+          backgroundColor: active ? 'var(--mantine-color-indigo-0)' : undefined,
           cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
@@ -392,8 +392,8 @@ function ModeCard({
         radius="md"
         p="md"
         style={{
-          borderColor: active ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-gray-3)',
-          backgroundColor: active ? 'var(--mantine-color-violet-0)' : undefined,
+          borderColor: active ? 'var(--mantine-color-indigo-5)' : 'var(--mantine-color-gray-3)',
+          backgroundColor: active ? 'var(--mantine-color-indigo-0)' : undefined,
           cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
