@@ -13,14 +13,12 @@ import {
   Select,
   Stack,
   Text,
-  TextInput,
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
 import {
   createRandomMixMock,
   createRealExamMock,
-  generateMockFromTopic,
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
 import { COURSES, UNIVERSITIES } from '@/constants';
@@ -66,8 +64,6 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
   const [loadingPapers, setLoadingPapers] = useState(false);
   const [numQuestions, setNumQuestions] = useState<string | null>('10');
-  const [topic, setTopic] = useState('');
-  const [difficulty, setDifficulty] = useState<string | null>('mixed');
   const [pendingMode, setPendingMode] = useState<ExamMode | null>(null);
 
   // Force SegmentedControl remount after modal transition settles
@@ -132,6 +128,11 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   }, [selectedCourseCode]);
 
   const handleStart = (mode: ExamMode) => {
+    if (source === 'ai') {
+      onClose();
+      router.push('/exam/ai');
+      return;
+    }
     setError(null);
     setPendingMode(mode);
     startTransition(async () => {
@@ -139,17 +140,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       if (source === 'real') {
         if (!selectedPaper) return;
         result = await createRealExamMock(selectedPaper, mode);
-      } else if (source === 'random') {
+      } else {
         if (!selectedCourseCode) return;
         result = await createRandomMixMock(selectedCourseCode, Number(numQuestions), mode);
-      } else {
-        if (!topic.trim()) return;
-        result = await generateMockFromTopic(
-          topic.trim(),
-          Number(numQuestions),
-          difficulty as 'easy' | 'medium' | 'hard' | 'mixed',
-          [],
-        );
       }
       if (result.success) {
         if (selectedUniId) localStorage.setItem('lastUniId', selectedUniId);
@@ -165,9 +158,10 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   };
 
   const isStartDisabled =
-    (source === 'real' && !selectedPaper) ||
-    (source === 'random' && (!selectedCourseCode || papers.length === 0)) ||
-    (source === 'ai' && !topic.trim());
+    source === 'ai'
+      ? false
+      : (source === 'real' && !selectedPaper) ||
+        (source === 'random' && (!selectedCourseCode || papers.length === 0));
 
   const showNoPapers =
     source !== 'ai' && selectedCourseCode && !loadingPapers && papers.length === 0;
@@ -331,46 +325,6 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             radius={R}
             styles={inputStyles}
           />
-        )}
-
-        {/* AI: topic + count + difficulty */}
-        {source === 'ai' && (
-          <>
-            <TextInput
-              label={t.exam.topic}
-              placeholder="e.g., Binary Trees, Linear Regression"
-              value={topic}
-              onChange={(e) => setTopic(e.currentTarget.value)}
-              size="sm"
-              radius={R}
-              styles={inputStyles}
-            />
-            <Group grow gap={12}>
-              <Select
-                label={t.exam.numQuestions}
-                data={['5', '10', '15', '20']}
-                value={numQuestions}
-                onChange={setNumQuestions}
-                size="sm"
-                radius={R}
-                styles={inputStyles}
-              />
-              <Select
-                label={t.exam.difficulty}
-                data={[
-                  { value: 'mixed', label: 'Mixed' },
-                  { value: 'easy', label: 'Easy' },
-                  { value: 'medium', label: 'Medium' },
-                  { value: 'hard', label: 'Hard' },
-                ]}
-                value={difficulty}
-                onChange={setDifficulty}
-                size="sm"
-                radius={R}
-                styles={inputStyles}
-              />
-            </Group>
-          </>
         )}
 
         {/* Error */}
