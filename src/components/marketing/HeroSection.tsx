@@ -1,7 +1,60 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Container, Group, SimpleGrid, Text, Title } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
+
+function CountUpStat({ target, suffix, label }: { target: number; suffix: string; label: string }) {
+  const [count, setCount] = useState(0);
+  const elementRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el || hasAnimated.current) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated.current) {
+          hasAnimated.current = true;
+          observer.disconnect();
+
+          if (prefersReducedMotion) {
+            setCount(target);
+            return;
+          }
+
+          const start = performance.now();
+          const duration = 2000;
+          const animate = (now: number) => {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setCount(Math.round(eased * target));
+            if (progress < 1) requestAnimationFrame(animate);
+          };
+          requestAnimationFrame(animate);
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [target]);
+
+  return (
+    <Box ref={elementRef}>
+      <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
+        {count.toLocaleString()}{suffix}
+      </Text>
+      <Text c="dimmed" mt="0.25rem">
+        {label}
+      </Text>
+    </Box>
+  );
+}
 
 const HeroSection = () => {
   const { t } = useLanguage();
@@ -85,30 +138,9 @@ const HeroSection = () => {
             mt={{ base: '0.5rem', sm: '1rem' }}
             className="border-t border-border/30 animate-fade-in-up opacity-0 animate-delay-400"
           >
-            <Box>
-              <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
-                50K+
-              </Text>
-              <Text c="dimmed" mt="0.25rem">
-                {t.hero.stats.students}
-              </Text>
-            </Box>
-            <Box>
-              <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
-                98%
-              </Text>
-              <Text c="dimmed" mt="0.25rem">
-                {t.hero.stats.satisfaction}
-              </Text>
-            </Box>
-            <Box>
-              <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
-                200+
-              </Text>
-              <Text c="dimmed" mt="0.25rem">
-                {t.hero.stats.subjects}
-              </Text>
-            </Box>
+            <CountUpStat target={50000} suffix="+" label={t.hero.stats.students} />
+            <CountUpStat target={98} suffix="%" label={t.hero.stats.satisfaction} />
+            <CountUpStat target={200} suffix="+" label={t.hero.stats.subjects} />
           </SimpleGrid>
         </Box>
       </Container>

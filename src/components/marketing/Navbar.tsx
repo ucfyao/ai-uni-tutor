@@ -1,6 +1,7 @@
 import { Moon, Sun } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
   ActionIcon,
   Anchor,
@@ -43,7 +44,15 @@ const ColorSchemeToggle = () => {
 
 const Navbar = () => {
   const [opened, { toggle }] = useDisclosure(false);
+  const [scrolled, setScrolled] = useState(false);
+  const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const { t } = useLanguage();
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navLinkClassName =
     'nav-link relative cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-primary after:to-accent after:transition-transform hover:after:scale-x-100';
@@ -51,7 +60,19 @@ const Navbar = () => {
   return (
     <Box
       component="nav"
-      className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50"
+      className="fixed top-0 left-0 right-0 z-50"
+      style={{
+        backdropFilter: scrolled ? 'blur(12px)' : undefined,
+        WebkitBackdropFilter: scrolled ? 'blur(12px)' : undefined,
+        boxShadow: scrolled ? 'var(--mantine-shadow-sm)' : undefined,
+        backgroundColor: scrolled
+          ? computedColorScheme === 'dark'
+            ? 'rgba(0, 0, 0, 0.8)'
+            : 'rgba(255, 255, 255, 0.8)'
+          : 'transparent',
+        borderBottom: scrolled ? '1px solid var(--mantine-color-default-border)' : undefined,
+        transition: 'all 0.3s ease',
+      }}
     >
       <Container size={1280} px={24}>
         <Group justify="space-between" h={72} wrap="nowrap">

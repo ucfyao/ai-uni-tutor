@@ -586,6 +586,11 @@ export const translations = {
       newUser: '新用户？',
       unexpectedError: '发生意外错误',
       copyright: '© {year} AI Uni Tutor',
+      invalidEmail: '请输入有效的邮箱地址',
+      passwordTooShort: '密码至少需要 8 个字符',
+      weak: '弱',
+      medium: '中',
+      strong: '强',
     },
     toast: {
       copiedToClipboard: '已复制到剪贴板',
@@ -1202,6 +1207,11 @@ export const translations = {
       newUser: 'New? ',
       unexpectedError: 'An unexpected error occurred',
       copyright: '© {year} AI Uni Tutor',
+      invalidEmail: 'Please enter a valid email address',
+      passwordTooShort: 'Password must be at least 8 characters',
+      weak: 'Weak',
+      medium: 'Medium',
+      strong: 'Strong',
     },
     toast: {
       copiedToClipboard: 'Copied to clipboard',

@@ -13,6 +13,7 @@ import {
   Group,
   Paper,
   PasswordInput,
+  Progress,
   Stack,
   Text,
   TextInput,
@@ -30,7 +31,34 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [shake, setShake] = useState(false);
   const { t } = useLanguage();
+
+  const validateEmail = (value: string) => {
+    if (!value) return '';
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? '' : t.login.invalidEmail;
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) return '';
+    return value.length >= 8 ? '' : t.login.passwordTooShort;
+  };
+
+  const getPasswordStrength = (pw: string) => {
+    let score = 0;
+    if (pw.length >= 6) score++;
+    if (pw.length >= 10) score++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+    if (/\d/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    return score;
+  };
+
+  const strengthColor = ['red', 'red', 'orange', 'yellow', 'green', 'green'] as const;
+  const strengthLabel = ['', t.login.weak, t.login.weak, t.login.medium, t.login.strong, t.login.strong];
+  const strength = getPasswordStrength(password);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +78,8 @@ function LoginForm() {
         const res = await signup(formData);
         if (res?.error) {
           setError(res.error);
+          setShake(true);
+          setTimeout(() => setShake(false), 600);
         } else if (res?.success) {
           setSuccessMsg(res.success);
         }
@@ -57,12 +87,16 @@ function LoginForm() {
         const res = await login(formData);
         if (res?.error) {
           setError(res.error);
+          setShake(true);
+          setTimeout(() => setShake(false), 600);
         }
       }
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : t.login.unexpectedError;
       setError(msg);
+      setShake(true);
+      setTimeout(() => setShake(false), 600);
     } finally {
       setLoading(false);
     }
@@ -112,7 +146,12 @@ function LoginForm() {
           </Text>
         </Stack>
 
-        <Paper radius="lg" p={28} className="login-page-card" style={{}}>
+        <Paper
+          radius="lg"
+          p={28}
+          className="login-page-card"
+          style={shake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
+        >
           {error && (
             <Alert
               icon={<AlertCircle size={14} />}
@@ -157,7 +196,12 @@ function LoginForm() {
                 required
                 size="md"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError(validateEmail(e.target.value));
+                }}
+                onBlur={(e) => setEmailError(validateEmail(e.currentTarget.value))}
+                error={emailError}
                 leftSection={<Mail size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
                 radius="md"
                 styles={inputStyles}
@@ -174,13 +218,32 @@ function LoginForm() {
                   size="md"
                   mt={2}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (passwordError) setPasswordError(validatePassword(e.target.value));
+                  }}
+                  onBlur={(e) => setPasswordError(validatePassword(e.currentTarget.value))}
+                  error={passwordError}
                   leftSection={<Lock size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
                   radius="md"
                   styles={inputStyles}
                   classNames={{ input: 'login-input' }}
                 />
-                {isSignUp && (
+                {isSignUp && password && (
+                  <Box mt={6}>
+                    <Progress
+                      value={(strength / 5) * 100}
+                      color={strengthColor[strength]}
+                      size="xs"
+                      radius="xl"
+                      mb={4}
+                    />
+                    <Text fz="xs" c={strengthColor[strength]}>
+                      {strengthLabel[strength]}
+                    </Text>
+                  </Box>
+                )}
+                {isSignUp && !password && (
                   <Text size="xs" c="dimmed" mt={2} style={{ lineHeight: 1.35 }}>
                     {t.login.passwordHint}
                   </Text>
@@ -301,6 +364,16 @@ function LoginForm() {
           {t.login.copyright.replace('{year}', String(new Date().getFullYear()))}
         </Text>
       </Container>
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-6px); }
+          75% { transform: translateX(6px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          * { animation-duration: 0s !important; }
+        }
+      `}</style>
     </Box>
   );
 }

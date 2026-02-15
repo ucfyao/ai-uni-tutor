@@ -42,6 +42,7 @@ import {
 import { Logo } from '@/components/Logo';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { showNotification } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/client';
 import { ChatSession, TutoringMode } from '../types/index';
 
@@ -538,6 +539,11 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
             <Text size="md" fw={600} truncate>
               {label}
             </Text>
+            {sessions.length > 0 && (
+              <Badge size="xs" variant="light" color="gray" ml={-4}>
+                {sessions.length}
+              </Badge>
+            )}
             <ChevronDown
               size={12}
               color="var(--mantine-color-gray-4)"
@@ -693,6 +699,11 @@ const SessionItem: React.FC<SessionItemProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   onTogglePin?.(session.id, !session.isPinned);
+                  showNotification({
+                    message: session.isPinned ? t.toast.unpinned : t.toast.pinned,
+                    color: 'indigo',
+                    autoClose: 2000,
+                  });
                 }}
               >
                 {session.isPinned ? t.sidebar.unpin : t.sidebar.pin}
