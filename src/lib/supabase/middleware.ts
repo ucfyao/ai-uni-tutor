@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getEnv } from '@/lib/env';
 
 /**
  * Single pass: create one server client, call getUser() once, build response with session refresh.
@@ -15,9 +16,10 @@ export async function handleRequest(
     },
   });
 
+  const env = getEnv();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -69,9 +71,10 @@ export async function handleRequest(
  * Prefer using handleRequest() in the proxy so getUser() is only called once per request.
  */
 export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
+  const env = getEnv();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
