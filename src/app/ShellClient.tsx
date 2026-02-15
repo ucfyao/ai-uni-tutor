@@ -153,13 +153,11 @@ export default function ShellClient({ children }: { children: React.ReactNode })
         }}
         header={{ height: 52, collapsed: !isMobile }} // Enable header only on mobile
         padding={0}
-        bg="gray.0"
       >
         <AppShell.Header
           hiddenFrom="sm"
           px="md"
-          bg="white"
-          style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}
+          style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
         >
           <Group h="100%" align="center">
             <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" />
@@ -201,7 +199,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
           />
         </AppShell.Navbar>
 
-        <AppShell.Main h="100dvh" bg="white" pt={isMobile ? 52 : 0} pb={0}>
+        <AppShell.Main h="100dvh" pt={isMobile ? 52 : 0} pb={0}>
           {children}
         </AppShell.Main>
       </AppShell>

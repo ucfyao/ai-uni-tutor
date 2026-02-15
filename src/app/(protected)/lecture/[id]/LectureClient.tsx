@@ -223,7 +223,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
     return (
       <Center h="100vh">
         <Stack align="center" gap="md" ta="center">
-          <Text size="xl" fw={700} c="dark.9">
+          <Text size="xl" fw={700}>
             Session Not Found
           </Text>
           <Text c="dimmed">This lecture session could not be found.</Text>

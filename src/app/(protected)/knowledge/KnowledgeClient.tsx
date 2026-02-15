@@ -11,11 +11,11 @@ import {
   Group,
   Modal,
   Progress,
-  Skeleton,
   rem,
   ScrollArea,
   SegmentedControl,
   Select,
+  Skeleton,
   Stack,
   Text,
   TextInput,
@@ -217,7 +217,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     () => (
       <Group gap={8} align="center" wrap="nowrap" px={isMobile ? 6 : 8} py={isMobile ? 4 : 6}>
         <BookOpen size={isMobile ? 18 : 20} color="var(--mantine-color-indigo-5)" />
-        <Text fw={650} size={isMobile ? 'md' : 'lg'} c="dark.8">
+        <Text fw={650} size={isMobile ? 'md' : 'lg'}>
           {t.knowledge.knowledgeBase}
         </Text>
       </Group>
@@ -253,8 +253,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           style={{
             display: 'flex',
             alignItems: 'center',
-            borderBottom: '1px solid var(--mantine-color-gray-2)',
-            backgroundColor: 'white',
+            borderBottom: '1px solid var(--mantine-color-default-border)',
             flexShrink: 0,
           }}
         >
@@ -324,7 +323,9 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                     position: 'absolute',
                     inset: 0,
                     opacity: searchExpanded ? 0 : 1,
-                    transform: searchExpanded ? 'scale(0.5) rotate(90deg)' : 'scale(1) rotate(0deg)',
+                    transform: searchExpanded
+                      ? 'scale(0.5) rotate(90deg)'
+                      : 'scale(1) rotate(0deg)',
                     pointerEvents: searchExpanded ? 'none' : 'auto',
                     transition: searchExpanded
                       ? 'opacity 0.15s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -431,7 +432,9 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         radius="lg"
         closeOnClickOutside={!isParsing}
         closeOnEscape={!isParsing}
-        withCloseButton={!isParsing || parseState.status === 'complete' || parseState.status === 'error'}
+        withCloseButton={
+          !isParsing || parseState.status === 'complete' || parseState.status === 'error'
+        }
       >
         {!isParsing ? (
           /* ── Upload Form ── */
@@ -447,7 +450,12 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               }}
             >
               {selectedFile ? (
-                <Group gap="sm" px="md" py="sm" style={{ background: 'var(--mantine-color-gray-0)' }}>
+                <Group
+                  gap="sm"
+                  px="md"
+                  py="sm"
+                  style={{ background: 'var(--mantine-color-gray-0)' }}
+                >
                   <FileText size={16} color="var(--mantine-color-indigo-5)" />
                   <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
                     {selectedFile.name}
@@ -486,7 +494,11 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                     },
                   }}
                 >
-                  <Group justify="center" gap="sm" style={{ minHeight: rem(80), pointerEvents: 'none' }}>
+                  <Group
+                    justify="center"
+                    gap="sm"
+                    style={{ minHeight: rem(80), pointerEvents: 'none' }}
+                  >
                     <Dropzone.Accept>
                       <Upload size={24} color="var(--mantine-color-indigo-6)" />
                     </Dropzone.Accept>
@@ -494,7 +506,11 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                       <X size={24} color="var(--mantine-color-red-6)" />
                     </Dropzone.Reject>
                     <Dropzone.Idle>
-                      <Upload size={24} color="var(--mantine-color-indigo-4)" style={{ flexShrink: 0 }} />
+                      <Upload
+                        size={24}
+                        color="var(--mantine-color-indigo-4)"
+                        style={{ flexShrink: 0 }}
+                      />
                     </Dropzone.Idle>
                     <div style={{ textAlign: 'center' }}>
                       <Text size="sm" c="dimmed">

@@ -18,7 +18,7 @@ const MessageList = dynamic(
   {
     loading: () => (
       <Box
-        bg="white"
+        bg="var(--mantine-color-body)"
         style={{
           flex: 1,
           minHeight: 0,

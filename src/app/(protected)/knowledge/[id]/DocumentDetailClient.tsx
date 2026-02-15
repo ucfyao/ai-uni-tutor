@@ -135,8 +135,7 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
           style={{
             display: 'flex',
             alignItems: 'center',
-            borderBottom: '1px solid var(--mantine-color-gray-2)',
-            backgroundColor: 'white',
+            borderBottom: '1px solid var(--mantine-color-default-border)',
             flexShrink: 0,
           }}
         >

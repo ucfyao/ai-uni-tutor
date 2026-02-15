@@ -197,10 +197,10 @@ export function FileUploader(props: Partial<DropzoneProps>) {
 
       {/* Progress Indicator */}
       {loading && stage !== 'idle' && (
-        <Box p="md" bg="gray.0" style={{ borderRadius: '8px' }}>
+        <Box p="md" className="bg-surface-subtle" style={{ borderRadius: '8px' }}>
           <Group gap="sm" mb="xs">
             <Loader2 size={16} className="animate-spin" color="var(--mantine-color-indigo-6)" />
-            <Text size="sm" fw={500} c="dark.7">
+            <Text size="sm" fw={500}>
               {fileName && (
                 <Text component="span" c="dimmed" mr="xs">
                   {fileName}

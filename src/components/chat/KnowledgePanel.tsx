@@ -286,13 +286,13 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         >
           <Stack gap={10} p="md">
             {cards.length === 0 && (
-              <Paper withBorder radius="md" p="lg" bg="white">
+              <Paper withBorder radius="md" p="lg">
                 <Center>
                   <Stack gap="sm" align="center">
                     <ThemeIcon size={56} radius="md" variant="light" color="indigo">
                       <BookOpen size={24} strokeWidth={1.5} />
                     </ThemeIcon>
-                    <Text size="sm" fw={600} c="gray.7" ta="center">
+                    <Text size="sm" fw={600} c="dimmed" ta="center">
                       {t.chat.noCardsYet}
                     </Text>
                   </Stack>

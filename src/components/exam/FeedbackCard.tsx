@@ -78,7 +78,7 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
           <Text size="sm">{feedback.aiFeedback}</Text>
         </div>
 
-        <Paper withBorder radius="md" p="sm" bg="white">
+        <Paper withBorder radius="md" p="sm">
           <Text size="xs" fw={600} c="dimmed" mb={4}>
             {t.exam.detailedExplanation}
           </Text>

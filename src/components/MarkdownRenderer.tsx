@@ -205,7 +205,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             mt={isTightSpacing ? 10 : 'sm'}
             mb={isTightSpacing ? 12 : 'md'}
             radius="md"
-            bg="gray.0"
+            className="bg-surface-subtle"
             style={{ border: 'none', borderLeft: '4px solid var(--mantine-color-gray-4)' }}
           >
             <Text size={compact ? 'xs' : 'md'} c="slate.7" style={{ lineHeight: 1.75 }}>

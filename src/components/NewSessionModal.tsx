@@ -220,14 +220,14 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     >
       <Stack gap={24}>
         <Group justify="space-between" align="center" mb={2}>
-          <Text fw={800} size="22px" lts={-0.2} c="dark.9">
+          <Text fw={800} size="22px" lts={-0.2}>
             {modalTitle}
           </Text>
           <UnstyledButton
             onClick={onClose}
             w={36}
             h={36}
-            className="flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center rounded-full sidebar-hover"
           >
             <X size={18} strokeWidth={3} color="var(--mantine-color-gray-4)" />
           </UnstyledButton>

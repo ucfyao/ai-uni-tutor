@@ -37,7 +37,7 @@ export default function PersonalizationPage() {
 
   const headerNode = useMemo(
     () => (
-      <Text fw={650} size="md" c="dark.8" truncate>
+      <Text fw={650} size="md" truncate>
         {t.personalization.title}
       </Text>
     ),

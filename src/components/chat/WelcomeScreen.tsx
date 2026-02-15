@@ -73,14 +73,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     pos="absolute"
                     bottom={-2}
                     right={-2}
-                    style={{ border: '3px solid white' }}
+                    style={{ border: '3px solid var(--mantine-color-body)' }}
                   >
                     <Sparkles size={12} fill="white" />
                   </ThemeIcon>
                 </Box>
 
                 <Stack gap={2} align="center">
-                  <Title order={2} fw={800} size={24} c="dark.8">
+                  <Title order={2} fw={800} size={24}>
                     {courseCode} {metadata.label}
                   </Title>
                   <Text c="dimmed" size="md" ta="center" maw={480}>
@@ -120,13 +120,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         p="sm"
                         radius="md"
                         withBorder
-                        bg="white"
                         className="hover-lift"
                         style={{
                           width: '100%',
                           minHeight: '68px',
                           textAlign: 'left',
-                          borderColor: 'var(--mantine-color-gray-2)',
+                          borderColor: 'var(--mantine-color-default-border)',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -138,11 +137,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                           e.currentTarget.style.backgroundColor = `var(--mantine-color-${metadata.color}-0)`;
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--mantine-color-gray-2)';
-                          e.currentTarget.style.backgroundColor = 'white';
+                          e.currentTarget.style.borderColor = 'var(--mantine-color-default-border)';
+                          e.currentTarget.style.backgroundColor = '';
                         }}
                       >
-                        <Text size="sm" fw={500} c="dark.7" lineClamp={2} style={{ flex: 1 }}>
+                        <Text size="sm" fw={500} lineClamp={2} style={{ flex: 1 }}>
                           {prompt}
                         </Text>
                         <ThemeIcon variant="transparent" size="sm" c={`${metadata.color}.5`}>

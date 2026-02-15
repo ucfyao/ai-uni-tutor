@@ -216,7 +216,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               size={32}
               mb={4}
               ml={2}
-              className="hover:bg-gray-100 hover:text-indigo-600 transition-all duration-200"
+              className="sidebar-hover hover:text-indigo-600"
               aria-label="Attach file"
               onClick={onFileClick}
               disabled={isTyping || attachedFiles.length >= 4}

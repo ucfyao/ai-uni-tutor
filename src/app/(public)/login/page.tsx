@@ -213,7 +213,7 @@ export default function LoginPage() {
 
               <Button
                 fullWidth
-                size="md"
+                size="lg"
                 radius="md"
                 type="submit"
                 loading={loading}
@@ -221,6 +221,7 @@ export default function LoginPage() {
                 gradient={{ from: 'indigo.5', to: 'violet.6', deg: 105 }}
                 mt="sm"
                 fw={600}
+                py={12}
                 style={{
                   boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease',
@@ -249,7 +250,7 @@ export default function LoginPage() {
               disabled
               style={{
                 border: '1px solid var(--mantine-color-slate-2)',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--mantine-color-body)',
                 color: 'var(--mantine-color-slate-6)',
                 fontWeight: 500,
               }}
@@ -263,7 +264,7 @@ export default function LoginPage() {
               disabled
               style={{
                 border: '1px solid var(--mantine-color-slate-2)',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--mantine-color-body)',
                 color: 'var(--mantine-color-slate-6)',
                 fontWeight: 500,
               }}

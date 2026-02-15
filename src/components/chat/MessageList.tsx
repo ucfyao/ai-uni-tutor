@@ -127,7 +127,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   // Use full height for empty state to center Welcome Screen
   if (isNewChat && mode && courseCode && onPromptSelect) {
     return (
-      <Box bg="white" style={{ flex: 1, minHeight: 0 }}>
+      <Box bg="var(--mantine-color-body)" style={{ flex: 1, minHeight: 0 }}>
         <ScrollArea h="100%" scrollbarSize={6} type="auto">
           <WelcomeScreen mode={mode} courseCode={courseCode} onPromptSelect={onPromptSelect} />
         </ScrollArea>
@@ -136,7 +136,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   }
 
   return (
-    <Box bg="white" style={{ flex: 1, minHeight: 0 }} pos="relative">
+    <Box bg="var(--mantine-color-body)" style={{ flex: 1, minHeight: 0 }} pos="relative">
       <ScrollArea
         viewportRef={viewport}
         h="100%"
@@ -187,8 +187,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                   p="md"
                   style={{
                     borderRadius: 8,
-                    backgroundColor: '#fee',
-                    border: '1px solid #fcc',
+                    backgroundColor: 'var(--mantine-color-red-0)',
+                    border: '1px solid var(--mantine-color-red-2)',
                   }}
                 >
                   <Group gap="sm" align="flex-start">
@@ -235,9 +235,9 @@ export const MessageList: React.FC<MessageListProps> = ({
           mx="auto"
           style={{
             zIndex: 10,
-            backgroundColor: 'rgba(255,255,255,0.92)',
+            backgroundColor: 'var(--mantine-color-body)',
             backdropFilter: 'blur(8px)',
-            border: '1px solid var(--mantine-color-gray-2)',
+            border: '1px solid var(--mantine-color-default-border)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             animation: 'scrollBtnIn 0.2s ease-out',
           }}

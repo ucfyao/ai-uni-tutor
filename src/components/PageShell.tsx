@@ -18,7 +18,7 @@ export function PageShell({ title, subtitle, mobileTitle, children }: PageShellP
 
   const headerNode = useMemo(
     () => (
-      <Text fw={650} size="md" c="dark.8" truncate>
+      <Text fw={650} size="md" truncate>
         {mobileTitle || title}
       </Text>
     ),

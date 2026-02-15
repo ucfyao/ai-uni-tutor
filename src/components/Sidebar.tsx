@@ -162,10 +162,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     return (
       <Stack
         h="100%"
-        bg="white"
         align="center"
         gap={0}
         style={{
+          backgroundColor: 'var(--mantine-color-body)',
           boxShadow: '2px 0 8px rgba(0, 0, 0, 0.04)',
           fontFamily: 'var(--mantine-font-family)',
         }}
@@ -296,8 +296,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     <Stack
       h="100%"
       gap={0}
-      bg="white"
       style={{
+        backgroundColor: 'var(--mantine-color-body)',
         boxShadow: '2px 0 8px rgba(0, 0, 0, 0.04)',
         fontFamily: 'var(--mantine-font-family)',
       }}
@@ -308,7 +308,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={onGoHome}
           h={36}
           px={8}
-          className="hover:bg-gray-100 transition-colors"
+          className="sidebar-hover"
           style={{ borderRadius: 8, display: 'flex', alignItems: 'center' }}
         >
           <Logo size={22} alt="Logo" />
@@ -334,12 +334,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 py={7}
                 px={10}
                 mx={6}
-                className="hover:bg-gray-100 transition-colors"
+                className="sidebar-hover"
                 style={{ borderRadius: 8, cursor: 'pointer', width: 'calc(100% - 12px)' }}
               >
                 <Group gap={10} wrap="nowrap">
                   <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
-                  <Text size="sm" c="gray.8">
+                  <Text size="sm">
                     {t.sidebar[link.labelKey]}
                   </Text>
                   <ChevronRight
@@ -352,7 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
 
-          <Divider my={8} mx={16} color="gray.1" />
+          <Divider my={8} mx={16} />
 
           {CHAT_MODULES.map((mod) => (
             <ModuleSection
@@ -377,7 +377,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </ScrollArea>
 
       {/* User Section (Bottom) — Compact */}
-      <Box px={8} pb={8} pt={4} style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}>
+      <Box px={8} pb={8} pt={4} style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
         {profile ? (
           <Menu shadow="lg" width={220} position="top-start" withinPortal>
             <Menu.Target>
@@ -385,14 +385,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 w="100%"
                 py={6}
                 px={8}
-                className="hover:bg-gray-100 transition-colors"
+                className="sidebar-hover"
                 style={{ borderRadius: 6 }}
               >
                 <Group gap={8} wrap="nowrap">
                   <Avatar size={24} radius="xl" color="dark" variant="filled">
                     {(profile?.full_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
                   </Avatar>
-                  <Text size="sm" fw={500} c="gray.8" truncate style={{ flex: 1 }}>
+                  <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
                     {profile?.full_name || profile?.email?.split('@')[0]}
                   </Text>
                   {isPro && (
@@ -455,12 +455,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             py={6}
             px={8}
             onClick={handleSignIn}
-            className="hover:bg-gray-100 transition-colors"
+            className="sidebar-hover"
             style={{ borderRadius: 6 }}
           >
             <Group gap={8}>
               <LogIn size={16} color="var(--mantine-color-gray-5)" />
-              <Text size="sm" c="gray.7">
+              <Text size="sm" c="dimmed">
                 {t.sidebar.signIn}
               </Text>
             </Group>
@@ -520,13 +520,13 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
         py={7}
         px={10}
         mx={6}
-        className="hover:bg-gray-100 transition-colors"
+        className="sidebar-hover"
         style={{ borderRadius: 8, cursor: 'pointer' }}
       >
         <Group gap={8} wrap="nowrap" justify="space-between">
           <Group gap={10} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
             <Icon size={18} strokeWidth={1.5} color={`var(--mantine-color-${color}-6)`} />
-            <Text size="sm" fw={600} c="gray.8" truncate>
+            <Text size="sm" fw={600} truncate>
               {label}
             </Text>
             <ChevronDown
@@ -620,16 +620,16 @@ const SessionItem: React.FC<SessionItemProps> = ({
       py={8}
       px={12}
       pl={indent ? 40 : 12}
-      bg={isActive ? 'gray.1' : hovered ? 'gray.0' : 'transparent'}
+      className="sidebar-session"
+      data-active={isActive || undefined}
       style={{
         borderRadius: 0,
-        transition: 'background 0.1s ease',
         cursor: 'pointer',
       }}
     >
       <Group wrap="nowrap" gap={8}>
         {/* Title */}
-        <Text size="sm" truncate c={isActive ? 'dark.9' : 'gray.7'} fw={400} style={{ flex: 1 }}>
+        <Text size="sm" truncate c={isActive ? undefined : 'dimmed'} fw={isActive ? 500 : 400} style={{ flex: 1 }}>
           {session.title || session.course.code}
         </Text>
 

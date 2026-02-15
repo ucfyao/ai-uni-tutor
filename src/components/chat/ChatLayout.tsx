@@ -117,7 +117,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
           {/* Input Area */}
           <Box
-            bg="white"
+            bg="var(--mantine-color-body)"
             px={isKnowledgeMode ? 'md' : 0}
             pb={isKnowledgeMode ? 'md' : 0}
             pt={0}
