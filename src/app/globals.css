@@ -6,7 +6,7 @@
   --marketing-container: min(90vw, 1600px);
 
   /* Shadcn/UI Variables */
-  --background: 220 20% 98%;
+  --background: 226 100% 97%;
   --foreground: 220 20% 15%;
 
   --card: 0 0% 100%;
@@ -16,7 +16,7 @@
   --popover-foreground: 220 20% 15%;
 
   /* Align Tailwind/Shadcn tokens with Mantine's indigo theme */
-  --primary: 228 89% 63%;
+  --primary: 243 75% 59%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 220 15% 94%;
@@ -25,7 +25,7 @@
   --muted: 220 15% 92%;
   --muted-foreground: 220 10% 45%;
 
-  --accent: 271 81% 56%;
+  --accent: 160 84% 39%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84% 60%;
@@ -38,7 +38,7 @@
   --radius: 0.75rem;
 
   /* Custom tokens */
-  --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  --gradient-primary: linear-gradient(135deg, hsl(243 75% 40%) 0%, hsl(243 75% 59%) 50%, hsl(234 89% 74%) 100%);
   --gradient-hero: linear-gradient(180deg, hsl(220 20% 98%) 0%, hsl(220 15% 96%) 100%);
   --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.9) 0%, hsl(220 15% 98% / 0.8) 100%);
   --gradient-glow: radial-gradient(
@@ -86,7 +86,7 @@
     hsl(228 6% 18% / 0.9) 0%,
     hsl(228 6% 16% / 0.8) 100%
   );
-  --shadow-glow: 0 0 60px hsl(228 89% 63% / 0.2);
+  --shadow-glow: 0 0 60px hsl(243 75% 59% / 0.2);
   --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.4);
   --sidebar-background: 230 8% 11%;
   --sidebar-foreground: 228 3% 77%;
@@ -437,11 +437,11 @@ body {
 @keyframes pulse-subtle {
   0%,
   100% {
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
   }
 
   50% {
-    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.6);
+    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.6);
   }
 }
 
@@ -737,7 +737,7 @@ body {
 /* Login page: input focus, button hover */
 .login-input:focus {
   border-color: var(--mantine-color-indigo-3) !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
 }
 
 .login-input:-webkit-autofill,
@@ -751,15 +751,15 @@ body {
 
 .login-submit-btn:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4) !important;
 }
 
 /* Login page: light tech vibe */
 .login-page-bg {
   background-color: var(--mantine-color-slate-0);
   background-image:
-    linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(79, 70, 229, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 70, 229, 0.04) 1px, transparent 1px);
   background-size: 24px 24px;
   position: relative;
 }
@@ -770,7 +770,7 @@ body {
   inset: 0;
   background: radial-gradient(
     ellipse 70% 50% at 50% -20%,
-    rgba(99, 102, 241, 0.08) 0%,
+    rgba(79, 70, 229, 0.08) 0%,
     transparent 50%
   );
   pointer-events: none;
@@ -796,15 +796,15 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(99, 102, 241, 0.5),
-    rgba(139, 92, 246, 0.5),
+    rgba(79, 70, 229, 0.6),
+    rgba(67, 56, 202, 0.5),
     transparent
   );
   opacity: 0.9;
 }
 
 .login-page-title {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+  background: linear-gradient(135deg, #4338CA 0%, #4F46E5 50%, #818CF8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -975,8 +975,8 @@ body {
 [data-mantine-color-scheme='dark'] .login-page-bg {
   background-color: var(--mantine-color-dark-8);
   background-image:
-    linear-gradient(rgba(99, 102, 241, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.06) 1px, transparent 1px);
+    linear-gradient(rgba(79, 70, 229, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 70, 229, 0.06) 1px, transparent 1px);
 }
 
 [data-mantine-color-scheme='dark'] .login-page-card {

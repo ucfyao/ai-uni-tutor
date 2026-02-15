@@ -65,7 +65,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
             size={90}
             radius="xl"
             variant="gradient"
-            gradient={{ from: 'indigo.6', to: 'violet.6', deg: 45 }}
+            gradient={{ from: 'indigo.7', to: 'indigo.3', deg: 45 }}
             className="shadow-2xl"
           >
             <Bot size={44} className="text-white" />
@@ -85,7 +85,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
               <span
                 style={{
                   background:
-                    'linear-gradient(45deg, var(--mantine-color-indigo-6), var(--mantine-color-violet-6))',
+                    'linear-gradient(45deg, var(--mantine-color-indigo-7), var(--mantine-color-indigo-3))',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                 }}

@@ -220,12 +220,12 @@ function LoginForm() {
                 type="submit"
                 loading={loading}
                 variant="gradient"
-                gradient={{ from: 'indigo.5', to: 'violet.6', deg: 105 }}
+                gradient={{ from: 'indigo.7', to: 'indigo.3', deg: 105 }}
                 mt="sm"
                 fw={600}
                 py={12}
                 style={{
-                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                  boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                 }}
                 className="login-submit-btn"

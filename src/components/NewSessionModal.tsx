@@ -35,9 +35,9 @@ const MODE_LABEL_KEYS: Record<
 };
 
 const buttonShadowColors: Record<string, string> = {
-  indigo: 'rgba(99, 102, 241, 0.25)',
-  violet: 'rgba(139, 92, 246, 0.25)',
-  purple: 'rgba(147, 51, 234, 0.25)',
+  indigo: 'rgba(79, 70, 229, 0.25)',
+  violet: 'rgba(79, 70, 229, 0.25)',
+  purple: 'rgba(79, 70, 229, 0.25)',
 };
 
 const selectStyles = {

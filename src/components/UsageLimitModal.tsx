@@ -22,8 +22,8 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
       onClose={onClose}
       title={
         <Group gap="xs">
-          <Sparkles size={20} className="text-violet-600" />
-          <Text fw={700} c="violet.7" size="lg">
+          <Sparkles size={20} className="text-indigo-600" />
+          <Text fw={700} c="indigo.7" size="lg">
             {t.modals.unlockUnlimited}
           </Text>
         </Group>
@@ -34,12 +34,12 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
       zIndex={1001}
     >
       <Stack align="center" ta="center" gap="lg">
-        <Box p="md" bg="violet.0" style={{ borderRadius: '50%' }}>
+        <Box p="md" bg="indigo.0" style={{ borderRadius: '50%' }}>
           <ThemeIcon
             size={48}
             radius="xl"
             variant="gradient"
-            gradient={{ from: 'violet', to: 'indigo' }}
+            gradient={{ from: 'indigo.3', to: 'indigo.7' }}
           >
             <Sparkles size={26} />
           </ThemeIcon>
@@ -60,7 +60,7 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
           </Button>
           <Button
             variant="gradient"
-            gradient={{ from: 'violet', to: 'indigo' }}
+            gradient={{ from: 'indigo.3', to: 'indigo.7' }}
             radius="md"
             onClick={() => {
               onClose();

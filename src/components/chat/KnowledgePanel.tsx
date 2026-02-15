@@ -383,7 +383,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             style={{
                               borderRadius: 99,
                               background: 'var(--mantine-color-indigo-6)',
-                              boxShadow: '0 0 0 2px rgba(99, 102, 241, 0.12)',
+                              boxShadow: '0 0 0 2px rgba(79, 70, 229, 0.12)',
                               flexShrink: 0,
                             }}
                           />
@@ -442,8 +442,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             h={6}
                             style={{
                               borderRadius: 99,
-                              background: 'var(--mantine-color-violet-6)',
-                              boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.12)',
+                              background: 'var(--mantine-color-indigo-4)',
+                              boxShadow: '0 0 0 2px rgba(79, 70, 229, 0.12)',
                               flexShrink: 0,
                             }}
                           />
@@ -452,7 +452,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                           </Text>
                         </Group>
                         <Badge
-                          color="violet"
+                          color="indigo"
                           variant="light"
                           size="xs"
                           radius="xl"
