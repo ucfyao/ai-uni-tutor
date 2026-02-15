@@ -240,35 +240,33 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
 
         {/* ── Form fields ── */}
         {/* University + Course */}
-        <Group grow gap={12}>
-          <Select
-            label={t.exam.university ?? 'University'}
-            placeholder={t.exam.selectUniversity ?? 'Select'}
-            data={uniOptions}
-            value={selectedUniId}
-            onChange={setSelectedUniId}
-            searchable
-            size="sm"
-            radius={R}
-            styles={inputStyles}
-          />
-          <Select
-            label={t.exam.course ?? 'Course'}
-            placeholder={
-              selectedUniId
-                ? (t.exam.selectCourse ?? 'Select')
-                : (t.exam.selectUniversityFirst ?? 'Select university first')
-            }
-            data={courseOptions}
-            value={selectedCourseCode}
-            onChange={setSelectedCourseCode}
-            disabled={!selectedUniId}
-            searchable
-            size="sm"
-            radius={R}
-            styles={inputStyles}
-          />
-        </Group>
+        <Select
+          label={t.exam.university ?? 'University'}
+          placeholder={t.exam.selectUniversity ?? 'Select'}
+          data={uniOptions}
+          value={selectedUniId}
+          onChange={setSelectedUniId}
+          searchable
+          size="sm"
+          radius={R}
+          styles={inputStyles}
+        />
+        <Select
+          label={t.exam.course ?? 'Course'}
+          placeholder={
+            selectedUniId
+              ? (t.exam.selectCourse ?? 'Select')
+              : (t.exam.selectUniversityFirst ?? 'Select university first')
+          }
+          data={courseOptions}
+          value={selectedCourseCode}
+          onChange={setSelectedCourseCode}
+          disabled={!selectedUniId}
+          searchable
+          size="sm"
+          radius={R}
+          styles={inputStyles}
+        />
 
         {/* No papers warning */}
         {showNoPapers && (
