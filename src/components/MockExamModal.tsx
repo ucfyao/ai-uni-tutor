@@ -378,13 +378,14 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Box>
         )}
 
-        {/* Action buttons — compact */}
-        <Group grow gap={8}>
+        {/* Action buttons */}
+        <Group justify="center" gap={10}>
           <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={400}>
             <Button
               size="xs"
               radius={R}
-              h={32}
+              h={36}
+              px={20}
               onClick={() => handleStart('practice')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
@@ -405,7 +406,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             <Button
               size="xs"
               radius={R}
-              h={32}
+              h={36}
+              px={20}
               onClick={() => handleStart('exam')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'exam'}
