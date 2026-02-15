@@ -16,6 +16,14 @@ import type { ChatMessage, Course, TutoringMode } from '@/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/** Strip API keys from error messages before logging. */
+export function sanitizeError(error: unknown): string {
+  const raw = error instanceof Error ? error.stack || error.message : String(error);
+  return raw
+    .replace(/[?&]key=[^\s&"')]+/gi, '?key=[REDACTED]')
+    .replace(new RegExp(process.env.GEMINI_API_KEY || '$^', 'g'), '[REDACTED]');
+}
+
 // ============================================================================
 // VALIDATION SCHEMA
 // ============================================================================
@@ -149,7 +157,7 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
           controller.close();
         } catch (error) {
-          console.error('Streaming error:', error);
+          console.error('Streaming error:', sanitizeError(error));
 
           let clientMessage = 'An unexpected error occurred. Please contact support.';
           const isLimitError = false;
@@ -186,7 +194,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Failed to start stream:', error);
+    console.error('Failed to start stream:', sanitizeError(error));
 
     // Check if it's a rate limit error
     const errorMessage = error instanceof Error ? error.message : String(error);
