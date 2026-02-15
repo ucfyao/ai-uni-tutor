@@ -3,7 +3,7 @@
 import { ArrowUp, Compass, FileQuestion, Presentation } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
-import { Box, Group, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
+import { Box, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Logo } from '@/components/Logo';
 import MockExamModal from '@/components/MockExamModal';
@@ -111,7 +111,7 @@ export function StudyPageClient() {
           w="100%"
           style={{ position: 'relative', zIndex: 1 }}
         >
-          <Stack align="center" className="gap-4 sm:gap-11" ta="center" w="100%">
+          <Stack align="center" className="gap-6 sm:gap-12" ta="center" w="100%">
             {/* Hero */}
             <Stack align="center" gap={0} className="study-hero-content" w="100%" maw={640}>
               <Box
@@ -230,8 +230,23 @@ export function StudyPageClient() {
                       className="group-hover:opacity-100"
                     />
 
+                    {/* Subtle gradient tint at bottom */}
                     <Box
-                      p={{ base: 'md', sm: 'lg' }}
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: '40%',
+                        background: `linear-gradient(to top, var(--mantine-color-${card.color}-1), transparent)`,
+                        opacity: 0.4,
+                        borderRadius: 'inherit',
+                        pointerEvents: 'none',
+                      }}
+                    />
+
+                    <Box
+                      p="lg"
                       h="100%"
                       className="flex flex-row sm:flex-col items-center sm:justify-center gap-4 sm:gap-4 mobile-card-layout"
                       style={{ position: 'relative', zIndex: 1 }}
@@ -260,7 +275,7 @@ export function StudyPageClient() {
                           {card.label}
                         </Text>
 
-                        <Text size="sm" c="dimmed" lh={1.4} className="text-left sm:text-center">
+                        <Text size="sm" c="dimmed" lh={1.4} mih={40} className="text-left sm:text-center">
                           {card.subtitle}
                         </Text>
 
@@ -268,7 +283,7 @@ export function StudyPageClient() {
                           mt={8}
                           px={14}
                           py={6}
-                          mx="auto"
+                          mx={{ base: 0, sm: 'auto' }}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
