@@ -213,26 +213,25 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </UnstyledButton>
         </Group>
 
-        {/* Source tabs — custom padding to stay compact */}
-        <SegmentedControl
-          key={segKey}
-          value={source}
-          onChange={(v) => setSource(v as Source)}
-          data={sourceData}
-          fullWidth
-          size="sm"
-          radius={R}
-          color="purple"
-          withItemsBorders={false}
-          styles={{
-            root: { padding: 4 },
-            label: { fontWeight: 600, fontSize: '13.5px' },
-            indicator: { borderRadius: R - 2 },
-          }}
-        />
-        <Text size="xs" c="dimmed" ta="center" mt={-10}>
-          {sourceDescMap[source]}
-        </Text>
+        {/* Source tabs */}
+        <Tooltip label={sourceDescMap[source]} position="bottom" withArrow openDelay={300}>
+          <SegmentedControl
+            key={segKey}
+            value={source}
+            onChange={(v) => setSource(v as Source)}
+            data={sourceData}
+            fullWidth
+            size="sm"
+            radius={R}
+            color="purple"
+            withItemsBorders={false}
+            styles={{
+              root: { padding: 4 },
+              label: { fontWeight: 600, fontSize: '13.5px' },
+              indicator: { borderRadius: R - 2 },
+            }}
+          />
+        </Tooltip>
 
         {/* ── Form fields ── */}
         <Box
