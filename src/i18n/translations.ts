@@ -460,15 +460,21 @@ export const translations = {
     personalization: {
       title: '个性化',
       subtitle: '管理你的个人信息',
+      accountOverview: '账户概览',
+      memberSince: '加入时间',
+      subscriptionStatus: '订阅状态',
       profileInfo: '个人信息',
       displayName: '显示名称',
       displayNameDesc: '此名称将显示在侧栏和聊天中',
       emailAddress: '邮箱地址',
       emailDesc: '你的邮箱地址无法更改。',
       saveChanges: '保存更改',
-      partnerProgram: '合伙人计划',
-      partnerDesc: '邀请好友注册，获得课程购买返佣。',
+      partnerProgram: '推荐有奖',
+      partnerDesc: '分享 UniTutor 给同学，每笔订阅你都能获得佣金奖励。专属推荐链接即将上线。',
       comingSoon: '即将推出',
+      dataPrivacy: '数据与隐私',
+      deleteAccount: '删除账户',
+      deleteAccountDesc: '永久删除你的账户和所有数据。',
     },
     // Help Page
     help: {
@@ -992,15 +998,22 @@ export const translations = {
     personalization: {
       title: 'Personalization',
       subtitle: 'Manage your personal information',
+      accountOverview: 'Account Overview',
+      memberSince: 'Member Since',
+      subscriptionStatus: 'Subscription Status',
       profileInfo: 'Profile Information',
       displayName: 'Display Name',
       displayNameDesc: 'This name will be displayed in the sidebar and chat',
       emailAddress: 'Email Address',
       emailDesc: 'Your email address cannot be changed.',
       saveChanges: 'Save Changes',
-      partnerProgram: 'Partner Program',
-      partnerDesc: 'Invite friends to register and earn commission on their course purchases.',
+      partnerProgram: 'Refer & Earn',
+      partnerDesc:
+        'Share UniTutor with classmates and earn commission on every subscription. Your personal referral link is coming soon.',
       comingSoon: 'Coming Soon',
+      dataPrivacy: 'Data & Privacy',
+      deleteAccount: 'Delete Account',
+      deleteAccountDesc: 'Permanently delete your account and all data.',
     },
     // Help Page
     help: {
