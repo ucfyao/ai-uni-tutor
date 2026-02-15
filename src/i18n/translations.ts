@@ -389,7 +389,6 @@ export const translations = {
       monthly: '月付',
       semester: '学期付',
       saveBadge: '省 33%',
-      semesterHint: '学期付可省 33%',
       free: {
         name: '免费版',
         price: '$0',
@@ -916,7 +915,6 @@ export const translations = {
       monthly: 'Monthly',
       semester: 'Semester',
       saveBadge: 'Save 33%',
-      semesterHint: 'Save 33% with Semester',
       free: {
         name: 'Free',
         price: '$0',

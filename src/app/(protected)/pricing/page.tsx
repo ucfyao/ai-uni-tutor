@@ -77,25 +77,21 @@ export default function PricingPage() {
           </Badge>
 
           {/* Billing Toggle */}
-          <SegmentedControl
-            value={billing}
-            onChange={(v) => setBilling(v as BillingCycle)}
-            data={[
-              { label: t.pricing.monthly, value: 'monthly' },
-              { label: t.pricing.semester, value: 'semester' },
-            ]}
-            radius="xl"
-            size="md"
-          />
-          {billing === 'semester' ? (
+          <Group gap="sm" align="center">
+            <SegmentedControl
+              value={billing}
+              onChange={(v) => setBilling(v as BillingCycle)}
+              data={[
+                { label: t.pricing.monthly, value: 'monthly' },
+                { label: t.pricing.semester, value: 'semester' },
+              ]}
+              radius="xl"
+              size="md"
+            />
             <Badge color="green" variant="light" size="md">
               {t.pricing.saveBadge}
             </Badge>
-          ) : (
-            <Text size="xs" c="dimmed">
-              {t.pricing.semesterHint}
-            </Text>
-          )}
+          </Group>
         </Stack>
 
         {/* Plan Cards */}
