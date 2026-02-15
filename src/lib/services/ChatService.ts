@@ -8,7 +8,7 @@
 import type { Content, Part } from '@google/genai';
 import { MODE_CONFIGS, type ModeConfig } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
-import { getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { appendRagContext } from '@/lib/prompts';
 import { ChatMessage, Course, TutoringMode } from '@/types';
 
@@ -116,7 +116,7 @@ export class ChatService {
 
     // Stream generation
     const stream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
+      model: GEMINI_MODELS.chat,
       contents,
       config: {
         systemInstruction,
@@ -153,7 +153,7 @@ Guidelines:
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: GEMINI_MODELS.chat,
       contents: [
         {
           role: 'user',
@@ -263,7 +263,7 @@ Guidelines:
     for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: GEMINI_MODELS.chat,
           contents,
           config: {
             systemInstruction,

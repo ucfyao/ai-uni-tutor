@@ -7,9 +7,11 @@ import { createMockSupabase, type MockSupabaseResult } from '@/__tests__/helpers
 let mockGemini: MockGeminiResult;
 let mockSupabase: MockSupabaseResult;
 
-vi.mock('@/lib/gemini', () => {
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
   mockGemini = createMockGemini();
   return {
+    ...actual,
     genAI: mockGemini.client,
     getGenAI: () => mockGemini.client,
   };

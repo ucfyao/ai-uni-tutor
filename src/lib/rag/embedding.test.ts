@@ -4,9 +4,11 @@ import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/moc
 // Mock the gemini module before importing the module under test
 let mockGemini: MockGeminiResult;
 
-vi.mock('@/lib/gemini', () => {
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
   mockGemini = createMockGemini();
   return {
+    ...actual,
     genAI: mockGemini.client,
     getGenAI: () => mockGemini.client,
   };
@@ -14,6 +16,7 @@ vi.mock('@/lib/gemini', () => {
 
 // Import after mock setup
 const { generateEmbedding, generateEmbeddingWithRetry } = await import('./embedding');
+const { GEMINI_MODELS } = await import('@/lib/gemini');
 
 describe('embedding', () => {
   beforeEach(() => {
@@ -40,7 +43,7 @@ describe('embedding', () => {
       await generateEmbedding('test text');
 
       expect(mockGemini.client.models.embedContent).toHaveBeenCalledWith({
-        model: 'gemini-embedding-001',
+        model: GEMINI_MODELS.embedding,
         contents: 'test text',
         config: {
           outputDimensionality: 768,
