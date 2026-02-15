@@ -294,6 +294,10 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   backgroundColor: 'var(--mantine-color-default-hover)',
                   border: '1px solid var(--mantine-color-default-border)',
                 },
+                indicator: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                },
               }}
             />
 
@@ -435,6 +439,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         withCloseButton={
           !isParsing || parseState.status === 'complete' || parseState.status === 'error'
         }
+        overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
+        styles={{
+          content: {
+            border: '1px solid var(--mantine-color-default-border)',
+            background: 'var(--mantine-color-body)',
+          },
+        }}
       >
         {!isParsing ? (
           /* ── Upload Form ── */
