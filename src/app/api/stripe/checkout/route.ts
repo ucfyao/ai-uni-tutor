@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
 import { getCurrentUser } from '@/lib/supabase/server';
-import { getProfileService } from '@/lib/services/ProfileService';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
 
@@ -26,10 +26,22 @@ export async function POST() {
       await profileService.updateStripeCustomerId(user.id, customer.id);
     }
 
-    const priceId = process.env.STRIPE_PRICE_ID;
+    // Determine which price to use based on plan parameter
+    let plan: string = 'monthly';
+    try {
+      const body = await req.json();
+      if (body.plan === 'semester') plan = 'semester';
+    } catch {
+      // No body or invalid JSON — default to monthly
+    }
+
+    const priceId =
+      plan === 'semester'
+        ? process.env.STRIPE_PRICE_ID_SEMESTER
+        : process.env.STRIPE_PRICE_ID_MONTHLY;
 
     if (!priceId) {
-      return new NextResponse('Stripe Price ID is missing', { status: 500 });
+      return new NextResponse(`Stripe Price ID for ${plan} plan is missing`, { status: 500 });
     }
 
     const session = await stripe.checkout.sessions.create({
