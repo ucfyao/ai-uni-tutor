@@ -157,7 +157,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             borderStyle: isDragging ? 'dashed' : 'solid',
             borderColor: isDragging
               ? 'var(--mantine-color-indigo-4)'
-              : 'var(--mantine-color-gray-3)',
+              : 'var(--mantine-color-default-border)',
             backgroundColor: isDragging
               ? 'var(--mantine-color-indigo-0)'
               : isTyping
@@ -169,7 +169,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             cursor: isTyping && !isStreaming ? 'not-allowed' : 'text',
             position: 'relative',
           }}
-          className={`group focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 ${
+          className={`group focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 ${
             isTyping && !isStreaming ? 'pointer-events-none' : ''
           }`}
         >
@@ -249,7 +249,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 paddingBottom: '8px',
                 fontWeight: 450,
                 fontSize: '15px',
-                color: 'var(--mantine-color-dark-9)',
+                color: 'var(--mantine-color-text)',
                 lineHeight: 1.5,
               },
             }}

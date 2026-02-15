@@ -291,8 +291,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               withItemsBorders={false}
               styles={{
                 root: {
-                  backgroundColor: 'var(--mantine-color-gray-0)',
-                  border: '1px solid var(--mantine-color-gray-2)',
+                  backgroundColor: 'var(--mantine-color-default-hover)',
+                  border: '1px solid var(--mantine-color-default-border)',
                 },
               }}
             />
@@ -454,7 +454,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   gap="sm"
                   px="md"
                   py="sm"
-                  style={{ background: 'var(--mantine-color-gray-0)' }}
+                  style={{ background: 'var(--mantine-color-default-hover)' }}
                 >
                   <FileText size={16} color="var(--mantine-color-indigo-5)" />
                   <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
@@ -490,7 +490,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                     root: {
                       border: 'none',
                       background: 'transparent',
-                      '&:hover': { background: 'var(--mantine-color-gray-0)' },
+                      '&:hover': { background: 'var(--mantine-color-default-hover)' },
                     },
                   }}
                 >

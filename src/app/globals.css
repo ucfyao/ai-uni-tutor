@@ -987,3 +987,44 @@ body {
     linear-gradient(to right, hsl(var(--border) / 0.3) 1px, transparent 1px),
     linear-gradient(to bottom, hsl(var(--border) / 0.3) 1px, transparent 1px);
 }
+
+/* ============================================================================
+ * Chat input fade gradient (LectureHelper)
+ * ============================================================================ */
+
+.chat-input-fade {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.85) 28%, rgba(255, 255, 255, 1) 60%);
+  backdrop-filter: blur(8px);
+}
+
+[data-mantine-color-scheme='dark'] .chat-input-fade {
+  background:
+    linear-gradient(180deg, transparent 0%, var(--mantine-color-body) 60%);
+}
+
+/* ============================================================================
+ * Dark mode: knowledge cards — @supports fallbacks
+ * ============================================================================ */
+
+@supports (color: color-mix(in srgb, black 50%, white)) {
+  [data-mantine-color-scheme='dark'] .knowledge-card {
+    background: var(--mantine-color-dark-6) !important;
+  }
+
+  [data-mantine-color-scheme='dark'] .knowledge-card--active {
+    background: var(--mantine-color-dark-5) !important;
+  }
+}
+
+@supports ((backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px))) {
+  [data-mantine-color-scheme='dark'] .knowledge-card {
+    background: var(--mantine-color-dark-6) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  [data-mantine-color-scheme='dark'] .knowledge-card--active {
+    background: var(--mantine-color-dark-5) !important;
+  }
+}

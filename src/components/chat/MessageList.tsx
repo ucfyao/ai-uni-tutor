@@ -192,7 +192,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                   }}
                 >
                   <Group gap="sm" align="flex-start">
-                    <AlertCircle size={20} color="#c00" />
+                    <AlertCircle size={20} color="var(--mantine-color-red-7)" />
                     <Box style={{ flex: 1 }}>
                       <Text size="sm" c="red.8" fw={500}>
                         {t.chat.error}

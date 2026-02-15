@@ -2,17 +2,7 @@
 
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import { type CSSProperties } from 'react';
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Card,
-  Collapse,
-  Group,
-  Stack,
-  Table,
-  Text,
-} from '@mantine/core';
+import { ActionIcon, Badge, Box, Card, Collapse, Group, Stack, Table, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChunkEditForm } from './ChunkEditForm';
@@ -33,7 +23,7 @@ interface ChunkTableProps {
 }
 
 const thStyle: CSSProperties = {
-  color: 'var(--mantine-color-gray-5)',
+  color: 'var(--mantine-color-dimmed)',
   fontWeight: 500,
   fontSize: 'var(--mantine-font-size-xs)',
   textTransform: 'uppercase',
@@ -102,7 +92,7 @@ export function ChunkTable({
           verticalSpacing="sm"
           layout="fixed"
           highlightOnHover
-          highlightOnHoverColor="var(--mantine-color-gray-0)"
+          highlightOnHoverColor="var(--mantine-color-default-hover)"
         >
           <Table.Thead>
             <Table.Tr>
@@ -284,7 +274,7 @@ function DesktopChunkRows({
       {docType === 'exam' && answer && isExpanded && !isEditing && (
         <Table.Tr>
           <Table.Td colSpan={colCount} p={0}>
-            <Box px="md" py="sm" bg="var(--mantine-color-gray-0)">
+            <Box px="md" py="sm" bg="var(--mantine-color-default-hover)">
               <Text size="xs" fw={600} mb={4}>
                 {t.documentDetail.answer}
               </Text>
@@ -403,7 +393,7 @@ function MobileChunkRow({
         )}
         {docType === 'exam' && answer && (
           <Collapse in={isExpanded}>
-            <Card bg="var(--mantine-color-gray-0)" p="sm" radius="sm">
+            <Card bg="var(--mantine-color-default-hover)" p="sm" radius="sm">
               <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                 {answer}
               </Text>

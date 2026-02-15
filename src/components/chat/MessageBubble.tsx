@@ -336,7 +336,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           borderStyle: 'solid',
           borderColor: isUser ? 'var(--mantine-color-gray-2)' : 'transparent',
           boxShadow: isUser ? '0 1px 6px rgba(0, 0, 0, 0.03)' : 'none',
-          color: isUser ? 'var(--mantine-color-dark-9)' : 'inherit',
+          color: isUser ? 'var(--mantine-color-text)' : 'inherit',
           position: 'relative',
         }}
       >
@@ -433,9 +433,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     handleExplainSelection();
                   }}
                   style={{
-                    backgroundColor: 'rgba(255,255,255,0.92)',
+                    backgroundColor: 'var(--mantine-color-body)',
                     backdropFilter: 'blur(10px)',
-                    border: '1px solid var(--mantine-color-gray-2)',
+                    border: '1px solid var(--mantine-color-default-border)',
                     boxShadow: '0 12px 30px rgba(0, 0, 0, 0.12)',
                   }}
                   styles={{

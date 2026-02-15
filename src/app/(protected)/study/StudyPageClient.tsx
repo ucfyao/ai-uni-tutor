@@ -192,7 +192,7 @@ export function StudyPageClient() {
                       animationDelay: `${260 + index * 80}ms`,
                       opacity: 0,
                     }}
-                    className="mode-card group hover:-translate-y-1 hover:shadow-xl hover:border-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    className="mode-card group hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     onClick={() => handleCardClick(card)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -274,11 +274,11 @@ export function StudyPageClient() {
                             alignItems: 'center',
                             gap: 6,
                             borderRadius: 'var(--mantine-radius-xl)',
-                            background: `var(--mantine-color-${card.color}-0)`,
-                            border: `1px solid var(--mantine-color-${card.color}-2)`,
+                            background: `var(--mantine-color-${card.color}-light)`,
+                            border: `1px solid var(--mantine-color-${card.color}-light-hover)`,
                             transition: 'all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1)',
                           }}
-                          className={`group-hover:bg-${card.color}-100 group-hover:border-${card.color}-300`}
+                          className=""
                         >
                           <Text size="sm" fw={600} c={`${card.color}.7`}>
                             {card.cta}
