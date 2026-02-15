@@ -1,22 +1,26 @@
 import { Globe } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@mantine/core';
+import { ActionIcon, Tooltip } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const LanguageSwitcher = () => {
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  const targetLang = language === 'zh' ? 'en' : 'zh';
+  const targetHref = targetLang === 'zh' ? '/zh' : '/';
 
   return (
-    <Button
-      variant="subtle"
-      size="sm"
-      component={Link}
-      href={language === 'zh' ? '/' : '/zh'}
-      leftSection={<Globe className="w-4 h-4" />}
-      px="xs"
-    >
-      {language === 'zh' ? 'EN' : '中文'}
-    </Button>
+    <Tooltip label={language === 'zh' ? 'Switch to English' : '切换到中文'}>
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        size="lg"
+        component={Link}
+        href={targetHref}
+        onClick={() => setLanguage(targetLang)}
+      >
+        <Globe size={18} />
+      </ActionIcon>
+    </Tooltip>
   );
 };
 

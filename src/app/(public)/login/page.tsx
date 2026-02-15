@@ -19,9 +19,10 @@ import {
   Title,
 } from '@mantine/core';
 import { Logo } from '@/components/Logo';
+import { LanguageProvider, useLanguage } from '@/i18n/LanguageContext';
 import { login, signup } from './actions';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,6 +30,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const { t } = useLanguage();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +61,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error(err);
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      const msg = err instanceof Error ? err.message : t.login.unexpectedError;
       setError(msg);
     } finally {
       setLoading(false);
@@ -103,12 +105,10 @@ export default function LoginPage() {
             className="login-page-title"
             style={{ fontSize: 'clamp(24px, 2.4vw, 32px)', lineHeight: 1.2 }}
           >
-            {isSignUp ? 'Join AI Tutor' : 'Welcome Back'}
+            {isSignUp ? t.login.joinTitle : t.login.welcomeBack}
           </Title>
           <Text c="dimmed" size="sm" fw={500}>
-            {isSignUp
-              ? 'Begin your personalized learning journey'
-              : 'Your AI tutor is ready for you'}
+            {isSignUp ? t.login.joinSubtitle : t.login.readySubtitle}
           </Text>
         </Stack>
 
@@ -135,7 +135,7 @@ export default function LoginPage() {
               mb="sm"
               radius="md"
               variant="light"
-              title="Check your email"
+              title={t.login.checkEmail}
               styles={{
                 root: {
                   padding: '8px 12px',
@@ -152,8 +152,8 @@ export default function LoginPage() {
           <form onSubmit={handleAuth}>
             <Stack gap="sm">
               <TextInput
-                label="Email"
-                placeholder="you@university.edu"
+                label={t.login.email}
+                placeholder={t.login.emailPlaceholder}
                 required
                 size="md"
                 value={email}
@@ -166,8 +166,10 @@ export default function LoginPage() {
 
               <Box>
                 <PasswordInput
-                  label="Password"
-                  placeholder={isSignUp ? 'Strong password' : 'Your password'}
+                  label={t.login.password}
+                  placeholder={
+                    isSignUp ? t.login.passwordPlaceholderSignup : t.login.passwordPlaceholderLogin
+                  }
                   required
                   size="md"
                   mt={2}
@@ -180,14 +182,14 @@ export default function LoginPage() {
                 />
                 {isSignUp && (
                   <Text size="xs" c="dimmed" mt={2} style={{ lineHeight: 1.35 }}>
-                    8+ chars, upper, lower, number, symbol
+                    {t.login.passwordHint}
                   </Text>
                 )}
 
                 {isSignUp && (
                   <PasswordInput
-                    label="Confirm"
-                    placeholder="Re-enter password"
+                    label={t.login.confirm}
+                    placeholder={t.login.confirmPlaceholder}
                     required
                     size="md"
                     mt="sm"
@@ -205,7 +207,7 @@ export default function LoginPage() {
                 {!isSignUp && (
                   <Group justify="flex-end" mt={4}>
                     <Anchor href="#" size="sm" fw={600} c="indigo.6">
-                      Forgot password?
+                      {t.login.forgotPassword}
                     </Anchor>
                   </Group>
                 )}
@@ -228,13 +230,13 @@ export default function LoginPage() {
                 }}
                 className="login-submit-btn"
               >
-                {isSignUp ? 'Create Account' : 'Sign In'}
+                {isSignUp ? t.login.createAccount : t.login.signIn}
               </Button>
             </Stack>
           </form>
 
           <Divider
-            label="Or continue with"
+            label={t.login.orContinueWith}
             labelPosition="center"
             my="lg"
             styles={{
@@ -275,7 +277,7 @@ export default function LoginPage() {
 
           <Center mt="lg">
             <Text size="sm" c="dimmed" span>
-              {isSignUp ? 'Already have an account? ' : 'New? '}
+              {isSignUp ? t.login.alreadyHaveAccount : t.login.newUser}
               <Anchor<'a'>
                 href="#"
                 fw={600}
@@ -289,16 +291,24 @@ export default function LoginPage() {
                   setConfirmPassword('');
                 }}
               >
-                {isSignUp ? 'Sign In' : 'Create Account'}
+                {isSignUp ? t.login.signIn : t.login.createAccount}
               </Anchor>
             </Text>
           </Center>
         </Paper>
 
         <Text ta="center" size="sm" c="dimmed" mt="lg">
-          &copy; {new Date().getFullYear()} AI Uni Tutor
+          {t.login.copyright.replace('{year}', String(new Date().getFullYear()))}
         </Text>
       </Container>
     </Box>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <LanguageProvider>
+      <LoginForm />
+    </LanguageProvider>
   );
 }

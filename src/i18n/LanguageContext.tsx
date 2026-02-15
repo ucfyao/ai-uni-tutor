@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useSyncExternalStore } from 'react';
 import { Language, TranslationKey, translations } from './translations';
 
 interface LanguageContextType {
@@ -11,24 +11,57 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'language';
+
+function isLanguage(val: string | null): val is Language {
+  return val === 'en' || val === 'zh';
+}
+
+/**
+ * A tiny external store backed by localStorage so that every
+ * LanguageProvider instance (and there is now only one, in layout.tsx)
+ * shares the exact same language value – no useEffect race conditions.
+ */
+let listeners: Array<() => void> = [];
+
+function getSnapshot(): Language {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return isLanguage(stored) ? stored : 'en';
+}
+
+function getServerSnapshot(): Language {
+  return 'en';
+}
+
+function subscribe(listener: () => void) {
+  listeners.push(listener);
+
+  // Listen for changes from other tabs
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) listener();
+  };
+  window.addEventListener('storage', onStorage);
+
+  return () => {
+    listeners = listeners.filter((l) => l !== listener);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
+function setLanguageStore(lang: Language) {
+  localStorage.setItem(STORAGE_KEY, lang);
+  // Notify all subscribers in this tab
+  listeners.forEach((l) => l());
+}
+
 type LanguageProviderProps = { children: ReactNode; initialLang?: Language };
 
 export const LanguageProvider = ({ children, initialLang = 'en' }: LanguageProviderProps) => {
-  const [language, setLanguage] = useState<Language>(initialLang);
+  const language = useSyncExternalStore(subscribe, getSnapshot, () => initialLang);
 
-  // On mount, sync with localStorage (for protected routes where URL doesn't indicate language)
-  useEffect(() => {
-    if (!initialLang || initialLang === 'en') {
-      const stored = localStorage.getItem('language');
-      if (stored === 'en' || stored === 'zh') {
-        setLanguage(stored);
-      }
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    localStorage.setItem('language', language);
-  }, [language]);
+  const setLanguage = (lang: Language) => {
+    setLanguageStore(lang);
+  };
 
   const t = translations[language];
 
