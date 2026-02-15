@@ -46,7 +46,6 @@
     "react-hook-form": "^7.71.1",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.6.0",
-    "recharts": "^3.7.0",
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
