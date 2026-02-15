@@ -55,8 +55,6 @@ export function ExamEntryClient() {
   // Mode (shared by all sources)
   const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
 
-  const needsCourse = source === 'real' || source === 'random';
-
   // University options
   const uniOptions = useMemo(
     () => (UNIVERSITIES ?? []).map((u) => ({ value: u.id, label: u.name })),
@@ -78,9 +76,9 @@ export function ExamEntryClient() {
     setSelectedPaper(null);
   }, [selectedUniId]);
 
-  // Fetch papers when course changes (for real/random)
+  // Fetch papers when course changes
   useEffect(() => {
-    if (!selectedCourseCode || !needsCourse) {
+    if (!selectedCourseCode) {
       setPapers([]);
       setSelectedPaper(null);
       return;
@@ -95,7 +93,7 @@ export function ExamEntryClient() {
       }
       setLoadingPapers(false);
     });
-  }, [selectedCourseCode, needsCourse]);
+  }, [selectedCourseCode]);
 
   const handleStart = () => {
     setError(null);
@@ -155,7 +153,34 @@ export function ExamEntryClient() {
         }}
       >
         <Stack gap="lg">
-          {/* 1. Source selector — always first */}
+          {/* 1. University + Course — always first */}
+          <Group grow gap="md">
+            <Select
+              label={t.exam.university ?? 'University'}
+              placeholder={t.exam.selectUniversity ?? 'Select university'}
+              data={uniOptions}
+              value={selectedUniId}
+              onChange={setSelectedUniId}
+              searchable
+              size="md"
+            />
+            <Select
+              label={t.exam.course ?? 'Course'}
+              placeholder={
+                selectedUniId
+                  ? (t.exam.selectCourse ?? 'Select course')
+                  : (t.exam.selectUniversityFirst ?? 'Select university first')
+              }
+              data={courseOptions}
+              value={selectedCourseCode}
+              onChange={setSelectedCourseCode}
+              disabled={!selectedUniId}
+              searchable
+              size="md"
+            />
+          </Group>
+
+          {/* 2. Source selector */}
           <div>
             <Text size="sm" fw={500} mb="xs">
               {t.exam.selectSource}
@@ -184,35 +209,6 @@ export function ExamEntryClient() {
               />
             </Group>
           </div>
-
-          {/* 2. University + Course — only for real / random */}
-          {needsCourse && (
-            <Group grow gap="md">
-              <Select
-                label={t.exam.university ?? 'University'}
-                placeholder={t.exam.selectUniversity ?? 'Select university'}
-                data={uniOptions}
-                value={selectedUniId}
-                onChange={setSelectedUniId}
-                searchable
-                size="md"
-              />
-              <Select
-                label={t.exam.course ?? 'Course'}
-                placeholder={
-                  selectedUniId
-                    ? (t.exam.selectCourse ?? 'Select course')
-                    : (t.exam.selectUniversityFirst ?? 'Select university first')
-                }
-                data={courseOptions}
-                value={selectedCourseCode}
-                onChange={setSelectedCourseCode}
-                disabled={!selectedUniId}
-                searchable
-                size="md"
-              />
-            </Group>
-          )}
 
           {/* 3. Source-specific options */}
           {source === 'real' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
