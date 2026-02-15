@@ -35,7 +35,6 @@ const chatMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string().min(1),
   timestamp: z.number().finite(),
-  cardId: z.string().min(1).optional(),
 });
 
 const generateChatSchema = z.object({

@@ -16,6 +16,7 @@ import { generateEmbeddingBatch } from '@/lib/rag/embedding';
 import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import type { DocumentService } from './DocumentService';
 import { getDocumentService } from './DocumentService';
+import { getKnowledgeCardService } from './KnowledgeCardService';
 
 export interface ProcessingCallbacks {
   onProgress?: (stage: string, message: string) => void;
@@ -167,6 +168,14 @@ export class DocumentProcessingService {
 
     if (items.length === 0) {
       throw new Error('No content extracted from PDF');
+    }
+
+    // 3b. Save knowledge cards when extraction yields knowledge points
+    if (type === 'knowledge_point') {
+      await getKnowledgeCardService().saveFromKnowledgePoints(
+        items as KnowledgePoint[],
+        documentId,
+      );
     }
 
     // 4. Build chunks with embeddings

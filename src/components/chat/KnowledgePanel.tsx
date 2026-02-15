@@ -15,42 +15,47 @@ import {
   Text,
   ThemeIcon,
 } from '@mantine/core';
+import { fetchCardConversations } from '@/app/actions/knowledge-cards';
+import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
+import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
+import type { UserCardEntity } from '@/lib/domain/models/UserCard';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { KnowledgeCard } from '@/lib/contentParser';
-import { ChatMessage } from '@/types';
 import KnowledgeCardItem from './KnowledgeCardItem';
 
+export type PanelCard =
+  | { type: 'knowledge'; data: KnowledgeCardSummary }
+  | { type: 'user'; data: UserCardEntity };
+
 interface KnowledgePanelProps {
-  cards: KnowledgeCard[];
+  officialCards: KnowledgeCardSummary[];
+  userCards: UserCardEntity[];
   visible: boolean;
   activeCardId: string | null;
   onCardClick: (id: string | null) => void;
-  onAsk: (card: KnowledgeCard, question: string) => void;
+  onAsk: (
+    card: { id: string; title: string },
+    question: string,
+    cardType: 'knowledge' | 'user',
+  ) => void;
   onDelete: (cardId: string) => void;
-  cardChats: Record<string, ChatMessage[]>;
   loadingCardId: string | null;
-  explainingCardIds?: Set<string>;
-  onClose?: () => void; // For drawer close button
-  /** When set, panel scrolls to this card (e.g. after add); cleared via onScrolledToCard */
+  onClose?: () => void;
   scrollToCardId?: string | null;
-  /** Incrementing counter to force scroll even when scrollToCardId is the same */
   scrollTrigger?: number;
   onScrolledToCard?: () => void;
-  /** Pre-fill a card's input field (e.g. after Explain selection) */
   prefillInput?: { cardId: string; text: string } | null;
   onPrefillConsumed?: () => void;
 }
 
 export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
-  cards,
+  officialCards,
+  userCards,
   visible,
   activeCardId,
   onCardClick,
   onAsk,
   onDelete,
-  cardChats,
   loadingCardId,
-  explainingCardIds = new Set(),
   onClose,
   scrollToCardId,
   scrollTrigger,
@@ -61,14 +66,10 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   const { t } = useLanguage();
   const [inputs, setInputs] = useState<{ [key: string]: string }>({});
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
+  const [cardChats, setCardChats] = useState<Record<string, CardConversationEntity[]>>({});
   const viewportRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const officialCards = React.useMemo(
-    () => cards.filter((c) => (c.origin ?? 'official') !== 'user'),
-    [cards],
-  );
-  const userCards = React.useMemo(() => cards.filter((c) => c.origin === 'user'), [cards]);
-  const totalCards = cards.length;
+  const totalCards = officialCards.length + userCards.length;
   const [openedSections, setOpenedSections] = useState<string[]>(() => {
     if (officialCards.length > 0) return ['official'];
     if (userCards.length > 0) return ['mine'];
@@ -83,16 +84,32 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   }, [officialCards.length, userCards.length]);
 
   // If cards load after mount and nothing is open, open the most relevant section
-  const prevCardsCountRef = useRef(cards.length);
+  const prevCardsCountRef = useRef(totalCards);
   useEffect(() => {
     const prev = prevCardsCountRef.current;
-    prevCardsCountRef.current = cards.length;
+    prevCardsCountRef.current = totalCards;
 
-    if (prev === 0 && cards.length > 0 && openedSections.length === 0) {
+    if (prev === 0 && totalCards > 0 && openedSections.length === 0) {
       if (officialCards.length > 0) setOpenedSections(['official']);
       else if (userCards.length > 0) setOpenedSections(['mine']);
     }
-  }, [cards.length, openedSections.length, officialCards.length, userCards.length]);
+  }, [totalCards, openedSections.length, officialCards.length, userCards.length]);
+
+  // Load card conversations when a card is expanded
+  useEffect(() => {
+    if (!activeCardId) return;
+    if (cardChats[activeCardId]) return; // already loaded
+
+    const isOfficial = officialCards.some((c) => c.id === activeCardId);
+    const cardType = isOfficial ? 'knowledge' : 'user';
+
+    (async () => {
+      const result = await fetchCardConversations(activeCardId, cardType as 'knowledge' | 'user');
+      if (result.success) {
+        setCardChats((prev) => ({ ...prev, [activeCardId]: result.data }));
+      }
+    })();
+  }, [activeCardId, officialCards, cardChats]);
 
   // Pre-fill card input when requested (e.g. after Explain selection)
   useEffect(() => {
@@ -120,14 +137,13 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   };
 
   // Encapsulated: scroll to card using manual scroll calculation
-  // Uses offsetTop for reliable positioning within nested scroll containers
   useEffect(() => {
     if (!scrollToCardId || !onScrolledToCard) return;
 
     const targetSection = (() => {
-      const card = cards.find((c) => c.id === scrollToCardId);
-      if (!card) return null;
-      return (card.origin ?? 'official') === 'user' ? 'mine' : 'official';
+      if (userCards.some((c) => c.id === scrollToCardId)) return 'mine';
+      if (officialCards.some((c) => c.id === scrollToCardId)) return 'official';
+      return null;
     })();
 
     if (targetSection) {
@@ -196,16 +212,24 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [scrollToCardId, scrollTrigger, onScrolledToCard, cards]); // removed cardRefs from dep array as it is a ref
+  }, [scrollToCardId, scrollTrigger, onScrolledToCard, officialCards, userCards]);
 
   // When a card finishes thinking/loading, clear its input
   useEffect(() => {
     // Intentionally left as a placeholder: input is cleared on send via handleAskWrapper.
   }, []);
 
-  const handleAskWrapper = useCallback(
-    (card: KnowledgeCard, question: string) => {
-      onAsk(card, question);
+  const handleAskOfficial = useCallback(
+    (card: { id: string; title: string }, question: string) => {
+      onAsk(card, question, 'knowledge');
+      setInputs((prev) => ({ ...prev, [card.id]: '' }));
+    },
+    [onAsk],
+  );
+
+  const handleAskUser = useCallback(
+    (card: { id: string; title: string }, question: string) => {
+      onAsk(card, question, 'user');
       setInputs((prev) => ({ ...prev, [card.id]: '' }));
     },
     [onAsk],
@@ -285,7 +309,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
           }}
         >
           <Stack gap={10} p="md">
-            {cards.length === 0 && (
+            {totalCards === 0 && (
               <Paper withBorder radius="md" p="lg">
                 <Center>
                   <Stack gap="sm" align="center">
@@ -384,14 +408,14 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                         {officialCards.map((card) => (
                           <KnowledgeCardItem
                             key={card.id}
-                            card={card}
+                            card={{ id: card.id, title: card.title, content: card.definition, keyConcepts: card.keyConcepts }}
+                            cardType="knowledge"
                             isActive={activeCardId === card.id}
-                            isExplaining={explainingCardIds.has(card.id)}
                             chats={cardChats[card.id] || []}
                             isLoading={loadingCardId === card.id}
                             inputValue={inputs[card.id] || ''}
                             onCardClick={onCardClick}
-                            onAsk={handleAskWrapper}
+                            onAsk={handleAskOfficial}
                             onDelete={setDeleteCardId}
                             onInputChange={handleInputChange}
                             setRef={getRefCallback(card.id)}
@@ -444,14 +468,14 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                         {userCards.map((card) => (
                           <KnowledgeCardItem
                             key={card.id}
-                            card={card}
+                            card={{ id: card.id, title: card.title, content: card.content, excerpt: card.excerpt }}
+                            cardType="user"
                             isActive={activeCardId === card.id}
-                            isExplaining={explainingCardIds.has(card.id)}
                             chats={cardChats[card.id] || []}
                             isLoading={loadingCardId === card.id}
                             inputValue={inputs[card.id] || ''}
                             onCardClick={onCardClick}
-                            onAsk={handleAskWrapper}
+                            onAsk={handleAskUser}
                             onDelete={setDeleteCardId}
                             onInputChange={handleInputChange}
                             setRef={getRefCallback(card.id)}

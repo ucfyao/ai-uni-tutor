@@ -1,38 +1,45 @@
 import clsx from 'clsx';
-import { BookOpen, ChevronRight, Send, Trash2 } from 'lucide-react'; // Re-imported Send
+import { BookOpen, ChevronRight, Send, Trash2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import React, { memo } from 'react';
 import {
   ActionIcon,
+  Badge,
   Box,
   Collapse,
   Group,
   Loader,
-  Skeleton,
   Stack,
   Text,
   TextInput,
   type MantineColor,
 } from '@mantine/core';
 import { PLACEHOLDERS } from '@/constants/placeholders';
+import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { extractCards, KnowledgeCard } from '@/lib/contentParser';
-import { ChatMessage } from '@/types';
 
 const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
   ssr: false,
   loading: () => <Box style={{ minHeight: 20 }} />,
 });
 
+export interface CardItemData {
+  id: string;
+  title: string;
+  content: string;
+  keyConcepts?: string[];
+  excerpt?: string;
+}
+
 interface KnowledgeCardItemProps {
-  card: KnowledgeCard;
+  card: CardItemData;
+  cardType: 'knowledge' | 'user';
   isActive: boolean;
-  isExplaining: boolean;
-  chats: ChatMessage[];
+  chats: CardConversationEntity[];
   isLoading: boolean;
   inputValue: string;
   onCardClick: (id: string | null) => void;
-  onAsk: (card: KnowledgeCard, question: string) => void;
+  onAsk: (card: { id: string; title: string }, question: string) => void;
   onDelete: (cardId: string) => void;
   onInputChange: (cardId: string, value: string) => void;
   setRef: (element: HTMLDivElement | null) => void;
@@ -41,8 +48,8 @@ interface KnowledgeCardItemProps {
 const KnowledgeCardItem = memo(
   ({
     card,
+    cardType,
     isActive,
-    isExplaining,
     chats,
     isLoading,
     inputValue,
@@ -53,7 +60,7 @@ const KnowledgeCardItem = memo(
     setRef,
   }: KnowledgeCardItemProps) => {
     const { t } = useLanguage();
-    const accentColor: MantineColor = card.origin === 'user' ? 'violet' : 'indigo';
+    const accentColor: MantineColor = cardType === 'user' ? 'violet' : 'indigo';
     const panelId = `kc-panel-${card.id}`;
 
     const handleAsk = () => {
@@ -71,11 +78,7 @@ const KnowledgeCardItem = memo(
             '--kc-accent-soft': `var(--mantine-color-${accentColor}-0)`,
           } as React.CSSProperties
         }
-        className={clsx(
-          'knowledge-card group',
-          isActive && 'knowledge-card--active',
-          isExplaining && 'knowledge-card--explaining',
-        )}
+        className={clsx('knowledge-card group', isActive && 'knowledge-card--active')}
       >
         <Box className="knowledge-card__active-bar" aria-hidden />
         <Group
@@ -95,18 +98,14 @@ const KnowledgeCardItem = memo(
           }}
         >
           <Box className="knowledge-card__icon" style={{ flexShrink: 0 }}>
-            {isExplaining ? (
-              <Loader size={16} color={accentColor} />
-            ) : (
-              <BookOpen
-                size={16}
-                style={{
-                  color: isActive ? 'var(--kc-accent)' : 'var(--mantine-color-gray-5)',
-                  transition: 'color 0.2s ease',
-                }}
-                strokeWidth={2}
-              />
-            )}
+            <BookOpen
+              size={16}
+              style={{
+                color: isActive ? 'var(--kc-accent)' : 'var(--mantine-color-gray-5)',
+                transition: 'color 0.2s ease',
+              }}
+              strokeWidth={2}
+            />
           </Box>
           <Text
             size="sm"
@@ -121,20 +120,22 @@ const KnowledgeCardItem = memo(
             {card.title}
           </Text>
           <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-            <ActionIcon
-              variant="subtle"
-              color="red"
-              size={26}
-              radius="md"
-              className="knowledge-card__delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(card.id);
-              }}
-              aria-label={`Delete ${card.title}`}
-            >
-              <Trash2 size={14} />
-            </ActionIcon>
+            {cardType === 'user' && (
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                size={26}
+                radius="md"
+                className="knowledge-card__delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(card.id);
+                }}
+                aria-label={`Delete ${card.title}`}
+              >
+                <Trash2 size={14} />
+              </ActionIcon>
+            )}
             <ChevronRight
               size={16}
               aria-hidden
@@ -158,67 +159,45 @@ const KnowledgeCardItem = memo(
               style={{
                 background: 'transparent',
                 borderRadius: '0 0 12px 12px',
-                fontSize: 14, // Slightly larger base text
+                fontSize: 14,
                 lineHeight: 1.6,
                 color: 'var(--mantine-color-gray-7)',
                 border: 'none',
                 boxShadow: 'none',
               }}
             >
-              {isExplaining ? (
-                <Stack gap={10}>
-                  {card.source?.kind === 'selection' && card.source.excerpt.trim().length > 0 && (
-                    <Box
-                      px={10}
-                      py={9}
-                      style={{
-                        background: 'var(--mantine-color-default-hover)',
-                        borderRadius: 8,
-                        border: '1px solid var(--mantine-color-default-border)',
-                        borderLeft: '3px solid var(--kc-accent)',
-                      }}
-                    >
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }} lineClamp={6}>
-                        {card.source.excerpt}
-                      </Text>
-                    </Box>
-                  )}
-                  <Group gap={8}>
-                    <Loader size={12} color={accentColor} />
-                    <Text size="xs" c="dimmed" fw={500}>
-                      {t.chat.generatingExplanation}
-                    </Text>
-                  </Group>
-                  <Skeleton height={8} width="90%" radius={4} animate />
-                  <Skeleton height={8} width="75%" radius={4} animate />
-                  <Skeleton height={8} width="60%" radius={4} animate />
-                </Stack>
-              ) : (
-                <>
-                  {card.source?.kind === 'selection' && card.source.excerpt.trim().length > 0 && (
-                    <Box
-                      mb={10}
-                      px={10}
-                      py={9}
-                      style={{
-                        background: 'var(--mantine-color-default-hover)',
-                        borderRadius: 8,
-                        border: '1px solid var(--mantine-color-default-border)',
-                        borderLeft: '3px solid var(--kc-accent)',
-                      }}
-                    >
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }} lineClamp={8}>
-                        {card.source.excerpt}
-                      </Text>
-                    </Box>
-                  )}
-                  {(!card.source ||
-                    card.source.kind !== 'selection' ||
-                    card.content.trim() !== card.source.excerpt.trim()) && (
-                    <MarkdownRenderer content={card.content} compact />
-                  )}
-                </>
+              {/* Key concepts tags for official cards */}
+              {cardType === 'knowledge' && card.keyConcepts && card.keyConcepts.length > 0 && (
+                <Group gap={6} mb={10} wrap="wrap">
+                  {card.keyConcepts.map((concept) => (
+                    <Badge key={concept} size="xs" variant="light" color="indigo" radius="sm">
+                      {concept}
+                    </Badge>
+                  ))}
+                </Group>
               )}
+
+              {/* Excerpt for user cards */}
+              {cardType === 'user' && card.excerpt && card.excerpt.trim().length > 0 && (
+                <Box
+                  mb={10}
+                  px={10}
+                  py={9}
+                  style={{
+                    background: 'var(--mantine-color-default-hover)',
+                    borderRadius: 8,
+                    border: '1px solid var(--mantine-color-default-border)',
+                    borderLeft: '3px solid var(--kc-accent)',
+                  }}
+                >
+                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }} lineClamp={8}>
+                    {card.excerpt}
+                  </Text>
+                </Box>
+              )}
+
+              {/* Main content (definition for official, content for user) */}
+              {card.content && <MarkdownRenderer content={card.content} compact />}
             </Box>
 
             {chats.length > 0 && (
@@ -230,7 +209,9 @@ const KnowledgeCardItem = memo(
                     py={7}
                     style={{
                       background:
-                        m.role === 'user' ? 'var(--kc-accent-soft)' : 'var(--mantine-color-default-hover)',
+                        m.role === 'user'
+                          ? 'var(--kc-accent-soft)'
+                          : 'var(--mantine-color-default-hover)',
                       borderRadius: 8,
                       width: 'fit-content',
                       maxWidth: '100%',
@@ -246,7 +227,7 @@ const KnowledgeCardItem = memo(
                         {m.content}
                       </Text>
                     ) : (
-                      <MarkdownRenderer content={extractCards(m.content).cleanContent} compact />
+                      <MarkdownRenderer content={m.content} compact />
                     )}
                   </Box>
                 ))}
@@ -272,7 +253,7 @@ const KnowledgeCardItem = memo(
                 radius="xl"
                 value={inputValue}
                 onChange={(e) => onInputChange(card.id, e.currentTarget.value)}
-                disabled={isLoading || isExplaining}
+                disabled={isLoading}
                 classNames={{ input: 'knowledge-card__input' }}
                 onKeyDown={(e) => {
                   if (!e.nativeEvent.isComposing && e.key === 'Enter') {
@@ -295,7 +276,7 @@ const KnowledgeCardItem = memo(
                     variant="filled"
                     color={accentColor}
                     onClick={handleAsk}
-                    disabled={!inputValue?.trim() || isLoading || isExplaining}
+                    disabled={!inputValue?.trim() || isLoading}
                     style={{
                       transition: 'all 0.15s ease',
                       boxShadow: '0 2px 6px rgba(15, 23, 42, 0.12)',

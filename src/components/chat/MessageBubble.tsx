@@ -13,7 +13,6 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { injectLinks, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types/index';
 
 const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
@@ -60,8 +59,6 @@ interface MessageBubbleProps {
   isStreaming?: boolean;
   onStreamingComplete?: () => void;
   mode?: TutoringMode | null;
-  knowledgeCards?: KnowledgeCard[];
-  onHighlightClick?: (cardId: string) => void;
   onAddCard?: (
     title: string,
     content: string,
@@ -138,8 +135,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onStreamingComplete,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mode: _mode,
-  knowledgeCards = [],
-  onHighlightClick,
   onAddCard,
   onRegenerate,
 }) => {
@@ -298,23 +293,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
   }, [selection, handleExplainSelection]);
 
-  // Process content to add links for knowledge cards
-  const processedContent = React.useMemo(() => {
-    if (isUser || !knowledgeCards.length || isStreaming) return message.content;
-
-    return injectLinks(message.content, knowledgeCards);
-  }, [message.content, knowledgeCards, isUser, isStreaming]);
-
-  const handleLinkClickStable = useCallback(
-    (href: string) => {
-      if (href.startsWith('#card-') && onHighlightClick) {
-        const cardId = href.replace('#card-', '');
-        onHighlightClick(cardId);
-      }
-    },
-    [onHighlightClick],
-  );
-
   return (
     <Box
       data-message-bubble
@@ -375,8 +353,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           ) : (
             <>
               <MarkdownRenderer
-                content={isStreaming ? message.content : processedContent}
-                onLinkClick={handleLinkClickStable}
+                content={message.content}
                 tight
               />
               {isStreaming && (

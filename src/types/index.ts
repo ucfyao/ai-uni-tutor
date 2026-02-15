@@ -19,7 +19,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
-  cardId?: string;
   images?: {
     data: string; // base64
     mimeType: string;

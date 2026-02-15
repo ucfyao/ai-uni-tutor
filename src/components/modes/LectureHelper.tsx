@@ -1,11 +1,9 @@
 import dynamic from 'next/dynamic';
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Drawer, Group, Loader, Stack } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { generateChatResponse } from '@/app/actions/chat';
+import { askCardQuestion } from '@/app/actions/knowledge-cards';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
-// import { MessageList } from '@/components/chat/MessageList'; // Dynamically imported
 import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
@@ -47,7 +45,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const {
     session,
     setSession,
-    addMessage,
     updateLastMessage,
     removeLastMessage: _removeLastMessage,
     removeMessages,
@@ -58,19 +55,16 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse, cancelStream } =
     useChatStream();
-  const isLargeScreen = useMediaQuery('(min-width: 75em)'); // Matches Mantine 'lg' breakpoint
 
   // Knowledge cards management
-  const { knowledgeCards, explainingCardIds, addManualCard, deleteCard } = useKnowledgeCards({
-    sessionId: session?.id || '',
-    messages: session?.messages || [],
-    courseCode: session?.course.code || '',
-    enabled: true, // Lecture Helper has knowledge cards
-  });
+  const { officialCards, userCards, loadRelatedCards, addManualCard, deleteCard } =
+    useKnowledgeCards({
+      sessionId: session?.id || '',
+      enabled: true,
+    });
 
   // Card interaction state
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
-  const [cardChats, setCardChats] = useState<Record<string, ChatMessage[]>>({});
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
   const [cardPrefillInput, setCardPrefillInput] = useState<{ cardId: string; text: string } | null>(
     null,
@@ -117,20 +111,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       setKnowledgePanelDrawerOpened(true);
     }
   }, [openDrawerTrigger]);
-
-  // Hydrate card chats from session history
-  React.useEffect(() => {
-    if (!session) return;
-
-    const chats: Record<string, ChatMessage[]> = {};
-    session.messages.forEach((msg) => {
-      if (msg.cardId) {
-        if (!chats[msg.cardId]) chats[msg.cardId] = [];
-        chats[msg.cardId].push(msg);
-      }
-    });
-    setCardChats(chats);
-  }, [session]);
 
   const handleSend = async (retryInput?: string) => {
     const messageToSend = retryInput || input.trim();
@@ -232,66 +212,40 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           await updateLastMessage(accumulatedContent, null);
           setLastError(null);
           isSendingRef.current = false;
+          loadRelatedCards(messageToSend);
           requestAnimationFrame(() => chatInputRef.current?.focus());
         },
       },
     );
   };
 
-  const handleCardAsk = async (card: { id: string; title: string }, question: string) => {
+  const handleCardAsk = async (
+    card: { id: string; title: string },
+    question: string,
+    cardType: 'knowledge' | 'user' = 'knowledge',
+  ) => {
     if (!session) return;
-
-    const contextualInput = `Regarding the concept "${card.title}" in our lecture: ${question}`;
-
-    const userMsg: ChatMessage = {
-      id: `u_${Date.now()}`,
-      role: 'user',
-      content: question,
-      timestamp: Date.now(),
-      cardId: card.id,
-    };
 
     setLoadingCardId(card.id);
 
     try {
-      // Check quota and call model first; only add (and persist) messages on success
-      const result = await generateChatResponse(
-        session.course,
-        session.mode,
-        [...session.messages, userMsg],
-        contextualInput,
+      const result = await askCardQuestion(
+        card.id,
+        cardType,
+        question,
+        session.course.code,
       );
 
-      if (result.success) {
-        addMessage(userMsg);
-        const aiMsg: ChatMessage = {
-          id: `a_${Date.now()}`,
-          role: 'assistant',
-          content: result.data || '...',
-          timestamp: Date.now(),
-          cardId: card.id,
-        };
-        addMessage(aiMsg);
-      } else if (result.isLimitError) {
-        setLimitModalOpen(true);
-      } else {
+      if (!result.success) {
         showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
       }
+      // Conversation is saved server-side by askCardQuestion
     } catch (e) {
       console.error('Card ask error:', e);
       showNotification({ title: 'Error', message: 'Failed to connect', color: 'red' });
     } finally {
       setLoadingCardId(null);
     }
-  };
-
-  const handleHighlightClick = (cardId: string) => {
-    setActiveCardId(cardId);
-    if (!isLargeScreen) {
-      setKnowledgePanelDrawerOpened(true); // Open drawer on mobile so user can see the card
-    }
-    setPendingScrollToCardId(cardId); // Trigger scroll via KnowledgePanel's scroll mechanism
-    setScrollTrigger((prev) => prev + 1); // Ensure useEffect fires even for same cardId
   };
 
   const handleAddCard = async (
@@ -306,25 +260,17 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const excerpt = content.trim();
     const normalizedTitle = title.trim();
 
-    const source = {
-      kind: 'selection' as const,
-      excerpt: '',
-      createdAt: Date.now(),
-      sessionId: session.id,
+    const cardId = await addManualCard(normalizedTitle, excerpt, {
       messageId: options?.source?.messageId,
       role: options?.source?.role,
-    };
-
-    const cardId = addManualCard(normalizedTitle, '', source);
+    });
     if (!cardId) return;
 
-    // Immediate UX: focus the new user card and show loading while explanation is generating.
     setActiveCardId(cardId);
     setKnowledgePanelDrawerOpened(true);
     setPendingScrollToCardId(cardId);
     setScrollTrigger((prev) => prev + 1);
 
-    // Pre-fill the card's input so user can review/edit before sending
     setCardPrefillInput({ cardId, text: `Explain this concept:\n\n${excerpt}` });
   };
 
@@ -449,8 +395,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             lastError={lastError}
             onRetry={handleRetry}
             mode={session.mode}
-            knowledgeCards={knowledgeCards}
-            onHighlightClick={handleHighlightClick}
             onAddCard={handleAddCard}
             isKnowledgeMode={true}
             courseCode={session.course.code}
@@ -502,15 +446,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           }}
         >
           <KnowledgePanel
-            cards={knowledgeCards}
+            officialCards={officialCards}
+            userCards={userCards}
             visible={true}
             activeCardId={activeCardId}
             onCardClick={setActiveCardId}
             onAsk={handleCardAsk}
             onDelete={deleteCard}
-            cardChats={cardChats}
             loadingCardId={loadingCardId}
-            explainingCardIds={explainingCardIds}
             scrollToCardId={pendingScrollToCardId}
             scrollTrigger={scrollTrigger}
             onScrolledToCard={() => setPendingScrollToCardId(null)}
@@ -553,15 +496,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           }}
         >
           <KnowledgePanel
-            cards={knowledgeCards}
+            officialCards={officialCards}
+            userCards={userCards}
             visible={true}
             activeCardId={activeCardId}
             onCardClick={setActiveCardId}
             onAsk={handleCardAsk}
             onDelete={deleteCard}
-            cardChats={cardChats}
             loadingCardId={loadingCardId}
-            explainingCardIds={explainingCardIds}
             onClose={() => setKnowledgePanelDrawerOpened(false)}
             scrollToCardId={pendingScrollToCardId}
             scrollTrigger={scrollTrigger}

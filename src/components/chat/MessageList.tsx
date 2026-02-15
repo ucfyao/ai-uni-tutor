@@ -1,8 +1,7 @@
 import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionIcon, Box, Button, Container, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { extractCards, KnowledgeCard } from '@/lib/contentParser';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MessageBubble } from './MessageBubble';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -15,8 +14,6 @@ interface MessageListProps {
   lastError: { message: string; canRetry: boolean } | null;
   onRetry: () => void;
   mode: TutoringMode | null;
-  knowledgeCards?: KnowledgeCard[];
-  onHighlightClick?: (cardId: string) => void;
   onAddCard?: (
     title: string,
     content: string,
@@ -25,8 +22,8 @@ interface MessageListProps {
     },
   ) => Promise<void>;
   isKnowledgeMode?: boolean;
-  courseCode?: string; // Added for WelcomeScreen
-  onPromptSelect?: (prompt: string) => void; // Added for WelcomeScreen interaction
+  courseCode?: string;
+  onPromptSelect?: (prompt: string) => void;
   onRegenerate?: (messageId: string) => void;
 }
 
@@ -37,8 +34,6 @@ export const MessageList: React.FC<MessageListProps> = ({
   lastError,
   onRetry,
   mode,
-  knowledgeCards = [],
-  onHighlightClick,
   onAddCard,
   isKnowledgeMode: _isKnowledgeMode = false,
   courseCode,
@@ -65,14 +60,11 @@ export const MessageList: React.FC<MessageListProps> = ({
     setHasNewMessage(false);
   }, []);
 
-  // Filter out card-specific messages (only show main chat)
-  const mainMessages = messages.filter((m) => !m.cardId);
-
-  const initialMsgIdsRef = useRef<Set<string>>(new Set(mainMessages.map((m) => m.id)));
+  const initialMsgIdsRef = useRef<Set<string>>(new Set(messages.map((m) => m.id)));
   const [animatedIds, setAnimatedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const newIds = mainMessages
+    const newIds = messages
       .filter((m) => !initialMsgIdsRef.current.has(m.id) && !animatedIds.has(m.id))
       .map((m) => m.id);
 
@@ -83,25 +75,14 @@ export const MessageList: React.FC<MessageListProps> = ({
         return next;
       });
     }
-  }, [mainMessages, animatedIds]);
+  }, [messages, animatedIds]);
 
-  const prevMessageCountRef = useRef(mainMessages.length);
-
-  // Memoize processed messages to avoid repeated extractCards calls
-  const processedMessages = useMemo(
-    () =>
-      mainMessages.map((msg) => ({
-        ...msg,
-        displayText:
-          msg.role === 'assistant' ? extractCards(msg.content).cleanContent : msg.content,
-      })),
-    [mainMessages],
-  );
+  const prevMessageCountRef = useRef(messages.length);
 
   // Auto-scroll to bottom when messages change (double rAF ensures layout is complete)
   useEffect(() => {
     if (isScrolledUp) {
-      if (mainMessages.length > prevMessageCountRef.current) {
+      if (messages.length > prevMessageCountRef.current) {
         setHasNewMessage(true);
       }
     } else {
@@ -111,18 +92,17 @@ export const MessageList: React.FC<MessageListProps> = ({
           if (viewport.current) {
             viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'auto' });
           }
-          // Reset flag after scroll completes
           requestAnimationFrame(() => {
             isAutoScrollingRef.current = false;
           });
         }),
       );
-      prevMessageCountRef.current = mainMessages.length;
+      prevMessageCountRef.current = messages.length;
       return () => cancelAnimationFrame(id);
     }
-    prevMessageCountRef.current = mainMessages.length;
-  }, [messages, isTyping, isScrolledUp, mainMessages.length]);
-  const isNewChat = mainMessages.length === 0;
+    prevMessageCountRef.current = messages.length;
+  }, [messages, isTyping, isScrolledUp, messages.length]);
+  const isNewChat = messages.length === 0;
 
   // Use full height for empty state to center Welcome Screen
   if (isNewChat && mode && courseCode && onPromptSelect) {
@@ -148,7 +128,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           {/* Max-width container for optimal line length */}
           <Container size="56.25rem" w="100%" px="md">
             <Stack gap="sm">
-              {processedMessages.map((msg) => {
+              {messages.map((msg) => {
                 return (
                   <Box
                     key={msg.id}
@@ -165,12 +145,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                     }
                   >
                     <MessageBubble
-                      message={{ ...msg, content: msg.displayText }}
+                      message={msg}
                       isStreaming={msg.id === streamingMsgId}
                       onStreamingComplete={() => {}}
                       mode={mode}
-                      knowledgeCards={knowledgeCards}
-                      onHighlightClick={onHighlightClick}
                       onAddCard={onAddCard}
                       onRegenerate={onRegenerate}
                     />
