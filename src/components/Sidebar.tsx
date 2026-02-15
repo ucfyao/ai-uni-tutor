@@ -46,6 +46,12 @@ import { createClient } from '@/lib/supabase/client';
 import { ChatSession, TutoringMode } from '../types/index';
 
 // ============================================================================
+// AVATAR STYLE
+// ============================================================================
+
+const avatarGradient = { from: 'indigo', to: 'violet', deg: 135 };
+
+// ============================================================================
 // MODULE CONFIG
 // ============================================================================
 
@@ -235,8 +241,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Avatar
                 size={28}
                 radius="xl"
-                color="dark"
-                variant="filled"
+                variant="gradient"
+                gradient={avatarGradient}
                 style={{ cursor: 'pointer' }}
                 mb={8}
               >
@@ -321,7 +327,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </Group>
 
       {/* Module sections + jump links */}
-      <ScrollArea flex={1} scrollbarSize={4}>
+      <ScrollArea flex={1} scrollbarSize={4} scrollbars="y">
         <Stack gap={2} mt={4}>
           {/* Jump links — Knowledge Base at top */}
           {JUMP_LINKS.map((link) => {
@@ -339,9 +345,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Group gap={10} wrap="nowrap">
                   <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
-                  <Text size="sm">
-                    {t.sidebar[link.labelKey]}
-                  </Text>
+                  <Text size="sm">{t.sidebar[link.labelKey]}</Text>
                   <ChevronRight
                     size={12}
                     color="var(--mantine-color-gray-4)"
@@ -377,7 +381,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       </ScrollArea>
 
       {/* User Section (Bottom) — Compact */}
-      <Box px={8} pb={8} pt={4} style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
+      <Box
+        px={8}
+        pb={8}
+        pt={4}
+        style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}
+      >
         {profile ? (
           <Menu shadow="lg" width={220} position="top-start" withinPortal>
             <Menu.Target>
@@ -389,7 +398,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 style={{ borderRadius: 6 }}
               >
                 <Group gap={8} wrap="nowrap">
-                  <Avatar size={24} radius="xl" color="dark" variant="filled">
+                  <Avatar size={24} radius="xl" variant="gradient" gradient={avatarGradient}>
                     {(profile?.full_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
                   </Avatar>
                   <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
@@ -406,7 +415,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Menu.Dropdown>
               <Box px="sm" py="xs">
                 <Group gap={8}>
-                  <Avatar size={28} radius="xl" color="dark" variant="filled">
+                  <Avatar size={28} radius="xl" variant="gradient" gradient={avatarGradient}>
                     {(profile?.full_name?.[0] || profile?.email?.[0] || 'U').toUpperCase()}
                   </Avatar>
                   <Box>
@@ -629,7 +638,13 @@ const SessionItem: React.FC<SessionItemProps> = ({
     >
       <Group wrap="nowrap" gap={8}>
         {/* Title */}
-        <Text size="sm" truncate c={isActive ? undefined : 'dimmed'} fw={isActive ? 500 : 400} style={{ flex: 1 }}>
+        <Text
+          size="sm"
+          truncate
+          c={isActive ? undefined : 'dimmed'}
+          fw={isActive ? 500 : 400}
+          style={{ flex: 1 }}
+        >
           {session.title || session.course.code}
         </Text>
 

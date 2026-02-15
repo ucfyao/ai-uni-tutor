@@ -10,34 +10,38 @@ import MockExamModal from '@/components/MockExamModal';
 import NewSessionModal from '@/components/NewSessionModal';
 import { MODES_METADATA } from '@/constants/modes';
 import { useSessions } from '@/context/SessionContext';
+import { useLanguage } from '@/i18n/LanguageContext';
+import { TranslationKey } from '@/i18n/translations';
 import { Course, TutoringMode } from '@/types/index';
 
-const FEATURE_CARDS = [
-  {
-    label: 'Lecture Helper',
-    subtitle: 'Upload slides and get key concepts explained',
-    cta: 'Start Explaining',
-    mode: 'Lecture Helper' as TutoringMode,
-    icon: Presentation,
-    color: 'indigo',
-  },
-  {
-    label: 'Assignment Coach',
-    subtitle: 'Paste your problem and get step-by-step guidance',
-    cta: 'Start Solving',
-    mode: 'Assignment Coach' as TutoringMode,
-    icon: Compass,
-    color: 'violet',
-  },
-  {
-    label: 'Mock Exam',
-    subtitle: 'Practice with AI-generated variants of real past exams',
-    cta: 'Start Practicing',
-    mode: 'Mock Exam' as TutoringMode,
-    icon: FileQuestion,
-    color: 'purple',
-  },
-];
+function getFeatureCards(t: TranslationKey) {
+  return [
+    {
+      label: t.study.lectureHelper,
+      subtitle: t.study.lectureHelperSubtitle,
+      cta: t.study.lectureHelperCta,
+      mode: 'Lecture Helper' as TutoringMode,
+      icon: Presentation,
+      color: 'indigo',
+    },
+    {
+      label: t.study.assignmentCoach,
+      subtitle: t.study.assignmentCoachSubtitle,
+      cta: t.study.assignmentCoachCta,
+      mode: 'Assignment Coach' as TutoringMode,
+      icon: Compass,
+      color: 'violet',
+    },
+    {
+      label: t.study.mockExam,
+      subtitle: t.study.mockExamSubtitle,
+      cta: t.study.mockExamCta,
+      mode: 'Mock Exam' as TutoringMode,
+      icon: FileQuestion,
+      color: 'purple',
+    },
+  ];
+}
 
 export function StudyPageClient() {
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
@@ -45,6 +49,8 @@ export function StudyPageClient() {
   const [selectedMode, setSelectedMode] = useState<TutoringMode | null>(null);
   const router = useRouter();
   const { addSession } = useSessions();
+  const { t } = useLanguage();
+  const FEATURE_CARDS = getFeatureCards(t);
 
   const handleCourseSelected = async (course: Course, mode: TutoringMode) => {
     closeModal();
@@ -137,7 +143,7 @@ export function StudyPageClient() {
                     animation: 'study-title-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both',
                   }}
                 >
-                  Your AI Study Companion
+                  {t.study.title}
                 </Title>
                 <Text
                   c="dimmed"
@@ -151,8 +157,7 @@ export function StudyPageClient() {
                     animation: 'study-subtitle-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both',
                   }}
                 >
-                  Understand lectures instantly, get guided help on assignments, and practice with
-                  real past exams.
+                  {t.study.subtitle}
                 </Text>
               </Stack>
             </Stack>
@@ -259,17 +264,36 @@ export function StudyPageClient() {
                           {card.subtitle}
                         </Text>
 
-                        <Group gap={6} align="center" mt={4} style={{ opacity: 0.9 }}>
-                          <Text size="sm" fw={700} tt="uppercase" lts={0.5} c={`${card.color}.6`}>
+                        <Box
+                          mt={8}
+                          px={14}
+                          py={6}
+                          mx="auto"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            borderRadius: 'var(--mantine-radius-xl)',
+                            background: `var(--mantine-color-${card.color}-0)`,
+                            border: `1px solid var(--mantine-color-${card.color}-2)`,
+                            transition: 'all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                          }}
+                          className={`group-hover:bg-${card.color}-100 group-hover:border-${card.color}-300`}
+                        >
+                          <Text size="sm" fw={600} c={`${card.color}.7`}>
                             {card.cta}
                           </Text>
                           <ArrowUp
-                            size={16}
+                            size={14}
                             color={`var(--mantine-color-${card.color}-6)`}
-                            style={{ transform: 'rotate(45deg)' }}
-                            strokeWidth={3}
+                            style={{
+                              transform: 'rotate(45deg)',
+                              transition: 'transform 0.25s ease',
+                            }}
+                            strokeWidth={2.5}
+                            className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                           />
-                        </Group>
+                        </Box>
                       </Stack>
                     </Box>
                   </Paper>
