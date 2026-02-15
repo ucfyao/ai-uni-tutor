@@ -291,34 +291,6 @@ export default function SettingsPage() {
           </Stack>
         </Stack>
       </Paper>
-
-      {/* Data & Privacy */}
-      <Box>
-        <Title order={3} fw={700} mb="md">
-          {t.settings.dataPrivacy}
-        </Title>
-        <Paper
-          withBorder
-          p="xl"
-          radius="lg"
-          bg="red.0"
-          style={{ borderColor: 'var(--mantine-color-red-2)' }}
-        >
-          <Group justify="space-between">
-            <Box>
-              <Text fw={600} c="red.7">
-                {t.settings.deleteAccount}
-              </Text>
-              <Text size="sm" c="red.6">
-                {t.settings.deleteAccountDesc}
-              </Text>
-            </Box>
-            <Button color="red" variant="light">
-              {t.settings.deleteAccount}
-            </Button>
-          </Group>
-        </Paper>
-      </Box>
     </PageShell>
   );
 }
