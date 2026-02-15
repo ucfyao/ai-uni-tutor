@@ -2,12 +2,36 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
+const ALLOWED_PATH_PREFIXES = [
+  '/study',
+  '/exam',
+  '/knowledge',
+  '/lecture',
+  '/admin',
+  '/assignment',
+  '/help',
+  '/personalization',
+  '/pricing',
+  '/settings',
+  '/share',
+  '/zh',
+];
+
+export function sanitizeRedirectPath(value: string | undefined): string {
+  if (!value) return '/';
+  if (value.startsWith('//') || value.includes('://')) return '/';
+  if (value === '/') return '/';
+  return ALLOWED_PATH_PREFIXES.some((prefix) => value.startsWith(prefix))
+    ? value
+    : '/';
+}
+
 const callbackParamsSchema = z.object({
   code: z.string().min(1).optional(),
   next: z
     .string()
     .optional()
-    .transform((value) => (value && value.startsWith('/') ? value : '/')),
+    .transform((value) => sanitizeRedirectPath(value)),
 });
 
 export async function GET(request: Request) {
