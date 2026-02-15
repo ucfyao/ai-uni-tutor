@@ -1,11 +1,37 @@
 import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionIcon, Box, Button, Container, Group, ScrollArea, Stack, Text } from '@mantine/core';
+import { ActionIcon, Box, Button, Container, Group, ScrollArea, Skeleton, Stack, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MessageBubble } from './MessageBubble';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { WelcomeScreen } from './WelcomeScreen';
+
+function ChatSkeleton() {
+  return (
+    <Stack gap="lg" p="md">
+      {/* User message - right aligned */}
+      <Group justify="flex-end">
+        <Skeleton height={40} width="60%" radius="xl" />
+      </Group>
+      {/* AI message - left aligned, multi-line */}
+      <Stack gap="xs" align="flex-start">
+        <Skeleton height={16} width="80%" radius="md" />
+        <Skeleton height={16} width="65%" radius="md" />
+        <Skeleton height={16} width="40%" radius="md" />
+      </Stack>
+      {/* User message */}
+      <Group justify="flex-end">
+        <Skeleton height={32} width="45%" radius="xl" />
+      </Group>
+      {/* AI message */}
+      <Stack gap="xs" align="flex-start">
+        <Skeleton height={16} width="70%" radius="md" />
+        <Skeleton height={16} width="55%" radius="md" />
+      </Stack>
+    </Stack>
+  );
+}
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -25,6 +51,7 @@ interface MessageListProps {
   courseCode?: string;
   onPromptSelect?: (prompt: string) => void;
   onRegenerate?: (messageId: string) => void;
+  isLoading?: boolean;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -39,6 +66,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   courseCode,
   onPromptSelect,
   onRegenerate,
+  isLoading = false,
 }) => {
   const { t } = useLanguage();
   const viewport = useRef<HTMLDivElement>(null);
@@ -103,6 +131,15 @@ export const MessageList: React.FC<MessageListProps> = ({
     prevMessageCountRef.current = messages.length;
   }, [messages, isTyping, isScrolledUp, messages.length]);
   const isNewChat = messages.length === 0;
+
+  // Show loading skeleton during initial session load
+  if (isLoading && messages.length === 0) {
+    return (
+      <Box bg="var(--mantine-color-body)" style={{ flex: 1, minHeight: 0 }}>
+        <ChatSkeleton />
+      </Box>
+    );
+  }
 
   // Use full height for empty state to center Welcome Screen
   if (isNewChat && mode && courseCode && onPromptSelect) {

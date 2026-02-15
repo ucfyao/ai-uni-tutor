@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Group, Text } from '@mantine/core';
+import { Box, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';
 
@@ -20,25 +20,31 @@ export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) =>
     mode === 'Assignment Coach' ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-indigo-5)';
 
   return (
-    <Group gap="sm" py={4}>
-      <Group gap={4}>
-        {[0, 1, 2].map((i) => (
-          <Box
-            key={i}
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              backgroundColor: color,
-              animation: `thinkingBounce 0.6s ease-in-out infinite`,
-              animationDelay: `${i * 0.15}s`,
-            }}
-          />
-        ))}
-      </Group>
-      <Text size="sm" c="dimmed" fw={500}>
-        {text}
+    <Box p="xs">
+      <Box
+        h={4}
+        w={120}
+        mb={6}
+        className="shimmer-bar"
+        style={{
+          borderRadius: 2,
+          background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+          backgroundSize: '200% 100%',
+          animation: 'shimmer 1.5s ease-in-out infinite',
+        }}
+      />
+      <Text fz="xs" c="dimmed">
+        {text}...
       </Text>
-    </Group>
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .shimmer-bar { animation: none !important; }
+        }
+      `}</style>
+    </Box>
   );
 };
