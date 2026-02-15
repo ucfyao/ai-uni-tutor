@@ -13,7 +13,13 @@ import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { MockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { Json } from '@/types/database';
-import type { BatchSubmitResult, MockExam, MockExamQuestion, MockExamResponse } from '@/types/exam';
+import type {
+  BatchSubmitResult,
+  ExamQuestion,
+  MockExam,
+  MockExamQuestion,
+  MockExamResponse,
+} from '@/types/exam';
 
 // ==================== Prompt ====================
 
@@ -101,6 +107,78 @@ export class MockExamService {
     const mockId = await this.mockRepo.create({
       userId,
       paperId,
+      title,
+      mode,
+      questions: mockQuestions as unknown as Json,
+      responses: [] as unknown as Json,
+      totalPoints,
+      currentIndex: 0,
+      status: 'in_progress',
+    });
+
+    return { mockId };
+  }
+
+  /**
+   * Create a mock exam by randomly selecting questions from all papers for a course.
+   */
+  async createRandomMix(
+    userId: string,
+    courseCode: string,
+    numQuestions: number,
+    mode: 'practice' | 'exam' = 'practice',
+  ): Promise<{ mockId: string }> {
+    const papers = await this.paperRepo.findAllByCourse(courseCode);
+    if (papers.length === 0) {
+      throw new AppError('NOT_FOUND', 'No exam papers available for this course');
+    }
+
+    // Gather all questions from all papers
+    const allQuestions: Array<ExamQuestion & { paperTitle: string }> = [];
+    for (const paper of papers) {
+      const questions = await this.paperRepo.findQuestionsByPaperId(paper.id);
+      allQuestions.push(...questions.map((q) => ({ ...q, paperTitle: paper.title })));
+    }
+
+    if (allQuestions.length === 0) {
+      throw new AppError('NOT_FOUND', 'No questions found for this course');
+    }
+
+    // Shuffle using Fisher-Yates
+    for (let i = allQuestions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+    }
+
+    const selected = allQuestions.slice(0, Math.min(numQuestions, allQuestions.length));
+
+    const mockQuestions: MockExamQuestion[] = selected.map((q) => ({
+      content: q.content,
+      type: q.type,
+      options: q.options as Record<string, string> | null,
+      answer: q.answer,
+      explanation: q.explanation,
+      points: q.points,
+      sourceQuestionId: q.id,
+    }));
+
+    const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
+
+    // Create a virtual paper for FK constraint
+    const virtualPaperId = await this.paperRepo.create({
+      userId,
+      title: `Random Mix — ${courseCode}`,
+      course: courseCode,
+      visibility: 'private',
+      status: 'ready',
+      questionTypes: [...new Set(mockQuestions.map((q) => q.type))],
+    });
+
+    const title = `Random Mix — ${courseCode} (${selected.length} questions)`;
+
+    const mockId = await this.mockRepo.create({
+      userId,
+      paperId: virtualPaperId,
       title,
       mode,
       questions: mockQuestions as unknown as Json,
