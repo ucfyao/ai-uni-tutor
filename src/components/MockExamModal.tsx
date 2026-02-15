@@ -239,8 +239,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
 
         {/* University + Course */}
         <Select
-          label={t.exam.university ?? 'University'}
-          placeholder={t.exam.selectUniversity ?? 'Select'}
+          placeholder={t.exam.selectUniversity ?? 'Select university'}
           data={uniOptions}
           value={selectedUniId}
           onChange={setSelectedUniId}
@@ -250,10 +249,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           styles={inputStyles}
         />
         <Select
-          label={t.exam.course ?? 'Course'}
           placeholder={
             selectedUniId
-              ? (t.exam.selectCourse ?? 'Select')
+              ? (t.exam.selectCourse ?? 'Select course')
               : (t.exam.selectUniversityFirst ?? 'Select university first')
           }
           data={courseOptions}
