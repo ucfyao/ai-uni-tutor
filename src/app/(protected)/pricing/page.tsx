@@ -77,7 +77,7 @@ export default function PricingPage() {
           </Badge>
 
           {/* Billing Toggle */}
-          <Group gap="sm" align="center">
+          <Box pos="relative" style={{ display: 'inline-flex', justifyContent: 'center' }}>
             <SegmentedControl
               value={billing}
               onChange={(v) => setBilling(v as BillingCycle)}
@@ -88,10 +88,16 @@ export default function PricingPage() {
               radius="xl"
               size="md"
             />
-            <Badge color="green" variant="light" size="md">
+            <Badge
+              color="green"
+              variant="light"
+              size="md"
+              pos="absolute"
+              style={{ right: 0, top: '50%', transform: 'translate(calc(100% + 8px), -50%)' }}
+            >
               {t.pricing.saveBadge}
             </Badge>
-          </Group>
+          </Box>
         </Stack>
 
         {/* Plan Cards */}
