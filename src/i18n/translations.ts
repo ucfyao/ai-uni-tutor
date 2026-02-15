@@ -848,8 +848,8 @@ export const translations = {
       points: 'pts',
       // Source selection
       selectSource: 'Question Source',
-      realExam: 'Past Papers',
-      realExamDesc: 'Pick a complete past exam paper to practice',
+      realExam: 'Past Exams',
+      realExamDesc: 'Pick a complete past exam to practice',
       randomMix: 'Random Mix',
       randomMixDesc: 'Randomly pick questions from multiple past papers',
       aiMock: 'AI Generated',
