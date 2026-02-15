@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Group,
-  Modal,
   SegmentedControl,
   Select,
   Stack,
@@ -16,6 +15,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import {
   createRandomMixMock,
   createRealExamMock,
@@ -183,7 +183,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   };
 
   return (
-    <Modal
+    <FullScreenModal
       opened={opened}
       onClose={onClose}
       withCloseButton={false}
@@ -377,7 +377,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Tooltip>
         </Group>
       </Stack>
-    </Modal>
+    </FullScreenModal>
   );
 };
 

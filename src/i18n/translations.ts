@@ -587,6 +587,18 @@ export const translations = {
       unexpectedError: '发生意外错误',
       copyright: '© {year} AI Uni Tutor',
     },
+    toast: {
+      copiedToClipboard: '已复制到剪贴板',
+      regenerating: '正在重新生成...',
+      preferencesSaved: '偏好已保存',
+      changesSaved: '更改已保存',
+      deletedSuccessfully: '删除成功',
+      uploadComplete: '上传完成',
+      linkCopied: '链接已复制',
+      comingSoon: '即将推出',
+      pinned: '已置顶',
+      unpinned: '已取消置顶',
+    },
   },
   en: {
     // Navbar
@@ -1190,6 +1202,18 @@ export const translations = {
       newUser: 'New? ',
       unexpectedError: 'An unexpected error occurred',
       copyright: '© {year} AI Uni Tutor',
+    },
+    toast: {
+      copiedToClipboard: 'Copied to clipboard',
+      regenerating: 'Regenerating...',
+      preferencesSaved: 'Preferences saved',
+      changesSaved: 'Changes saved',
+      deletedSuccessfully: 'Deleted successfully',
+      uploadComplete: 'Upload complete',
+      linkCopied: 'Link copied',
+      comingSoon: 'Coming Soon',
+      pinned: 'Pinned',
+      unpinned: 'Unpinned',
     },
   },
 } as const;
