@@ -26,6 +26,7 @@ import { PageShell } from '@/components/PageShell';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Language } from '@/i18n/translations';
+import { showNotification } from '@/lib/notifications';
 import type { AccessLimits } from '@/lib/services/QuotaService';
 
 export default function SettingsPage() {
@@ -65,9 +66,14 @@ export default function SettingsPage() {
       window.location.href = data.url;
     } catch (e) {
       console.error('Failed to open Stripe portal', e);
+      showNotification({
+        title: t.common.error,
+        message: e instanceof Error ? e.message : 'Failed to open billing portal',
+        color: 'red',
+      });
       setPortalLoading(false);
     }
-  }, []);
+  }, [t.common.error]);
 
   if (loading || profileLoading) {
     return (
@@ -181,12 +187,7 @@ export default function SettingsPage() {
               </Box>
             </Group>
             {isPro ? (
-              <Badge
-                size="lg"
-                variant="filled"
-                color="violet"
-                leftSection={<Crown size={14} />}
-              >
+              <Badge size="lg" variant="filled" color="violet" leftSection={<Crown size={14} />}>
                 {t.settings.plusMember}
               </Badge>
             ) : (
@@ -211,7 +212,7 @@ export default function SettingsPage() {
                   <Text size="sm" c="dimmed">
                     {t.settings.subscriptionActiveDesc}
                   </Text>
-                  <Text size="sm" fw={600} mt="xs" c="dark.3">
+                  <Text size="sm" fw={600} mt="xs" c="dimmed">
                     {t.settings.nextInvoice}{' '}
                     {profile?.current_period_end
                       ? new Date(profile.current_period_end).toLocaleDateString(undefined, {
