@@ -45,6 +45,7 @@ function createMockPaperRepo(): {
     findQuestionsByPaperId: vi.fn(),
     updateQuestion: vi.fn(),
     findByCourse: vi.fn(),
+    findAllByCourse: vi.fn(),
   };
 }
 

@@ -5,9 +5,10 @@ import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
-import { getMockExamIdBySessionId, startMockExamSession } from '@/app/actions/mock-exams';
+import { getMockExamIdBySessionId } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import { Logo } from '@/components/Logo';
+import MockExamModal from '@/components/MockExamModal';
 import NewSessionModal from '@/components/NewSessionModal';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
@@ -38,6 +39,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   const { headerContent } = useHeader();
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
+  const [mockExamOpened, { open: openMockExam, close: closeMockExam }] = useDisclosure(false);
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const isMobile = useMediaQuery('(max-width: 48em)', false);
 
@@ -56,6 +58,10 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   const [preSelectedMode, setPreSelectedMode] = useState<TutoringMode | null>(null);
 
   const openModalForMode = (mode: TutoringMode) => {
+    if (mode === 'Mock Exam') {
+      openMockExam();
+      return;
+    }
     setPreSelectedMode(mode);
     openModal();
   };
@@ -68,24 +74,12 @@ export default function ShellClient({ children }: { children: React.ReactNode })
       return;
     }
 
-    if (mode === 'Mock Exam') {
-      // Mock Exam: create session, then generate mock exam and navigate to it
-      const result = await startMockExamSession(newId, course.code);
-      if (result.success) {
-        const targetPath = `/exam/mock/${result.mockId}`;
-        setActiveSessionId(newId);
-        router.push(targetPath);
-      } else {
-        showNotification({ title: 'Error', message: result.error, color: 'red' });
-      }
-    } else {
-      // Chat modes: navigate to chat page
-      const modeRoute = MODES_METADATA[mode].id;
-      const targetPath = `/${modeRoute}/${newId}`;
-      setActiveSessionId(newId);
-      window.history.pushState(null, '', targetPath);
-      router.push(targetPath);
-    }
+    // Chat modes: navigate to chat page
+    const modeRoute = MODES_METADATA[mode].id;
+    const targetPath = `/${modeRoute}/${newId}`;
+    setActiveSessionId(newId);
+    window.history.pushState(null, '', targetPath);
+    router.push(targetPath);
   };
 
   const handleSelectSession = async (id: string) => {
@@ -261,6 +255,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
         onStart={handleStartSession}
         preSelectedMode={preSelectedMode}
       />
+
+      <MockExamModal opened={mockExamOpened} onClose={closeMockExam} />
 
       <RenameSessionModal
         opened={renameModalOpen}

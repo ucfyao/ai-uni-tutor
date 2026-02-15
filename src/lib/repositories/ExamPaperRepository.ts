@@ -288,6 +288,30 @@ export class ExamPaperRepository implements IExamPaperRepository {
     if (!data || data.length === 0) return null;
     return data[0].id as string;
   }
+
+  async findAllByCourse(courseCode: string): Promise<ExamPaper[]> {
+    const sanitized = courseCode.replace(/[^A-Za-z0-9 _-]/g, '');
+    if (!sanitized) return [];
+
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('exam_papers')
+      .select('*, exam_questions(count)')
+      .ilike('course', `%${sanitized}%`)
+      .eq('status', 'ready')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to find exam papers for course: ${error.message}`, error);
+    }
+
+    return (data ?? []).map((row: Record<string, unknown>) => {
+      const countArr = row.exam_questions as Array<{ count: number }> | undefined;
+      const questionCount = countArr?.[0]?.count ?? 0;
+      return mapPaperRow(row, questionCount);
+    });
+  }
 }
 
 let _examPaperRepository: ExamPaperRepository | null = null;

@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import { Box, Group, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { startMockExamSession } from '@/app/actions/mock-exams';
 import { Logo } from '@/components/Logo';
+import MockExamModal from '@/components/MockExamModal';
 import NewSessionModal from '@/components/NewSessionModal';
 import { MODES_METADATA } from '@/constants/modes';
 import { useSessions } from '@/context/SessionContext';
-import { showNotification } from '@/lib/notifications';
 import { Course, TutoringMode } from '@/types/index';
 
 const FEATURE_CARDS = [
@@ -42,6 +41,7 @@ const FEATURE_CARDS = [
 
 export function StudyPageClient() {
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
+  const [mockExamOpened, { open: openMockExam, close: closeMockExam }] = useDisclosure(false);
   const [selectedMode, setSelectedMode] = useState<TutoringMode | null>(null);
   const router = useRouter();
   const { addSession } = useSessions();
@@ -52,20 +52,15 @@ export function StudyPageClient() {
     const newId = await addSession(course, mode);
     if (!newId) return;
 
-    if (mode === 'Mock Exam') {
-      const result = await startMockExamSession(newId, course.code);
-      if (result.success) {
-        router.push(`/exam/mock/${result.mockId}`);
-      } else {
-        showNotification({ title: 'Error', message: result.error, color: 'red' });
-      }
-    } else {
-      const modeRoute = MODES_METADATA[mode].id;
-      router.push(`/${modeRoute}/${newId}`);
-    }
+    const modeRoute = MODES_METADATA[mode].id;
+    router.push(`/${modeRoute}/${newId}`);
   };
 
   const handleModeClick = (mode: TutoringMode) => {
+    if (mode === 'Mock Exam') {
+      openMockExam();
+      return;
+    }
     setSelectedMode(mode);
     openModal();
   };
@@ -297,6 +292,8 @@ export function StudyPageClient() {
         preSelectedMode={selectedMode}
         onStart={(course, mode) => handleCourseSelected(course, mode)}
       />
+
+      <MockExamModal opened={mockExamOpened} onClose={closeMockExam} />
     </>
   );
 }
