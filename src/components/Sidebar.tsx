@@ -72,7 +72,7 @@ const CHAT_MODULES = [
     mode: 'Mock Exam' as TutoringMode,
     labelKey: 'mockExams' as const,
     icon: FileQuestion,
-    color: 'purple',
+    color: 'emerald',
   },
 ];
 

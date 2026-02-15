@@ -50,11 +50,11 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
     id: 'exam/mock',
     label: 'Mock Exam',
     icon: FileQuestion,
-    color: 'purple',
+    color: 'emerald',
     desc: 'Practice with real past exams',
     intro:
       "**Mock Exam Mode Active**\n\nI generate exam variants from real past papers for your course. Let's practice!",
-    hoverClass: 'hover:border-purple-300 hover:shadow-[0_8px_30px_rgba(147,51,234,0.15)]',
+    hoverClass: 'hover:border-emerald-300 hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)]',
   },
 };
 
