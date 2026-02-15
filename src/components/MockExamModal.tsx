@@ -382,7 +382,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         )}
 
         {/* Action buttons */}
-        <Group justify="center" gap={10}>
+        <Group justify="space-between" gap={10}>
           <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={400}>
             <Button
               size="xs"
