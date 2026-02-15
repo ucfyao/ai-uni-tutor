@@ -1,12 +1,13 @@
 'use client';
 
 import { IconArrowRight, IconLoader2 } from '@tabler/icons-react';
-import { X } from 'lucide-react';
+import { Book, Building2, ChevronDown, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   Box,
   Button,
+  Center,
   Group,
   Modal,
   SegmentedControl,
@@ -14,6 +15,7 @@ import {
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   UnstyledButton,
 } from '@mantine/core';
 import {
@@ -32,6 +34,74 @@ interface MockExamModalProps {
   opened: boolean;
   onClose: () => void;
 }
+
+/* ── shared unstyled-select styles (matches NewSessionModal) ── */
+const selectStyles = {
+  input: {
+    border: 'none',
+    backgroundColor: 'transparent',
+    padding: 0,
+    paddingRight: '24px',
+    height: 'auto',
+    fontSize: '15px',
+    fontWeight: 600,
+    color: 'var(--mantine-color-dark-9)',
+    width: '100%',
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    cursor: 'pointer',
+  },
+  wrapper: { width: '100%' },
+  section: { display: 'none' },
+  dropdown: {
+    borderRadius: '12px',
+    padding: '4px',
+    border: '1px solid #e9ecef',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+  },
+};
+
+/* ── compact input styles for source-specific selects ── */
+const compactSelectStyles = {
+  input: {
+    height: '40px',
+    fontSize: '14px',
+    fontWeight: 500,
+    borderColor: 'var(--mantine-color-gray-2)',
+  },
+  label: {
+    fontSize: '11px',
+    fontWeight: 700,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+    color: 'var(--mantine-color-gray-5)',
+    marginBottom: '4px',
+  },
+  dropdown: {
+    borderRadius: '12px',
+    padding: '4px',
+    border: '1px solid #e9ecef',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+  },
+};
+
+const compactInputStyles = {
+  input: {
+    height: '40px',
+    fontSize: '14px',
+    fontWeight: 500,
+    borderColor: 'var(--mantine-color-gray-2)',
+  },
+  label: {
+    fontSize: '11px',
+    fontWeight: 700,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+    color: 'var(--mantine-color-gray-5)',
+    marginBottom: '4px',
+  },
+};
 
 const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const router = useRouter();
@@ -153,6 +223,85 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     { value: 'exam', label: 'Exam' },
   ];
 
+  /* ── FormRow: matches NewSessionModal exactly ── */
+  const FormRow = ({
+    icon: Icon,
+    label,
+    active,
+    children,
+  }: {
+    icon: React.ElementType;
+    label: string;
+    active: boolean;
+    children: React.ReactNode;
+  }) => (
+    <Box
+      style={{
+        borderRadius: '16px',
+        border: active ? '1.5px solid var(--mantine-color-purple-3)' : '1.5px solid transparent',
+        backgroundColor: active ? 'white' : 'var(--mantine-color-gray-0)',
+        boxShadow: active ? '0 0 0 2px var(--mantine-color-purple-0)' : 'none',
+        overflow: 'hidden',
+        transition: 'all 0.2s ease',
+        height: '64px',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <Group gap={0} wrap="nowrap" align="stretch" w="100%" h="100%">
+        <Center
+          w={60}
+          style={{ borderRight: active ? '1px solid var(--mantine-color-gray-1)' : 'none' }}
+        >
+          <ThemeIcon
+            variant={active ? 'light' : 'transparent'}
+            color={active ? 'purple' : 'gray'}
+            size={32}
+            radius="lg"
+          >
+            <Icon size={18} strokeWidth={2} />
+          </ThemeIcon>
+        </Center>
+        <Box
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+          px="md"
+        >
+          <Text
+            size="10px"
+            fw={700}
+            tt="uppercase"
+            lts={1}
+            c={active ? 'purple.7' : 'gray.5'}
+            mb={0}
+          >
+            {label}
+          </Text>
+          <Box style={{ position: 'relative', width: '100%' }}>
+            {children}
+            <Box
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                color: 'var(--mantine-color-gray-4)',
+              }}
+            >
+              <ChevronDown size={14} strokeWidth={2} />
+            </Box>
+          </Box>
+        </Box>
+      </Group>
+    </Box>
+  );
+
   return (
     <Modal
       opened={opened}
@@ -172,9 +321,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         },
       }}
     >
-      <Stack gap="md">
+      <Stack gap={24}>
         {/* Header */}
-        <Group justify="space-between" align="center">
+        <Group justify="space-between" align="center" mb={2}>
           <Text fw={800} size="22px" lts={-0.2} c="dark.9">
             {t.exam.startExam}
           </Text>
@@ -194,40 +343,52 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           onChange={(v) => setSource(v as Source)}
           data={sourceData}
           fullWidth
-          size="md"
-          radius="md"
+          size="sm"
+          radius="xl"
           color="purple"
+          styles={{
+            root: {
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              border: '1px solid var(--mantine-color-gray-1)',
+              padding: '3px',
+            },
+            label: { fontWeight: 600, fontSize: '13px' },
+          }}
         />
 
-        {/* University + Course (not needed for AI) */}
+        {/* University + Course — FormRow (matches NewSessionModal) */}
         {source !== 'ai' && (
-          <Group grow gap="sm">
-            <Select
-              label={t.exam.university ?? 'University'}
-              placeholder={t.exam.selectUniversity ?? 'Select university'}
-              data={uniOptions}
-              value={selectedUniId}
-              onChange={setSelectedUniId}
-              searchable
-              size="md"
-              radius="md"
-            />
-            <Select
-              label={t.exam.course ?? 'Course'}
-              placeholder={
-                selectedUniId
-                  ? (t.exam.selectCourse ?? 'Select course')
-                  : (t.exam.selectUniversityFirst ?? 'Select university first')
-              }
-              data={courseOptions}
-              value={selectedCourseCode}
-              onChange={setSelectedCourseCode}
-              disabled={!selectedUniId}
-              searchable
-              size="md"
-              radius="md"
-            />
-          </Group>
+          <Stack gap={12}>
+            <FormRow icon={Building2} label={t.exam.university ?? 'University'} active={true}>
+              <Select
+                data={uniOptions}
+                value={selectedUniId}
+                onChange={setSelectedUniId}
+                placeholder={t.exam.selectUniversity ?? 'Select university'}
+                variant="unstyled"
+                styles={selectStyles}
+                allowDeselect={false}
+                searchable
+              />
+            </FormRow>
+            <FormRow icon={Book} label={t.exam.course ?? 'Course'} active={!!selectedUniId}>
+              <Select
+                data={courseOptions}
+                value={selectedCourseCode}
+                onChange={setSelectedCourseCode}
+                placeholder={
+                  selectedUniId
+                    ? (t.exam.selectCourse ?? 'Select course')
+                    : (t.exam.selectUniversityFirst ?? 'Select university first')
+                }
+                variant="unstyled"
+                styles={selectStyles}
+                disabled={!selectedUniId}
+                allowDeselect={false}
+                searchable
+              />
+            </FormRow>
+          </Stack>
         )}
 
         {/* No papers warning */}
@@ -236,7 +397,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             px="sm"
             py={8}
             style={{
-              borderRadius: 'var(--mantine-radius-md)',
+              borderRadius: '12px',
               backgroundColor: 'var(--mantine-color-orange-0)',
               border: '1px solid var(--mantine-color-orange-2)',
             }}
@@ -258,8 +419,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             }))}
             value={selectedPaper}
             onChange={setSelectedPaper}
-            size="md"
+            size="sm"
             radius="md"
+            styles={compactSelectStyles}
           />
         )}
 
@@ -270,30 +432,33 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             data={['5', '10', '15', '20']}
             value={numQuestions}
             onChange={setNumQuestions}
-            size="md"
+            size="sm"
             radius="md"
+            styles={compactSelectStyles}
           />
         )}
 
         {/* AI: topic + count + difficulty */}
         {source === 'ai' && (
-          <Stack gap="sm">
+          <Stack gap={10}>
             <TextInput
               label={t.exam.topic}
               placeholder="e.g., Binary Trees, Linear Regression"
               value={topic}
               onChange={(e) => setTopic(e.currentTarget.value)}
-              size="md"
+              size="sm"
               radius="md"
+              styles={compactInputStyles}
             />
-            <Group grow>
+            <Group grow gap="sm">
               <Select
                 label={t.exam.numQuestions}
                 data={['5', '10', '15', '20']}
                 value={numQuestions}
                 onChange={setNumQuestions}
-                size="md"
+                size="sm"
                 radius="md"
+                styles={compactSelectStyles}
               />
               <Select
                 label={t.exam.difficulty}
@@ -305,8 +470,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 ]}
                 value={difficulty}
                 onChange={setDifficulty}
-                size="md"
+                size="sm"
                 radius="md"
+                styles={compactSelectStyles}
               />
             </Group>
           </Stack>
@@ -318,9 +484,17 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           onChange={(v) => setSelectedMode(v as ExamMode)}
           data={modeData}
           fullWidth
-          size="md"
-          radius="md"
+          size="sm"
+          radius="xl"
           color="purple"
+          styles={{
+            root: {
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              border: '1px solid var(--mantine-color-gray-1)',
+              padding: '3px',
+            },
+            label: { fontWeight: 600, fontSize: '13px' },
+          }}
         />
 
         {/* Error */}
@@ -329,7 +503,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             px="sm"
             py={8}
             style={{
-              borderRadius: 'var(--mantine-radius-md)',
+              borderRadius: '12px',
               backgroundColor: 'var(--mantine-color-red-0)',
               border: '1px solid var(--mantine-color-red-2)',
             }}
