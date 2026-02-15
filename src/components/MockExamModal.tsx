@@ -226,8 +226,22 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   ];
 
   const modeData = [
-    { value: 'practice', label: 'Practice' },
-    { value: 'exam', label: 'Exam' },
+    {
+      value: 'practice',
+      label: (
+        <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={300}>
+          <span style={{ display: 'block', width: '100%' }}>{t.exam.practiceMode}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      value: 'exam',
+      label: (
+        <Tooltip label={t.exam.examModeDesc} position="bottom" withArrow openDelay={300}>
+          <span style={{ display: 'block', width: '100%' }}>{t.exam.examMode}</span>
+        </Tooltip>
+      ),
+    },
   ];
 
   /* ── FormRow: matches NewSessionModal exactly ── */
