@@ -318,6 +318,19 @@ export const translations = {
       noAnswer: '（未作答）',
       detailedExplanation: '详细解释：',
       points: '分',
+      // Source selection
+      selectSource: '选择出题方式',
+      realExam: '真题练习',
+      realExamDesc: '使用上传的历年真题进行练习',
+      randomMix: '随机组卷',
+      randomMixDesc: '从多套真题中随机抽取题目',
+      aiMock: 'AI 模拟',
+      aiMockDesc: '输入知识点，AI 自动生成练习题',
+      selectPaper: '选择试卷',
+      numQuestions: '题目数量',
+      topic: '知识点',
+      difficulty: '难度',
+      noPapersAvailable: '该课程暂无真题，请先在知识库上传考试文档',
     },
     // Sidebar
     sidebar: {
@@ -821,6 +834,20 @@ export const translations = {
       noAnswer: '(no answer)',
       detailedExplanation: 'Detailed Explanation:',
       points: 'pts',
+      // Source selection
+      selectSource: 'Question Source',
+      realExam: 'Real Exam',
+      realExamDesc: 'Practice with uploaded past exam papers',
+      randomMix: 'Random Mix',
+      randomMixDesc: 'Randomly select questions from multiple papers',
+      aiMock: 'AI Mock',
+      aiMockDesc: 'Enter a topic and let AI generate practice questions',
+      selectPaper: 'Select Paper',
+      numQuestions: 'Number of Questions',
+      topic: 'Topic / Knowledge Point',
+      difficulty: 'Difficulty',
+      noPapersAvailable:
+        'No papers available for this course. Upload exam documents in Knowledge Base first.',
     },
     // Sidebar
     sidebar: {
