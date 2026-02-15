@@ -40,7 +40,7 @@ const inputStyles = {
     fontSize: '12px',
     fontWeight: 500,
     marginBottom: '4px',
-    color: 'var(--mantine-color-dark-4)',
+    color: 'var(--mantine-color-dimmed)',
   },
   input: { borderColor: 'var(--mantine-color-gray-2)', fontSize: '14px' },
   dropdown: {
@@ -196,22 +196,22 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       styles={{
         content: {
           boxShadow: '0 24px 48px -12px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(255,255,255,1)',
-          background: 'white',
+          border: '1px solid var(--mantine-color-default-border)',
+          background: 'var(--mantine-color-body)',
         },
       }}
     >
       <Stack gap={24}>
         {/* Header */}
         <Group justify="space-between" align="center">
-          <Text fw={800} size="22px" lts={-0.2} c="dark.9">
+          <Text fw={800} size="22px" lts={-0.2}>
             {t.exam.startExam}
           </Text>
           <UnstyledButton
             onClick={onClose}
             w={36}
             h={36}
-            className="flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center rounded-full sidebar-hover"
           >
             <X size={18} strokeWidth={3} color="var(--mantine-color-gray-4)" />
           </UnstyledButton>

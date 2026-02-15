@@ -93,7 +93,6 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             size={compact ? 18 : 24}
             mt={compact ? 14 : isTightSpacing ? 16 : 20}
             mb={compact ? 6 : isTightSpacing ? 8 : 10}
-            c="slate.9"
             fw={700}
           >
             {children}
@@ -105,7 +104,6 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             size={compact ? 16 : 20}
             mt={compact ? 12 : isTightSpacing ? 14 : 18}
             mb={compact ? 6 : isTightSpacing ? 6 : 8}
-            c="slate.9"
             fw={600}
           >
             {children}
@@ -117,7 +115,6 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             size={compact ? 15 : 18}
             mt={compact ? 10 : isTightSpacing ? 12 : 16}
             mb={compact ? 4 : isTightSpacing ? 5 : 6}
-            c="slate.9"
             fw={600}
           >
             {children}
@@ -126,7 +123,6 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         p: ({ children }) => (
           <Text
             size={compact ? 'xs' : 'sm'}
-            c="slate.8"
             mb={compact ? 'xs' : isTightSpacing ? 6 : 'sm'}
             style={{ lineHeight: compact ? 1.5 : 1.7, fontSize: compact ? '13px' : '15px' }}
           >
@@ -134,12 +130,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           </Text>
         ),
         strong: ({ children }) => (
-          <Text span inherit fw={600} c="slate.9">
+          <Text span inherit fw={600}>
             {children}
           </Text>
         ),
         em: ({ children }) => (
-          <Text span inherit fs="italic" c="slate.8">
+          <Text span inherit fs="italic">
             {children}
           </Text>
         ),
@@ -166,8 +162,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           const isInline = !match;
           return isInline ? (
             <Code
-              c="slate.9"
-              bg="gray.1"
+              bg="var(--mantine-color-default-hover)"
               style={{
                 fontWeight: 500,
                 fontSize: compact ? '0.85em' : '0.9em',
@@ -180,14 +175,13 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             <Box pos="relative" className="group/code" my={isTightSpacing ? 'sm' : 'md'}>
               <Paper
                 p={compact ? 'sm' : 'md'}
-                bg="slate.0"
+                bg="var(--mantine-color-default-hover)"
                 withBorder
                 radius="md"
                 style={{ overflow: 'auto' }}
               >
                 <Code
                   block
-                  c="slate.9"
                   bg="transparent"
                   style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
                 >
@@ -208,7 +202,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             className="bg-surface-subtle"
             style={{ border: 'none', borderLeft: '4px solid var(--mantine-color-gray-4)' }}
           >
-            <Text size={compact ? 'xs' : 'md'} c="slate.7" style={{ lineHeight: 1.75 }}>
+            <Text size={compact ? 'xs' : 'md'} c="dimmed" style={{ lineHeight: 1.75 }}>
               {children}
             </Text>
           </Blockquote>
@@ -238,14 +232,14 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             style={{
               fontSize: compact ? 13 : 15,
               lineHeight: compact ? '20px' : '24px',
-              color: 'var(--mantine-color-slate-7)',
+              color: 'var(--mantine-color-text)',
               marginBottom: compact ? 2 : 4,
             }}
           >
             {children}
           </li>
         ),
-        hr: () => <Divider my={isTightSpacing ? 'md' : 'xl'} color="slate.2" />,
+        hr: () => <Divider my={isTightSpacing ? 'md' : 'xl'} />,
         img: ({ src, alt }) => (
           <Paper p="xs" withBorder radius="md" my="md">
             <Image src={src} alt={alt} radius="sm" />

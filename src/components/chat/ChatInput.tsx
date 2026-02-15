@@ -161,8 +161,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             backgroundColor: isDragging
               ? 'var(--mantine-color-indigo-0)'
               : isTyping
-                ? 'var(--mantine-color-gray-1)'
-                : 'rgba(255, 255, 255, 0.92)',
+                ? 'var(--mantine-color-default-hover)'
+                : 'var(--mantine-color-body)',
             transition: 'all 0.15s ease',
             boxShadow: '0 1px 6px rgba(0, 0, 0, 0.04)',
             opacity: isTyping && !isStreaming ? 0.7 : 1,
@@ -211,7 +211,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <Tooltip label={t.chat.attachImages} position="top" withArrow>
             <ActionIcon
               variant="subtle"
-              c="gray.6"
+              c="dimmed"
               radius="xl"
               size={32}
               mb={4}
