@@ -111,7 +111,7 @@ export function ExamEntryClient({ courses, universities }: Props) {
           {t.exam.startExam}
         </Title>
         <Text c="dimmed" size="md" fw={400} mt={2}>
-          Practice with real papers, random mixes, or AI-generated questions
+          {t.exam.startExamSubtitle}
         </Text>
       </Box>
 

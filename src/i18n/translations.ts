@@ -293,6 +293,7 @@ export const translations = {
     // Exam
     exam: {
       startExam: '开始考试',
+      startExamSubtitle: '使用真题、随机组卷或 AI 生成题目进行练习',
       submitAnswer: '提交答案',
       nextQuestion: '下一题',
       previousQuestion: '上一题',
@@ -809,6 +810,7 @@ export const translations = {
     // Exam
     exam: {
       startExam: 'Start Exam',
+      startExamSubtitle: 'Practice with real papers, random mixes, or AI-generated questions',
       submitAnswer: 'Submit Answer',
       nextQuestion: 'Next Question',
       previousQuestion: 'Previous Question',
