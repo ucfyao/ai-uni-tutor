@@ -248,7 +248,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 paddingTop: '8px',
                 paddingBottom: '8px',
                 fontWeight: 450,
-                fontSize: '15px',
+                fontSize: '16px',
                 color: 'var(--mantine-color-text)',
                 lineHeight: 1.5,
               },
