@@ -1,6 +1,6 @@
 'use client';
 
-import { IconArrowRight, IconLoader2 } from '@tabler/icons-react';
+import { IconLoader2 } from '@tabler/icons-react';
 import { Book, Building2, ChevronDown, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
@@ -36,15 +36,15 @@ interface MockExamModalProps {
   onClose: () => void;
 }
 
-/* ── shared unstyled-select styles (matches NewSessionModal) ── */
+/* ── shared unstyled-select styles (compact FormRow) ── */
 const selectStyles = {
   input: {
     border: 'none',
     backgroundColor: 'transparent',
     padding: 0,
-    paddingRight: '24px',
+    paddingRight: '20px',
     height: 'auto',
-    fontSize: '15px',
+    fontSize: '13px',
     fontWeight: 600,
     color: 'var(--mantine-color-dark-9)',
     width: '100%',
@@ -107,7 +107,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const [numQuestions, setNumQuestions] = useState<string | null>('10');
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState<string | null>('mixed');
-  const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
+  const [pendingMode, setPendingMode] = useState<ExamMode | null>(null);
 
   // Restore last selection
   useEffect(() => {
@@ -159,16 +159,17 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     });
   }, [selectedCourseCode]);
 
-  const handleStart = () => {
+  const handleStart = (mode: ExamMode) => {
     setError(null);
+    setPendingMode(mode);
     startTransition(async () => {
       let result;
       if (source === 'real') {
         if (!selectedPaper) return;
-        result = await createRealExamMock(selectedPaper, selectedMode);
+        result = await createRealExamMock(selectedPaper, mode);
       } else if (source === 'random') {
         if (!selectedCourseCode) return;
-        result = await createRandomMixMock(selectedCourseCode, Number(numQuestions), selectedMode);
+        result = await createRandomMixMock(selectedCourseCode, Number(numQuestions), mode);
       } else {
         if (!topic.trim()) return;
         result = await generateMockFromTopic(
@@ -187,6 +188,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       } else {
         setError(result.error);
       }
+      setPendingMode(null);
     });
   };
 
@@ -225,26 +227,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     },
   ];
 
-  const modeData = [
-    {
-      value: 'practice',
-      label: (
-        <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={300}>
-          <span style={{ display: 'block', width: '100%' }}>{t.exam.practiceMode}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      value: 'exam',
-      label: (
-        <Tooltip label={t.exam.examModeDesc} position="bottom" withArrow openDelay={300}>
-          <span style={{ display: 'block', width: '100%' }}>{t.exam.examMode}</span>
-        </Tooltip>
-      ),
-    },
-  ];
-
-  /* ── FormRow: matches NewSessionModal exactly ── */
+  /* ── FormRow: compact version ── */
   const FormRow = ({
     icon: Icon,
     label,
@@ -258,29 +241,26 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   }) => (
     <Box
       style={{
-        borderRadius: '16px',
-        border: active ? '1.5px solid var(--mantine-color-purple-3)' : '1.5px solid transparent',
+        borderRadius: '12px',
+        border: active ? '1.5px solid var(--mantine-color-purple-2)' : '1.5px solid transparent',
         backgroundColor: active ? 'white' : 'var(--mantine-color-gray-0)',
-        boxShadow: active ? '0 0 0 2px var(--mantine-color-purple-0)' : 'none',
+        boxShadow: active ? '0 0 0 1.5px var(--mantine-color-purple-0)' : 'none',
         overflow: 'hidden',
         transition: 'all 0.2s ease',
-        height: '64px',
+        height: '48px',
         display: 'flex',
         alignItems: 'center',
       }}
     >
       <Group gap={0} wrap="nowrap" align="stretch" w="100%" h="100%">
-        <Center
-          w={60}
-          style={{ borderRight: active ? '1px solid var(--mantine-color-gray-1)' : 'none' }}
-        >
+        <Center w={44}>
           <ThemeIcon
             variant={active ? 'light' : 'transparent'}
             color={active ? 'purple' : 'gray'}
-            size={32}
-            radius="lg"
+            size={26}
+            radius="md"
           >
-            <Icon size={18} strokeWidth={2} />
+            <Icon size={14} strokeWidth={2} />
           </ThemeIcon>
         </Center>
         <Box
@@ -291,15 +271,15 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             flexDirection: 'column',
             justifyContent: 'center',
           }}
-          px="md"
+          pr="md"
         >
           <Text
-            size="10px"
+            size="9px"
             fw={700}
             tt="uppercase"
-            lts={1}
-            c={active ? 'purple.7' : 'gray.5'}
-            mb={0}
+            lts={0.8}
+            c={active ? 'purple.6' : 'gray.4'}
+            mb={-1}
           >
             {label}
           </Text>
@@ -315,7 +295,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 color: 'var(--mantine-color-gray-4)',
               }}
             >
-              <ChevronDown size={14} strokeWidth={2} />
+              <ChevronDown size={12} strokeWidth={2} />
             </Box>
           </Box>
         </Box>
@@ -364,16 +344,16 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           onChange={(v) => setSource(v as Source)}
           data={sourceData}
           fullWidth
-          size="sm"
+          size="md"
           radius="xl"
           color="purple"
           styles={{
             root: {
               backgroundColor: 'var(--mantine-color-gray-0)',
               border: '1px solid var(--mantine-color-gray-1)',
-              padding: '3px',
+              padding: '4px',
             },
-            label: { fontWeight: 600, fontSize: '13px' },
+            label: { fontWeight: 700, fontSize: '14px' },
           }}
         />
 
@@ -514,70 +494,72 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Box>
         )}
 
-        {/* Mode — inline with label */}
-        <Group justify="space-between" align="center">
-          <Text size="13px" fw={600} c="dark.5">
-            {t.exam.answerMode}
-          </Text>
-          <SegmentedControl
-            value={selectedMode}
-            onChange={(v) => setSelectedMode(v as ExamMode)}
-            data={modeData}
-            size="xs"
-            radius="xl"
-            color="purple"
-            styles={{
-              root: {
-                backgroundColor: 'var(--mantine-color-gray-0)',
-                border: '1px solid var(--mantine-color-gray-1)',
-                padding: '2px',
-              },
-              label: { fontWeight: 600, fontSize: '12px', padding: '4px 14px' },
-            }}
-          />
+        {/* Action buttons — Practice / Exam */}
+        <Group grow gap="sm">
+          <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={400}>
+            <Button
+              size="lg"
+              radius="xl"
+              h={48}
+              onClick={() => handleStart('practice')}
+              disabled={isStartDisabled || isPending}
+              loading={isPending && pendingMode === 'practice'}
+              variant="gradient"
+              gradient={
+                !isStartDisabled
+                  ? { from: 'purple.4', to: 'purple.5', deg: 90 }
+                  : { from: 'gray.3', to: 'gray.4', deg: 90 }
+              }
+              styles={{
+                root: {
+                  boxShadow: !isStartDisabled ? '0 8px 16px -4px rgba(147, 51, 234, 0.2)' : 'none',
+                  transition: 'all 0.2s ease',
+                  border: 'none',
+                },
+                label: { fontWeight: 700, fontSize: '14px', letterSpacing: '0.2px' },
+              }}
+            >
+              {isPending && pendingMode === 'practice' ? (
+                <Group gap={6}>
+                  <IconLoader2 size={16} className="animate-spin" />
+                  <span>{t.exam.practiceMode}</span>
+                </Group>
+              ) : (
+                t.exam.practiceMode
+              )}
+            </Button>
+          </Tooltip>
+          <Tooltip label={t.exam.examModeDesc} position="bottom" withArrow openDelay={400}>
+            <Button
+              size="lg"
+              radius="xl"
+              h={48}
+              onClick={() => handleStart('exam')}
+              disabled={isStartDisabled || isPending}
+              loading={isPending && pendingMode === 'exam'}
+              variant="outline"
+              color="purple"
+              styles={{
+                root: {
+                  borderColor: !isStartDisabled
+                    ? 'var(--mantine-color-purple-4)'
+                    : 'var(--mantine-color-gray-3)',
+                  transition: 'all 0.2s ease',
+                },
+                label: { fontWeight: 700, fontSize: '14px', letterSpacing: '0.2px' },
+              }}
+            >
+              {isPending && pendingMode === 'exam' ? (
+                <Group gap={6}>
+                  <IconLoader2 size={16} className="animate-spin" />
+                  <span>{t.exam.examMode}</span>
+                </Group>
+              ) : (
+                t.exam.examMode
+              )}
+            </Button>
+          </Tooltip>
         </Group>
-
-        {/* Start */}
-        <Button
-          fullWidth
-          size="lg"
-          radius="xl"
-          h={52}
-          onClick={handleStart}
-          disabled={isStartDisabled || isPending}
-          loading={isPending}
-          variant="gradient"
-          gradient={
-            !isStartDisabled
-              ? { from: 'purple.5', to: 'purple.6', deg: 90 }
-              : { from: 'gray.3', to: 'gray.4', deg: 90 }
-          }
-          styles={{
-            root: {
-              boxShadow: !isStartDisabled ? '0 10px 20px -5px rgba(147, 51, 234, 0.25)' : 'none',
-              transition: 'all 0.2s ease',
-              border: 'none',
-            },
-            label: {
-              fontWeight: 700,
-              fontSize: '15px',
-              letterSpacing: '0.3px',
-              textTransform: 'uppercase' as const,
-            },
-          }}
-          rightSection={
-            !isPending && !isStartDisabled && <IconArrowRight size={18} strokeWidth={3} />
-          }
-        >
-          {isPending ? (
-            <Group gap={8}>
-              <IconLoader2 size={18} className="animate-spin" />
-              <span>Preparing...</span>
-            </Group>
-          ) : (
-            t.exam.startExam
-          )}
-        </Button>
       </Stack>
     </Modal>
   );
