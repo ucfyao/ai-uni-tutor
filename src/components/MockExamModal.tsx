@@ -226,6 +226,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           size="sm"
           radius={R}
           color="purple"
+          withItemsBorders={false}
           styles={{
             label: { fontWeight: 600, fontSize: '13.5px', padding: '8px 0' },
           }}
