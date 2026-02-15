@@ -15,8 +15,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BATCH_SIZE = 3;
-// [C1] Server-side file size limit (bytes) — uses validated default from env.ts
-const MAX_FILE_SIZE = getEnv().NEXT_PUBLIC_MAX_FILE_SIZE_MB * 1024 * 1024;
+
+// [C1] Server-side file size limit (bytes) — lazy to avoid running getEnv() during next build
+let _maxFileSize: number | undefined;
+function getMaxFileSize(): number {
+  if (_maxFileSize === undefined) {
+    _maxFileSize = getEnv().NEXT_PUBLIC_MAX_FILE_SIZE_MB * 1024 * 1024;
+  }
+  return _maxFileSize;
+}
 
 const uploadSchema = z.object({
   doc_type: z.enum(['lecture', 'exam', 'assignment']).optional().default('lecture'),
@@ -99,7 +106,7 @@ export async function POST(request: Request) {
       }
 
       // [C1] Enforce server-side file size limit
-      if (file.size > MAX_FILE_SIZE) {
+      if (file.size > getMaxFileSize()) {
         send('error', { message: 'File too large', code: 'FILE_TOO_LARGE' });
         return;
       }
@@ -200,7 +207,10 @@ export async function POST(request: Request) {
         // Detect quota / rate-limit errors from the LLM provider
         const isQuotaError =
           (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-          (typeof e === 'object' && e !== null && 'status' in e && (e as { status: number }).status === 429);
+          (typeof e === 'object' &&
+            e !== null &&
+            'status' in e &&
+            (e as { status: number }).status === 429);
 
         if (isQuotaError) {
           await documentService.updateStatus(doc.id, 'error', 'AI quota exceeded');
@@ -210,7 +220,10 @@ export async function POST(request: Request) {
           });
         } else {
           await documentService.updateStatus(doc.id, 'error', 'Failed to extract content');
-          send('error', { message: 'Failed to extract content from PDF', code: 'EXTRACTION_ERROR' });
+          send('error', {
+            message: 'Failed to extract content from PDF',
+            code: 'EXTRACTION_ERROR',
+          });
         }
         return;
       }
