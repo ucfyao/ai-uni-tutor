@@ -8,7 +8,7 @@
 
 import { parseAIResponse } from '@/lib/ai-utils';
 import { AppError, ForbiddenError } from '@/lib/errors';
-import { getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { parsePDF } from '@/lib/pdf';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
@@ -89,7 +89,7 @@ export class ExamPaperService {
       // Call Gemini to extract questions
       const ai = getGenAI();
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_MODELS.chat,
         contents: [{ role: 'user', parts: [{ text: EXTRACTION_PROMPT + fullText }] }],
         config: {
           responseMimeType: 'application/json',

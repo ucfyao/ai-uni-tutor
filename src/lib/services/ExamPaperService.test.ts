@@ -7,6 +7,11 @@ import { ExamPaperService } from './ExamPaperService';
 // ---------- Module mocks ----------
 
 vi.mock('@/lib/gemini', () => ({
+  GEMINI_MODELS: {
+    chat: 'gemini-2.5-flash',
+    parse: 'gemini-2.0-flash',
+    embedding: 'gemini-embedding-001',
+  },
   getGenAI: vi.fn(),
 }));
 

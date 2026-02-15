@@ -1,5 +1,5 @@
 import 'server-only';
-import { getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
 import type { KnowledgePoint } from './types';
 
@@ -25,7 +25,7 @@ Lecture content:
 ${pagesText}`;
 
   const response = await genAI.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: GEMINI_MODELS.parse,
     contents: prompt,
     config: {
       responseMimeType: 'application/json',

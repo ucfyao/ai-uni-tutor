@@ -1,9 +1,9 @@
-import { genAI } from '../gemini';
+import { GEMINI_MODELS, genAI } from '../gemini';
 import { RAG_CONFIG } from './config';
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   const result = await genAI.models.embedContent({
-    model: 'gemini-embedding-001',
+    model: GEMINI_MODELS.embedding,
     contents: text,
     config: {
       outputDimensionality: RAG_CONFIG.embeddingDimension,
