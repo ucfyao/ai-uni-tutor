@@ -1,12 +1,14 @@
 'use client';
 
-import { BookOpen, Cpu, CreditCard, GraduationCap, Mail } from 'lucide-react';
-import { Accordion, Group, Paper, Stack, Text, Title, UnstyledButton } from '@mantine/core';
+import { BookOpen, Cpu, CreditCard, GraduationCap, Mail, Search } from 'lucide-react';
+import { useState } from 'react';
+import { Accordion, Group, Paper, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core';
 import { PageShell } from '@/components/PageShell';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function HelpPage() {
   const { t } = useLanguage();
+  const [search, setSearch] = useState('');
 
   const faqCategories = [
     {
@@ -47,39 +49,64 @@ export default function HelpPage() {
     },
   ];
 
+  const filteredCategories = faqCategories
+    .map((category) => ({
+      ...category,
+      items: category.items.filter(
+        (item) =>
+          !search.trim() ||
+          item.q.toLowerCase().includes(search.toLowerCase()) ||
+          item.a.toLowerCase().includes(search.toLowerCase()),
+      ),
+    }))
+    .filter((category) => category.items.length > 0);
+
   return (
     <PageShell title={t.help.title} subtitle={t.help.subtitle}>
-      {faqCategories.map((category) => {
-        const Icon = category.icon;
-        return (
-          <Paper key={category.title} withBorder p="xl" radius="lg">
-            <Stack gap="md">
-              <Group gap="sm">
-                <Icon size={20} color="var(--mantine-color-gray-6)" />
-                <Title order={4} fw={700}>
-                  {category.title}
-                </Title>
-              </Group>
-              <Accordion variant="separated" radius="md">
-                {category.items.map((item, index) => (
-                  <Accordion.Item key={index} value={`${category.title}-${index}`}>
-                    <Accordion.Control>
-                      <Text size="sm" fw={500}>
-                        {item.q}
-                      </Text>
-                    </Accordion.Control>
-                    <Accordion.Panel>
-                      <Text size="sm" c="dimmed" lh={1.6}>
-                        {item.a}
-                      </Text>
-                    </Accordion.Panel>
-                  </Accordion.Item>
-                ))}
-              </Accordion>
-            </Stack>
-          </Paper>
-        );
-      })}
+      <TextInput
+        placeholder={t.help.searchPlaceholder}
+        leftSection={<Search size={16} />}
+        value={search}
+        onChange={(e) => setSearch(e.currentTarget.value)}
+      />
+
+      {filteredCategories.length === 0 ? (
+        <Text c="dimmed" ta="center" py="xl">
+          {t.help.noResults}
+        </Text>
+      ) : (
+        filteredCategories.map((category) => {
+          const Icon = category.icon;
+          return (
+            <Paper key={category.title} withBorder p="xl" radius="lg">
+              <Stack gap="md">
+                <Group gap="sm">
+                  <Icon size={20} color="var(--mantine-color-gray-6)" />
+                  <Title order={4} fw={700}>
+                    {category.title}
+                  </Title>
+                </Group>
+                <Accordion variant="separated" radius="md">
+                  {category.items.map((item, index) => (
+                    <Accordion.Item key={index} value={`${category.title}-${index}`}>
+                      <Accordion.Control>
+                        <Text size="sm" fw={500}>
+                          {item.q}
+                        </Text>
+                      </Accordion.Control>
+                      <Accordion.Panel>
+                        <Text size="sm" c="dimmed" lh={1.6}>
+                          {item.a}
+                        </Text>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  ))}
+                </Accordion>
+              </Stack>
+            </Paper>
+          );
+        })
+      )}
 
       {/* Contact Support */}
       <Paper withBorder p="xl" radius="lg">
@@ -90,6 +117,9 @@ export default function HelpPage() {
             </Title>
             <Text size="sm" c="dimmed">
               {t.help.contactDesc}
+            </Text>
+            <Text fz="sm" c="dimmed">
+              {t.help.responseTime}
             </Text>
           </Stack>
           <UnstyledButton

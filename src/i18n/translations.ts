@@ -455,6 +455,16 @@ export const translations = {
       },
       securePayment: '通过 Stripe 安全支付。随时取消。',
       errorTitle: '错误',
+      feature: '功能',
+      featureDailyQueries: '每日 AI 对话',
+      featureDocUploads: '文档上传',
+      featureExamModes: '考试模式',
+      featureKnowledgeCards: '知识卡片',
+      featurePriority: '优先处理',
+      unlimited: '无限',
+      practiceOnly: '仅练习',
+      allModes: '全部模式',
+      mostPopular: '最受欢迎',
     },
     // Settings Page
     settings: {
@@ -493,6 +503,7 @@ export const translations = {
       deleteAccountDesc: '永久删除你的账户和所有数据。',
       profileUpdated: '已保存',
       profileUpdatedMsg: '资料更新成功',
+      queriesUsed: '次已使用',
     },
     // Personalization Page
     personalization: {
@@ -513,6 +524,10 @@ export const translations = {
       dataPrivacy: '数据与隐私',
       deleteAccount: '删除账户',
       deleteAccountDesc: '永久删除你的账户和所有数据。',
+      deleteAccountTitle: '删除账户',
+      deleteConfirmMessage: '此操作不可撤销。你的所有数据将被永久删除，包括对话、文档和知识库。',
+      typeDelete: '请输入 "DELETE" 以确认',
+      confirmDelete: '永久删除账户',
     },
     // Help Page
     help: {
@@ -562,6 +577,9 @@ export const translations = {
       contactTitle: '仍然需要帮助？',
       contactDesc: '找不到你需要的答案？联系我们的支持团队。',
       contactEmail: '发送邮件',
+      searchPlaceholder: '搜索常见问题...',
+      noResults: '未找到匹配的问题',
+      responseTime: '回复时间：24 小时内',
     },
     // Study Page
     study: {
@@ -1081,6 +1099,16 @@ export const translations = {
       },
       securePayment: 'Secure payment via Stripe. Cancel anytime.',
       errorTitle: 'Error',
+      feature: 'Feature',
+      featureDailyQueries: 'Daily AI Queries',
+      featureDocUploads: 'Document Uploads',
+      featureExamModes: 'Exam Modes',
+      featureKnowledgeCards: 'Knowledge Cards',
+      featurePriority: 'Priority Processing',
+      unlimited: 'Unlimited',
+      practiceOnly: 'Practice Only',
+      allModes: 'All Modes',
+      mostPopular: 'Most Popular',
     },
     // Settings Page
     settings: {
@@ -1120,6 +1148,7 @@ export const translations = {
       deleteAccountDesc: 'Permanently delete your account and all data.',
       profileUpdated: 'Saved',
       profileUpdatedMsg: 'Profile updated successfully',
+      queriesUsed: 'queries used',
     },
     // Personalization Page
     personalization: {
@@ -1141,6 +1170,11 @@ export const translations = {
       dataPrivacy: 'Data & Privacy',
       deleteAccount: 'Delete Account',
       deleteAccountDesc: 'Permanently delete your account and all data.',
+      deleteAccountTitle: 'Delete Account',
+      deleteConfirmMessage:
+        'This action cannot be undone. All your data will be permanently deleted, including conversations, documents, and knowledge base.',
+      typeDelete: 'Type "DELETE" to confirm',
+      confirmDelete: 'Permanently Delete Account',
     },
     // Help Page
     help: {
@@ -1191,6 +1225,9 @@ export const translations = {
       contactTitle: 'Still need help?',
       contactDesc: "Can't find what you're looking for? Reach out to our support team.",
       contactEmail: 'Send Email',
+      searchPlaceholder: 'Search FAQs...',
+      noResults: 'No matching questions found',
+      responseTime: 'Response time: within 24 hours',
     },
     // Study Page
     study: {
