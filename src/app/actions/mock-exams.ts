@@ -5,7 +5,7 @@ import { QuotaExceededError } from '@/lib/errors';
 import { getMockExamService } from '@/lib/services/MockExamService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
-import type { BatchSubmitResult, MockExam, MockExamResponse } from '@/types/exam';
+import type { BatchSubmitResult, ExamPaper, MockExam, MockExamResponse } from '@/types/exam';
 
 /**
  * Start a mock exam session: find an exam paper for the course, generate a mock, link to session.
@@ -179,4 +179,91 @@ export async function getMockExamList(): Promise<MockExam[]> {
 
   const service = getMockExamService();
   return service.getHistory(user.id);
+}
+
+export async function getExamPapersForCourse(
+  courseCode: string,
+): Promise<{ success: true; papers: ExamPaper[] } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!courseCode.trim()) return { success: false, error: 'Course code is required' };
+
+    const service = getMockExamService();
+    const papers = await service.getPapersForCourse(courseCode.trim());
+
+    return { success: true, papers };
+  } catch (error) {
+    console.error('Fetch papers for course error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch papers',
+    };
+  }
+}
+
+export async function createRealExamMock(
+  paperId: string,
+  mode: 'practice' | 'exam',
+): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!paperId.trim()) return { success: false, error: 'Paper ID is required' };
+    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+
+    const service = getMockExamService();
+    const { mockId } = await service.createFromPaper(user.id, paperId.trim(), mode);
+
+    revalidatePath('/exam');
+    return { success: true, mockId };
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
+    console.error('Real exam mock creation error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create mock exam',
+    };
+  }
+}
+
+export async function createRandomMixMock(
+  courseCode: string,
+  numQuestions: number,
+  mode: 'practice' | 'exam',
+): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!courseCode.trim()) return { success: false, error: 'Course code is required' };
+    if (![5, 10, 15, 20].includes(numQuestions)) {
+      return { success: false, error: 'Number of questions must be 5, 10, 15, or 20' };
+    }
+    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+
+    const service = getMockExamService();
+    const { mockId } = await service.createRandomMix(
+      user.id,
+      courseCode.trim(),
+      numQuestions,
+      mode,
+    );
+
+    revalidatePath('/exam');
+    return { success: true, mockId };
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
+    console.error('Random mix mock creation error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create random mix exam',
+    };
+  }
 }

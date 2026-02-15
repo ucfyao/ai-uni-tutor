@@ -15,6 +15,7 @@ import type { MockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { Json } from '@/types/database';
 import type {
   BatchSubmitResult,
+  ExamPaper,
   ExamQuestion,
   MockExam,
   MockExamQuestion,
@@ -308,6 +309,13 @@ ${typesInstruction}
     });
 
     return { mockId };
+  }
+
+  /**
+   * Get all exam papers for a course (for UI paper picker).
+   */
+  async getPapersForCourse(courseCode: string): Promise<ExamPaper[]> {
+    return this.paperRepo.findAllByCourse(courseCode);
   }
 
   /**
