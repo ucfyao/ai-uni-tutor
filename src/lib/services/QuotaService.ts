@@ -6,6 +6,7 @@
  * Config from env with fallbacks. See .env.example.
  */
 
+import { getEnv, getRateLimitConfig, isRateLimitEnabled } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
 import { checkLLMUsage, getLLMUsage, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
 import { getProfileRepository } from '@/lib/repositories';
@@ -65,14 +66,15 @@ export class QuotaService {
    * Get system-configured access limits (for UI display)
    */
   getSystemLimits(): AccessLimits {
+    const cfg = getRateLimitConfig();
     return {
-      dailyLimitFree: parseInt(process.env.LLM_LIMIT_DAILY_FREE || '3', 10),
-      dailyLimitPro: parseInt(process.env.LLM_LIMIT_DAILY_PRO || '30', 10),
-      rateLimitLlmFreeRequests: parseInt(process.env.RATE_LIMIT_LLM_FREE_REQUESTS || '3', 10),
-      rateLimitLlmFreeWindow: process.env.RATE_LIMIT_LLM_FREE_WINDOW || '60 s',
-      rateLimitLlmProRequests: parseInt(process.env.RATE_LIMIT_LLM_PRO_REQUESTS || '60', 10),
-      rateLimitLlmProWindow: process.env.RATE_LIMIT_LLM_PRO_WINDOW || '60 s',
-      maxFileSizeMB: parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10', 10),
+      dailyLimitFree: cfg.dailyLimitFree,
+      dailyLimitPro: cfg.dailyLimitPro,
+      rateLimitLlmFreeRequests: cfg.llmFreeRequests,
+      rateLimitLlmFreeWindow: cfg.llmFreeWindow,
+      rateLimitLlmProRequests: cfg.llmProRequests,
+      rateLimitLlmProWindow: cfg.llmProWindow,
+      maxFileSizeMB: getEnv().NEXT_PUBLIC_MAX_FILE_SIZE_MB,
     };
   }
 
@@ -81,7 +83,7 @@ export class QuotaService {
    */
   async checkAndConsume(userId: string): Promise<QuotaCheckResult> {
     // Skip in development unless explicitly enabled
-    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_RATELIMIT !== 'true') {
+    if (!isRateLimitEnabled()) {
       return {
         allowed: true,
         usage: 0,
@@ -164,9 +166,8 @@ export class QuotaService {
   }
 
   private getDailyLimit(isPro: boolean): number {
-    return isPro
-      ? parseInt(process.env.LLM_LIMIT_DAILY_PRO || '30', 10)
-      : parseInt(process.env.LLM_LIMIT_DAILY_FREE || '3', 10);
+    const cfg = getRateLimitConfig();
+    return isPro ? cfg.dailyLimitPro : cfg.dailyLimitFree;
   }
 }
 

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { isRateLimitEnabled } from '@/lib/env';
 import { proRatelimit, ratelimit } from '@/lib/redis';
 import { handleRequest } from '@/lib/supabase/middleware';
 
@@ -20,7 +21,7 @@ export async function proxy(request: NextRequest) {
 
   const { response, userId } = await handleRequest(request);
 
-  if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATELIMIT === 'true') {
+  if (isRateLimitEnabled()) {
     const limiter = userId ? proRatelimit : ratelimit;
     const key = userId ?? ip;
 
