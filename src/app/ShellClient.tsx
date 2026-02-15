@@ -8,6 +8,7 @@ import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
 import { getMockExamIdBySessionId } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import { Logo } from '@/components/Logo';
+import MockExamModal from '@/components/MockExamModal';
 import NewSessionModal from '@/components/NewSessionModal';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
@@ -38,6 +39,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   const { headerContent } = useHeader();
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
+  const [mockExamOpened, { open: openMockExam, close: closeMockExam }] = useDisclosure(false);
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const isMobile = useMediaQuery('(max-width: 48em)', false);
 
@@ -57,7 +59,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
 
   const openModalForMode = (mode: TutoringMode) => {
     if (mode === 'Mock Exam') {
-      router.push('/exam');
+      openMockExam();
       return;
     }
     setPreSelectedMode(mode);
@@ -72,18 +74,12 @@ export default function ShellClient({ children }: { children: React.ReactNode })
       return;
     }
 
-    if (mode === 'Mock Exam') {
-      // Mock Exam uses the dedicated /exam entry page
-      router.push('/exam');
-      return;
-    } else {
-      // Chat modes: navigate to chat page
-      const modeRoute = MODES_METADATA[mode].id;
-      const targetPath = `/${modeRoute}/${newId}`;
-      setActiveSessionId(newId);
-      window.history.pushState(null, '', targetPath);
-      router.push(targetPath);
-    }
+    // Chat modes: navigate to chat page
+    const modeRoute = MODES_METADATA[mode].id;
+    const targetPath = `/${modeRoute}/${newId}`;
+    setActiveSessionId(newId);
+    window.history.pushState(null, '', targetPath);
+    router.push(targetPath);
   };
 
   const handleSelectSession = async (id: string) => {
@@ -259,6 +255,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
         onStart={handleStartSession}
         preSelectedMode={preSelectedMode}
       />
+
+      <MockExamModal opened={mockExamOpened} onClose={closeMockExam} />
 
       <RenameSessionModal
         opened={renameModalOpen}
