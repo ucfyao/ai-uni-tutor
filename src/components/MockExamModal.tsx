@@ -38,14 +38,15 @@ type Source = 'real' | 'random' | 'ai';
 
 const THEME = 'purple';
 
-const selectStyles = {
+/* Unstyled select inside FormRow — matches NewSessionModal exactly */
+const formRowSelectStyles = {
   input: {
     border: 'none',
     backgroundColor: 'transparent',
     padding: 0,
-    paddingRight: '20px',
+    paddingRight: '24px',
     height: 'auto',
-    fontSize: '13px',
+    fontSize: '15px',
     fontWeight: 600,
     color: 'var(--mantine-color-dark-9)',
     width: '100%',
@@ -186,7 +187,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       radius={24}
       centered
       padding={32}
-      size="540px"
+      size="500px"
       overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
       transitionProps={{ transition: 'pop', duration: 200, timingFunction: 'ease' }}
       styles={{
@@ -213,8 +214,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </UnstyledButton>
         </Group>
 
-        {/* 1. University + Course — compact FormRow */}
-        <Stack gap={8}>
+        {/* 1. University + Course — prominent FormRows (same as NewSessionModal) */}
+        <Stack gap={12}>
           <FormRow icon={Building2} label={t.exam.university ?? 'University'} active={true}>
             <Select
               data={uniOptions}
@@ -225,7 +226,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               }}
               placeholder={PLACEHOLDERS.SELECT_UNIVERSITY}
               variant="unstyled"
-              styles={selectStyles}
+              styles={formRowSelectStyles}
               allowDeselect={false}
               searchable
             />
@@ -238,7 +239,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               onChange={setSelectedCourseCode}
               placeholder={selectedUniId ? PLACEHOLDERS.SELECT_COURSE : PLACEHOLDERS.SELECT_FIRST}
               variant="unstyled"
-              styles={selectStyles}
+              styles={formRowSelectStyles}
               disabled={!selectedUniId}
               allowDeselect={false}
               searchable
@@ -246,46 +247,50 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </FormRow>
         </Stack>
 
-        {/* 2. Source selector — segmented pills */}
-        <div>
-          <Text size="10px" fw={700} tt="uppercase" lts={1} c={`${THEME}.7`} mb={8}>
-            {t.exam.selectSource}
-          </Text>
-          <Group
-            gap={0}
-            style={{
-              borderRadius: '12px',
-              backgroundColor: 'var(--mantine-color-gray-0)',
-              padding: '4px',
-            }}
-          >
+        {/* 2. Source + Mode — compact inline row */}
+        <Group grow gap={12} align="stretch">
+          <SegmentedField label={t.exam.selectSource}>
             <SourcePill
               active={source === 'real'}
               label={t.exam.realExam}
-              icon={<IconFileText size={15} strokeWidth={2.2} />}
+              icon={<IconFileText size={14} strokeWidth={2.2} />}
               onClick={() => setSource('real')}
             />
             <SourcePill
               active={source === 'random'}
               label={t.exam.randomMix}
-              icon={<IconArrowsShuffle size={15} strokeWidth={2.2} />}
+              icon={<IconArrowsShuffle size={14} strokeWidth={2.2} />}
               onClick={() => setSource('random')}
             />
             <SourcePill
               active={source === 'ai'}
               label={t.exam.aiMock}
-              icon={<IconSparkles size={15} strokeWidth={2.2} />}
+              icon={<IconSparkles size={14} strokeWidth={2.2} />}
               onClick={() => setSource('ai')}
             />
-          </Group>
-        </div>
+          </SegmentedField>
+
+          <SegmentedField label="Mode">
+            <ModePill
+              active={selectedMode === 'practice'}
+              label="Practice"
+              onClick={() => setSelectedMode('practice')}
+            />
+            <ModePill
+              active={selectedMode === 'exam'}
+              label="Exam"
+              onClick={() => setSelectedMode('exam')}
+            />
+          </SegmentedField>
+        </Group>
 
         {/* 3. Source-specific options */}
         {showNoPapers && (
           <Box
-            p="sm"
+            px="sm"
+            py={10}
             style={{
-              borderRadius: '12px',
+              borderRadius: '10px',
               backgroundColor: 'var(--mantine-color-orange-0)',
               border: '1px solid var(--mantine-color-orange-2)',
             }}
@@ -306,7 +311,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             }))}
             value={selectedPaper}
             onChange={setSelectedPaper}
-            size="md"
+            size="sm"
             radius="md"
             styles={{
               dropdown: {
@@ -324,19 +329,19 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             data={['5', '10', '15', '20']}
             value={numQuestions}
             onChange={setNumQuestions}
-            size="md"
+            size="sm"
             radius="md"
           />
         )}
 
         {source === 'ai' && (
-          <Stack gap="sm">
+          <Stack gap="xs">
             <TextInput
               label={t.exam.topic}
               placeholder="e.g., Binary Trees, Linear Regression"
               value={topic}
               onChange={(e) => setTopic(e.currentTarget.value)}
-              size="md"
+              size="sm"
               radius="md"
             />
             <Group grow>
@@ -345,7 +350,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 data={['5', '10', '15', '20']}
                 value={numQuestions}
                 onChange={setNumQuestions}
-                size="md"
+                size="sm"
                 radius="md"
               />
               <Select
@@ -358,47 +363,20 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 ]}
                 value={difficulty}
                 onChange={setDifficulty}
-                size="md"
+                size="sm"
                 radius="md"
               />
             </Group>
           </Stack>
         )}
 
-        {/* 4. Mode — segmented pills */}
-        <div>
-          <Text size="10px" fw={700} tt="uppercase" lts={1} c={`${THEME}.7`} mb={8}>
-            Mode
-          </Text>
-          <Group
-            gap={0}
-            style={{
-              borderRadius: '12px',
-              backgroundColor: 'var(--mantine-color-gray-0)',
-              padding: '4px',
-            }}
-          >
-            <ModePill
-              active={selectedMode === 'practice'}
-              label="Practice"
-              desc="Feedback per question"
-              onClick={() => setSelectedMode('practice')}
-            />
-            <ModePill
-              active={selectedMode === 'exam'}
-              label="Exam"
-              desc="Submit all for a score"
-              onClick={() => setSelectedMode('exam')}
-            />
-          </Group>
-        </div>
-
         {/* Error */}
         {error && (
           <Box
-            p="sm"
+            px="sm"
+            py={10}
             style={{
-              borderRadius: '12px',
+              borderRadius: '10px',
               backgroundColor: 'var(--mantine-color-red-0)',
               border: '1px solid var(--mantine-color-red-2)',
             }}
@@ -409,7 +387,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Box>
         )}
 
-        {/* 5. Start */}
+        {/* 4. Start */}
         <Button
           fullWidth
           size="lg"
@@ -455,7 +433,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   );
 };
 
-/* ─── FormRow ─── Matches NewSessionModal's row pattern ─── */
+/* ─── FormRow ─── Same dimensions as NewSessionModal ─── */
 
 function FormRow({
   icon: Icon,
@@ -471,29 +449,29 @@ function FormRow({
   return (
     <Box
       style={{
-        borderRadius: '12px',
+        borderRadius: '16px',
         border: active ? `1.5px solid var(--mantine-color-${THEME}-3)` : '1.5px solid transparent',
         backgroundColor: active ? 'white' : 'var(--mantine-color-gray-0)',
         boxShadow: active ? `0 0 0 2px var(--mantine-color-${THEME}-0)` : 'none',
         overflow: 'hidden',
         transition: 'all 0.2s ease',
-        height: '48px',
+        height: '64px',
         display: 'flex',
         alignItems: 'center',
       }}
     >
       <Group gap={0} wrap="nowrap" align="stretch" w="100%" h="100%">
         <Center
-          w={44}
+          w={60}
           style={{ borderRight: active ? '1px solid var(--mantine-color-gray-1)' : 'none' }}
         >
           <ThemeIcon
             variant={active ? 'light' : 'transparent'}
             color={active ? THEME : 'gray'}
-            size={26}
-            radius="md"
+            size={32}
+            radius="lg"
           >
-            <Icon size={14} strokeWidth={2} />
+            <Icon size={18} strokeWidth={2} />
           </ThemeIcon>
         </Center>
         <Box
@@ -504,16 +482,15 @@ function FormRow({
             flexDirection: 'column',
             justifyContent: 'center',
           }}
-          px="sm"
+          px="md"
         >
           <Text
-            size="9px"
+            size="10px"
             fw={700}
             tt="uppercase"
-            lts={0.8}
+            lts={1}
             c={active ? `${THEME}.7` : 'gray.5'}
             mb={0}
-            lh={1}
           >
             {label}
           </Text>
@@ -529,7 +506,7 @@ function FormRow({
                 color: 'var(--mantine-color-gray-4)',
               }}
             >
-              <ChevronDown size={12} strokeWidth={2} />
+              <ChevronDown size={14} strokeWidth={2} />
             </Box>
           </Box>
         </Box>
@@ -538,7 +515,29 @@ function FormRow({
   );
 }
 
-/* ─── SourcePill ─── Segmented toggle for question source ─── */
+/* ─── SegmentedField ─── Label + pill tray ─── */
+
+function SegmentedField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <Text size="10px" fw={700} tt="uppercase" lts={1} c={`${THEME}.7`} mb={6}>
+        {label}
+      </Text>
+      <Group
+        gap={0}
+        style={{
+          borderRadius: '10px',
+          backgroundColor: 'var(--mantine-color-gray-0)',
+          padding: '3px',
+        }}
+      >
+        {children}
+      </Group>
+    </div>
+  );
+}
+
+/* ─── SourcePill ─── */
 
 function SourcePill({
   active,
@@ -556,14 +555,14 @@ function SourcePill({
       onClick={onClick}
       style={{
         flex: 1,
-        borderRadius: '10px',
-        padding: '8px 4px',
+        borderRadius: '8px',
+        padding: '6px 2px',
         backgroundColor: active ? 'white' : 'transparent',
         boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
         transition: 'all 0.15s ease',
       }}
     >
-      <Group gap={5} justify="center" wrap="nowrap">
+      <Group gap={4} justify="center" wrap="nowrap">
         <Box
           style={{
             color: active ? `var(--mantine-color-${THEME}-6)` : 'var(--mantine-color-gray-5)',
@@ -574,7 +573,7 @@ function SourcePill({
           {icon}
         </Box>
         <Text
-          size="12px"
+          size="11px"
           fw={active ? 700 : 500}
           c={active ? `${THEME}.7` : 'gray.6'}
           style={{ transition: 'all 0.15s ease', whiteSpace: 'nowrap' }}
@@ -586,17 +585,15 @@ function SourcePill({
   );
 }
 
-/* ─── ModePill ─── Segmented toggle for exam mode ─── */
+/* ─── ModePill ─── */
 
 function ModePill({
   active,
   label,
-  desc,
   onClick,
 }: {
   active: boolean;
   label: string;
-  desc: string;
   onClick: () => void;
 }) {
   return (
@@ -604,30 +601,21 @@ function ModePill({
       onClick={onClick}
       style={{
         flex: 1,
-        borderRadius: '10px',
-        padding: '10px 12px',
+        borderRadius: '8px',
+        padding: '6px 8px',
         backgroundColor: active ? 'white' : 'transparent',
         boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
         transition: 'all 0.15s ease',
       }}
     >
       <Text
-        size="13px"
+        size="11px"
         fw={active ? 700 : 500}
         c={active ? `${THEME}.7` : 'gray.6'}
         ta="center"
         style={{ transition: 'all 0.15s ease' }}
       >
         {label}
-      </Text>
-      <Text
-        size="10px"
-        c={active ? `${THEME}.5` : 'gray.4'}
-        ta="center"
-        mt={2}
-        style={{ transition: 'all 0.15s ease' }}
-      >
-        {desc}
       </Text>
     </UnstyledButton>
   );
