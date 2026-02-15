@@ -129,7 +129,6 @@ export function StudyPageClient() {
                 <Title
                   order={1}
                   fw={900}
-                  c="dark.9"
                   style={{
                     fontSize: 'clamp(28px, 4.5vw, 44px)',
                     letterSpacing: '-0.035em',
@@ -141,7 +140,7 @@ export function StudyPageClient() {
                   Your AI Study Companion
                 </Title>
                 <Text
-                  c="dark.5"
+                  c="dimmed"
                   size="lg"
                   fw={500}
                   maw="100%"
@@ -179,8 +178,7 @@ export function StudyPageClient() {
                     aria-label={`${card.label}: ${card.subtitle}`}
                     style={{
                       cursor: 'pointer',
-                      backgroundColor: 'white',
-                      border: '1px solid var(--mantine-color-gray-2)',
+                      border: '1px solid var(--mantine-color-default-border)',
                       position: 'relative',
                       overflow: 'hidden',
                       transition: 'all 0.28s cubic-bezier(0.25, 0.8, 0.25, 1)',
@@ -251,7 +249,6 @@ export function StudyPageClient() {
                         <Text
                           size="lg"
                           fw={800}
-                          c="dark.9"
                           style={{ transition: 'color 0.2s ease' }}
                           className={`group-hover:text-${card.color}-7 text-left sm:text-center w-full truncate`}
                         >

@@ -23,16 +23,16 @@ export default async function SharedSessionPage({ params }: PageProps) {
   }
 
   return (
-    <Box bg="white" mih="100vh">
+    <Box mih="100vh">
       {/* Header */}
-      <Box py="md" px="xl" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+      <Box py="md" px="xl" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
         <Container size="lg">
           <Group justify="space-between">
             <Group gap="xs">
               <Box mr={2}>
                 <Logo size={28} alt="Logo" />
               </Box>
-              <Text fw={700} size="lg" c="dark.9">
+              <Text fw={700} size="lg">
                 AI Tutor
               </Text>
               <Badge variant="light" color="violet">

@@ -48,9 +48,9 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
           style={{ cursor: 'pointer', flex: 1, minWidth: 0 }}
           px={isMobile ? 6 : 8}
           py={isMobile ? 4 : 6}
-          className="hover:bg-gray-50 rounded-lg transition-colors"
+          className="sidebar-hover rounded-lg"
         >
-          <Text fw={650} size={isMobile ? 'md' : 'lg'} c="dark.8" truncate>
+          <Text fw={650} size={isMobile ? 'md' : 'lg'} truncate>
             {session.course.code}
           </Text>
           <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
@@ -182,8 +182,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            borderBottom: '1px solid var(--mantine-color-gray-2)',
-            backgroundColor: 'white',
+            borderBottom: '1px solid var(--mantine-color-default-border)',
           }}
         >
           {headerNode}

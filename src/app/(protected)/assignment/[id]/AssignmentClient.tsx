@@ -204,7 +204,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
     return (
       <Center h="100vh">
         <Stack align="center" gap="md" ta="center">
-          <Text size="xl" fw={700} c="dark.9">
+          <Text size="xl" fw={700}>
             Session Not Found
           </Text>
           <Text c="dimmed">This assignment session could not be found.</Text>

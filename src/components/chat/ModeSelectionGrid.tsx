@@ -73,7 +73,6 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
 
           <Stack gap={12}>
             <Text
-              c="dark.9"
               style={{
                 fontSize: '36px',
                 fontWeight: 800,
@@ -95,7 +94,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
               </span>
             </Text>
             <Text
-              c="dark.4"
+              c="dimmed"
               size="lg"
               fw={500}
               maw={560}
@@ -143,8 +142,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
                 aria-label={`Select ${mode.label} mode: ${mode.desc}`}
                 style={{
                   cursor: 'pointer',
-                  backgroundColor: 'white',
-                  border: '1px solid var(--mantine-color-gray-2)',
+                  border: '1px solid var(--mantine-color-default-border)',
                   position: 'relative',
                   overflow: 'hidden',
                   transition: 'all 0.28s cubic-bezier(0.25, 0.8, 0.25, 1)',
@@ -222,7 +220,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
                     <Text
                       size="lg"
                       fw={800}
-                      c="dark.9"
+                      c="var(--mantine-color-text)"
                       style={{
                         transition: 'color 0.2s ease',
                       }}

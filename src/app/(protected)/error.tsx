@@ -14,7 +14,7 @@ export default function ProtectedError({
 
   return (
     <Center h="100vh">
-      <Stack align="center" gap="md" ta="center" p="xl" bg="white" style={{ borderRadius: 16 }}>
+      <Stack align="center" gap="md" ta="center" p="xl" style={{ borderRadius: 16 }}>
         <Title order={2}>Oops! Something went wrong</Title>
         <Text c="dimmed" maw={400}>
           {error.message || 'We encountered an error while loading your session.'}

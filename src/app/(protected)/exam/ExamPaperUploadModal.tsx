@@ -65,7 +65,7 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
           </Dropzone>
 
           {file && (
-            <Group gap="xs" p="xs" bg="gray.0" style={{ borderRadius: 8 }}>
+            <Group gap="xs" p="xs" className="bg-surface-subtle" style={{ borderRadius: 8 }}>
               <IconFileText size={16} style={{ opacity: 0.6 }} />
               <Text size="sm" fw={500} style={{ flex: 1 }} lineClamp={1}>
                 {file.name}

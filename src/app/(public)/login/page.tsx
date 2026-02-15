@@ -249,7 +249,7 @@ export default function LoginPage() {
               disabled
               style={{
                 border: '1px solid var(--mantine-color-slate-2)',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--mantine-color-body)',
                 color: 'var(--mantine-color-slate-6)',
                 fontWeight: 500,
               }}
@@ -263,7 +263,7 @@ export default function LoginPage() {
               disabled
               style={{
                 border: '1px solid var(--mantine-color-slate-2)',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--mantine-color-body)',
                 color: 'var(--mantine-color-slate-6)',
                 fontWeight: 500,
               }}
