@@ -38,8 +38,13 @@ interface MockExamModalProps {
 const R = 8;
 
 const inputStyles = {
-  label: { fontSize: '12px', fontWeight: 500, marginBottom: '4px' },
-  input: { borderColor: 'var(--mantine-color-gray-2)' },
+  label: {
+    fontSize: '13px',
+    fontWeight: 500,
+    marginBottom: '4px',
+    color: 'var(--mantine-color-dark-4)',
+  },
+  input: { borderColor: 'var(--mantine-color-gray-2)', fontSize: '13.5px' },
   dropdown: {
     borderRadius: '10px',
     padding: '3px',
@@ -200,7 +205,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       <Stack gap={18}>
         {/* Header */}
         <Group justify="space-between" align="center">
-          <Text fw={700} size="md" c="dark.8">
+          <Text fw={700} fz={17} c="dark.8" lts={-0.3}>
             {t.exam.startExam}
           </Text>
           <UnstyledButton
@@ -227,7 +232,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             withItemsBorders={false}
             styles={{
               root: { padding: 4 },
-              label: { fontWeight: 600, fontSize: '13.5px' },
+              label: { fontWeight: 600, fontSize: '13px' },
               indicator: { borderRadius: R - 2 },
             }}
           />
@@ -392,7 +397,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
               color="purple"
-              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
+              styles={{ label: { fontWeight: 600, fontSize: '13.5px' } }}
             >
               {isPending && pendingMode === 'practice' ? (
                 <Group gap={5}>
@@ -415,7 +420,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               loading={isPending && pendingMode === 'exam'}
               variant="light"
               color="purple"
-              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
+              styles={{ label: { fontWeight: 600, fontSize: '13.5px' } }}
             >
               {isPending && pendingMode === 'exam' ? (
                 <Group gap={5}>
