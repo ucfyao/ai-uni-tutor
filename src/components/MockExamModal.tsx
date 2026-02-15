@@ -191,7 +191,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       radius={16}
       centered
       padding={24}
-      size="440px"
+      size="460px"
       overlayProps={{ backgroundOpacity: 0.25, blur: 6, color: '#1a1b1e' }}
       transitionProps={{ transition: 'pop', duration: 180, timingFunction: 'ease' }}
       styles={{
@@ -201,7 +201,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         },
       }}
     >
-      <Stack gap={14}>
+      <Stack gap={18}>
         {/* Header */}
         <Group justify="space-between" align="center">
           <Text fw={700} size="md" c="dark.8">
@@ -217,134 +217,149 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </UnstyledButton>
         </Group>
 
-        {/* Source tabs */}
+        {/* Source tabs — custom padding to stay compact */}
         <SegmentedControl
           value={source}
           onChange={(v) => setSource(v as Source)}
           data={sourceData}
           fullWidth
-          size="md"
+          size="sm"
           radius={R}
           color="purple"
+          styles={{
+            label: { fontWeight: 600, fontSize: '13.5px', padding: '8px 0' },
+          }}
         />
 
-        {/* University + Course */}
-        <Group grow gap={8}>
-          <Select
-            label={t.exam.university ?? 'University'}
-            placeholder={t.exam.selectUniversity ?? 'Select'}
-            data={uniOptions}
-            value={selectedUniId}
-            onChange={setSelectedUniId}
-            searchable
-            size="xs"
-            radius={R}
-            styles={inputStyles}
-          />
-          <Select
-            label={t.exam.course ?? 'Course'}
-            placeholder={
-              selectedUniId
-                ? (t.exam.selectCourse ?? 'Select')
-                : (t.exam.selectUniversityFirst ?? 'Select university first')
-            }
-            data={courseOptions}
-            value={selectedCourseCode}
-            onChange={setSelectedCourseCode}
-            disabled={!selectedUniId}
-            searchable
-            size="xs"
-            radius={R}
-            styles={inputStyles}
-          />
-        </Group>
-
-        {/* No papers warning */}
-        {showNoPapers && (
-          <Box
-            px="xs"
-            py={6}
-            style={{
-              borderRadius: R,
-              backgroundColor: 'var(--mantine-color-orange-0)',
-              border: '1px solid var(--mantine-color-orange-2)',
-            }}
-          >
-            <Text size="xs" fw={500} c="orange.8">
-              {t.exam.noPapersAvailable}
-            </Text>
-          </Box>
-        )}
-
-        {/* Real: paper picker */}
-        {source === 'real' && papers.length > 0 && (
-          <Select
-            label={t.exam.selectPaper}
-            placeholder="Select an exam paper"
-            data={papers.map((p) => ({
-              value: p.id,
-              label: `${p.title}${p.year ? ` (${p.year})` : ''}${p.questionCount ? ` — ${p.questionCount} Q` : ''}`,
-            }))}
-            value={selectedPaper}
-            onChange={setSelectedPaper}
-            size="xs"
-            radius={R}
-            styles={inputStyles}
-          />
-        )}
-
-        {/* Random: question count */}
-        {source === 'random' && papers.length > 0 && (
-          <Select
-            label={t.exam.numQuestions}
-            data={['5', '10', '15', '20']}
-            value={numQuestions}
-            onChange={setNumQuestions}
-            size="xs"
-            radius={R}
-            styles={inputStyles}
-          />
-        )}
-
-        {/* AI: topic + count + difficulty */}
-        {source === 'ai' && (
-          <Stack gap={8}>
-            <TextInput
-              label={t.exam.topic}
-              placeholder="e.g., Binary Trees, Linear Regression"
-              value={topic}
-              onChange={(e) => setTopic(e.currentTarget.value)}
-              size="xs"
-              radius={R}
-              styles={inputStyles}
-            />
+        {/* ── Form fields ── */}
+        <Box
+          p={14}
+          style={{
+            borderRadius: 12,
+            backgroundColor: 'var(--mantine-color-gray-0)',
+            border: '1px solid var(--mantine-color-gray-1)',
+          }}
+        >
+          <Stack gap={10}>
+            {/* University + Course */}
             <Group grow gap={8}>
+              <Select
+                label={t.exam.university ?? 'University'}
+                placeholder={t.exam.selectUniversity ?? 'Select'}
+                data={uniOptions}
+                value={selectedUniId}
+                onChange={setSelectedUniId}
+                searchable
+                size="sm"
+                radius={R}
+                styles={inputStyles}
+              />
+              <Select
+                label={t.exam.course ?? 'Course'}
+                placeholder={
+                  selectedUniId
+                    ? (t.exam.selectCourse ?? 'Select')
+                    : (t.exam.selectUniversityFirst ?? 'Select university first')
+                }
+                data={courseOptions}
+                value={selectedCourseCode}
+                onChange={setSelectedCourseCode}
+                disabled={!selectedUniId}
+                searchable
+                size="sm"
+                radius={R}
+                styles={inputStyles}
+              />
+            </Group>
+
+            {/* No papers warning */}
+            {showNoPapers && (
+              <Box
+                px="xs"
+                py={6}
+                style={{
+                  borderRadius: R,
+                  backgroundColor: 'var(--mantine-color-orange-0)',
+                  border: '1px solid var(--mantine-color-orange-2)',
+                }}
+              >
+                <Text size="xs" fw={500} c="orange.8">
+                  {t.exam.noPapersAvailable}
+                </Text>
+              </Box>
+            )}
+
+            {/* Real: paper picker */}
+            {source === 'real' && papers.length > 0 && (
+              <Select
+                label={t.exam.selectPaper}
+                placeholder="Select an exam paper"
+                data={papers.map((p) => ({
+                  value: p.id,
+                  label: `${p.title}${p.year ? ` (${p.year})` : ''}${p.questionCount ? ` — ${p.questionCount} Q` : ''}`,
+                }))}
+                value={selectedPaper}
+                onChange={setSelectedPaper}
+                size="sm"
+                radius={R}
+                styles={inputStyles}
+              />
+            )}
+
+            {/* Random: question count */}
+            {source === 'random' && papers.length > 0 && (
               <Select
                 label={t.exam.numQuestions}
                 data={['5', '10', '15', '20']}
                 value={numQuestions}
                 onChange={setNumQuestions}
-                size="xs"
+                size="sm"
                 radius={R}
                 styles={inputStyles}
               />
-              <Select
-                label={t.exam.difficulty}
-                data={[
-                  { value: 'mixed', label: 'Mixed' },
-                  { value: 'easy', label: 'Easy' },
-                  { value: 'medium', label: 'Medium' },
-                  { value: 'hard', label: 'Hard' },
-                ]}
-                value={difficulty}
-                onChange={setDifficulty}
-                size="xs"
-                radius={R}
-                styles={inputStyles}
-              />
-            </Group>
+            )}
+
+            {/* AI: topic + count + difficulty */}
+            {source === 'ai' && (
+              <>
+                <TextInput
+                  label={t.exam.topic}
+                  placeholder="e.g., Binary Trees, Linear Regression"
+                  value={topic}
+                  onChange={(e) => setTopic(e.currentTarget.value)}
+                  size="sm"
+                  radius={R}
+                  styles={inputStyles}
+                />
+                <Group grow gap={8}>
+                  <Select
+                    label={t.exam.numQuestions}
+                    data={['5', '10', '15', '20']}
+                    value={numQuestions}
+                    onChange={setNumQuestions}
+                    size="sm"
+                    radius={R}
+                    styles={inputStyles}
+                  />
+                  <Select
+                    label={t.exam.difficulty}
+                    data={[
+                      { value: 'mixed', label: 'Mixed' },
+                      { value: 'easy', label: 'Easy' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'hard', label: 'Hard' },
+                    ]}
+                    value={difficulty}
+                    onChange={setDifficulty}
+                    size="sm"
+                    radius={R}
+                    styles={inputStyles}
+                  />
+                </Group>
+              </>
+            )}
           </Stack>
-        )}
+        </Box>
 
         {/* Error */}
         {error && (
@@ -363,22 +378,22 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Box>
         )}
 
-        {/* Action buttons */}
+        {/* Action buttons — compact */}
         <Group grow gap={8}>
           <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={400}>
             <Button
-              size="sm"
+              size="xs"
               radius={R}
-              h={38}
+              h={32}
               onClick={() => handleStart('practice')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
               color="purple"
-              styles={{ label: { fontWeight: 600 } }}
+              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'practice' ? (
-                <Group gap={6}>
-                  <IconLoader2 size={14} className="animate-spin" />
+                <Group gap={5}>
+                  <IconLoader2 size={13} className="animate-spin" />
                   <span>{t.exam.practiceMode}</span>
                 </Group>
               ) : (
@@ -388,19 +403,19 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Tooltip>
           <Tooltip label={t.exam.examModeDesc} position="bottom" withArrow openDelay={400}>
             <Button
-              size="sm"
+              size="xs"
               radius={R}
-              h={38}
+              h={32}
               onClick={() => handleStart('exam')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'exam'}
               variant="light"
               color="purple"
-              styles={{ label: { fontWeight: 600 } }}
+              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'exam' ? (
-                <Group gap={6}>
-                  <IconLoader2 size={14} className="animate-spin" />
+                <Group gap={5}>
+                  <IconLoader2 size={13} className="animate-spin" />
                   <span>{t.exam.examMode}</span>
                 </Group>
               ) : (
