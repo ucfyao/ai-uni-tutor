@@ -1,6 +1,6 @@
 'use client';
 
-import { IconLoader2 } from '@tabler/icons-react';
+import { IconArrowsShuffle, IconFileText, IconSparkles } from '@tabler/icons-react';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
@@ -171,9 +171,33 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     source !== 'ai' && selectedCourseCode && !loadingPapers && papers.length === 0;
 
   const sourceData = [
-    { value: 'real', label: t.exam.realExam },
-    { value: 'random', label: t.exam.randomMix },
-    { value: 'ai', label: t.exam.aiMock },
+    {
+      value: 'real',
+      label: (
+        <Group gap={6} wrap="nowrap" justify="center">
+          <IconFileText size={14} />
+          <span>{t.exam.realExam}</span>
+        </Group>
+      ),
+    },
+    {
+      value: 'random',
+      label: (
+        <Group gap={6} wrap="nowrap" justify="center">
+          <IconArrowsShuffle size={14} />
+          <span>{t.exam.randomMix}</span>
+        </Group>
+      ),
+    },
+    {
+      value: 'ai',
+      label: (
+        <Group gap={6} wrap="nowrap" justify="center">
+          <IconSparkles size={14} />
+          <span>{t.exam.aiMock}</span>
+        </Group>
+      ),
+    },
   ];
 
   const sourceDescMap: Record<Source, string> = {
@@ -342,14 +366,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               color="emerald"
               styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
-              {isPending && pendingMode === 'practice' ? (
-                <Group gap={5}>
-                  <IconLoader2 size={13} className="animate-spin" />
-                  <span>{t.exam.practiceMode}</span>
-                </Group>
-              ) : (
-                t.exam.practiceMode
-              )}
+              {t.exam.practiceMode}
             </Button>
           </Tooltip>
           <Tooltip label={t.exam.examModeDesc} position="bottom" withArrow openDelay={400}>
@@ -365,14 +382,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               color="emerald"
               styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
-              {isPending && pendingMode === 'exam' ? (
-                <Group gap={5}>
-                  <IconLoader2 size={13} className="animate-spin" />
-                  <span>{t.exam.examMode}</span>
-                </Group>
-              ) : (
-                t.exam.examMode
-              )}
+              {t.exam.examMode}
             </Button>
           </Tooltip>
         </Group>
