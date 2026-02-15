@@ -1,21 +1,15 @@
 'use client';
 
-import {
-  IconArrowRight,
-  IconArrowsShuffle,
-  IconFileText,
-  IconLoader2,
-  IconSparkles,
-} from '@tabler/icons-react';
+import { IconArrowRight, IconLoader2 } from '@tabler/icons-react';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   Box,
   Button,
-  Card,
   Group,
   Modal,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -33,8 +27,6 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
 
 type Source = 'real' | 'random' | 'ai';
-
-const THEME = 'purple';
 
 interface MockExamModalProps {
   opened: boolean;
@@ -150,6 +142,17 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     !loadingPapers &&
     papers.length === 0;
 
+  const sourceData = [
+    { value: 'real', label: t.exam.realExam },
+    { value: 'random', label: t.exam.randomMix },
+    { value: 'ai', label: t.exam.aiMock },
+  ];
+
+  const modeData = [
+    { value: 'practice', label: 'Practice' },
+    { value: 'exam', label: 'Exam' },
+  ];
+
   return (
     <Modal
       opened={opened}
@@ -158,7 +161,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       radius={24}
       centered
       padding={32}
-      size="520px"
+      size="500px"
       overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
       transitionProps={{ transition: 'pop', duration: 200, timingFunction: 'ease' }}
       styles={{
@@ -169,7 +172,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         },
       }}
     >
-      <Stack gap={20}>
+      <Stack gap="md">
         {/* Header */}
         <Group justify="space-between" align="center">
           <Text fw={800} size="22px" lts={-0.2} c="dark.9">
@@ -185,34 +188,20 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </UnstyledButton>
         </Group>
 
-        {/* ★ 1. Source — hero section */}
-        <Group grow gap={10}>
-          <SourceCard
-            active={source === 'real'}
-            title={t.exam.realExam}
-            desc={t.exam.realExamDesc}
-            icon={<IconFileText size={22} strokeWidth={1.8} />}
-            onClick={() => setSource('real')}
-          />
-          <SourceCard
-            active={source === 'random'}
-            title={t.exam.randomMix}
-            desc={t.exam.randomMixDesc}
-            icon={<IconArrowsShuffle size={22} strokeWidth={1.8} />}
-            onClick={() => setSource('random')}
-          />
-          <SourceCard
-            active={source === 'ai'}
-            title={t.exam.aiMock}
-            desc={t.exam.aiMockDesc}
-            icon={<IconSparkles size={22} strokeWidth={1.8} />}
-            onClick={() => setSource('ai')}
-          />
-        </Group>
+        {/* Source */}
+        <SegmentedControl
+          value={source}
+          onChange={(v) => setSource(v as Source)}
+          data={sourceData}
+          fullWidth
+          size="md"
+          radius="md"
+          color="purple"
+        />
 
-        {/* 2. University + Course — standard selects */}
+        {/* University + Course (not needed for AI) */}
         {source !== 'ai' && (
-          <Group grow gap={10}>
+          <Group grow gap="sm">
             <Select
               label={t.exam.university ?? 'University'}
               placeholder={t.exam.selectUniversity ?? 'Select university'}
@@ -220,7 +209,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               value={selectedUniId}
               onChange={setSelectedUniId}
               searchable
-              size="sm"
+              size="md"
               radius="md"
             />
             <Select
@@ -235,29 +224,30 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               onChange={setSelectedCourseCode}
               disabled={!selectedUniId}
               searchable
-              size="sm"
+              size="md"
               radius="md"
             />
           </Group>
         )}
 
-        {/* 3. Source-specific options */}
+        {/* No papers warning */}
         {showNoPapers && (
           <Box
             px="sm"
             py={8}
             style={{
-              borderRadius: '10px',
+              borderRadius: 'var(--mantine-radius-md)',
               backgroundColor: 'var(--mantine-color-orange-0)',
               border: '1px solid var(--mantine-color-orange-2)',
             }}
           >
-            <Text size="xs" fw={500} c="orange.8">
+            <Text size="sm" fw={500} c="orange.8">
               {t.exam.noPapersAvailable}
             </Text>
           </Box>
         )}
 
+        {/* Real: paper picker */}
         {source === 'real' && papers.length > 0 && (
           <Select
             label={t.exam.selectPaper}
@@ -268,30 +258,32 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             }))}
             value={selectedPaper}
             onChange={setSelectedPaper}
-            size="sm"
+            size="md"
             radius="md"
           />
         )}
 
+        {/* Random: question count */}
         {source === 'random' && papers.length > 0 && (
           <Select
             label={t.exam.numQuestions}
             data={['5', '10', '15', '20']}
             value={numQuestions}
             onChange={setNumQuestions}
-            size="sm"
+            size="md"
             radius="md"
           />
         )}
 
+        {/* AI: topic + count + difficulty */}
         {source === 'ai' && (
-          <Stack gap="xs">
+          <Stack gap="sm">
             <TextInput
               label={t.exam.topic}
               placeholder="e.g., Binary Trees, Linear Regression"
               value={topic}
               onChange={(e) => setTopic(e.currentTarget.value)}
-              size="sm"
+              size="md"
               radius="md"
             />
             <Group grow>
@@ -300,7 +292,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 data={['5', '10', '15', '20']}
                 value={numQuestions}
                 onChange={setNumQuestions}
-                size="sm"
+                size="md"
                 radius="md"
               />
               <Select
@@ -313,38 +305,23 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 ]}
                 value={difficulty}
                 onChange={setDifficulty}
-                size="sm"
+                size="md"
                 radius="md"
               />
             </Group>
           </Stack>
         )}
 
-        {/* 4. Mode — subtle inline toggle */}
-        <Group gap={8} align="center">
-          <Text size="xs" fw={600} c="gray.5">
-            Mode
-          </Text>
-          <Group
-            gap={0}
-            style={{
-              borderRadius: '8px',
-              backgroundColor: 'var(--mantine-color-gray-0)',
-              padding: '2px',
-            }}
-          >
-            <ModePill
-              active={selectedMode === 'practice'}
-              label="Practice"
-              onClick={() => setSelectedMode('practice')}
-            />
-            <ModePill
-              active={selectedMode === 'exam'}
-              label="Exam"
-              onClick={() => setSelectedMode('exam')}
-            />
-          </Group>
-        </Group>
+        {/* Mode */}
+        <SegmentedControl
+          value={selectedMode}
+          onChange={(v) => setSelectedMode(v as ExamMode)}
+          data={modeData}
+          fullWidth
+          size="md"
+          radius="md"
+          color="purple"
+        />
 
         {/* Error */}
         {error && (
@@ -352,18 +329,18 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             px="sm"
             py={8}
             style={{
-              borderRadius: '10px',
+              borderRadius: 'var(--mantine-radius-md)',
               backgroundColor: 'var(--mantine-color-red-0)',
               border: '1px solid var(--mantine-color-red-2)',
             }}
           >
-            <Text size="xs" fw={500} c="red.8">
+            <Text size="sm" fw={500} c="red.8">
               {error}
             </Text>
           </Box>
         )}
 
-        {/* 5. Start */}
+        {/* Start */}
         <Button
           fullWidth
           size="lg"
@@ -375,7 +352,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           variant="gradient"
           gradient={
             !isStartDisabled
-              ? { from: `${THEME}.5`, to: `${THEME}.6`, deg: 90 }
+              ? { from: 'purple.5', to: 'purple.6', deg: 90 }
               : { from: 'gray.3', to: 'gray.4', deg: 90 }
           }
           styles={{
@@ -408,102 +385,5 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     </Modal>
   );
 };
-
-/* ─── SourceCard ─── Hero-level selection card ─── */
-
-function SourceCard({
-  active,
-  title,
-  desc,
-  icon,
-  onClick,
-}: {
-  active: boolean;
-  title: string;
-  desc: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <UnstyledButton onClick={onClick} style={{ flex: 1 }}>
-      <Card
-        withBorder
-        radius="lg"
-        px="sm"
-        py="md"
-        style={{
-          borderColor: active ? `var(--mantine-color-${THEME}-4)` : 'var(--mantine-color-gray-2)',
-          borderWidth: active ? '1.5px' : '1px',
-          backgroundColor: active ? `var(--mantine-color-${THEME}-0)` : 'white',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-          textAlign: 'center',
-        }}
-      >
-        <Stack gap={6} align="center">
-          <Box
-            style={{
-              color: active ? `var(--mantine-color-${THEME}-6)` : 'var(--mantine-color-gray-4)',
-              transition: 'color 0.15s ease',
-            }}
-          >
-            {icon}
-          </Box>
-          <Text
-            size="13px"
-            fw={700}
-            c={active ? `${THEME}.8` : 'dark.7'}
-            lh={1.2}
-            style={{ transition: 'color 0.15s ease' }}
-          >
-            {title}
-          </Text>
-          <Text
-            size="10px"
-            c={active ? `${THEME}.5` : 'gray.4'}
-            lh={1.3}
-            style={{ transition: 'color 0.15s ease' }}
-          >
-            {desc}
-          </Text>
-        </Stack>
-      </Card>
-    </UnstyledButton>
-  );
-}
-
-/* ─── ModePill ─── Minimal inline toggle ─── */
-
-function ModePill({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <UnstyledButton
-      onClick={onClick}
-      style={{
-        borderRadius: '6px',
-        padding: '4px 14px',
-        backgroundColor: active ? 'white' : 'transparent',
-        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-        transition: 'all 0.15s ease',
-      }}
-    >
-      <Text
-        size="12px"
-        fw={active ? 700 : 500}
-        c={active ? `${THEME}.7` : 'gray.5'}
-        style={{ transition: 'all 0.15s ease' }}
-      >
-        {label}
-      </Text>
-    </UnstyledButton>
-  );
-}
 
 export default MockExamModal;
