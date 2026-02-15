@@ -1,13 +1,12 @@
 'use client';
 
 import { IconLoader2 } from '@tabler/icons-react';
-import { Book, Building2, ChevronDown, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   Box,
   Button,
-  Center,
   Group,
   Modal,
   SegmentedControl,
@@ -15,7 +14,6 @@ import {
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
@@ -36,142 +34,24 @@ interface MockExamModalProps {
   onClose: () => void;
 }
 
-/* ── Shared styles — matching NewSessionModal ── */
+/* ── Design tokens (4px grid · whole-pixel type scale) ── */
+const R = 8;
 
-const selectStyles = {
-  input: {
-    border: 'none',
-    backgroundColor: 'transparent',
-    padding: 0,
-    paddingRight: '24px',
-    height: 'auto',
-    fontSize: '15px',
-    fontWeight: 600,
-    color: 'var(--mantine-color-dark-9)',
-    width: '100%',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    cursor: 'pointer',
-  },
-  wrapper: { width: '100%' },
-  section: { display: 'none' },
-  dropdown: {
-    borderRadius: '12px',
-    padding: '4px',
-    border: '1px solid #e9ecef',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-  },
-};
-
-const fieldSelectStyles = {
-  input: { fontSize: '14px', borderColor: 'var(--mantine-color-gray-2)' },
+const inputStyles = {
   label: {
     fontSize: '12px',
     fontWeight: 500,
     marginBottom: '4px',
     color: 'var(--mantine-color-dark-4)',
   },
+  input: { borderColor: 'var(--mantine-color-gray-2)', fontSize: '14px' },
   dropdown: {
-    borderRadius: '12px',
+    borderRadius: '10px',
     padding: '4px',
-    border: '1px solid #e9ecef',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+    border: '1px solid var(--mantine-color-gray-2)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
   },
 };
-
-const fieldInputStyles = {
-  input: { fontSize: '14px', borderColor: 'var(--mantine-color-gray-2)' },
-  label: {
-    fontSize: '12px',
-    fontWeight: 500,
-    marginBottom: '4px',
-    color: 'var(--mantine-color-dark-4)',
-  },
-};
-
-const THEME_COLOR = 'purple';
-
-const FormRow = ({
-  icon: Icon,
-  label,
-  children,
-  active,
-}: {
-  icon: React.ElementType;
-  label: string;
-  children: React.ReactNode;
-  active: boolean;
-}) => (
-  <Box
-    style={{
-      borderRadius: '16px',
-      border: active
-        ? `1.5px solid var(--mantine-color-${THEME_COLOR}-3)`
-        : '1.5px solid transparent',
-      backgroundColor: active ? 'white' : 'var(--mantine-color-gray-0)',
-      boxShadow: active ? `0 0 0 2px var(--mantine-color-${THEME_COLOR}-0)` : 'none',
-      overflow: 'hidden',
-      transition: 'all 0.2s ease',
-      height: '64px',
-      display: 'flex',
-      alignItems: 'center',
-    }}
-  >
-    <Group gap={0} wrap="nowrap" align="stretch" w="100%" h="100%">
-      <Center
-        w={60}
-        style={{ borderRight: active ? `1px solid var(--mantine-color-gray-1)` : 'none' }}
-      >
-        <ThemeIcon
-          variant={active ? 'light' : 'transparent'}
-          color={active ? THEME_COLOR : 'gray'}
-          size={32}
-          radius="lg"
-        >
-          <Icon size={18} strokeWidth={2} />
-        </ThemeIcon>
-      </Center>
-
-      <Box
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-        }}
-        px="md"
-      >
-        <Text
-          size="10px"
-          fw={700}
-          tt="uppercase"
-          lts={1}
-          c={active ? `${THEME_COLOR}.7` : 'gray.5'}
-          mb={0}
-        >
-          {label}
-        </Text>
-        <Box style={{ position: 'relative', width: '100%' }}>
-          {children}
-          <Box
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              color: 'var(--mantine-color-gray-4)',
-            }}
-          >
-            <ChevronDown size={14} strokeWidth={2} />
-          </Box>
-        </Box>
-      </Box>
-    </Group>
-  </Box>
-);
 
 const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const router = useRouter();
@@ -201,8 +81,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     }
     setSource('real');
     setError(null);
-    // Remount SegmentedControl after pop transition (200ms) to fix indicator
-    const timer = setTimeout(() => setSegKey((k) => k + 1), 220);
+    // Remount SegmentedControl after pop transition (180ms) to fix indicator
+    const timer = setTimeout(() => setSegKey((k) => k + 1), 200);
     const lastUni = localStorage.getItem('lastUniId');
     const lastCourse = localStorage.getItem('lastCourseId');
     if (lastUni) {
@@ -309,72 +189,34 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       opened={opened}
       onClose={onClose}
       withCloseButton={false}
-      radius={24}
+      radius={16}
       centered
-      padding={32}
-      size="500px"
-      overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
-      transitionProps={{ transition: 'pop', duration: 200, timingFunction: 'ease' }}
+      padding={24}
+      size="460px"
+      overlayProps={{ backgroundOpacity: 0.25, blur: 6, color: '#1a1b1e' }}
+      transitionProps={{ transition: 'pop', duration: 180, timingFunction: 'ease' }}
       styles={{
         content: {
-          boxShadow: '0 24px 48px -12px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(255,255,255,1)',
-          background: 'white',
+          boxShadow: '0 16px 40px -8px rgba(0,0,0,0.12)',
+          border: '1px solid var(--mantine-color-gray-2)',
         },
       }}
     >
-      <Stack gap={24}>
+      <Stack gap={20}>
         {/* Header */}
-        <Group justify="space-between" align="center" mb={2}>
-          <Text fw={800} size="22px" lts={-0.2} c="dark.9">
+        <Group justify="space-between" align="center">
+          <Text fw={700} fz={16} c="dark.8" lts={-0.2}>
             {t.exam.startExam}
           </Text>
           <UnstyledButton
             onClick={onClose}
-            w={36}
-            h={36}
+            w={28}
+            h={28}
             className="flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
           >
-            <X size={18} strokeWidth={3} color="var(--mantine-color-gray-4)" />
+            <X size={14} strokeWidth={2.5} color="var(--mantine-color-gray-5)" />
           </UnstyledButton>
         </Group>
-
-        {/* University + Course — FormRow style */}
-        <Stack gap={12}>
-          <FormRow icon={Building2} label={t.exam.university ?? 'University'} active={true}>
-            <Select
-              data={uniOptions}
-              value={selectedUniId}
-              onChange={(val) => {
-                setSelectedUniId(val);
-                setSelectedCourseCode(null);
-              }}
-              placeholder={t.exam.selectUniversity ?? 'Select university'}
-              variant="unstyled"
-              styles={selectStyles}
-              allowDeselect={false}
-              searchable
-            />
-          </FormRow>
-
-          <FormRow icon={Book} label={t.exam.course ?? 'Course'} active={!!selectedUniId}>
-            <Select
-              data={courseOptions}
-              value={selectedCourseCode}
-              onChange={setSelectedCourseCode}
-              placeholder={
-                selectedUniId
-                  ? (t.exam.selectCourse ?? 'Select course')
-                  : (t.exam.selectUniversityFirst ?? 'Select university first')
-              }
-              variant="unstyled"
-              styles={selectStyles}
-              disabled={!selectedUniId}
-              allowDeselect={false}
-              searchable
-            />
-          </FormRow>
-        </Stack>
 
         {/* Source tabs */}
         <Tooltip label={sourceDescMap[source]} position="bottom" withArrow openDelay={300}>
@@ -385,24 +227,54 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             data={sourceData}
             fullWidth
             size="md"
-            radius={12}
-            color={THEME_COLOR}
+            radius={R}
+            color="purple"
             withItemsBorders={false}
             styles={{
               root: { padding: 4 },
               label: { fontWeight: 600, fontSize: '14px' },
-              indicator: { borderRadius: 10 },
+              indicator: { borderRadius: R - 2 },
             }}
           />
         </Tooltip>
 
+        {/* ── Form fields ── */}
+        {/* University + Course */}
+        <Select
+          label={t.exam.university ?? 'University'}
+          placeholder={t.exam.selectUniversity ?? 'Select'}
+          data={uniOptions}
+          value={selectedUniId}
+          onChange={setSelectedUniId}
+          searchable
+          size="sm"
+          radius={R}
+          styles={inputStyles}
+        />
+        <Select
+          label={t.exam.course ?? 'Course'}
+          placeholder={
+            selectedUniId
+              ? (t.exam.selectCourse ?? 'Select')
+              : (t.exam.selectUniversityFirst ?? 'Select university first')
+          }
+          data={courseOptions}
+          value={selectedCourseCode}
+          onChange={setSelectedCourseCode}
+          disabled={!selectedUniId}
+          searchable
+          size="sm"
+          radius={R}
+          styles={inputStyles}
+        />
+
         {/* No papers warning */}
         {showNoPapers && (
           <Box
-            px="sm"
-            py={8}
+            px="xs"
+            py={6}
             style={{
-              borderRadius: 12,
+              borderRadius: R,
               backgroundColor: 'var(--mantine-color-orange-0)',
               border: '1px solid var(--mantine-color-orange-2)',
             }}
@@ -413,7 +285,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Box>
         )}
 
-        {/* Source-specific options */}
+        {/* Real: paper picker */}
         {source === 'real' && papers.length > 0 && (
           <Select
             label={t.exam.selectPaper}
@@ -425,11 +297,12 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             value={selectedPaper}
             onChange={setSelectedPaper}
             size="sm"
-            radius={12}
-            styles={fieldSelectStyles}
+            radius={R}
+            styles={inputStyles}
           />
         )}
 
+        {/* Random: question count */}
         {source === 'random' && papers.length > 0 && (
           <Select
             label={t.exam.numQuestions}
@@ -437,11 +310,12 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             value={numQuestions}
             onChange={setNumQuestions}
             size="sm"
-            radius={12}
-            styles={fieldSelectStyles}
+            radius={R}
+            styles={inputStyles}
           />
         )}
 
+        {/* AI: topic + count + difficulty */}
         {source === 'ai' && (
           <>
             <TextInput
@@ -450,8 +324,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               value={topic}
               onChange={(e) => setTopic(e.currentTarget.value)}
               size="sm"
-              radius={12}
-              styles={fieldInputStyles}
+              radius={R}
+              styles={inputStyles}
             />
             <Group grow gap={12}>
               <Select
@@ -460,8 +334,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 value={numQuestions}
                 onChange={setNumQuestions}
                 size="sm"
-                radius={12}
-                styles={fieldSelectStyles}
+                radius={R}
+                styles={inputStyles}
               />
               <Select
                 label={t.exam.difficulty}
@@ -474,8 +348,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                 value={difficulty}
                 onChange={setDifficulty}
                 size="sm"
-                radius={12}
-                styles={fieldSelectStyles}
+                radius={R}
+                styles={inputStyles}
               />
             </Group>
           </>
@@ -484,10 +358,10 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         {/* Error */}
         {error && (
           <Box
-            px="sm"
-            py={8}
+            px="xs"
+            py={6}
             style={{
-              borderRadius: 12,
+              borderRadius: R,
               backgroundColor: 'var(--mantine-color-red-0)',
               border: '1px solid var(--mantine-color-red-2)',
             }}
@@ -499,28 +373,22 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         )}
 
         {/* Action buttons */}
-        <Group justify="space-between" gap={12}>
+        <Group justify="space-between" gap={10}>
           <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={400}>
             <Button
-              size="sm"
-              radius="xl"
-              h={40}
-              px={24}
+              size="xs"
+              radius={R}
+              h={36}
+              px={20}
               onClick={() => handleStart('practice')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
-              color={THEME_COLOR}
-              styles={{
-                root: {
-                  boxShadow: !isStartDisabled ? `0 6px 16px -4px rgba(147, 51, 234, 0.3)` : 'none',
-                  transition: 'all 0.2s ease',
-                },
-                label: { fontWeight: 700, fontSize: '14px' },
-              }}
+              color="purple"
+              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'practice' ? (
-                <Group gap={6}>
-                  <IconLoader2 size={14} className="animate-spin" />
+                <Group gap={5}>
+                  <IconLoader2 size={13} className="animate-spin" />
                   <span>{t.exam.practiceMode}</span>
                 </Group>
               ) : (
@@ -530,23 +398,20 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Tooltip>
           <Tooltip label={t.exam.examModeDesc} position="bottom" withArrow openDelay={400}>
             <Button
-              size="sm"
-              radius="xl"
-              h={40}
-              px={24}
+              size="xs"
+              radius={R}
+              h={36}
+              px={20}
               onClick={() => handleStart('exam')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'exam'}
               variant="light"
-              color={THEME_COLOR}
-              styles={{
-                root: { transition: 'all 0.2s ease' },
-                label: { fontWeight: 700, fontSize: '14px' },
-              }}
+              color="purple"
+              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'exam' ? (
-                <Group gap={6}>
-                  <IconLoader2 size={14} className="animate-spin" />
+                <Group gap={5}>
+                  <IconLoader2 size={13} className="animate-spin" />
                   <span>{t.exam.examMode}</span>
                 </Group>
               ) : (
