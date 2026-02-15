@@ -1,6 +1,14 @@
 'use client';
 
-import { IconArrowsShuffle, IconFileText, IconLoader2, IconSparkles } from '@tabler/icons-react';
+import {
+  IconArrowRight,
+  IconArrowsShuffle,
+  IconCheck,
+  IconFilterQuestion,
+  IconFileText,
+  IconSparkles,
+} from '@tabler/icons-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
@@ -8,10 +16,12 @@ import {
   Button,
   Card,
   Group,
+  Paper,
   Select,
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   Title,
   UnstyledButton,
 } from '@mantine/core';
@@ -212,9 +222,25 @@ export function ExamEntryClient() {
 
           {/* 3. Source-specific options */}
           {source === 'real' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
-            <Text size="sm" c="orange">
-              {t.exam.noPapersAvailable}
-            </Text>
+            <Paper p="lg" radius="md" withBorder>
+              <Group>
+                <ThemeIcon size={40} radius="md" variant="light" color="indigo">
+                  <IconFilterQuestion size={20} />
+                </ThemeIcon>
+                <Box flex={1}>
+                  <Text fw={500}>{t.exam.noPapersTitle}</Text>
+                  <Text fz="sm" c="dimmed">{t.exam.noPapersDescription}</Text>
+                </Box>
+                <Button
+                  component={Link}
+                  href="/knowledge"
+                  variant="light"
+                  rightSection={<IconArrowRight size={14} />}
+                >
+                  {t.exam.uploadPapers}
+                </Button>
+              </Group>
+            </Paper>
           )}
 
           {source === 'real' && papers.length > 0 && (
@@ -232,9 +258,25 @@ export function ExamEntryClient() {
           )}
 
           {source === 'random' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
-            <Text size="sm" c="orange">
-              {t.exam.noPapersAvailable}
-            </Text>
+            <Paper p="lg" radius="md" withBorder>
+              <Group>
+                <ThemeIcon size={40} radius="md" variant="light" color="indigo">
+                  <IconFilterQuestion size={20} />
+                </ThemeIcon>
+                <Box flex={1}>
+                  <Text fw={500}>{t.exam.noPapersTitle}</Text>
+                  <Text fz="sm" c="dimmed">{t.exam.noPapersDescription}</Text>
+                </Box>
+                <Button
+                  component={Link}
+                  href="/knowledge"
+                  variant="light"
+                  rightSection={<IconArrowRight size={14} />}
+                >
+                  {t.exam.uploadPapers}
+                </Button>
+              </Group>
+            </Paper>
           )}
 
           {source === 'random' && papers.length > 0 && (
@@ -314,13 +356,7 @@ export function ExamEntryClient() {
             radius="md"
             variant="gradient"
             gradient={{ from: 'indigo.7', to: 'indigo.3' }}
-            leftSection={
-              isPending ? (
-                <IconLoader2 size={20} className="animate-spin" />
-              ) : (
-                <IconSparkles size={20} />
-              )
-            }
+            leftSection={<IconSparkles size={20} />}
             loading={isPending}
             disabled={isStartDisabled}
             onClick={handleStart}
@@ -354,12 +390,23 @@ function SourceCard({
         radius="md"
         p="md"
         style={{
+          position: 'relative',
           borderColor: active ? 'var(--mantine-color-indigo-5)' : 'var(--mantine-color-gray-3)',
           backgroundColor: active ? 'var(--mantine-color-indigo-0)' : undefined,
           cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
       >
+        {active && (
+          <ThemeIcon
+            size={20}
+            radius="xl"
+            color="indigo"
+            style={{ position: 'absolute', top: 8, right: 8 }}
+          >
+            <IconCheck size={12} />
+          </ThemeIcon>
+        )}
         <Group gap="xs" mb={4}>
           {icon}
           <Text fw={600} size="sm">
@@ -392,12 +439,23 @@ function ModeCard({
         radius="md"
         p="md"
         style={{
+          position: 'relative',
           borderColor: active ? 'var(--mantine-color-indigo-5)' : 'var(--mantine-color-gray-3)',
           backgroundColor: active ? 'var(--mantine-color-indigo-0)' : undefined,
           cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
       >
+        {active && (
+          <ThemeIcon
+            size={20}
+            radius="xl"
+            color="indigo"
+            style={{ position: 'absolute', top: 8, right: 8 }}
+          >
+            <IconCheck size={12} />
+          </ThemeIcon>
+        )}
         <Text fw={600} size="sm">
           {title}
         </Text>

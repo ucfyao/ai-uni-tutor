@@ -1,5 +1,6 @@
 'use client';
 
+import { IconCheck } from '@tabler/icons-react';
 import { BarChart3, CreditCard, Crown, Settings2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -143,7 +144,15 @@ export default function SettingsPage() {
               <Switch
                 size="md"
                 checked={computedColorScheme === 'dark'}
-                onChange={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
+                onChange={() => {
+                  setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light');
+                  showNotification({
+                    message: t.toast.preferencesSaved,
+                    color: 'green',
+                    icon: <IconCheck size={16} />,
+                    autoClose: 3000,
+                  });
+                }}
               />
             </Group>
 
@@ -160,7 +169,15 @@ export default function SettingsPage() {
                 w={140}
                 value={language}
                 onChange={(val) => {
-                  if (val === 'en' || val === 'zh') setLanguage(val as Language);
+                  if (val === 'en' || val === 'zh') {
+                    setLanguage(val as Language);
+                    showNotification({
+                      message: t.toast.preferencesSaved,
+                      color: 'green',
+                      icon: <IconCheck size={16} />,
+                      autoClose: 3000,
+                    });
+                  }
                 }}
                 data={[
                   { value: 'en', label: 'English' },
@@ -174,12 +191,17 @@ export default function SettingsPage() {
             {/* TODO: Wire notification preferences to backend when email service is integrated */}
             <Group justify="space-between">
               <Box>
-                <Text fw={500}>{t.settings.notifications}</Text>
+                <Group gap="xs">
+                  <Text fw={500}>{t.settings.notifications}</Text>
+                  <Badge variant="light" color="gray" size="sm">
+                    {t.toast.comingSoon}
+                  </Badge>
+                </Group>
                 <Text size="sm" c="dimmed">
                   {t.settings.notificationsDesc}
                 </Text>
               </Box>
-              <Switch defaultChecked size="md" />
+              <Switch defaultChecked size="md" disabled />
             </Group>
           </Stack>
         </Paper>
@@ -291,7 +313,7 @@ export default function SettingsPage() {
               <Group justify="space-between" mb={6}>
                 <Text fw={500}>{t.settings.dailyLLMUsage}</Text>
                 <Text size="sm" c={usagePercent >= 100 ? 'red' : 'dimmed'}>
-                  {usage} / {dailyLimit}
+                  {usage} / {dailyLimit} {t.settings.queriesUsed}
                 </Text>
               </Group>
               <Progress

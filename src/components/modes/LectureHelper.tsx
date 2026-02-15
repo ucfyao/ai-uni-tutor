@@ -1,6 +1,7 @@
 import dynamic from 'next/dynamic';
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Drawer, Group, Loader, Stack } from '@mantine/core';
+import { IconCheck } from '@tabler/icons-react';
 import { askCardQuestion } from '@/app/actions/knowledge-cards';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
@@ -8,6 +9,7 @@ import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useKnowledgeCards } from '@/hooks/useKnowledgeCards';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { ChatMessage, ChatSession } from '@/types';
 
@@ -42,6 +44,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   onUpdateSession,
   openDrawerTrigger,
 }) => {
+  const { t } = useLanguage();
   const {
     session,
     setSession,
@@ -266,6 +269,13 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     });
     if (!cardId) return;
 
+    showNotification({
+      message: t.toast.changesSaved,
+      color: 'green',
+      icon: <IconCheck size={16} />,
+      autoClose: 3000,
+    });
+
     setActiveCardId(cardId);
     setKnowledgePanelDrawerOpened(true);
     setPendingScrollToCardId(cardId);
@@ -368,7 +378,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   if (!session) return null;
 
   return (
-    <Stack gap={0} h="100%" w="100%" style={{ minHeight: 0, overflow: 'hidden' }}>
+    <Stack gap={0} h="100dvh" w="100%" style={{ minHeight: 0, overflow: 'hidden', maxHeight: '100%' }}>
       <Group
         flex={1}
         gap={0}
@@ -485,6 +495,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           },
         }}
       >
+        {/* Drag handle for mobile drawer */}
+        <Box mx="auto" mt={8} mb={4} w={36} h={4} bg="gray.3" style={{ borderRadius: 2 }} />
         <Box
           style={{
             flex: 1,

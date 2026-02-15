@@ -184,6 +184,8 @@ export const translations = {
       officialCards: '官方卡片',
       myCards: '我的卡片',
       noCardsYet: '暂无卡片',
+      noKnowledgeFound: '未找到相关知识。上传文档来丰富你的学习资料。',
+      uploadDocuments: '前往知识库',
       deleteCard: '删除卡片',
       deleteCardConfirm: '确定要删除这个卡片吗？',
       cancel: '取消',
@@ -253,6 +255,15 @@ export const translations = {
       searchDocuments: '搜索文档...',
       uploadGuide: '拖拽 PDF 到上方开始构建知识库',
       viewDetailsLink: '查看详情',
+      emptyTitle: '你的知识库是空的',
+      emptyDescription: '上传课程笔记、考卷或作业来构建你的个人知识库。',
+      uploadCTA: '上传文档',
+      processingDocument: '正在处理文档...',
+      bulkDelete: '批量删除',
+      stageParsing: '解析中...',
+      stageExtracting: '提取中...',
+      stageEmbedding: '嵌入中...',
+      stageComplete: '完成',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -337,6 +348,9 @@ export const translations = {
       topic: '知识点',
       difficulty: '难度',
       noPapersAvailable: '该课程暂无真题，请先在知识库上传考试文档',
+      noPapersTitle: '暂无考卷',
+      noPapersDescription: '在知识库中上传考卷以开始使用。',
+      uploadPapers: '上传考卷',
       university: '大学',
       selectUniversity: '选择大学',
       course: '课程',
@@ -441,6 +455,16 @@ export const translations = {
       },
       securePayment: '通过 Stripe 安全支付。随时取消。',
       errorTitle: '错误',
+      feature: '功能',
+      featureDailyQueries: '每日 AI 对话',
+      featureDocUploads: '文档上传',
+      featureExamModes: '考试模式',
+      featureKnowledgeCards: '知识卡片',
+      featurePriority: '优先处理',
+      unlimited: '无限',
+      practiceOnly: '仅练习',
+      allModes: '全部模式',
+      mostPopular: '最受欢迎',
     },
     // Settings Page
     settings: {
@@ -479,6 +503,7 @@ export const translations = {
       deleteAccountDesc: '永久删除你的账户和所有数据。',
       profileUpdated: '已保存',
       profileUpdatedMsg: '资料更新成功',
+      queriesUsed: '次已使用',
     },
     // Personalization Page
     personalization: {
@@ -499,6 +524,10 @@ export const translations = {
       dataPrivacy: '数据与隐私',
       deleteAccount: '删除账户',
       deleteAccountDesc: '永久删除你的账户和所有数据。',
+      deleteAccountTitle: '删除账户',
+      deleteConfirmMessage: '此操作不可撤销。你的所有数据将被永久删除，包括对话、文档和知识库。',
+      typeDelete: '请输入 "DELETE" 以确认',
+      confirmDelete: '永久删除账户',
     },
     // Help Page
     help: {
@@ -548,6 +577,9 @@ export const translations = {
       contactTitle: '仍然需要帮助？',
       contactDesc: '找不到你需要的答案？联系我们的支持团队。',
       contactEmail: '发送邮件',
+      searchPlaceholder: '搜索常见问题...',
+      noResults: '未找到匹配的问题',
+      responseTime: '回复时间：24 小时内',
     },
     // Study Page
     study: {
@@ -793,6 +825,8 @@ export const translations = {
       officialCards: 'Official cards',
       myCards: 'My cards',
       noCardsYet: 'No cards yet',
+      noKnowledgeFound: 'No related knowledge found. Upload documents to enrich your study.',
+      uploadDocuments: 'Go to Knowledge Base',
       deleteCard: 'Delete Card',
       deleteCardConfirm: 'Are you sure you want to delete this card?',
       cancel: 'Cancel',
@@ -862,6 +896,15 @@ export const translations = {
       searchDocuments: 'Search documents...',
       uploadGuide: 'Drop a PDF above to start building your knowledge base',
       viewDetailsLink: 'View Details',
+      emptyTitle: 'Your knowledge base is empty',
+      emptyDescription: 'Upload lecture notes, exam papers, or assignments to build your personal knowledge base.',
+      uploadCTA: 'Upload Document',
+      processingDocument: 'Processing document...',
+      bulkDelete: 'Delete Selected',
+      stageParsing: 'Parsing...',
+      stageExtracting: 'Extracting...',
+      stageEmbedding: 'Embedding...',
+      stageComplete: 'Complete',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',
@@ -947,6 +990,9 @@ export const translations = {
       difficulty: 'Difficulty',
       noPapersAvailable:
         'No papers available for this course. Upload exam documents in Knowledge Base first.',
+      noPapersTitle: 'No exam papers available',
+      noPapersDescription: 'Upload exam papers in the Knowledge Base to get started.',
+      uploadPapers: 'Upload Papers',
       university: 'University',
       selectUniversity: 'Select university',
       course: 'Course',
@@ -1058,6 +1104,16 @@ export const translations = {
       },
       securePayment: 'Secure payment via Stripe. Cancel anytime.',
       errorTitle: 'Error',
+      feature: 'Feature',
+      featureDailyQueries: 'Daily AI Queries',
+      featureDocUploads: 'Document Uploads',
+      featureExamModes: 'Exam Modes',
+      featureKnowledgeCards: 'Knowledge Cards',
+      featurePriority: 'Priority Processing',
+      unlimited: 'Unlimited',
+      practiceOnly: 'Practice Only',
+      allModes: 'All Modes',
+      mostPopular: 'Most Popular',
     },
     // Settings Page
     settings: {
@@ -1097,6 +1153,7 @@ export const translations = {
       deleteAccountDesc: 'Permanently delete your account and all data.',
       profileUpdated: 'Saved',
       profileUpdatedMsg: 'Profile updated successfully',
+      queriesUsed: 'queries used',
     },
     // Personalization Page
     personalization: {
@@ -1118,6 +1175,11 @@ export const translations = {
       dataPrivacy: 'Data & Privacy',
       deleteAccount: 'Delete Account',
       deleteAccountDesc: 'Permanently delete your account and all data.',
+      deleteAccountTitle: 'Delete Account',
+      deleteConfirmMessage:
+        'This action cannot be undone. All your data will be permanently deleted, including conversations, documents, and knowledge base.',
+      typeDelete: 'Type "DELETE" to confirm',
+      confirmDelete: 'Permanently Delete Account',
     },
     // Help Page
     help: {
@@ -1168,6 +1230,9 @@ export const translations = {
       contactTitle: 'Still need help?',
       contactDesc: "Can't find what you're looking for? Reach out to our support team.",
       contactEmail: 'Send Email',
+      searchPlaceholder: 'Search FAQs...',
+      noResults: 'No matching questions found',
+      responseTime: 'Response time: within 24 hours',
     },
     // Study Page
     study: {
