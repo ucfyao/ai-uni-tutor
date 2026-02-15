@@ -49,7 +49,7 @@ const selectStyles = {
     height: 'auto',
     fontSize: '15px',
     fontWeight: 600,
-    color: 'var(--mantine-color-dark-9)',
+    color: 'var(--mantine-color-text)',
     width: '100%',
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
@@ -61,7 +61,7 @@ const selectStyles = {
   dropdown: {
     borderRadius: '12px',
     padding: '4px',
-    border: '1px solid #e9ecef',
+    border: '1px solid var(--mantine-color-default-border)',
     boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
   },
 };
@@ -133,7 +133,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
       style={{
         borderRadius: '16px',
         border: active ? `1.5px solid var(--mantine-color-${color}-3)` : '1.5px solid transparent',
-        backgroundColor: active ? 'white' : 'var(--mantine-color-gray-0)',
+        backgroundColor: active ? 'var(--mantine-color-body)' : 'var(--mantine-color-default-hover)',
         boxShadow: active ? `0 0 0 2px var(--mantine-color-${color}-0)` : 'none',
         overflow: 'hidden',
         transition: 'all 0.2s ease',
@@ -213,8 +213,8 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
       styles={{
         content: {
           boxShadow: '0 24px 48px -12px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(255,255,255,1)',
-          background: 'white',
+          border: '1px solid var(--mantine-color-default-border)',
+          background: 'var(--mantine-color-body)',
         },
       }}
     >

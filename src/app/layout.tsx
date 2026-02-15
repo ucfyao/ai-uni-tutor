@@ -33,10 +33,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={outfit.variable}>
       <head>
-        <ColorSchemeScript />
+        <ColorSchemeScript defaultColorScheme="auto" />
       </head>
       <body suppressHydrationWarning>
-        <MantineProvider theme={theme}>
+        <MantineProvider theme={theme} defaultColorScheme="auto">
           <Notifications position="top-right" zIndex={1000} />
           <SpeedInsights />
           {children}

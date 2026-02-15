@@ -111,7 +111,7 @@ const KnowledgeCardItem = memo(
           <Text
             size="sm"
             fw={isActive ? 600 : 500}
-            c={isActive ? 'dark.9' : 'gray.7'}
+            c={isActive ? undefined : 'dimmed'}
             lineClamp={1}
             style={{
               flex: 1,
@@ -172,20 +172,20 @@ const KnowledgeCardItem = memo(
                       px={10}
                       py={9}
                       style={{
-                        background: 'var(--mantine-color-gray-0)',
+                        background: 'var(--mantine-color-default-hover)',
                         borderRadius: 8,
-                        border: '1px solid var(--mantine-color-gray-2)',
+                        border: '1px solid var(--mantine-color-default-border)',
                         borderLeft: '3px solid var(--kc-accent)',
                       }}
                     >
-                      <Text size="xs" c="gray.7" style={{ whiteSpace: 'pre-wrap' }} lineClamp={6}>
+                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }} lineClamp={6}>
                         {card.source.excerpt}
                       </Text>
                     </Box>
                   )}
                   <Group gap={8}>
                     <Loader size={12} color={accentColor} />
-                    <Text size="xs" c="gray.5" fw={500}>
+                    <Text size="xs" c="dimmed" fw={500}>
                       {t.chat.generatingExplanation}
                     </Text>
                   </Group>
@@ -201,13 +201,13 @@ const KnowledgeCardItem = memo(
                       px={10}
                       py={9}
                       style={{
-                        background: 'var(--mantine-color-gray-0)',
+                        background: 'var(--mantine-color-default-hover)',
                         borderRadius: 8,
-                        border: '1px solid var(--mantine-color-gray-2)',
+                        border: '1px solid var(--mantine-color-default-border)',
                         borderLeft: '3px solid var(--kc-accent)',
                       }}
                     >
-                      <Text size="xs" c="gray.7" style={{ whiteSpace: 'pre-wrap' }} lineClamp={8}>
+                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }} lineClamp={8}>
                         {card.source.excerpt}
                       </Text>
                     </Box>
@@ -230,15 +230,15 @@ const KnowledgeCardItem = memo(
                     py={7}
                     style={{
                       background:
-                        m.role === 'user' ? 'var(--kc-accent-soft)' : 'var(--mantine-color-gray-0)',
+                        m.role === 'user' ? 'var(--kc-accent-soft)' : 'var(--mantine-color-default-hover)',
                       borderRadius: 8,
                       width: 'fit-content',
                       maxWidth: '100%',
                       alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
                       fontSize: 13,
                       lineHeight: 1.6,
-                      color: 'var(--mantine-color-gray-7)',
-                      border: '1px solid var(--mantine-color-gray-2)',
+                      color: 'var(--mantine-color-text)',
+                      border: '1px solid var(--mantine-color-default-border)',
                     }}
                   >
                     {m.role === 'user' ? (
@@ -256,7 +256,7 @@ const KnowledgeCardItem = memo(
             {isLoading && (
               <Group gap={8} mb={12}>
                 <Loader size={14} color={accentColor} />
-                <Text size="xs" c="gray.5" fw={500}>
+                <Text size="xs" c="dimmed" fw={500}>
                   {t.chat.thinking}
                 </Text>
               </Group>

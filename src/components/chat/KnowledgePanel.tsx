@@ -221,7 +221,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        background: 'var(--mantine-color-gray-0)',
+        background: 'var(--mantine-color-default-hover)',
       }}
     >
       {/* Header - 52px to match app header */}
@@ -233,8 +233,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         align="center"
         wrap="nowrap"
         style={{
-          borderBottom: '1px solid var(--mantine-color-gray-2)',
-          backgroundColor: 'var(--mantine-color-gray-0)',
+          borderBottom: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default-hover)',
           backdropFilter: 'blur(10px)',
         }}
       >
@@ -242,7 +242,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
           <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
             <BookOpen size={16} />
           </ThemeIcon>
-          <Text size="sm" fw={600} c="gray.8" lineClamp={1} style={{ lineHeight: 1.1 }}>
+          <Text size="sm" fw={600} lineClamp={1} style={{ lineHeight: 1.1 }}>
             {t.chat.knowledgeCards}
           </Text>
           {totalCards > 0 && (
@@ -317,10 +317,10 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                     gap: 10,
                   },
                   item: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+                    backgroundColor: 'color-mix(in srgb, var(--mantine-color-body) 74%, transparent)',
                     WebkitBackdropFilter: 'blur(10px) saturate(1.05)',
                     backdropFilter: 'blur(10px) saturate(1.05)',
-                    border: '1px solid var(--mantine-color-gray-2)',
+                    border: '1px solid var(--mantine-color-default-border)',
                     borderRadius: 14,
                     overflow: 'hidden',
                     margin: 0,
@@ -363,7 +363,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                               flexShrink: 0,
                             }}
                           />
-                          <Text size="sm" fw={600} c="gray.8" lineClamp={1}>
+                          <Text size="sm" fw={600} lineClamp={1}>
                             {t.chat.officialCards}
                           </Text>
                         </Group>
@@ -423,7 +423,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                               flexShrink: 0,
                             }}
                           />
-                          <Text size="sm" fw={600} c="gray.8" lineClamp={1}>
+                          <Text size="sm" fw={600} lineClamp={1}>
                             {t.chat.myCards}
                           </Text>
                         </Group>
@@ -474,7 +474,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         centered
         size="xs"
       >
-        <Text size="xs" c="gray.6" mb="md">
+        <Text size="xs" c="dimmed" mb="md">
           {t.chat.deleteCardConfirm}
         </Text>
         <Group justify="flex-end" gap="xs">
