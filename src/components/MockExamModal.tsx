@@ -65,9 +65,11 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const [difficulty, setDifficulty] = useState<string | null>('mixed');
   const [pendingMode, setPendingMode] = useState<ExamMode | null>(null);
 
-  // Restore last selection
+  // Reset source & restore last selection when modal opens
   useEffect(() => {
     if (!opened) return;
+    setSource('real');
+    setError(null);
     const lastUni = localStorage.getItem('lastUniId');
     const lastCourse = localStorage.getItem('lastCourseId');
     if (lastUni) {
