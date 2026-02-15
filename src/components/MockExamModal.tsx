@@ -226,13 +226,13 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             onChange={(v) => setSource(v as Source)}
             data={sourceData}
             fullWidth
-            size="sm"
+            size="md"
             radius={R}
             color="purple"
             withItemsBorders={false}
             styles={{
               root: { padding: 4 },
-              label: { fontWeight: 600, fontSize: '13px' },
+              label: { fontWeight: 600, fontSize: '14px' },
               indicator: { borderRadius: R - 2 },
             }}
           />
@@ -397,7 +397,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
               color="purple"
-              styles={{ label: { fontWeight: 600, fontSize: '13.5px' } }}
+              styles={{ label: { fontWeight: 600, fontSize: '12.5px' } }}
             >
               {isPending && pendingMode === 'practice' ? (
                 <Group gap={5}>
@@ -420,7 +420,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               loading={isPending && pendingMode === 'exam'}
               variant="light"
               color="purple"
-              styles={{ label: { fontWeight: 600, fontSize: '13.5px' } }}
+              styles={{ label: { fontWeight: 600, fontSize: '12.5px' } }}
             >
               {isPending && pendingMode === 'exam' ? (
                 <Group gap={5}>
