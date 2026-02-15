@@ -159,31 +159,16 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     source !== 'ai' && selectedCourseCode && !loadingPapers && papers.length === 0;
 
   const sourceData = [
-    {
-      value: 'real',
-      label: (
-        <Tooltip label={t.exam.realExamDesc} position="bottom" withArrow openDelay={300}>
-          <span style={{ display: 'block', width: '100%' }}>{t.exam.realExam}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      value: 'random',
-      label: (
-        <Tooltip label={t.exam.randomMixDesc} position="bottom" withArrow openDelay={300}>
-          <span style={{ display: 'block', width: '100%' }}>{t.exam.randomMix}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      value: 'ai',
-      label: (
-        <Tooltip label={t.exam.aiMockDesc} position="bottom" withArrow openDelay={300}>
-          <span style={{ display: 'block', width: '100%' }}>{t.exam.aiMock}</span>
-        </Tooltip>
-      ),
-    },
+    { value: 'real', label: t.exam.realExam },
+    { value: 'random', label: t.exam.randomMix },
+    { value: 'ai', label: t.exam.aiMock },
   ];
+
+  const sourceDescMap: Record<Source, string> = {
+    real: t.exam.realExamDesc,
+    random: t.exam.randomMixDesc,
+    ai: t.exam.aiMockDesc,
+  };
 
   return (
     <Modal
@@ -233,6 +218,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             label: { fontWeight: 600, fontSize: '13.5px', padding: '8px 0' },
           }}
         />
+        <Text size="xs" c="dimmed" ta="center" mt={-10}>
+          {sourceDescMap[source]}
+        </Text>
 
         {/* ── Form fields ── */}
         <Box
