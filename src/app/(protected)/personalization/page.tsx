@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Crown, Gift, Pencil, Trash2, X } from 'lucide-react';
+import { Camera, Check, Crown, Gift, Pencil, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
@@ -18,6 +18,7 @@ import {
   Title,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useHeader } from '@/context/HeaderContext';
 import { useProfile } from '@/context/ProfileContext';
@@ -34,6 +35,8 @@ export default function PersonalizationPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteInput, setDeleteInput] = useState('');
 
   const headerNode = useMemo(
     () => (
@@ -105,6 +108,26 @@ export default function PersonalizationPage() {
             <Title order={3} fw={700}>
               {t.personalization.profileInfo}
             </Title>
+
+            {/* Avatar placeholder */}
+            <Group justify="center">
+              <Box
+                w={80}
+                h={80}
+                style={{
+                  borderRadius: '50%',
+                  border: '2px dashed var(--mantine-color-gray-4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <Camera size={24} color="var(--mantine-color-gray-5)" />
+              </Box>
+            </Group>
+
+            <Divider />
 
             {/* Display name */}
             {showSkeleton ? (
@@ -227,12 +250,48 @@ export default function PersonalizationPage() {
                 variant="subtle"
                 size="compact-sm"
                 leftSection={<Trash2 size={14} />}
+                onClick={() => setDeleteConfirmOpen(true)}
               >
                 {t.personalization.deleteAccount}
               </Button>
             </Group>
           </Stack>
         </Paper>
+
+        {/* Delete Account Confirmation Modal */}
+        <FullScreenModal
+          opened={deleteConfirmOpen}
+          onClose={() => {
+            setDeleteConfirmOpen(false);
+            setDeleteInput('');
+          }}
+          title={t.personalization.deleteAccountTitle}
+        >
+          <Stack>
+            <Text c="dimmed">{t.personalization.deleteConfirmMessage}</Text>
+            <TextInput
+              label={t.personalization.typeDelete}
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.currentTarget.value)}
+              placeholder="DELETE"
+            />
+            <Button
+              color="red"
+              disabled={deleteInput !== 'DELETE'}
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setDeleteInput('');
+                showNotification({
+                  message: t.toast.comingSoon,
+                  color: 'gray',
+                  autoClose: 3000,
+                });
+              }}
+            >
+              {t.personalization.confirmDelete}
+            </Button>
+          </Stack>
+        </FullScreenModal>
 
         {/* Refer & Earn */}
         <Paper

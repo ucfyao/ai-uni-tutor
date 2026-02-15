@@ -1,5 +1,6 @@
 'use client';
 
+import { IconCheck, IconX } from '@tabler/icons-react';
 import { Check, Crown, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
   SegmentedControl,
   SimpleGrid,
   Stack,
+  Table,
   Text,
   ThemeIcon,
 } from '@mantine/core';
@@ -147,6 +149,16 @@ export default function PricingPage() {
           )}
 
           {/* Pro Card */}
+          <Box pos="relative">
+            <Badge
+              color="violet"
+              variant="filled"
+              size="sm"
+              pos="absolute"
+              style={{ top: -10, right: 16, zIndex: 1 }}
+            >
+              {t.pricing.mostPopular}
+            </Badge>
           <Paper
             withBorder
             p={32}
@@ -219,7 +231,36 @@ export default function PricingPage() {
               )}
             </Stack>
           </Paper>
+          </Box>
         </SimpleGrid>
+
+        {/* Feature Comparison Table */}
+        <Paper withBorder p="xl" radius="lg">
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>{t.pricing.feature}</Table.Th>
+                <Table.Th ta="center">Free</Table.Th>
+                <Table.Th ta="center">Pro</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {[
+                { name: t.pricing.featureDailyQueries, free: '3/day', pro: '30/day' },
+                { name: t.pricing.featureDocUploads, free: '5', pro: t.pricing.unlimited },
+                { name: t.pricing.featureExamModes, free: t.pricing.practiceOnly, pro: t.pricing.allModes },
+                { name: t.pricing.featureKnowledgeCards, free: <IconCheck size={16} color="var(--mantine-color-green-6)" />, pro: <IconCheck size={16} color="var(--mantine-color-green-6)" /> },
+                { name: t.pricing.featurePriority, free: <IconX size={16} color="var(--mantine-color-gray-5)" />, pro: <IconCheck size={16} color="var(--mantine-color-green-6)" /> },
+              ].map((f, i) => (
+                <Table.Tr key={i}>
+                  <Table.Td>{f.name}</Table.Td>
+                  <Table.Td ta="center">{f.free}</Table.Td>
+                  <Table.Td ta="center">{f.pro}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Paper>
 
         {/* Footer */}
         <Text size="xs" c="dimmed" ta="center">
