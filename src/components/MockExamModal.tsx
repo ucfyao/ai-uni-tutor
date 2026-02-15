@@ -7,20 +7,19 @@ import {
   IconLoader2,
   IconSparkles,
 } from '@tabler/icons-react';
-import { Book, Building2, ChevronDown, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   Box,
   Button,
-  Center,
+  Card,
   Group,
   Modal,
   Select,
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   UnstyledButton,
 } from '@mantine/core';
 import {
@@ -30,40 +29,12 @@ import {
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
 import { COURSES, UNIVERSITIES } from '@/constants';
-import { PLACEHOLDERS } from '@/constants/placeholders';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
 
 type Source = 'real' | 'random' | 'ai';
 
 const THEME = 'purple';
-
-/* Unstyled select inside FormRow — matches NewSessionModal exactly */
-const formRowSelectStyles = {
-  input: {
-    border: 'none',
-    backgroundColor: 'transparent',
-    padding: 0,
-    paddingRight: '24px',
-    height: 'auto',
-    fontSize: '15px',
-    fontWeight: 600,
-    color: 'var(--mantine-color-dark-9)',
-    width: '100%',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    cursor: 'pointer',
-  },
-  wrapper: { width: '100%' },
-  section: { display: 'none' },
-  dropdown: {
-    borderRadius: '12px',
-    padding: '4px',
-    border: '1px solid #e9ecef',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-  },
-};
 
 interface MockExamModalProps {
   opened: boolean;
@@ -187,7 +158,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       radius={24}
       centered
       padding={32}
-      size="500px"
+      size="520px"
       overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
       transitionProps={{ transition: 'pop', duration: 200, timingFunction: 'ease' }}
       styles={{
@@ -198,9 +169,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         },
       }}
     >
-      <Stack gap={24}>
+      <Stack gap={20}>
         {/* Header */}
-        <Group justify="space-between" align="center" mb={2}>
+        <Group justify="space-between" align="center">
           <Text fw={800} size="22px" lts={-0.2} c="dark.9">
             {t.exam.startExam}
           </Text>
@@ -214,81 +185,67 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </UnstyledButton>
         </Group>
 
-        {/* 1. University + Course — prominent FormRows (same as NewSessionModal) */}
-        <Stack gap={12}>
-          <FormRow icon={Building2} label={t.exam.university ?? 'University'} active={true}>
+        {/* ★ 1. Source — hero section */}
+        <Group grow gap={10}>
+          <SourceCard
+            active={source === 'real'}
+            title={t.exam.realExam}
+            desc={t.exam.realExamDesc}
+            icon={<IconFileText size={22} strokeWidth={1.8} />}
+            onClick={() => setSource('real')}
+          />
+          <SourceCard
+            active={source === 'random'}
+            title={t.exam.randomMix}
+            desc={t.exam.randomMixDesc}
+            icon={<IconArrowsShuffle size={22} strokeWidth={1.8} />}
+            onClick={() => setSource('random')}
+          />
+          <SourceCard
+            active={source === 'ai'}
+            title={t.exam.aiMock}
+            desc={t.exam.aiMockDesc}
+            icon={<IconSparkles size={22} strokeWidth={1.8} />}
+            onClick={() => setSource('ai')}
+          />
+        </Group>
+
+        {/* 2. University + Course — standard selects */}
+        {source !== 'ai' && (
+          <Group grow gap={10}>
             <Select
+              label={t.exam.university ?? 'University'}
+              placeholder={t.exam.selectUniversity ?? 'Select university'}
               data={uniOptions}
               value={selectedUniId}
-              onChange={(val) => {
-                setSelectedUniId(val);
-                setSelectedCourseCode(null);
-              }}
-              placeholder={PLACEHOLDERS.SELECT_UNIVERSITY}
-              variant="unstyled"
-              styles={formRowSelectStyles}
-              allowDeselect={false}
+              onChange={setSelectedUniId}
               searchable
+              size="sm"
+              radius="md"
             />
-          </FormRow>
-
-          <FormRow icon={Book} label={t.exam.course ?? 'Course'} active={!!selectedUniId}>
             <Select
+              label={t.exam.course ?? 'Course'}
+              placeholder={
+                selectedUniId
+                  ? (t.exam.selectCourse ?? 'Select course')
+                  : (t.exam.selectUniversityFirst ?? 'Select university first')
+              }
               data={courseOptions}
               value={selectedCourseCode}
               onChange={setSelectedCourseCode}
-              placeholder={selectedUniId ? PLACEHOLDERS.SELECT_COURSE : PLACEHOLDERS.SELECT_FIRST}
-              variant="unstyled"
-              styles={formRowSelectStyles}
               disabled={!selectedUniId}
-              allowDeselect={false}
               searchable
+              size="sm"
+              radius="md"
             />
-          </FormRow>
-        </Stack>
-
-        {/* 2. Source + Mode — compact inline row */}
-        <Group grow gap={12} align="stretch">
-          <SegmentedField label={t.exam.selectSource}>
-            <SourcePill
-              active={source === 'real'}
-              label={t.exam.realExam}
-              icon={<IconFileText size={14} strokeWidth={2.2} />}
-              onClick={() => setSource('real')}
-            />
-            <SourcePill
-              active={source === 'random'}
-              label={t.exam.randomMix}
-              icon={<IconArrowsShuffle size={14} strokeWidth={2.2} />}
-              onClick={() => setSource('random')}
-            />
-            <SourcePill
-              active={source === 'ai'}
-              label={t.exam.aiMock}
-              icon={<IconSparkles size={14} strokeWidth={2.2} />}
-              onClick={() => setSource('ai')}
-            />
-          </SegmentedField>
-
-          <SegmentedField label="Mode">
-            <ModePill
-              active={selectedMode === 'practice'}
-              label="Practice"
-              onClick={() => setSelectedMode('practice')}
-            />
-            <ModePill
-              active={selectedMode === 'exam'}
-              label="Exam"
-              onClick={() => setSelectedMode('exam')}
-            />
-          </SegmentedField>
-        </Group>
+          </Group>
+        )}
 
         {/* 3. Source-specific options */}
         {showNoPapers && (
           <Box
             px="sm"
-            py={10}
+            py={8}
             style={{
               borderRadius: '10px',
               backgroundColor: 'var(--mantine-color-orange-0)',
@@ -313,13 +270,6 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             onChange={setSelectedPaper}
             size="sm"
             radius="md"
-            styles={{
-              dropdown: {
-                borderRadius: '12px',
-                border: '1px solid #e9ecef',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              },
-            }}
           />
         )}
 
@@ -370,11 +320,37 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Stack>
         )}
 
+        {/* 4. Mode — subtle inline toggle */}
+        <Group gap={8} align="center">
+          <Text size="xs" fw={600} c="gray.5">
+            Mode
+          </Text>
+          <Group
+            gap={0}
+            style={{
+              borderRadius: '8px',
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              padding: '2px',
+            }}
+          >
+            <ModePill
+              active={selectedMode === 'practice'}
+              label="Practice"
+              onClick={() => setSelectedMode('practice')}
+            />
+            <ModePill
+              active={selectedMode === 'exam'}
+              label="Exam"
+              onClick={() => setSelectedMode('exam')}
+            />
+          </Group>
+        </Group>
+
         {/* Error */}
         {error && (
           <Box
             px="sm"
-            py={10}
+            py={8}
             style={{
               borderRadius: '10px',
               backgroundColor: 'var(--mantine-color-red-0)',
@@ -387,12 +363,12 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Box>
         )}
 
-        {/* 4. Start */}
+        {/* 5. Start */}
         <Button
           fullWidth
           size="lg"
           radius="xl"
-          h={56}
+          h={52}
           onClick={handleStart}
           disabled={isStartDisabled || isPending}
           loading={isPending}
@@ -433,159 +409,70 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   );
 };
 
-/* ─── FormRow ─── Same dimensions as NewSessionModal ─── */
+/* ─── SourceCard ─── Hero-level selection card ─── */
 
-function FormRow({
-  icon: Icon,
-  label,
-  children,
+function SourceCard({
   active,
-}: {
-  icon: React.ElementType;
-  label: string;
-  children: React.ReactNode;
-  active: boolean;
-}) {
-  return (
-    <Box
-      style={{
-        borderRadius: '16px',
-        border: active ? `1.5px solid var(--mantine-color-${THEME}-3)` : '1.5px solid transparent',
-        backgroundColor: active ? 'white' : 'var(--mantine-color-gray-0)',
-        boxShadow: active ? `0 0 0 2px var(--mantine-color-${THEME}-0)` : 'none',
-        overflow: 'hidden',
-        transition: 'all 0.2s ease',
-        height: '64px',
-        display: 'flex',
-        alignItems: 'center',
-      }}
-    >
-      <Group gap={0} wrap="nowrap" align="stretch" w="100%" h="100%">
-        <Center
-          w={60}
-          style={{ borderRight: active ? '1px solid var(--mantine-color-gray-1)' : 'none' }}
-        >
-          <ThemeIcon
-            variant={active ? 'light' : 'transparent'}
-            color={active ? THEME : 'gray'}
-            size={32}
-            radius="lg"
-          >
-            <Icon size={18} strokeWidth={2} />
-          </ThemeIcon>
-        </Center>
-        <Box
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-          }}
-          px="md"
-        >
-          <Text
-            size="10px"
-            fw={700}
-            tt="uppercase"
-            lts={1}
-            c={active ? `${THEME}.7` : 'gray.5'}
-            mb={0}
-          >
-            {label}
-          </Text>
-          <Box style={{ position: 'relative', width: '100%' }}>
-            {children}
-            <Box
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                color: 'var(--mantine-color-gray-4)',
-              }}
-            >
-              <ChevronDown size={14} strokeWidth={2} />
-            </Box>
-          </Box>
-        </Box>
-      </Group>
-    </Box>
-  );
-}
-
-/* ─── SegmentedField ─── Label + pill tray ─── */
-
-function SegmentedField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <Text size="10px" fw={700} tt="uppercase" lts={1} c={`${THEME}.7`} mb={6}>
-        {label}
-      </Text>
-      <Group
-        gap={0}
-        style={{
-          borderRadius: '10px',
-          backgroundColor: 'var(--mantine-color-gray-0)',
-          padding: '3px',
-        }}
-      >
-        {children}
-      </Group>
-    </div>
-  );
-}
-
-/* ─── SourcePill ─── */
-
-function SourcePill({
-  active,
-  label,
+  title,
+  desc,
   icon,
   onClick,
 }: {
   active: boolean;
-  label: string;
+  title: string;
+  desc: string;
   icon: React.ReactNode;
   onClick: () => void;
 }) {
   return (
-    <UnstyledButton
-      onClick={onClick}
-      style={{
-        flex: 1,
-        borderRadius: '8px',
-        padding: '6px 2px',
-        backgroundColor: active ? 'white' : 'transparent',
-        boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-        transition: 'all 0.15s ease',
-      }}
-    >
-      <Group gap={4} justify="center" wrap="nowrap">
-        <Box
-          style={{
-            color: active ? `var(--mantine-color-${THEME}-6)` : 'var(--mantine-color-gray-5)',
-            transition: 'color 0.15s ease',
-            display: 'flex',
-          }}
-        >
-          {icon}
-        </Box>
-        <Text
-          size="11px"
-          fw={active ? 700 : 500}
-          c={active ? `${THEME}.7` : 'gray.6'}
-          style={{ transition: 'all 0.15s ease', whiteSpace: 'nowrap' }}
-        >
-          {label}
-        </Text>
-      </Group>
+    <UnstyledButton onClick={onClick} style={{ flex: 1 }}>
+      <Card
+        withBorder
+        radius="lg"
+        px="sm"
+        py="md"
+        style={{
+          borderColor: active ? `var(--mantine-color-${THEME}-4)` : 'var(--mantine-color-gray-2)',
+          borderWidth: active ? '1.5px' : '1px',
+          backgroundColor: active ? `var(--mantine-color-${THEME}-0)` : 'white',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          textAlign: 'center',
+        }}
+      >
+        <Stack gap={6} align="center">
+          <Box
+            style={{
+              color: active ? `var(--mantine-color-${THEME}-6)` : 'var(--mantine-color-gray-4)',
+              transition: 'color 0.15s ease',
+            }}
+          >
+            {icon}
+          </Box>
+          <Text
+            size="13px"
+            fw={700}
+            c={active ? `${THEME}.8` : 'dark.7'}
+            lh={1.2}
+            style={{ transition: 'color 0.15s ease' }}
+          >
+            {title}
+          </Text>
+          <Text
+            size="10px"
+            c={active ? `${THEME}.5` : 'gray.4'}
+            lh={1.3}
+            style={{ transition: 'color 0.15s ease' }}
+          >
+            {desc}
+          </Text>
+        </Stack>
+      </Card>
     </UnstyledButton>
   );
 }
 
-/* ─── ModePill ─── */
+/* ─── ModePill ─── Minimal inline toggle ─── */
 
 function ModePill({
   active,
@@ -600,19 +487,17 @@ function ModePill({
     <UnstyledButton
       onClick={onClick}
       style={{
-        flex: 1,
-        borderRadius: '8px',
-        padding: '6px 8px',
+        borderRadius: '6px',
+        padding: '4px 14px',
         backgroundColor: active ? 'white' : 'transparent',
-        boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
         transition: 'all 0.15s ease',
       }}
     >
       <Text
-        size="11px"
+        size="12px"
         fw={active ? 700 : 500}
-        c={active ? `${THEME}.7` : 'gray.6'}
-        ta="center"
+        c={active ? `${THEME}.7` : 'gray.5'}
         style={{ transition: 'all 0.15s ease' }}
       >
         {label}
