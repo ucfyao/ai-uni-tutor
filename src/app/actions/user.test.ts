@@ -41,6 +41,7 @@ const MOCK_PROFILE = {
   email: 'test@example.com',
   subscriptionStatus: 'active',
   currentPeriodEnd: new Date('2025-12-31T00:00:00Z'),
+  createdAt: new Date('2025-01-15T00:00:00Z'),
 };
 
 const EXPECTED_PROFILE_DATA = {
@@ -49,6 +50,7 @@ const EXPECTED_PROFILE_DATA = {
   email: 'test@example.com',
   subscription_status: 'active',
   current_period_end: '2025-12-31T00:00:00.000Z',
+  created_at: '2025-01-15T00:00:00.000Z',
 };
 
 const INITIAL_STATE = { status: 'idle' as const, message: '' };
