@@ -307,12 +307,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         onMouseUp={handleMouseUp} // Listen for selection
         style={{
           borderRadius: isUser ? '18px 18px 4px 18px' : '16px',
-          background: isUser
-            ? 'linear-gradient(135deg, var(--mantine-color-gray-0), var(--mantine-color-gray-1))'
-            : 'transparent',
+          background: isUser ? 'var(--mantine-color-indigo-light)' : 'transparent',
           borderWidth: isUser ? '1px' : 0,
           borderStyle: 'solid',
-          borderColor: isUser ? 'var(--mantine-color-gray-2)' : 'transparent',
+          borderColor: isUser ? 'var(--mantine-color-indigo-light-hover)' : 'transparent',
           boxShadow: isUser ? '0 1px 6px rgba(0, 0, 0, 0.03)' : 'none',
           color: isUser ? 'var(--mantine-color-text)' : 'inherit',
           position: 'relative',
@@ -347,9 +345,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </Box>
         )}
 
-        <Box className="markdown-content" c={isUser ? 'dark.9' : 'dark.8'}>
+        <Box className="markdown-content">
           {isUser ? (
-            <Text style={{ whiteSpace: 'pre-wrap' }} fz="15px" lh={1.65}>
+            <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.65}>
               {message.content}
             </Text>
           ) : (

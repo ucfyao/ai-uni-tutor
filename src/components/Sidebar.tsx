@@ -345,7 +345,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Group gap={10} wrap="nowrap">
                   <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
-                  <Text size="sm">{t.sidebar[link.labelKey]}</Text>
+                  <Text size="md">{t.sidebar[link.labelKey]}</Text>
                   <ChevronRight
                     size={12}
                     color="var(--mantine-color-gray-4)"
@@ -535,7 +535,7 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
         <Group gap={8} wrap="nowrap" justify="space-between">
           <Group gap={10} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
             <Icon size={18} strokeWidth={1.5} color={`var(--mantine-color-${color}-6)`} />
-            <Text size="sm" fw={600} truncate>
+            <Text size="md" fw={600} truncate>
               {label}
             </Text>
             <ChevronDown
@@ -639,7 +639,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
       <Group wrap="nowrap" gap={8}>
         {/* Title */}
         <Text
-          size="sm"
+          size="md"
           truncate
           c={isActive ? undefined : 'dimmed'}
           fw={isActive ? 500 : 400}

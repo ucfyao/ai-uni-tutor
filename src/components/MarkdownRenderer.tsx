@@ -124,7 +124,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Text
             size={compact ? 'xs' : 'sm'}
             mb={compact ? 'xs' : isTightSpacing ? 6 : 'sm'}
-            style={{ lineHeight: compact ? 1.5 : 1.7, fontSize: compact ? '13px' : '15px' }}
+            style={{ lineHeight: compact ? 1.5 : 1.7, fontSize: compact ? '13px' : '16px' }}
           >
             {children}
           </Text>
@@ -230,7 +230,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         li: ({ children }) => (
           <li
             style={{
-              fontSize: compact ? 13 : 15,
+              fontSize: compact ? 13 : 16,
               lineHeight: compact ? '20px' : '24px',
               color: 'var(--mantine-color-text)',
               marginBottom: compact ? 2 : 4,

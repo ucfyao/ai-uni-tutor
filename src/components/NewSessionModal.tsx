@@ -132,9 +132,13 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     <Box
       style={{
         borderRadius: '16px',
-        border: active ? `1.5px solid var(--mantine-color-${color}-3)` : '1.5px solid transparent',
-        backgroundColor: active ? 'var(--mantine-color-body)' : 'var(--mantine-color-default-hover)',
-        boxShadow: active ? `0 0 0 2px var(--mantine-color-${color}-0)` : 'none',
+        border: active
+          ? `1.5px solid var(--mantine-color-${color}-light-hover)`
+          : '1.5px solid transparent',
+        backgroundColor: active
+          ? 'var(--mantine-color-body)'
+          : 'var(--mantine-color-default-hover)',
+        boxShadow: 'none',
         overflow: 'hidden',
         transition: 'all 0.2s ease',
         height: '64px',
@@ -145,7 +149,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
       <Group gap={0} wrap="nowrap" align="stretch" w="100%" h="100%">
         <Center
           w={60}
-          style={{ borderRight: active ? `1px solid var(--mantine-color-gray-1)` : 'none' }}
+          style={{ borderRight: active ? `1px solid var(--mantine-color-default-border)` : 'none' }}
         >
           <ThemeIcon
             variant={active ? 'light' : 'transparent'}

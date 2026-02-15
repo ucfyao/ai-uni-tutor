@@ -440,7 +440,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           h="100%"
           w={380}
           style={{
-            borderLeft: '1px solid var(--mantine-color-gray-2)',
+            borderLeft: '1px solid var(--mantine-color-default-border)',
             flexShrink: 0,
             minHeight: 0,
           }}

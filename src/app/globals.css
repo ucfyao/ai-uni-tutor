@@ -740,6 +740,15 @@ body {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
 }
 
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--mantine-color-body) inset !important;
+  -webkit-text-fill-color: var(--mantine-color-text) !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: var(--mantine-color-text);
+}
+
 .login-submit-btn:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4) !important;
