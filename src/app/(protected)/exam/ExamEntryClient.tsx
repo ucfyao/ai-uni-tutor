@@ -2,7 +2,7 @@
 
 import { IconArrowsShuffle, IconFileText, IconLoader2, IconSparkles } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -304,7 +304,7 @@ function SourceCard({
   active: boolean;
   title: string;
   description: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   disabled: boolean;
   onClick: () => void;
 }) {
