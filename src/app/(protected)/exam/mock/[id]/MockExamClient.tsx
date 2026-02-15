@@ -5,7 +5,9 @@ import {
   IconArrowRight,
   IconCheck,
   IconSend,
+  IconTargetArrow,
   IconTrophy,
+  IconX,
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
@@ -15,8 +17,11 @@ import {
   Button,
   Card,
   Group,
+  Paper,
   Progress,
+  RingProgress,
   ScrollArea,
+  SimpleGrid,
   Stack,
   Switch,
   Text,
@@ -118,7 +123,7 @@ export function MockExamClient({ initialMock }: Props) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'violet';
+        return 'indigo';
       case 'submitted':
         return 'green';
       case 'correct':
@@ -126,7 +131,7 @@ export function MockExamClient({ initialMock }: Props) {
       case 'incorrect':
         return 'red';
       case 'answered':
-        return 'blue';
+        return 'teal';
       default:
         return 'gray';
     }
@@ -275,7 +280,17 @@ export function MockExamClient({ initialMock }: Props) {
               disabled={hasSubmitted}
             />
             {timerEnabled && (
-              <Text size="sm" fw={700} ff="monospace" c={timeRemaining < 300 ? 'red' : undefined}>
+              <Text
+                size="sm"
+                fw={700}
+                ff="monospace"
+                c={timeRemaining < 60 ? 'red' : timeRemaining < 300 ? 'orange' : undefined}
+                style={
+                  timeRemaining < 60
+                    ? { animation: 'timer-flash 1s ease-in-out infinite' }
+                    : undefined
+                }
+              >
                 {formatTime(timeRemaining)}
               </Text>
             )}
@@ -311,9 +326,10 @@ export function MockExamClient({ initialMock }: Props) {
         }}
       >
         <Group align="flex-start" gap={0} wrap="nowrap" style={{ minHeight: 500 }}>
-          {/* Left sidebar — Question list */}
+          {/* Left sidebar — Question list (hidden on mobile, replaced by bottom nav) */}
           <Box
             w={280}
+            visibleFrom="sm"
             style={{
               flexShrink: 0,
               borderRight: '1px solid var(--mantine-color-gray-3)',
@@ -333,9 +349,9 @@ export function MockExamClient({ initialMock }: Props) {
                       p="xs"
                       style={{
                         borderLeft: isActive
-                          ? '3px solid var(--mantine-color-violet-5)'
+                          ? '3px solid var(--mantine-color-indigo-5)'
                           : '3px solid transparent',
-                        backgroundColor: isActive ? 'var(--mantine-color-violet-0)' : undefined,
+                        backgroundColor: isActive ? 'var(--mantine-color-indigo-0)' : undefined,
                         transition: 'all 150ms ease',
                       }}
                     >
@@ -380,35 +396,96 @@ export function MockExamClient({ initialMock }: Props) {
               {isCompleted &&
                 mock.score !== null &&
                 currentQuestionIndex === 0 &&
-                !currentFeedback && (
-                  <Card
-                    withBorder
-                    radius="lg"
-                    p="xl"
-                    ta="center"
-                    style={{
-                      borderColor: 'var(--mantine-color-gray-2)',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                    }}
-                  >
-                    <IconTrophy size={48} color="gold" />
-                    <Title order={2} mt="md">
-                      Exam Completed!
-                    </Title>
-                    <Text size="xl" fw={700} mt="sm">
-                      {mock.score}/{mock.totalPoints}
-                    </Text>
-                    <Progress
-                      value={(mock.score / mock.totalPoints) * 100}
-                      mt="md"
-                      size="lg"
-                      color={mock.score / mock.totalPoints >= 0.6 ? 'green' : 'red'}
-                    />
-                    <Text size="sm" c="dimmed" mt="md">
-                      Click any question in the sidebar to review
-                    </Text>
-                  </Card>
-                )}
+                !currentFeedback &&
+                (() => {
+                  const scorePercent = Math.round(
+                    (mock.score / mock.totalPoints) * 100,
+                  );
+                  const ringColor =
+                    scorePercent >= 80
+                      ? 'green'
+                      : scorePercent >= 50
+                        ? 'yellow'
+                        : 'red';
+                  const correctCount = mock.responses.filter(
+                    (r) => r.isCorrect,
+                  ).length;
+                  const incorrectCount = mock.responses.filter(
+                    (r) => !r.isCorrect,
+                  ).length;
+
+                  return (
+                    <Card
+                      withBorder
+                      radius="lg"
+                      p="xl"
+                      ta="center"
+                      style={{
+                        borderColor: 'var(--mantine-color-gray-2)',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                      }}
+                    >
+                      <Stack align="center" gap="md">
+                        <IconTrophy size={48} color="gold" />
+                        <Title order={2}>Exam Completed!</Title>
+
+                        <RingProgress
+                          size={120}
+                          thickness={10}
+                          roundCaps
+                          sections={[{ value: scorePercent, color: ringColor }]}
+                          label={
+                            <Text ta="center" fw={700} fz="lg">
+                              {scorePercent}%
+                            </Text>
+                          }
+                        />
+
+                        <Text size="lg" fw={700}>
+                          {mock.score}/{mock.totalPoints}
+                        </Text>
+
+                        <SimpleGrid cols={3} spacing="sm" w="100%">
+                          <Paper withBorder radius="md" p="sm" ta="center">
+                            <Group gap={4} justify="center" mb={4}>
+                              <IconTargetArrow size={14} color="var(--mantine-color-dimmed)" />
+                              <Text fz="xs" c="dimmed">
+                                Total
+                              </Text>
+                            </Group>
+                            <Text fw={700}>{totalQuestions}</Text>
+                          </Paper>
+                          <Paper withBorder radius="md" p="sm" ta="center">
+                            <Group gap={4} justify="center" mb={4}>
+                              <IconCheck size={14} color="var(--mantine-color-green-6)" />
+                              <Text fz="xs" c="dimmed">
+                                Correct
+                              </Text>
+                            </Group>
+                            <Text fw={700} c="green">
+                              {correctCount}
+                            </Text>
+                          </Paper>
+                          <Paper withBorder radius="md" p="sm" ta="center">
+                            <Group gap={4} justify="center" mb={4}>
+                              <IconX size={14} color="var(--mantine-color-red-6)" />
+                              <Text fz="xs" c="dimmed">
+                                Incorrect
+                              </Text>
+                            </Group>
+                            <Text fw={700} c="red">
+                              {incorrectCount}
+                            </Text>
+                          </Paper>
+                        </SimpleGrid>
+
+                        <Text size="sm" c="dimmed">
+                          Click any question in the sidebar to review
+                        </Text>
+                      </Stack>
+                    </Card>
+                  );
+                })()}
 
               {/* Current question */}
               {currentQuestion && (
@@ -479,7 +556,7 @@ export function MockExamClient({ initialMock }: Props) {
                     loading={isPending}
                     disabled={answeredCount === 0}
                     onClick={handleBatchSubmit}
-                    color="violet"
+                    color="indigo"
                   >
                     Submit All ({answeredCount}/{totalQuestions})
                   </Button>
@@ -511,6 +588,43 @@ export function MockExamClient({ initialMock }: Props) {
           </Box>
         </Group>
       </Card>
+
+      {/* Mobile bottom question nav */}
+      <Box
+        hiddenFrom="sm"
+        py="xs"
+        px="md"
+        style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
+      >
+        <ScrollArea type="never">
+          <Group gap={6} wrap="nowrap">
+            {mock.questions.map((_, i) => (
+              <Button
+                key={i}
+                size="compact-xs"
+                radius="xl"
+                variant={i === currentQuestionIndex ? 'filled' : 'light'}
+                color={getStatusColor(getQuestionStatus(i))}
+                onClick={() => goToQuestion(i)}
+                miw={32}
+              >
+                {i + 1}
+              </Button>
+            ))}
+          </Group>
+        </ScrollArea>
+      </Box>
+
+      {/* Timer flash animation */}
+      <style>{`
+        @keyframes timer-flash {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          * { animation-duration: 0s !important; }
+        }
+      `}</style>
     </Stack>
   );
 }
