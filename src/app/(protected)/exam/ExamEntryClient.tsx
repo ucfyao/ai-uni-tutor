@@ -2,7 +2,7 @@
 
 import { IconArrowsShuffle, IconFileText, IconLoader2, IconSparkles } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -25,57 +25,79 @@ import { COURSES, UNIVERSITIES } from '@/constants';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
 
+type Source = 'real' | 'random' | 'ai';
+
 export function ExamEntryClient() {
-  const courses = COURSES;
-  const universities = UNIVERSITIES;
   const router = useRouter();
   const { t } = useLanguage();
   const [isPending, startTransition] = useTransition();
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
-  const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
   const [error, setError] = useState<string | null>(null);
 
-  const [source, setSource] = useState<'real' | 'random' | 'ai'>('real');
+  // Source selection
+  const [source, setSource] = useState<Source>('real');
+
+  // University → Course (for real / random)
+  const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
+  const [selectedCourseCode, setSelectedCourseCode] = useState<string | null>(null);
+
+  // Real exam options
   const [papers, setPapers] = useState<ExamPaper[]>([]);
   const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
-  const [numQuestions, setNumQuestions] = useState<string | null>('10');
-  const [topic, setTopic] = useState('');
-  const [difficulty, setDifficulty] = useState<string | null>('mixed');
   const [loadingPapers, setLoadingPapers] = useState(false);
 
-  const courseOptions = (() => {
-    const groups: Record<string, { value: string; label: string }[]> = {};
-    for (const c of courses ?? []) {
-      const uni = (universities ?? []).find((u) => u.id === c.universityId);
-      const group = uni?.shortName ?? 'Other';
-      if (!groups[group]) groups[group] = [];
-      groups[group].push({ value: c.code, label: `${c.code} — ${c.name}` });
-    }
-    return Object.entries(groups).map(([group, items]) => ({ group, items }));
-  })();
+  // Random / AI shared
+  const [numQuestions, setNumQuestions] = useState<string | null>('10');
 
+  // AI-only options
+  const [topic, setTopic] = useState('');
+  const [difficulty, setDifficulty] = useState<string | null>('mixed');
+
+  // Mode (shared by all sources)
+  const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
+
+  const needsCourse = source === 'real' || source === 'random';
+
+  // University options
+  const uniOptions = useMemo(
+    () => (UNIVERSITIES ?? []).map((u) => ({ value: u.id, label: u.name })),
+    [],
+  );
+
+  // Course options filtered by university
+  const courseOptions = useMemo(() => {
+    if (!selectedUniId) return [];
+    return (COURSES ?? [])
+      .filter((c) => c.universityId === selectedUniId)
+      .map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
+  }, [selectedUniId]);
+
+  // Reset course when university changes
   useEffect(() => {
-    if (!selectedCourse) {
+    setSelectedCourseCode(null);
+    setPapers([]);
+    setSelectedPaper(null);
+  }, [selectedUniId]);
+
+  // Fetch papers when course changes (for real/random)
+  useEffect(() => {
+    if (!selectedCourseCode || !needsCourse) {
       setPapers([]);
+      setSelectedPaper(null);
       return;
     }
     setLoadingPapers(true);
     setSelectedPaper(null);
-    getExamPapersForCourse(selectedCourse).then((result) => {
+    getExamPapersForCourse(selectedCourseCode).then((result) => {
       if (result.success) {
         setPapers(result.papers);
-        // Auto-switch to 'ai' if no papers available
-        if (result.papers.length === 0) setSource('ai');
       } else {
         setPapers([]);
-        setSource('ai');
       }
       setLoadingPapers(false);
     });
-  }, [selectedCourse]);
+  }, [selectedCourseCode, needsCourse]);
 
   const handleStart = () => {
-    if (!selectedCourse) return;
     setError(null);
 
     startTransition(async () => {
@@ -84,7 +106,8 @@ export function ExamEntryClient() {
         if (!selectedPaper) return;
         result = await createRealExamMock(selectedPaper, selectedMode);
       } else if (source === 'random') {
-        result = await createRandomMixMock(selectedCourse, Number(numQuestions), selectedMode);
+        if (!selectedCourseCode) return;
+        result = await createRandomMixMock(selectedCourseCode, Number(numQuestions), selectedMode);
       } else {
         if (!topic.trim()) return;
         result = await generateMockFromTopic(
@@ -102,6 +125,12 @@ export function ExamEntryClient() {
     });
   };
 
+  // Button disabled logic per source
+  const isStartDisabled =
+    (source === 'real' && !selectedPaper) ||
+    (source === 'random' && (!selectedCourseCode || papers.length === 0)) ||
+    (source === 'ai' && !topic.trim());
+
   return (
     <Stack gap="lg">
       {/* Header */}
@@ -114,7 +143,6 @@ export function ExamEntryClient() {
         </Text>
       </Box>
 
-      {/* Course + Source + Options + Mode + Start */}
       <Card
         withBorder
         radius="lg"
@@ -127,18 +155,7 @@ export function ExamEntryClient() {
         }}
       >
         <Stack gap="lg">
-          {/* Course selector */}
-          <Select
-            label="Course"
-            placeholder="Select a course"
-            data={courseOptions}
-            value={selectedCourse}
-            onChange={setSelectedCourse}
-            searchable
-            size="md"
-          />
-
-          {/* Source selector */}
+          {/* 1. Source selector — always first */}
           <div>
             <Text size="sm" fw={500} mb="xs">
               {t.exam.selectSource}
@@ -149,7 +166,6 @@ export function ExamEntryClient() {
                 title={t.exam.realExam}
                 description={t.exam.realExamDesc}
                 icon={<IconFileText size={18} />}
-                disabled={papers.length === 0 && !loadingPapers && !!selectedCourse}
                 onClick={() => setSource('real')}
               />
               <SourceCard
@@ -157,7 +173,6 @@ export function ExamEntryClient() {
                 title={t.exam.randomMix}
                 description={t.exam.randomMixDesc}
                 icon={<IconArrowsShuffle size={18} />}
-                disabled={papers.length === 0 && !loadingPapers && !!selectedCourse}
                 onClick={() => setSource('random')}
               />
               <SourceCard
@@ -165,18 +180,47 @@ export function ExamEntryClient() {
                 title={t.exam.aiMock}
                 description={t.exam.aiMockDesc}
                 icon={<IconSparkles size={18} />}
-                disabled={false}
                 onClick={() => setSource('ai')}
               />
             </Group>
-            {selectedCourse && papers.length === 0 && !loadingPapers && (
-              <Text size="xs" c="orange" mt="xs">
-                {t.exam.noPapersAvailable}
-              </Text>
-            )}
           </div>
 
-          {/* Source-specific options */}
+          {/* 2. University + Course — only for real / random */}
+          {needsCourse && (
+            <Group grow gap="md">
+              <Select
+                label={t.exam.university ?? 'University'}
+                placeholder={t.exam.selectUniversity ?? 'Select university'}
+                data={uniOptions}
+                value={selectedUniId}
+                onChange={setSelectedUniId}
+                searchable
+                size="md"
+              />
+              <Select
+                label={t.exam.course ?? 'Course'}
+                placeholder={
+                  selectedUniId
+                    ? (t.exam.selectCourse ?? 'Select course')
+                    : (t.exam.selectUniversityFirst ?? 'Select university first')
+                }
+                data={courseOptions}
+                value={selectedCourseCode}
+                onChange={setSelectedCourseCode}
+                disabled={!selectedUniId}
+                searchable
+                size="md"
+              />
+            </Group>
+          )}
+
+          {/* 3. Source-specific options */}
+          {source === 'real' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
+            <Text size="sm" c="orange">
+              {t.exam.noPapersAvailable}
+            </Text>
+          )}
+
           {source === 'real' && papers.length > 0 && (
             <Select
               label={t.exam.selectPaper}
@@ -191,7 +235,13 @@ export function ExamEntryClient() {
             />
           )}
 
-          {source === 'random' && (
+          {source === 'random' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
+            <Text size="sm" c="orange">
+              {t.exam.noPapersAvailable}
+            </Text>
+          )}
+
+          {source === 'random' && papers.length > 0 && (
             <Select
               label={t.exam.numQuestions}
               data={['5', '10', '15', '20']}
@@ -234,7 +284,7 @@ export function ExamEntryClient() {
             </Stack>
           )}
 
-          {/* Mode selector */}
+          {/* 4. Mode — always shown */}
           <div>
             <Text size="sm" fw={500} mb="xs">
               Mode
@@ -243,13 +293,13 @@ export function ExamEntryClient() {
               <ModeCard
                 active={selectedMode === 'practice'}
                 title="Practice"
-                description="Answer one question at a time with immediate feedback"
+                description="Answer one at a time with immediate feedback"
                 onClick={() => setSelectedMode('practice')}
               />
               <ModeCard
                 active={selectedMode === 'exam'}
                 title="Exam"
-                description="Answer all questions, then submit for a final score"
+                description="Answer all, then submit for a final score"
                 onClick={() => setSelectedMode('exam')}
               />
             </Group>
@@ -262,7 +312,7 @@ export function ExamEntryClient() {
             </Text>
           )}
 
-          {/* Start button */}
+          {/* 5. Start */}
           <Button
             size="lg"
             radius="md"
@@ -276,11 +326,7 @@ export function ExamEntryClient() {
               )
             }
             loading={isPending}
-            disabled={
-              !selectedCourse ||
-              (source === 'real' && !selectedPaper) ||
-              (source === 'ai' && !topic.trim())
-            }
+            disabled={isStartDisabled}
             onClick={handleStart}
             fullWidth
           >
@@ -297,18 +343,16 @@ function SourceCard({
   title,
   description,
   icon,
-  disabled,
   onClick,
 }: {
   active: boolean;
   title: string;
   description: string;
   icon: ReactNode;
-  disabled: boolean;
   onClick: () => void;
 }) {
   return (
-    <UnstyledButton onClick={onClick} disabled={disabled} style={{ opacity: disabled ? 0.5 : 1 }}>
+    <UnstyledButton onClick={onClick}>
       <Card
         withBorder
         radius="md"
@@ -316,7 +360,7 @@ function SourceCard({
         style={{
           borderColor: active ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-gray-3)',
           backgroundColor: active ? 'var(--mantine-color-violet-0)' : undefined,
-          cursor: disabled ? 'not-allowed' : 'pointer',
+          cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
       >

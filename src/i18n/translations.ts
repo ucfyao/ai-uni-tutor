@@ -332,6 +332,11 @@ export const translations = {
       topic: '知识点',
       difficulty: '难度',
       noPapersAvailable: '该课程暂无真题，请先在知识库上传考试文档',
+      university: '大学',
+      selectUniversity: '选择大学',
+      course: '课程',
+      selectCourse: '选择课程',
+      selectUniversityFirst: '请先选择大学',
     },
     // Sidebar
     sidebar: {
@@ -850,6 +855,11 @@ export const translations = {
       difficulty: 'Difficulty',
       noPapersAvailable:
         'No papers available for this course. Upload exam documents in Knowledge Base first.',
+      university: 'University',
+      selectUniversity: 'Select university',
+      course: 'Course',
+      selectCourse: 'Select course',
+      selectUniversityFirst: 'Select university first',
     },
     // Sidebar
     sidebar: {
