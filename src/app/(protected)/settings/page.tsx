@@ -11,41 +11,35 @@ import {
   Group,
   Paper,
   Progress,
+  Select,
   Skeleton,
   Stack,
+  Switch,
   Text,
-  TextInput,
   ThemeIcon,
   Title,
+  useComputedColorScheme,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { PageShell } from '@/components/PageShell';
-import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useProfile } from '@/context/ProfileContext';
-import { showNotification } from '@/lib/notifications';
+import { useLanguage } from '@/i18n/LanguageContext';
 import type { AccessLimits } from '@/lib/services/QuotaService';
 
 export default function SettingsPage() {
-  const { profile, loading: profileLoading, updateProfile } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
+  const { t } = useLanguage();
+  const { setColorScheme } = useMantineColorScheme();
+  const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const [limits, setLimits] = useState<AccessLimits | null>(null);
   const [usage, setUsage] = useState<number>(0);
-  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    // Initialize fullName from profile context
-    if (profile?.full_name) {
-      setFullName(profile.full_name);
-    }
-  }, [profile]);
 
   useEffect(() => {
     async function fetchLimits() {
       try {
         const res = await fetch('/api/quota');
-        if (!res.ok) {
-          throw new Error('Failed to fetch quota information');
-        }
+        if (!res.ok) throw new Error('Failed to fetch quota information');
         const data: { status: { usage: number }; limits: AccessLimits } = await res.json();
         setLimits(data.limits);
         setUsage(data.status.usage);
@@ -58,30 +52,6 @@ export default function SettingsPage() {
     fetchLimits();
   }, []);
 
-  const handleSaveProfile = async () => {
-    if (!profile) return;
-    setSaving(true);
-    try {
-      // Update via Context (which handles DB update and state sync)
-      await updateProfile({ full_name: fullName });
-
-      showNotification({
-        title: 'Saved',
-        message: 'Profile updated successfully',
-        color: 'green',
-      });
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Unknown error';
-      showNotification({
-        title: 'Error',
-        message,
-        color: 'red',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading || profileLoading) {
     return (
       <Container size={700} py={60}>
@@ -90,9 +60,10 @@ export default function SettingsPage() {
             <Skeleton h={28} w={200} mb="xs" />
             <Skeleton h={16} w={350} />
           </Box>
-          <Skeleton h={140} radius="lg" />
+          <Skeleton h={180} radius="lg" />
           <Skeleton h={280} radius="lg" />
           <Skeleton h={200} radius="lg" />
+          <Skeleton h={80} radius="lg" />
         </Stack>
       </Container>
     );
@@ -102,36 +73,62 @@ export default function SettingsPage() {
     profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
 
   return (
-    <PageShell title="Settings" subtitle="Manage your account and subscription preferences">
-      {/* Profile Section */}
+    <PageShell title={t.settings.title} subtitle={t.settings.subtitle}>
+      {/* Preferences */}
       <Paper withBorder p="xl" radius="lg">
         <Stack gap="md">
           <Title order={3} fw={700}>
-            Profile Information
+            {t.settings.preferences}
           </Title>
-          <Group align="flex-end">
-            <TextInput
-              label="Display Name"
-              description={`This name will be displayed in the sidebar and chat (max ${FULL_NAME_MAX_LENGTH} characters).`}
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              maxLength={FULL_NAME_MAX_LENGTH}
-              style={{ flex: 1 }}
+
+          <Group justify="space-between">
+            <Box>
+              <Text fw={500}>{t.settings.theme}</Text>
+              <Text size="sm" c="dimmed">
+                {t.settings.themeDesc}
+              </Text>
+            </Box>
+            <Switch
+              size="md"
+              checked={computedColorScheme === 'dark'}
+              onChange={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
             />
-            <Button onClick={handleSaveProfile} loading={saving} variant="filled" color="dark">
-              Save Changes
-            </Button>
           </Group>
 
-          <TextInput
-            label="Email Address"
-            value={profile?.email || ''}
-            disabled
-            description="Your email address cannot be changed."
-          />
+          <Divider />
+
+          <Group justify="space-between">
+            <Box>
+              <Text fw={500}>{t.settings.language}</Text>
+              <Text size="sm" c="dimmed">
+                {t.settings.languageDesc}
+              </Text>
+            </Box>
+            <Select
+              w={140}
+              defaultValue="en"
+              data={[
+                { value: 'en', label: 'English' },
+                { value: 'zh', label: '中文' },
+              ]}
+            />
+          </Group>
+
+          <Divider />
+
+          <Group justify="space-between">
+            <Box>
+              <Text fw={500}>{t.settings.notifications}</Text>
+              <Text size="sm" c="dimmed">
+                {t.settings.notificationsDesc}
+              </Text>
+            </Box>
+            <Switch defaultChecked size="md" />
+          </Group>
         </Stack>
       </Paper>
 
+      {/* Plan & Billing */}
       <Paper
         withBorder
         p={0}
@@ -142,10 +139,10 @@ export default function SettingsPage() {
           <Group justify="space-between" mb="xs">
             <Stack gap={4}>
               <Title order={3} fw={700}>
-                Plan & Billing
+                {t.settings.planBilling}
               </Title>
               <Text size="sm" c="dimmed">
-                Detailed overview of your current subscription
+                {t.settings.planBillingDesc}
               </Text>
             </Stack>
             {isPro ? (
@@ -156,11 +153,11 @@ export default function SettingsPage() {
                 leftSection={<Crown size={14} />}
                 h={32}
               >
-                Plus Member
+                {t.settings.plusMember}
               </Badge>
             ) : (
               <Badge size="xl" variant="light" color="gray" h={32}>
-                Free Tier
+                {t.settings.freeTier}
               </Badge>
             )}
           </Group>
@@ -177,14 +174,13 @@ export default function SettingsPage() {
                 </ThemeIcon>
                 <Box style={{ flex: 1 }}>
                   <Text fw={700} fz="xl" mb={4}>
-                    Subscription Active
+                    {t.settings.subscriptionActive}
                   </Text>
                   <Text size="sm" c="dimmed" lh={1.6}>
-                    Your Plus subscription is currently active. You have full access to all premium
-                    features including unlimited document uploads and priority AI processing.
+                    {t.settings.subscriptionActiveDesc}
                   </Text>
                   <Text size="sm" fw={600} mt="md" c="dark.3">
-                    Next invoice:{' '}
+                    {t.settings.nextInvoice}{' '}
                     {profile?.current_period_end
                       ? new Date(profile.current_period_end).toLocaleDateString(undefined, {
                           dateStyle: 'long',
@@ -200,7 +196,7 @@ export default function SettingsPage() {
                 w="fit-content"
                 leftSection={<CreditCard size={18} />}
               >
-                Manage via Stripe
+                {t.settings.manageViaStripe}
               </Button>
             </Stack>
           ) : (
@@ -211,15 +207,14 @@ export default function SettingsPage() {
                     <CreditCard size={20} />
                   </ThemeIcon>
                   <Box>
-                    <Text fw={600}>Free Tier</Text>
+                    <Text fw={600}>{t.settings.freeTierLabel}</Text>
                     <Text size="sm" c="dimmed">
-                      You are currently on the free plan.
+                      {t.settings.freeTierDesc}
                     </Text>
                   </Box>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  Upgrade to Pro to unlock unlimited uploads, advanced RAG features, and priority
-                  support.
+                  {t.settings.freeTierUpgrade}
                 </Text>
                 <Button
                   variant="light"
@@ -227,7 +222,7 @@ export default function SettingsPage() {
                   radius="md"
                   onClick={() => (window.location.href = '/pricing')}
                 >
-                  View Upgrade Options
+                  {t.settings.viewUpgradeOptions}
                 </Button>
               </Stack>
             </Paper>
@@ -235,18 +230,19 @@ export default function SettingsPage() {
         </Box>
       </Paper>
 
+      {/* Usage & Limits */}
       <Paper withBorder p="xl" radius="lg">
         <Stack gap="md">
           <Title order={3} fw={700}>
-            Usage & Limits
+            {t.settings.usageLimits}
           </Title>
           <Text size="sm" c="dimmed">
-            Current usage for your {isPro ? 'Plus' : 'Free'} plan.
+            {t.settings.usageLimitsDesc}
           </Text>
 
           <Stack>
             <Group justify="space-between" mb={5}>
-              <Text fw={500}>Daily LLM Usage</Text>
+              <Text fw={500}>{t.settings.dailyLLMUsage}</Text>
               <Text
                 size="sm"
                 c={
@@ -278,25 +274,26 @@ export default function SettingsPage() {
 
             <Divider />
             <Group justify="space-between">
-              <Text fw={500}>File Upload Size</Text>
+              <Text fw={500}>{t.settings.fileUploadSize}</Text>
               <Badge variant="light" color="blue">
-                {limits?.maxFileSizeMB || 5}MB per file
+                {limits?.maxFileSizeMB || 5}MB {t.settings.perFile}
               </Badge>
             </Group>
             <Divider />
             <Group justify="space-between">
-              <Text fw={500}>Document Storage</Text>
+              <Text fw={500}>{t.settings.documentStorage}</Text>
               <Badge variant="light" color={isPro ? 'green' : 'gray'}>
-                {isPro ? 'Unlimited' : 'Limited (Shared)'}
+                {isPro ? t.settings.unlimited : t.settings.limited}
               </Badge>
             </Group>
           </Stack>
         </Stack>
       </Paper>
 
+      {/* Data & Privacy */}
       <Box>
         <Title order={3} fw={700} mb="md">
-          Data & Privacy
+          {t.settings.dataPrivacy}
         </Title>
         <Paper
           withBorder
@@ -308,14 +305,14 @@ export default function SettingsPage() {
           <Group justify="space-between">
             <Box>
               <Text fw={600} c="red.7">
-                Delete Account
+                {t.settings.deleteAccount}
               </Text>
               <Text size="sm" c="red.6">
-                Permanently delete your account and all data.
+                {t.settings.deleteAccountDesc}
               </Text>
             </Box>
             <Button color="red" variant="light">
-              Delete Account
+              {t.settings.deleteAccount}
             </Button>
           </Group>
         </Paper>

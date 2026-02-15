@@ -1,167 +1,99 @@
 'use client';
 
-import { Bell, Globe, Moon, Sun, User } from 'lucide-react';
-import { useState } from 'react';
-import {
-  Avatar,
-  Box,
-  Button,
-  Divider,
-  Group,
-  Modal,
-  Paper,
-  Select,
-  Stack,
-  Switch,
-  Text,
-  TextInput,
-  useComputedColorScheme,
-  useMantineColorScheme,
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { Handshake } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Badge, Button, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core';
 import { PageShell } from '@/components/PageShell';
-import { PLACEHOLDERS } from '@/constants/placeholders';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useProfile } from '@/context/ProfileContext';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 
 export default function PersonalizationPage() {
-  const { setColorScheme } = useMantineColorScheme();
-  const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
-  const [opened, { open, close }] = useDisclosure(false);
   const { profile, loading, updateProfile } = useProfile();
+  const { t } = useLanguage();
+  const [fullName, setFullName] = useState('');
   const [saving, setSaving] = useState(false);
-  const [fullName, setFullName] = useState(profile?.full_name ?? '');
+
+  useEffect(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  }, [profile]);
 
   const handleSaveProfile = async () => {
+    if (!profile) return;
     setSaving(true);
     try {
       await updateProfile({ full_name: fullName });
       showNotification({
-        title: 'Success',
-        message: 'Profile updated successfully',
+        title: t.settings.profileUpdated,
+        message: t.settings.profileUpdatedMsg,
         color: 'green',
       });
-      close();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Unknown error';
       showNotification({
-        title: 'Error',
+        title: t.common.error,
         message,
         color: 'red',
       });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
-    <>
-      <Modal opened={opened} onClose={close} title="Edit Profile" centered>
-        <Stack>
+    <PageShell title={t.personalization.title} subtitle={t.personalization.subtitle}>
+      {/* Profile Information */}
+      <Paper withBorder p="xl" radius="lg">
+        <Stack gap="md">
+          <Title order={3} fw={700}>
+            {t.personalization.profileInfo}
+          </Title>
+          <Group align="flex-end">
+            <TextInput
+              label={t.personalization.displayName}
+              description={`${t.personalization.displayNameDesc} (max ${FULL_NAME_MAX_LENGTH})`}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              maxLength={FULL_NAME_MAX_LENGTH}
+              style={{ flex: 1 }}
+              disabled={loading}
+            />
+            <Button onClick={handleSaveProfile} loading={saving} variant="filled" color="dark">
+              {t.personalization.saveChanges}
+            </Button>
+          </Group>
+
           <TextInput
-            label="Full Name"
-            placeholder={PLACEHOLDERS.ENTER_NAME}
-            description={`Max ${FULL_NAME_MAX_LENGTH} characters`}
-            value={fullName}
-            onChange={(event) => setFullName(event.currentTarget.value)}
-            maxLength={FULL_NAME_MAX_LENGTH}
+            label={t.personalization.emailAddress}
+            value={profile?.email || ''}
+            disabled
+            description={t.personalization.emailDesc}
           />
-          {/* Future: Avatar Upload */}
-          <Button onClick={handleSaveProfile} loading={saving} color="violet" fullWidth>
-            Save Changes
-          </Button>
         </Stack>
-      </Modal>
-      <PageShell title="Personalization" subtitle="Customize your AI Tutor experience">
-        <Paper withBorder p="xl" radius="lg">
-          <Stack gap="lg">
-            <Group justify="space-between">
-              <Group gap="md">
-                <Avatar color="violet" radius="md">
-                  <User size={20} />
-                </Avatar>
-                <Box>
-                  <Text fw={600}>Profile Information</Text>
-                  <Text size="sm" c="dimmed">
-                    {loading
-                      ? 'Loading...'
-                      : profile?.full_name || profile?.email || 'Update your personal details'}
-                  </Text>
-                </Box>
-              </Group>
-              <Button variant="light" color="violet" onClick={open} loading={loading}>
-                Edit Profile
-              </Button>
+      </Paper>
+
+      {/* Partner Program — Coming Soon */}
+      <Paper withBorder p="xl" radius="lg">
+        <Stack gap="md">
+          <Group justify="space-between">
+            <Group gap="sm">
+              <Handshake size={22} color="var(--mantine-color-violet-6)" />
+              <Title order={3} fw={700}>
+                {t.personalization.partnerProgram}
+              </Title>
             </Group>
-
-            <Divider />
-
-            <Group justify="space-between">
-              <Group gap="md">
-                <Avatar color="blue" radius="md">
-                  <Globe size={20} />
-                </Avatar>
-                <Box>
-                  <Text fw={600}>Language</Text>
-                  <Text size="sm" c="dimmed">
-                    Preferred language for AI responses
-                  </Text>
-                </Box>
-              </Group>
-              <Select
-                w={140}
-                defaultValue="en"
-                data={[
-                  { value: 'en', label: 'English' },
-                  { value: 'es', label: 'Spanish' },
-                  { value: 'fr', label: 'French' },
-                  { value: 'zh', label: 'Chinese' },
-                ]}
-              />
-            </Group>
-
-            <Divider />
-
-            <Group justify="space-between">
-              <Group gap="md">
-                <Avatar color="dark" radius="md">
-                  {computedColorScheme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
-                </Avatar>
-                <Box>
-                  <Text fw={600}>Theme</Text>
-                  <Text size="sm" c="dimmed">
-                    Toggle dark mode
-                  </Text>
-                </Box>
-              </Group>
-              <Switch
-                size="md"
-                onLabel="ON"
-                offLabel="OFF"
-                checked={computedColorScheme === 'dark'}
-                onChange={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
-              />
-            </Group>
-
-            <Divider />
-
-            <Group justify="space-between">
-              <Group gap="md">
-                <Avatar color="orange" radius="md">
-                  <Bell size={20} />
-                </Avatar>
-                <Box>
-                  <Text fw={600}>Notifications</Text>
-                  <Text size="sm" c="dimmed">
-                    Receive email updates
-                  </Text>
-                </Box>
-              </Group>
-              <Switch defaultChecked size="md" color="violet" />
-            </Group>
-          </Stack>
-        </Paper>
-      </PageShell>
-    </>
+            <Badge variant="light" color="gray" size="lg">
+              {t.personalization.comingSoon}
+            </Badge>
+          </Group>
+          <Text size="sm" c="dimmed">
+            {t.personalization.partnerDesc}
+          </Text>
+        </Stack>
+      </Paper>
+    </PageShell>
   );
 }

@@ -8,7 +8,8 @@ export default function PersonalizationLoading() {
           <Skeleton h={28} w={200} mb="xs" />
           <Skeleton h={16} w={350} />
         </Box>
-        <Skeleton h={320} radius="lg" />
+        <Skeleton h={200} radius="lg" />
+        <Skeleton h={100} radius="lg" />
       </Stack>
     </Container>
   );

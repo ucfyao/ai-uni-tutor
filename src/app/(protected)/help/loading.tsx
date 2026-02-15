@@ -8,9 +8,11 @@ export default function HelpLoading() {
           <Skeleton h={28} w={200} mb="xs" />
           <Skeleton h={16} w={350} />
         </Box>
-        <Skeleton h={60} radius="lg" />
-        <Skeleton h={60} radius="lg" />
-        <Skeleton h={60} radius="lg" />
+        <Skeleton h={200} radius="lg" />
+        <Skeleton h={200} radius="lg" />
+        <Skeleton h={200} radius="lg" />
+        <Skeleton h={200} radius="lg" />
+        <Skeleton h={80} radius="lg" />
       </Stack>
     </Container>
   );
