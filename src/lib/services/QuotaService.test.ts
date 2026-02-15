@@ -117,7 +117,7 @@ describe('QuotaService', () => {
     expect(result.error).toContain('Daily limit reached');
   });
 
-  it('should fail when LLM per-window rate limit exceeded', async () => {
+  it('should fail when LLM per-window rate limit exceeded without consuming daily quota', async () => {
     const mockSupabase = {
       from: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
@@ -128,12 +128,7 @@ describe('QuotaService', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(supabaseServer.createClient).mockResolvedValue(mockSupabase as any);
 
-    vi.mocked(redisLib.checkLLMUsage).mockResolvedValue({
-      success: true,
-      count: 5,
-      remaining: 5,
-    });
-
+    // Window limit fails — daily quota should NOT be consumed
     const redisModule = await import('@/lib/redis');
     vi.mocked(redisModule.llmFreeRatelimit.limit).mockResolvedValueOnce({
       success: false,
@@ -143,10 +138,16 @@ describe('QuotaService', () => {
       pending: Promise.resolve(),
     });
 
+    // getLLMUsage is called (read-only) for the response usage field
+    vi.mocked(redisLib.getLLMUsage).mockResolvedValue(5);
+
     const result = await quotaService.checkAndConsume('user-window');
 
     expect(result.allowed).toBe(false);
     expect(result.error).toContain('Too many LLM requests');
+    expect(result.usage).toBe(5);
+    // checkLLMUsage (which increments) must NOT have been called
+    expect(redisLib.checkLLMUsage).not.toHaveBeenCalled();
   });
 
   it('should fail open if redis fails', async () => {
@@ -163,8 +164,11 @@ describe('QuotaService', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(supabaseServer.createClient).mockResolvedValue(mockSupabase as any);
 
-    // Mock Redis error
-    vi.mocked(redisLib.checkLLMUsage).mockRejectedValue(new Error('Redis connection failed'));
+    // Window limiter is called first now; make it throw
+    const redisModule = await import('@/lib/redis');
+    vi.mocked(redisModule.llmFreeRatelimit.limit).mockRejectedValueOnce(
+      new Error('Redis connection failed'),
+    );
 
     // Should return success=true (Fail Open)
     const result = await quotaService.checkAndConsume('user-error');

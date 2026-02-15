@@ -93,9 +93,24 @@ export class QuotaService {
 
     try {
       const isPro = await this.getIsPro(userId);
-
-      // 1. LLM daily quota
       const dailyLimit = this.getDailyLimit(isPro);
+
+      // 1. Per-window rate limit first (auto-resets, no permanent cost)
+      const llmLimiter = isPro ? llmProRatelimit : llmFreeRatelimit;
+      const { success: windowOk } = await llmLimiter.limit(userId);
+      if (!windowOk) {
+        const usage = await getLLMUsage(userId);
+        return {
+          allowed: false,
+          usage,
+          limit: dailyLimit,
+          remaining: Math.max(0, dailyLimit - usage),
+          isPro,
+          error: 'Too many LLM requests in this time window. Please try again later.',
+        };
+      }
+
+      // 2. Daily quota (check-and-increment is atomic; only consumed after window check passes)
       const { success: dailyOk, count, remaining } = await checkLLMUsage(userId, dailyLimit);
       if (!dailyOk) {
         return {
@@ -105,20 +120,6 @@ export class QuotaService {
           remaining,
           isPro,
           error: `Daily limit reached (${count}/${dailyLimit}). Please upgrade to Pro for more.`,
-        };
-      }
-
-      // 2. LLM per-window rate limit (chat/LLM endpoints only)
-      const llmLimiter = isPro ? llmProRatelimit : llmFreeRatelimit;
-      const { success: windowOk } = await llmLimiter.limit(userId);
-      if (!windowOk) {
-        return {
-          allowed: false,
-          usage: count,
-          limit: dailyLimit,
-          remaining,
-          isPro,
-          error: 'Too many LLM requests in this time window. Please try again later.',
         };
       }
 
