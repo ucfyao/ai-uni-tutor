@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, Group, Modal, Text } from '@mantine/core';
+import { Button, Group, Text } from '@mantine/core';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 interface DeleteSessionModalProps {
@@ -18,7 +19,7 @@ const DeleteSessionModal: React.FC<DeleteSessionModalProps> = ({
   const { t } = useLanguage();
 
   return (
-    <Modal opened={opened} onClose={onClose} title={t.modals.deleteChat} centered size="sm">
+    <FullScreenModal opened={opened} onClose={onClose} title={t.modals.deleteChat} centered size="sm">
       <Text size="sm" mb="lg">
         {t.modals.deleteConfirm}
       </Text>
@@ -38,7 +39,7 @@ const DeleteSessionModal: React.FC<DeleteSessionModalProps> = ({
           {t.modals.delete}
         </Button>
       </Group>
-    </Modal>
+    </FullScreenModal>
   );
 };
 

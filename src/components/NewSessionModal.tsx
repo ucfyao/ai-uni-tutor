@@ -5,13 +5,13 @@ import {
   Button,
   Center,
   Group,
-  Modal,
   Select,
   Stack,
   Text,
   ThemeIcon,
   UnstyledButton,
 } from '@mantine/core';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { MODES_METADATA } from '@/constants/modes';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { COURSES, UNIVERSITIES } from '../constants/index';
@@ -204,7 +204,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
   const isFormValid = preSelectedMode && selectedCourseId;
 
   return (
-    <Modal
+    <FullScreenModal
       opened={opened}
       onClose={onClose}
       withCloseButton={false}
@@ -313,7 +313,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
           {isLoading ? t.modals.initializing : t.modals.startSession}
         </Button>
       </Stack>
-    </Modal>
+    </FullScreenModal>
   );
 };
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Group, Modal, TextInput } from '@mantine/core';
+import { Button, Group, TextInput } from '@mantine/core';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { PLACEHOLDERS } from '@/constants/placeholders';
 import { useLanguage } from '@/i18n/LanguageContext';
 
@@ -26,7 +27,7 @@ const RenameSessionModal: React.FC<RenameSessionModalProps> = ({
   }, [currentTitle, opened]);
 
   return (
-    <Modal opened={opened} onClose={onClose} title={t.modals.renameSession} centered size="sm">
+    <FullScreenModal opened={opened} onClose={onClose} title={t.modals.renameSession} centered size="sm">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -52,7 +53,7 @@ const RenameSessionModal: React.FC<RenameSessionModalProps> = ({
           </Button>
         </Group>
       </form>
-    </Modal>
+    </FullScreenModal>
   );
 };
 

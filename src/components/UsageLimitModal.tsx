@@ -3,7 +3,8 @@
 import { ArrowUp, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
-import { Box, Button, Group, Modal, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Box, Button, Group, Stack, Text, ThemeIcon } from '@mantine/core';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 interface UsageLimitModalProps {
@@ -17,7 +18,7 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
   const { t } = useLanguage();
 
   return (
-    <Modal
+    <FullScreenModal
       opened={opened}
       onClose={onClose}
       title={
@@ -72,6 +73,6 @@ export function UsageLimitModal({ opened, onClose }: UsageLimitModalProps) {
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </FullScreenModal>
   );
 }

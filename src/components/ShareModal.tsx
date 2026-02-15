@@ -5,13 +5,13 @@ import {
   Box,
   CopyButton,
   Group,
-  Modal,
   Stack,
   Switch,
   Text,
   TextInput,
   Tooltip,
 } from '@mantine/core';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { toggleSessionShare } from '@/app/actions/chat';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatSession } from '../types/index';
@@ -47,7 +47,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpd
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title={t.modals.shareChat} centered size="md">
+    <FullScreenModal opened={opened} onClose={onClose} title={t.modals.shareChat} centered size="md">
       <Stack gap="lg">
         <Group justify="space-between" align="start">
           <Box style={{ flex: 1 }}>
@@ -105,7 +105,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpd
           </Box>
         )}
       </Stack>
-    </Modal>
+    </FullScreenModal>
   );
 };
 
