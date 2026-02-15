@@ -65,11 +65,19 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const [difficulty, setDifficulty] = useState<string | null>('mixed');
   const [pendingMode, setPendingMode] = useState<ExamMode | null>(null);
 
+  // Force SegmentedControl remount after modal transition settles
+  const [segKey, setSegKey] = useState(0);
+
   // Reset source & restore last selection when modal opens
   useEffect(() => {
-    if (!opened) return;
+    if (!opened) {
+      setSegKey(0);
+      return;
+    }
     setSource('real');
     setError(null);
+    // Remount SegmentedControl after pop transition (180ms) to fix indicator
+    const timer = setTimeout(() => setSegKey((k) => k + 1), 200);
     const lastUni = localStorage.getItem('lastUniId');
     const lastCourse = localStorage.getItem('lastCourseId');
     if (lastUni) {
@@ -79,6 +87,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         if (course) setSelectedCourseCode(course.code);
       }
     }
+    return () => clearTimeout(timer);
   }, [opened]);
 
   const uniOptions = useMemo(
@@ -206,6 +215,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
 
         {/* Source tabs — custom padding to stay compact */}
         <SegmentedControl
+          key={segKey}
           value={source}
           onChange={(v) => setSource(v as Source)}
           data={sourceData}
