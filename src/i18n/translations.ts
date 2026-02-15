@@ -460,6 +460,9 @@ export const translations = {
     personalization: {
       title: '个性化',
       subtitle: '管理你的个人信息',
+      accountOverview: '账户概览',
+      memberSince: '加入时间',
+      subscriptionStatus: '订阅状态',
       profileInfo: '个人信息',
       displayName: '显示名称',
       displayNameDesc: '此名称将显示在侧栏和聊天中',
@@ -469,6 +472,9 @@ export const translations = {
       partnerProgram: '合伙人计划',
       partnerDesc: '邀请好友注册，获得课程购买返佣。',
       comingSoon: '即将推出',
+      dataPrivacy: '数据与隐私',
+      deleteAccount: '删除账户',
+      deleteAccountDesc: '永久删除你的账户和所有数据。',
     },
     // Help Page
     help: {
@@ -992,6 +998,9 @@ export const translations = {
     personalization: {
       title: 'Personalization',
       subtitle: 'Manage your personal information',
+      accountOverview: 'Account Overview',
+      memberSince: 'Member Since',
+      subscriptionStatus: 'Subscription Status',
       profileInfo: 'Profile Information',
       displayName: 'Display Name',
       displayNameDesc: 'This name will be displayed in the sidebar and chat',
@@ -1001,6 +1010,9 @@ export const translations = {
       partnerProgram: 'Partner Program',
       partnerDesc: 'Invite friends to register and earn commission on their course purchases.',
       comingSoon: 'Coming Soon',
+      dataPrivacy: 'Data & Privacy',
+      deleteAccount: 'Delete Account',
+      deleteAccountDesc: 'Permanently delete your account and all data.',
     },
     // Help Page
     help: {
