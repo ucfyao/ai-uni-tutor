@@ -1,106 +1,116 @@
 'use client';
 
-import { Check, CreditCard, Sparkles } from 'lucide-react';
-import { useState } from 'react';
-import { Box, Button, Card, Group, List, Stack, Text, ThemeIcon, Title } from '@mantine/core';
+import { Check, GraduationCap, Handshake } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  Badge,
+  Box,
+  Button,
+  Group,
+  List,
+  Paper,
+  SimpleGrid,
+  Stack,
+  Text,
+  ThemeIcon,
+  Title,
+} from '@mantine/core';
 import { PageShell } from '@/components/PageShell';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { showNotification } from '@/lib/notifications';
 
 export default function PricingPage() {
-  const [loading, setLoading] = useState(false);
   const { t } = useLanguage();
+  const router = useRouter();
 
-  const handleUpgrade = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-      });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error(data.error || 'Failed to create checkout session');
-      }
-    } catch (error) {
-      showNotification({
-        title: t.pricing.errorTitle,
-        message: error instanceof Error ? error.message : 'An error occurred',
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const placeholderCourses = [
+    { name: 'Course A', price: '--' },
+    { name: 'Course B', price: '--' },
+  ];
 
   return (
     <PageShell title={t.pricing.title} subtitle={t.pricing.subtitle}>
-      <Card
-        withBorder
-        radius="xl"
-        p="xl"
-        style={{
-          border: '2px solid var(--mantine-color-violet-2)',
-          background: 'linear-gradient(135deg, white 0%, #f5f3ff 100%)',
-        }}
-      >
-        <Stack gap="xl">
-          <Group justify="space-between" align="flex-start">
+      {/* Course Pricing Cards */}
+      <Box>
+        <Title order={3} fw={700} mb="md">
+          {t.pricing.coursePricing}
+        </Title>
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+          {placeholderCourses.map((course) => (
+            <Paper key={course.name} withBorder p="xl" radius="lg">
+              <Stack gap="lg">
+                <Group justify="space-between" align="flex-start">
+                  <Group gap="sm">
+                    <ThemeIcon variant="light" color="violet" size="lg" radius="md">
+                      <GraduationCap size={20} />
+                    </ThemeIcon>
+                    <Box>
+                      <Text fw={700}>{course.name}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t.pricing.perCourse}
+                      </Text>
+                    </Box>
+                  </Group>
+                  <Badge variant="light" color="gray" size="lg">
+                    {t.pricing.comingSoon}
+                  </Badge>
+                </Group>
+
+                <List
+                  spacing="xs"
+                  size="sm"
+                  center
+                  icon={
+                    <ThemeIcon color="violet" size={20} radius="xl" variant="light">
+                      <Check size={12} strokeWidth={3} />
+                    </ThemeIcon>
+                  }
+                >
+                  {t.pricing.courseFeatures.map((feature, index) => (
+                    <List.Item key={index}>
+                      <Text size="sm" c="dimmed">
+                        {feature}
+                      </Text>
+                    </List.Item>
+                  ))}
+                </List>
+
+                <Button fullWidth variant="light" color="gray" radius="md" disabled>
+                  {t.pricing.getStarted}
+                </Button>
+              </Stack>
+            </Paper>
+          ))}
+        </SimpleGrid>
+      </Box>
+
+      {/* Partner Program Entry */}
+      <Paper withBorder p="xl" radius="lg">
+        <Group justify="space-between" align="center">
+          <Group gap="sm">
+            <Handshake size={22} color="var(--mantine-color-violet-6)" />
             <Stack gap={4}>
-              <Group gap="xs">
-                <ThemeIcon variant="light" c="violet.9" size="lg" radius="md" color="violet">
-                  <Sparkles size={20} />
-                </ThemeIcon>
-                <Title order={2} c="violet.9">
-                  {t.pricing.proPlan}
-                </Title>
-              </Group>
-              <Text size="md" c="gray.6">
-                {t.pricing.proDesc}
+              <Title order={4} fw={700}>
+                {t.pricing.partnerSection}
+              </Title>
+              <Text size="sm" c="dimmed">
+                {t.pricing.partnerDesc}
               </Text>
             </Stack>
-            <Box style={{ textAlign: 'right' }}>
-              <Text fz={48} fw={800} c="violet.9" lh={1}>
-                {t.pricing.price}
-              </Text>
-              <Text size="sm" c="dimmed" fw={600}>
-                {t.pricing.perMonth}
-              </Text>
-            </Box>
           </Group>
-
-          <List
-            spacing="md"
-            size="md"
-            center
-            icon={
-              <ThemeIcon color="violet" size={24} radius="xl" variant="light">
-                <Check size={14} strokeWidth={3} />
-              </ThemeIcon>
-            }
-          >
-            {t.pricing.features.map((feature, index) => (
-              <List.Item key={index}>{feature}</List.Item>
-            ))}
-          </List>
-
           <Button
-            fullWidth
-            size="xl"
+            variant="light"
             color="violet"
             radius="md"
-            onClick={handleUpgrade}
-            loading={loading}
-            leftSection={<CreditCard size={20} />}
+            onClick={() => router.push('/personalization')}
           >
-            {t.pricing.getStarted}
+            {t.pricing.learnMore}
           </Button>
-          <Text size="xs" c="dimmed" ta="center">
-            {t.pricing.securePayment}
-          </Text>
-        </Stack>
-      </Card>
+        </Group>
+      </Paper>
+
+      <Text size="xs" c="dimmed" ta="center">
+        {t.pricing.securePayment}
+      </Text>
     </PageShell>
   );
 }

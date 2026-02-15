@@ -8,7 +8,7 @@ export default function SettingsLoading() {
           <Skeleton h={28} w={200} mb="xs" />
           <Skeleton h={16} w={350} />
         </Box>
-        <Skeleton h={140} radius="lg" />
+        <Skeleton h={180} radius="lg" />
         <Skeleton h={280} radius="lg" />
         <Skeleton h={200} radius="lg" />
         <Skeleton h={80} radius="lg" />
