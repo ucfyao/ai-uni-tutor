@@ -129,8 +129,12 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
 
   const handleStart = (mode: ExamMode) => {
     if (source === 'ai') {
+      if (!selectedCourseCode) return;
+      if (selectedUniId) localStorage.setItem('lastUniId', selectedUniId);
+      const course = COURSES.find((c) => c.code === selectedCourseCode);
+      if (course) localStorage.setItem('lastCourseId', course.id);
       onClose();
-      router.push('/exam/ai');
+      router.push(`/exam/ai?course=${selectedCourseCode}`);
       return;
     }
     setError(null);
@@ -158,10 +162,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   };
 
   const isStartDisabled =
-    source === 'ai'
-      ? false
-      : (source === 'real' && !selectedPaper) ||
-        (source === 'random' && (!selectedCourseCode || papers.length === 0));
+    (source === 'ai' && !selectedCourseCode) ||
+    (source === 'real' && !selectedPaper) ||
+    (source === 'random' && (!selectedCourseCode || papers.length === 0));
 
   const showNoPapers =
     source !== 'ai' && selectedCourseCode && !loadingPapers && papers.length === 0;
