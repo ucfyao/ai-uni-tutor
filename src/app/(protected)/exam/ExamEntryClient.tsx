@@ -1,8 +1,8 @@
 'use client';
 
-import { IconLoader2, IconSparkles } from '@tabler/icons-react';
+import { IconArrowsShuffle, IconFileText, IconLoader2, IconSparkles } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import {
   Box,
   Button,
@@ -11,12 +11,18 @@ import {
   Select,
   Stack,
   Text,
+  TextInput,
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import { generateMockExam } from '@/app/actions/mock-exams';
+import {
+  createRandomMixMock,
+  createRealExamMock,
+  generateMockFromTopic,
+  getExamPapersForCourse,
+} from '@/app/actions/mock-exams';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { ExamMode } from '@/types/exam';
+import type { ExamMode, ExamPaper } from '@/types/exam';
 import type { Course, University } from '@/types/index';
 
 interface Props {
@@ -32,6 +38,14 @@ export function ExamEntryClient({ courses, universities }: Props) {
   const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
   const [error, setError] = useState<string | null>(null);
 
+  const [source, setSource] = useState<'real' | 'random' | 'ai'>('real');
+  const [papers, setPapers] = useState<ExamPaper[]>([]);
+  const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
+  const [numQuestions, setNumQuestions] = useState<string | null>('10');
+  const [topic, setTopic] = useState('');
+  const [difficulty, setDifficulty] = useState<string | null>('mixed');
+  const [loadingPapers, setLoadingPapers] = useState(false);
+
   const courseOptions = (courses ?? []).map((c) => {
     const uni = universities.find((u) => u.id === c.universityId);
     return {
@@ -41,12 +55,46 @@ export function ExamEntryClient({ courses, universities }: Props) {
     };
   });
 
+  useEffect(() => {
+    if (!selectedCourse) {
+      setPapers([]);
+      return;
+    }
+    setLoadingPapers(true);
+    setSelectedPaper(null);
+    getExamPapersForCourse(selectedCourse).then((result) => {
+      if (result.success) {
+        setPapers(result.papers);
+        // Auto-switch to 'ai' if no papers available
+        if (result.papers.length === 0) setSource('ai');
+      } else {
+        setPapers([]);
+        setSource('ai');
+      }
+      setLoadingPapers(false);
+    });
+  }, [selectedCourse]);
+
   const handleStart = () => {
     if (!selectedCourse) return;
     setError(null);
 
     startTransition(async () => {
-      const result = await generateMockExam(selectedCourse, selectedMode);
+      let result;
+      if (source === 'real') {
+        if (!selectedPaper) return;
+        result = await createRealExamMock(selectedPaper, selectedMode);
+      } else if (source === 'random') {
+        result = await createRandomMixMock(selectedCourse, Number(numQuestions), selectedMode);
+      } else {
+        if (!topic.trim()) return;
+        result = await generateMockFromTopic(
+          topic.trim(),
+          Number(numQuestions),
+          difficulty as 'easy' | 'medium' | 'hard' | 'mixed',
+          [],
+        );
+      }
       if (result.success) {
         router.push(`/exam/mock/${result.mockId}`);
       } else {
@@ -63,11 +111,11 @@ export function ExamEntryClient({ courses, universities }: Props) {
           {t.exam.startExam}
         </Title>
         <Text c="dimmed" size="md" fw={400} mt={2}>
-          Generate mock exams from real past papers
+          Practice with real papers, random mixes, or AI-generated questions
         </Text>
       </Box>
 
-      {/* Course + Mode + Start */}
+      {/* Course + Source + Options + Mode + Start */}
       <Card
         withBorder
         radius="lg"
@@ -90,6 +138,102 @@ export function ExamEntryClient({ courses, universities }: Props) {
             searchable
             size="md"
           />
+
+          {/* Source selector */}
+          <div>
+            <Text size="sm" fw={500} mb="xs">
+              {t.exam.selectSource}
+            </Text>
+            <Group grow gap="md">
+              <SourceCard
+                active={source === 'real'}
+                title={t.exam.realExam}
+                description={t.exam.realExamDesc}
+                icon={<IconFileText size={18} />}
+                disabled={papers.length === 0 && !loadingPapers && !!selectedCourse}
+                onClick={() => setSource('real')}
+              />
+              <SourceCard
+                active={source === 'random'}
+                title={t.exam.randomMix}
+                description={t.exam.randomMixDesc}
+                icon={<IconArrowsShuffle size={18} />}
+                disabled={papers.length === 0 && !loadingPapers && !!selectedCourse}
+                onClick={() => setSource('random')}
+              />
+              <SourceCard
+                active={source === 'ai'}
+                title={t.exam.aiMock}
+                description={t.exam.aiMockDesc}
+                icon={<IconSparkles size={18} />}
+                disabled={false}
+                onClick={() => setSource('ai')}
+              />
+            </Group>
+            {selectedCourse && papers.length === 0 && !loadingPapers && (
+              <Text size="xs" c="orange" mt="xs">
+                {t.exam.noPapersAvailable}
+              </Text>
+            )}
+          </div>
+
+          {/* Source-specific options */}
+          {source === 'real' && papers.length > 0 && (
+            <Select
+              label={t.exam.selectPaper}
+              placeholder="Select an exam paper"
+              data={papers.map((p) => ({
+                value: p.id,
+                label: `${p.title}${p.year ? ` (${p.year})` : ''}${p.questionCount ? ` — ${p.questionCount} Q` : ''}`,
+              }))}
+              value={selectedPaper}
+              onChange={setSelectedPaper}
+              size="md"
+            />
+          )}
+
+          {source === 'random' && (
+            <Select
+              label={t.exam.numQuestions}
+              data={['5', '10', '15', '20']}
+              value={numQuestions}
+              onChange={setNumQuestions}
+              size="md"
+            />
+          )}
+
+          {source === 'ai' && (
+            <Stack gap="sm">
+              <TextInput
+                label={t.exam.topic}
+                placeholder="e.g., Binary Trees, Linear Regression"
+                value={topic}
+                onChange={(e) => setTopic(e.currentTarget.value)}
+                size="md"
+              />
+              <Group grow>
+                <Select
+                  label={t.exam.numQuestions}
+                  data={['5', '10', '15', '20']}
+                  value={numQuestions}
+                  onChange={setNumQuestions}
+                  size="md"
+                />
+                <Select
+                  label={t.exam.difficulty}
+                  data={[
+                    { value: 'mixed', label: 'Mixed' },
+                    { value: 'easy', label: 'Easy' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'hard', label: 'Hard' },
+                  ]}
+                  value={difficulty}
+                  onChange={setDifficulty}
+                  size="md"
+                />
+              </Group>
+            </Stack>
+          )}
 
           {/* Mode selector */}
           <div>
@@ -133,7 +277,11 @@ export function ExamEntryClient({ courses, universities }: Props) {
               )
             }
             loading={isPending}
-            disabled={!selectedCourse}
+            disabled={
+              !selectedCourse ||
+              (source === 'real' && !selectedPaper) ||
+              (source === 'ai' && !topic.trim())
+            }
             onClick={handleStart}
             fullWidth
           >
@@ -142,6 +290,48 @@ export function ExamEntryClient({ courses, universities }: Props) {
         </Stack>
       </Card>
     </Stack>
+  );
+}
+
+function SourceCard({
+  active,
+  title,
+  description,
+  icon,
+  disabled,
+  onClick,
+}: {
+  active: boolean;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <UnstyledButton onClick={onClick} disabled={disabled} style={{ opacity: disabled ? 0.5 : 1 }}>
+      <Card
+        withBorder
+        radius="md"
+        p="md"
+        style={{
+          borderColor: active ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-gray-3)',
+          backgroundColor: active ? 'var(--mantine-color-violet-0)' : undefined,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          transition: 'all 150ms ease',
+        }}
+      >
+        <Group gap="xs" mb={4}>
+          {icon}
+          <Text fw={600} size="sm">
+            {title}
+          </Text>
+        </Group>
+        <Text size="xs" c="dimmed">
+          {description}
+        </Text>
+      </Card>
+    </UnstyledButton>
   );
 }
 
