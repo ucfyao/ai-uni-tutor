@@ -227,7 +227,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             fullWidth
             size="md"
             radius={R}
-            color="purple"
+            color="emerald"
             withItemsBorders={false}
             styles={{
               root: { padding: 4 },
@@ -339,7 +339,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               onClick={() => handleStart('practice')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
-              color="purple"
+              color="emerald"
               styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'practice' ? (
@@ -362,7 +362,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'exam'}
               variant="light"
-              color="purple"
+              color="emerald"
               styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'exam' ? (

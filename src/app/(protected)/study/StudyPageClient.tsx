@@ -38,7 +38,7 @@ function getFeatureCards(t: TranslationKey) {
       cta: t.study.mockExamCta,
       mode: 'Mock Exam' as TutoringMode,
       icon: FileQuestion,
-      color: 'purple',
+      color: 'emerald',
     },
   ];
 }
