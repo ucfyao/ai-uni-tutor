@@ -16,7 +16,6 @@ interface MessageRow {
   session_id: string;
   role: 'user' | 'assistant';
   content: string;
-  card_id: string | null;
   created_at: string;
 }
 
@@ -30,7 +29,6 @@ export class MessageRepository implements IMessageRepository {
       sessionId: row.session_id,
       role: row.role,
       content: row.content ?? '',
-      cardId: row.card_id,
       createdAt: new Date(row.created_at),
     };
   }
@@ -39,24 +37,12 @@ export class MessageRepository implements IMessageRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('chat_messages')
-      .select('id, session_id, role, content, card_id, created_at')
+      .select('id, session_id, role, content, created_at')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
     if (error) throw new DatabaseError(`Failed to fetch messages: ${error.message}`, error);
     return (data ?? []).map((row) => this.mapToEntity(row as MessageRow));
-  }
-
-  async findByCardId(cardId: string): Promise<MessageEntity[]> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('id, session_id, role, content, card_id, created_at')
-      .eq('card_id', cardId)
-      .order('created_at', { ascending: true });
-
-    if (error) throw new DatabaseError(`Failed to fetch messages: ${error.message}`, error);
-    return (data as MessageRow[]).map((row) => this.mapToEntity(row));
   }
 
   async create(dto: CreateMessageDTO): Promise<MessageEntity> {
@@ -68,7 +54,6 @@ export class MessageRepository implements IMessageRepository {
         session_id: dto.sessionId,
         role: dto.role,
         content: dto.content,
-        card_id: dto.cardId || null,
         created_at: new Date(dto.timestamp).toISOString(),
       })
       .select()

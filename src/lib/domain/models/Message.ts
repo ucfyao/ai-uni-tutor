@@ -9,7 +9,6 @@ export interface MessageEntity {
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;
-  cardId: string | null;
   /** Ephemeral: used in-memory for AI context only, not persisted to DB. */
   images?: {
     data: string;
@@ -22,7 +21,6 @@ export interface CreateMessageDTO {
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;
-  cardId?: string;
   images?: {
     data: string;
     mimeType: string;

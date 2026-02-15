@@ -42,7 +42,6 @@ function makeMessageEntity(overrides: Partial<MessageEntity> = {}): MessageEntit
     sessionId: 'sess-1',
     role: 'user',
     content: 'Hello',
-    cardId: null,
     createdAt: now,
     ...overrides,
   };
@@ -64,7 +63,6 @@ function createMockSessionRepo(): Record<keyof SessionRepository, ReturnType<typ
 function createMockMessageRepo(): Record<keyof MessageRepository, ReturnType<typeof vi.fn>> {
   return {
     findBySessionId: vi.fn(),
-    findByCardId: vi.fn(),
     create: vi.fn(),
     deleteBySessionId: vi.fn(),
   };
@@ -130,21 +128,6 @@ describe('SessionService', () => {
       expect(result!.isShared).toBe(false);
     });
 
-    it('should map cardId from message entity, converting null to undefined', async () => {
-      const session = makeSessionEntity();
-      const messages = [
-        makeMessageEntity({ cardId: 'card-42' }),
-        makeMessageEntity({ id: 'msg-2', cardId: null }),
-      ];
-
-      sessionRepo.findByIdAndUserId.mockResolvedValue(session);
-      messageRepo.findBySessionId.mockResolvedValue(messages);
-
-      const result = await service.getFullSession('sess-1', 'user-1');
-
-      expect(result!.messages[0].cardId).toBe('card-42');
-      expect(result!.messages[1].cardId).toBeUndefined();
-    });
   });
 
   // =========================================================================
@@ -176,7 +159,6 @@ describe('SessionService', () => {
         role: 'user',
         content: 'Q1',
         timestamp: now.getTime(),
-        cardId: undefined,
       });
     });
   });
@@ -288,7 +270,6 @@ describe('SessionService', () => {
         role: 'user' as const,
         content: 'Hello AI',
         timestamp: Date.now(),
-        cardId: undefined,
       };
 
       await service.saveMessage('sess-1', 'user-1', message);
@@ -298,7 +279,6 @@ describe('SessionService', () => {
         sessionId: 'sess-1',
         role: 'user',
         content: 'Hello AI',
-        cardId: undefined,
         timestamp: message.timestamp,
       });
     });

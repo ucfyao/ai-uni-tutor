@@ -39,7 +39,6 @@ export class SessionService {
         role: m.role,
         content: m.content,
         timestamp: m.createdAt.getTime(),
-        cardId: m.cardId ?? undefined,
       })),
       lastUpdated: session.updatedAt.getTime(),
       isPinned: session.isPinned,
@@ -62,7 +61,6 @@ export class SessionService {
       role: m.role,
       content: m.content,
       timestamp: m.createdAt.getTime(),
-      cardId: m.cardId ?? undefined,
     }));
   }
 
@@ -103,7 +101,6 @@ export class SessionService {
         role: m.role,
         content: m.content,
         timestamp: m.createdAt.getTime(),
-        cardId: m.cardId ?? undefined,
       })),
       lastUpdated: session.updatedAt.getTime(),
       isPinned: session.isPinned,
@@ -153,7 +150,6 @@ export class SessionService {
       sessionId,
       role: message.role,
       content: message.content,
-      cardId: message.cardId,
       timestamp: message.timestamp,
     });
 
