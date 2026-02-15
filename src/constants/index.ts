@@ -1,4 +1,4 @@
-import { Course, University } from '../types/index';
+import type { Course, University } from '../types/index';
 
 export const UNIVERSITIES: University[] = [
   { id: 'unsw', name: 'University of New South Wales', shortName: 'UNSW' },

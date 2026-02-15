@@ -32,7 +32,7 @@ export function ExamEntryClient({ courses, universities }: Props) {
   const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
   const [error, setError] = useState<string | null>(null);
 
-  const courseOptions = courses.map((c) => {
+  const courseOptions = (courses ?? []).map((c) => {
     const uni = universities.find((u) => u.id === c.universityId);
     return {
       value: c.code,
