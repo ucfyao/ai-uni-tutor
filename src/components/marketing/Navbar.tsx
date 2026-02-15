@@ -1,6 +1,8 @@
+import { Moon, Sun } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
+  ActionIcon,
   Anchor,
   Box,
   Burger,
@@ -10,10 +12,34 @@ import {
   Group,
   Stack,
   Text,
+  useComputedColorScheme,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
+
+const ColorSchemeToggle = () => {
+  const { setColorScheme } = useMantineColorScheme();
+  const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
+
+  return (
+    <ActionIcon
+      variant="subtle"
+      color="gray"
+      size="lg"
+      onClick={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
+      aria-label="Toggle color scheme"
+    >
+      <Box component="span" lightHidden>
+        <Sun size={18} />
+      </Box>
+      <Box component="span" darkHidden>
+        <Moon size={18} />
+      </Box>
+    </ActionIcon>
+  );
+};
 
 const Navbar = () => {
   const [opened, { toggle }] = useDisclosure(false);
@@ -65,6 +91,7 @@ const Navbar = () => {
           {/* CTA Buttons */}
           <Group gap="sm" visibleFrom="md" wrap="nowrap" style={{ flexShrink: 0 }}>
             <LanguageSwitcher />
+            <ColorSchemeToggle />
             <Button variant="subtle" color="gray" radius="md" component={Link} href="/login">
               {t.nav.login}
             </Button>
@@ -118,7 +145,10 @@ const Navbar = () => {
                 {t.nav.pricing}
               </Anchor>
               <Stack gap="xs" className="pt-4">
-                <LanguageSwitcher />
+                <Group gap="sm">
+                  <LanguageSwitcher />
+                  <ColorSchemeToggle />
+                </Group>
                 <Button
                   variant="subtle"
                   color="gray"
