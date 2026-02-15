@@ -34,20 +34,20 @@ interface MockExamModalProps {
   onClose: () => void;
 }
 
-/* ── Shared styles ── */
+/* ── Design tokens (4px grid · whole-pixel type scale) ── */
 const R = 8;
 
 const inputStyles = {
   label: {
-    fontSize: '13px',
+    fontSize: '12px',
     fontWeight: 500,
     marginBottom: '4px',
     color: 'var(--mantine-color-dark-4)',
   },
-  input: { borderColor: 'var(--mantine-color-gray-2)', fontSize: '13.5px' },
+  input: { borderColor: 'var(--mantine-color-gray-2)', fontSize: '14px' },
   dropdown: {
     borderRadius: '10px',
-    padding: '3px',
+    padding: '4px',
     border: '1px solid var(--mantine-color-gray-2)',
     boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
   },
@@ -202,10 +202,10 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         },
       }}
     >
-      <Stack gap={18}>
+      <Stack gap={20}>
         {/* Header */}
         <Group justify="space-between" align="center">
-          <Text fw={700} fz={17} c="dark.8" lts={-0.3}>
+          <Text fw={700} fz={16} c="dark.8" lts={-0.2}>
             {t.exam.startExam}
           </Text>
           <UnstyledButton
@@ -240,16 +240,16 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
 
         {/* ── Form fields ── */}
         <Box
-          p={14}
+          p={16}
           style={{
             borderRadius: 12,
             backgroundColor: 'var(--mantine-color-gray-0)',
             border: '1px solid var(--mantine-color-gray-1)',
           }}
         >
-          <Stack gap={10}>
+          <Stack gap={12}>
             {/* University + Course */}
-            <Group grow gap={8}>
+            <Group grow gap={12}>
               <Select
                 label={t.exam.university ?? 'University'}
                 placeholder={t.exam.selectUniversity ?? 'Select'}
@@ -338,7 +338,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
                   radius={R}
                   styles={inputStyles}
                 />
-                <Group grow gap={8}>
+                <Group grow gap={12}>
                   <Select
                     label={t.exam.numQuestions}
                     data={['5', '10', '15', '20']}
@@ -397,7 +397,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
               color="purple"
-              styles={{ label: { fontWeight: 600, fontSize: '12.5px' } }}
+              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'practice' ? (
                 <Group gap={5}>
@@ -420,7 +420,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               loading={isPending && pendingMode === 'exam'}
               variant="light"
               color="purple"
-              styles={{ label: { fontWeight: 600, fontSize: '12.5px' } }}
+              styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {isPending && pendingMode === 'exam' ? (
                 <Group gap={5}>
