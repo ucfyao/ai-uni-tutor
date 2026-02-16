@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  BookOpen,
   ChevronDown,
   ChevronRight,
   Compass,
@@ -78,6 +79,7 @@ const CHAT_MODULES = [
 
 const JUMP_LINKS = [
   { labelKey: 'knowledgeBase' as const, icon: GraduationCap, href: '/admin/knowledge' },
+  { labelKey: 'coursesAdmin' as const, icon: BookOpen, href: '/admin/courses' },
 ];
 
 // ============================================================================
