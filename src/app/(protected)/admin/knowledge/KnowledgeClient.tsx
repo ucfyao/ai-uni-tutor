@@ -644,7 +644,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   const docId = parseState.documentId;
                   handleDismissParse();
                   setUploadModalOpen(false);
-                  router.push(`/knowledge/${docId}`);
+                  router.push(`/admin/knowledge/${docId}`);
                 }}
               >
                 {t.knowledge.viewDetailsLink}

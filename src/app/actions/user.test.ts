@@ -51,6 +51,7 @@ const EXPECTED_PROFILE_DATA = {
   subscription_status: 'active',
   current_period_end: '2025-12-31T00:00:00.000Z',
   created_at: '2025-01-15T00:00:00.000Z',
+  role: null,
 };
 
 const INITIAL_STATE = { status: 'idle' as const, message: '' };

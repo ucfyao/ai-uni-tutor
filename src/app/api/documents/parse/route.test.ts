@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockGetCurrentUser = vi.fn();
+const mockRequireAdmin = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
-  getCurrentUser: () => mockGetCurrentUser(),
+  requireAdmin: () => mockRequireAdmin(),
 }));
 
 const mockQuotaService = {
@@ -173,7 +173,7 @@ function findEvents(events: Array<{ event: string; data: unknown }>, type: strin
 // ---------------------------------------------------------------------------
 
 function setupSuccessfulParse() {
-  mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+  mockRequireAdmin.mockResolvedValue(MOCK_USER);
   mockQuotaService.enforce.mockResolvedValue(undefined);
   mockDocumentService.checkDuplicate.mockResolvedValue(false);
   mockDocumentService.createDocument.mockResolvedValue({
@@ -224,16 +224,16 @@ describe('POST /api/documents/parse', () => {
   // =========================================================================
 
   describe('authentication', () => {
-    it('sends error event with UNAUTHORIZED code when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+    it('sends error event with FORBIDDEN code when user is not admin', async () => {
+      mockRequireAdmin.mockRejectedValue(new Error('Admin access required'));
 
       const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
 
       const errorEvent = findEvent(events, 'error');
       expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as any).code).toBe('UNAUTHORIZED');
-      expect((errorEvent!.data as any).message).toBe('Unauthorized');
+      expect((errorEvent!.data as any).code).toBe('FORBIDDEN');
+      expect((errorEvent!.data as any).message).toBe('Admin access required');
     });
   });
 
@@ -243,7 +243,7 @@ describe('POST /api/documents/parse', () => {
 
   describe('quota enforcement', () => {
     it('sends error event with QUOTA_EXCEEDED code when quota is exceeded', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
 
       const { QuotaExceededError } = await import('@/lib/errors');
       mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
@@ -257,7 +257,7 @@ describe('POST /api/documents/parse', () => {
     });
 
     it('sends error event with QUOTA_ERROR code for generic quota failures', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockRejectedValue(new Error('Redis connection failed'));
 
       const response = await POST(makeRequest());
@@ -275,7 +275,7 @@ describe('POST /api/documents/parse', () => {
 
   describe('file validation', () => {
     it('sends error event with INVALID_FILE code when no file is provided', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockResolvedValue(undefined);
 
       const response = await POST(makeRequest({ skipFile: true }));
@@ -288,7 +288,7 @@ describe('POST /api/documents/parse', () => {
     });
 
     it('sends error event with INVALID_FILE code when file is not PDF type', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockResolvedValue(undefined);
 
       const file = new File(['hello world'], 'notes.txt', { type: 'text/plain' });
@@ -301,7 +301,7 @@ describe('POST /api/documents/parse', () => {
     });
 
     it('sends error event with FILE_TOO_LARGE code when file exceeds size limit', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockResolvedValue(undefined);
 
       // Create a file larger than MAX_FILE_SIZE (default 10MB)
@@ -317,7 +317,7 @@ describe('POST /api/documents/parse', () => {
     });
 
     it('sends error event with INVALID_FILE code when PDF has invalid magic bytes', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockResolvedValue(undefined);
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue({
@@ -348,7 +348,7 @@ describe('POST /api/documents/parse', () => {
 
   describe('form data validation', () => {
     it('sends error event with VALIDATION_ERROR code for invalid doc_type', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockResolvedValue(undefined);
 
       // Build FormData manually with invalid doc_type but valid file
@@ -381,7 +381,7 @@ describe('POST /api/documents/parse', () => {
 
   describe('duplicate check', () => {
     it('sends error event with DUPLICATE code when file already exists', async () => {
-      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockRequireAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockResolvedValue(undefined);
       mockDocumentService.checkDuplicate.mockResolvedValue(true);
 

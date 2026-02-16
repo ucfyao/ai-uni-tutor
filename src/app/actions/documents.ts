@@ -2,12 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { QuotaExceededError } from '@/lib/errors';
+import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
-import { getCurrentUser } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
 import type { Json } from '@/types/database';
 
@@ -26,8 +26,7 @@ export interface DocumentListItem {
 const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
 
 export async function fetchDocuments(docType: string): Promise<DocumentListItem[]> {
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
+  const user = await requireAdmin();
 
   const parsed = docTypeSchema.safeParse(docType);
   if (!parsed.success) throw new Error('Invalid document type');
@@ -89,10 +88,7 @@ export async function uploadDocument(
       return { status: 'error', message: 'Only PDF files are supported currently' };
     }
 
-    const user = await getCurrentUser();
-    if (!user) {
-      return { status: 'error', message: 'Unauthorized' };
-    }
+    const user = await requireAdmin();
 
     const documentService = getDocumentService();
 
@@ -117,7 +113,7 @@ export async function uploadDocument(
     );
     docId = doc.id;
 
-    revalidatePath('/knowledge');
+    revalidatePath('/admin/knowledge');
 
     // 2. Process document via DocumentProcessingService
     const arrayBuffer = await file.arrayBuffer();
@@ -146,16 +142,19 @@ export async function uploadDocument(
       }
       const msg = e instanceof Error ? e.message : 'Failed to process document';
       await documentService.updateStatus(doc.id, 'error', msg);
-      revalidatePath('/knowledge');
+      revalidatePath('/admin/knowledge');
       return { status: 'error', message: msg };
     }
 
     // 3. Update Document Status
     await documentService.updateStatus(doc.id, 'ready');
 
-    revalidatePath('/knowledge');
+    revalidatePath('/admin/knowledge');
     return { status: 'success', message: 'Document processed successfully' };
   } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return { status: 'error', message: 'Admin access required' };
+    }
     if (error instanceof QuotaExceededError) {
       return { status: 'error', message: error.message };
     }
@@ -165,7 +164,7 @@ export async function uploadDocument(
         const documentService = getDocumentService();
         await documentService.deleteChunksByDocumentId(docId);
         await documentService.updateStatus(docId, 'error', 'Upload failed unexpectedly');
-        revalidatePath('/knowledge');
+        revalidatePath('/admin/knowledge');
       } catch {
         /* ignore cleanup errors */
       }
@@ -175,15 +174,12 @@ export async function uploadDocument(
 }
 
 export async function deleteDocument(documentId: string) {
-  const user = await getCurrentUser();
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
+  const user = await requireAdmin();
 
   const documentService = getDocumentService();
   await documentService.deleteDocument(documentId, user.id);
 
-  revalidatePath('/knowledge');
+  revalidatePath('/admin/knowledge');
 }
 
 export async function updateDocumentChunks(
@@ -191,8 +187,7 @@ export async function updateDocumentChunks(
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await getCurrentUser();
-  if (!user) return { status: 'error', message: 'Unauthorized' };
+  const user = await requireAdmin();
 
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
@@ -214,23 +209,22 @@ export async function updateDocumentChunks(
     await documentService.updateChunk(update.id, update.content, update.metadata as Json);
   }
 
-  revalidatePath(`/knowledge/${documentId}`);
-  revalidatePath('/knowledge');
+  revalidatePath(`/admin/knowledge/${documentId}`);
+  revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Changes saved' };
 }
 
 export async function regenerateEmbeddings(
   documentId: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await getCurrentUser();
-  if (!user) return { status: 'error', message: 'Unauthorized' };
+  const user = await requireAdmin();
 
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
   if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
 
   await documentService.updateStatus(doc.id, 'processing', 'Regenerating embeddings...');
-  revalidatePath(`/knowledge/${documentId}`);
+  revalidatePath(`/admin/knowledge/${documentId}`);
 
   try {
     const chunks = await documentService.getChunksWithEmbeddings(documentId);
@@ -244,16 +238,15 @@ export async function regenerateEmbeddings(
     await documentService.updateStatus(doc.id, 'error', 'Failed to regenerate embeddings');
   }
 
-  revalidatePath(`/knowledge/${documentId}`);
-  revalidatePath('/knowledge');
+  revalidatePath(`/admin/knowledge/${documentId}`);
+  revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Embeddings regenerated' };
 }
 
 export async function retryDocument(
   documentId: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await getCurrentUser();
-  if (!user) return { status: 'error', message: 'Unauthorized' };
+  const user = await requireAdmin();
 
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
@@ -262,7 +255,7 @@ export async function retryDocument(
   await documentService.deleteChunksByDocumentId(documentId);
   await documentService.deleteDocument(documentId, user.id);
 
-  revalidatePath('/knowledge');
+  revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Document removed. Please re-upload.' };
 }
 
@@ -276,8 +269,7 @@ export async function updateDocumentMeta(
   documentId: string,
   updates: { name?: string; school?: string; course?: string },
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await getCurrentUser();
-  if (!user) return { status: 'error', message: 'Unauthorized' };
+  const user = await requireAdmin();
 
   const parsed = updateDocumentMetaSchema.safeParse(updates);
   if (!parsed.success) {
@@ -302,7 +294,7 @@ export async function updateDocumentMeta(
 
   await documentService.updateDocumentMetadata(documentId, metadataUpdates);
 
-  revalidatePath(`/knowledge/${documentId}`);
-  revalidatePath('/knowledge');
+  revalidatePath(`/admin/knowledge/${documentId}`);
+  revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Document updated' };
 }
