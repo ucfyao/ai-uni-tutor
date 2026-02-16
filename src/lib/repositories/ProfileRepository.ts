@@ -116,7 +116,8 @@ export class ProfileRepository implements IProfileRepository {
       })
       .eq('id', userId);
 
-    if (error) throw new DatabaseError(`Failed to update Stripe customer ID: ${error.message}`, error);
+    if (error)
+      throw new DatabaseError(`Failed to update Stripe customer ID: ${error.message}`, error);
   }
 
   async updateSubscription(
@@ -158,7 +159,8 @@ export class ProfileRepository implements IProfileRepository {
       })
       .eq('stripe_subscription_id', subscriptionId);
 
-    if (error) throw new DatabaseError(`Failed to update subscription by ID: ${error.message}`, error);
+    if (error)
+      throw new DatabaseError(`Failed to update subscription by ID: ${error.message}`, error);
   }
 }
 

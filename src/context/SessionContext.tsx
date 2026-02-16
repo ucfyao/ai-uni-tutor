@@ -7,11 +7,11 @@ import { createChatSession, deleteChatSession, getChatSessions } from '@/app/act
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import { createClient } from '@/lib/supabase/client';
-import { ChatSession, Course, TutoringMode } from '@/types/index';
+import { ChatSession, TutoringMode } from '@/types/index';
 
 interface SessionContextType {
   sessions: ChatSession[];
-  addSession: (course: Course, mode: TutoringMode | null) => Promise<string | null>;
+  addSession: (courseId: string, mode: TutoringMode | null) => Promise<string | null>;
   removeSession: (id: string) => Promise<void>;
   updateSessionLocal: (session: ChatSession) => void;
   refreshSessions: () => Promise<void>;
@@ -64,14 +64,30 @@ export function SessionProvider({
 
   // Create session mutation with optimistic update
   const createMutation = useMutation({
-    mutationFn: (payload: ChatSession) => createChatSession(payload),
+    mutationFn: (payload: {
+      courseId: string;
+      mode: TutoringMode | null;
+      title: string;
+      tempId: string;
+    }) =>
+      createChatSession({ courseId: payload.courseId, mode: payload.mode, title: payload.title }),
     onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.sessions.all });
       const previous = queryClient.getQueryData<ChatSession[]>(queryKeys.sessions.all);
+      // Optimistic placeholder — course is null until server resolves it
+      const optimistic: ChatSession = {
+        id: payload.tempId,
+        course: null,
+        mode: payload.mode,
+        title: payload.title,
+        messages: [],
+        lastUpdated: Date.now(),
+        isPinned: false,
+      };
       queryClient.setQueryData<ChatSession[]>(queryKeys.sessions.all, (old) =>
-        sortSessions([payload, ...(old ?? [])]),
+        sortSessions([optimistic, ...(old ?? [])]),
       );
-      return { previous, tempId: payload.id };
+      return { previous, tempId: payload.tempId };
     },
     onSuccess: (created, _payload, context) => {
       queryClient.setQueryData<ChatSession[]>(queryKeys.sessions.all, (old) =>
@@ -109,21 +125,12 @@ export function SessionProvider({
   });
 
   const addSession = useCallback(
-    async (course: Course, mode: TutoringMode | null): Promise<string | null> => {
+    async (courseId: string, mode: TutoringMode | null): Promise<string | null> => {
       const tempId = `temp_${Date.now()}`;
-      const title = mode ? `${course.code} - ${mode}` : `${course.code} - New Session`;
-      const payload: ChatSession = {
-        id: tempId,
-        course,
-        mode,
-        title,
-        messages: [],
-        lastUpdated: Date.now(),
-        isPinned: false,
-      };
+      const title = mode ? `New Session - ${mode}` : 'New Session';
 
       try {
-        const created = await createMutation.mutateAsync(payload);
+        const created = await createMutation.mutateAsync({ courseId, mode, title, tempId });
         return created.id;
       } catch (e) {
         console.error('Failed to create session', e);

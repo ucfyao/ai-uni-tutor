@@ -51,12 +51,24 @@ function TableSkeleton({ rows = 4 }: { rows?: number }) {
     <>
       {Array.from({ length: rows }).map((_, i) => (
         <Table.Tr key={i}>
-          <Table.Td><Skeleton height={16} width="70%" /></Table.Td>
-          <Table.Td><Skeleton height={16} width="50%" /></Table.Td>
-          <Table.Td><Skeleton height={16} width="50%" /></Table.Td>
-          <Table.Td><Skeleton height={16} width="60%" /></Table.Td>
-          <Table.Td><Skeleton height={20} width={60} radius="xl" /></Table.Td>
-          <Table.Td><Skeleton height={24} width={50} /></Table.Td>
+          <Table.Td>
+            <Skeleton height={16} width="70%" />
+          </Table.Td>
+          <Table.Td>
+            <Skeleton height={16} width="50%" />
+          </Table.Td>
+          <Table.Td>
+            <Skeleton height={16} width="50%" />
+          </Table.Td>
+          <Table.Td>
+            <Skeleton height={16} width="60%" />
+          </Table.Td>
+          <Table.Td>
+            <Skeleton height={20} width={60} radius="xl" />
+          </Table.Td>
+          <Table.Td>
+            <Skeleton height={24} width={50} />
+          </Table.Td>
         </Table.Tr>
       ))}
     </>
@@ -408,67 +420,69 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                   </Text>
                 </Table.Td>
               </Table.Tr>
-            ) : sortedDocuments.map((doc) => (
-              <Table.Tr
-                key={doc.id}
-                className={classes.tableRow}
-                style={{ transition: 'background 0.12s ease' }}
-              >
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
-                    <FileText
-                      size={16}
-                      color="var(--mantine-color-indigo-4)"
-                      style={{ flexShrink: 0 }}
-                    />
-                    <Tooltip label={doc.name} multiline maw={300} openDelay={300}>
-                      <Text size="sm" fw={500} truncate c="indigo" className={classes.fileName}>
-                        {doc.name}
-                      </Text>
-                    </Tooltip>
-                  </Group>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {doc.metadata?.school || '-'}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Badge variant="dot" color="gray" size="sm">
-                    {doc.metadata?.course || 'General'}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed" suppressHydrationWarning>
-                    {new Date(doc.created_at).toLocaleDateString()}
-                  </Text>
-                </Table.Td>
-                <Table.Td>{renderStatusBadge(doc)}</Table.Td>
-                {!readOnly && (
+            ) : (
+              sortedDocuments.map((doc) => (
+                <Table.Tr
+                  key={doc.id}
+                  className={classes.tableRow}
+                  style={{ transition: 'background 0.12s ease' }}
+                >
                   <Table.Td>
-                    <Group gap={4} className={classes.actions}>
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        onClick={() => router.push(`/admin/knowledge/${doc.id}`)}
-                        aria-label="View document details"
-                      >
-                        <Eye size={16} />
-                      </ActionIcon>
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        onClick={() => handleDelete(doc.id)}
-                        loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
-                        aria-label="Delete document"
-                      >
-                        <Trash2 size={16} />
-                      </ActionIcon>
+                    <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
+                      <FileText
+                        size={16}
+                        color="var(--mantine-color-indigo-4)"
+                        style={{ flexShrink: 0 }}
+                      />
+                      <Tooltip label={doc.name} multiline maw={300} openDelay={300}>
+                        <Text size="sm" fw={500} truncate c="indigo" className={classes.fileName}>
+                          {doc.name}
+                        </Text>
+                      </Tooltip>
                     </Group>
                   </Table.Td>
-                )}
-              </Table.Tr>
-            ))}
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {doc.metadata?.school || '-'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge variant="dot" color="gray" size="sm">
+                      {doc.metadata?.course || 'General'}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed" suppressHydrationWarning>
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>{renderStatusBadge(doc)}</Table.Td>
+                  {!readOnly && (
+                    <Table.Td>
+                      <Group gap={4} className={classes.actions}>
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          onClick={() => router.push(`/admin/knowledge/${doc.id}`)}
+                          aria-label="View document details"
+                        >
+                          <Eye size={16} />
+                        </ActionIcon>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          onClick={() => handleDelete(doc.id)}
+                          loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
+                          aria-label="Delete document"
+                        >
+                          <Trash2 size={16} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  )}
+                </Table.Tr>
+              ))
+            )}
           </Table.Tbody>
         </Table>
       </Card>

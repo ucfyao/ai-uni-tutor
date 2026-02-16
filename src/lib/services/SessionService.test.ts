@@ -5,14 +5,26 @@ import { ForbiddenError } from '@/lib/errors';
 import type { MessageRepository } from '@/lib/repositories/MessageRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
 import type { Course, TutoringMode } from '@/types';
-import { SessionService } from './SessionService';
+
+// Mock CourseService used internally by SessionService
+const mockCourseService = {
+  getCourseById: vi.fn(),
+  getAllCourses: vi.fn(),
+};
+vi.mock('@/lib/services/CourseService', () => ({
+  getCourseService: () => mockCourseService,
+}));
+
+// Import after mocks
+const { SessionService } = await import('./SessionService');
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+const COURSE_ID = 'course-1';
 const COURSE: Course = {
-  id: 'course-1',
+  id: COURSE_ID,
   universityId: 'uni-1',
   code: 'CS101',
   name: 'Intro to CS',
@@ -24,7 +36,7 @@ function makeSessionEntity(overrides: Partial<SessionEntity> = {}): SessionEntit
   return {
     id: 'sess-1',
     userId: 'user-1',
-    course: COURSE,
+    courseId: COURSE_ID,
     mode: 'Lecture Helper',
     title: 'Test Session',
     isPinned: false,
@@ -75,7 +87,7 @@ function createMockMessageRepo(): Record<keyof MessageRepository, ReturnType<typ
 describe('SessionService', () => {
   let sessionRepo: ReturnType<typeof createMockSessionRepo>;
   let messageRepo: ReturnType<typeof createMockMessageRepo>;
-  let service: SessionService;
+  let service: InstanceType<typeof SessionService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -85,6 +97,9 @@ describe('SessionService', () => {
       sessionRepo as unknown as SessionRepository,
       messageRepo as unknown as MessageRepository,
     );
+    // Default: resolve courseId to the COURSE fixture
+    mockCourseService.getCourseById.mockResolvedValue(COURSE);
+    mockCourseService.getAllCourses.mockResolvedValue([COURSE]);
   });
 
   // =========================================================================
@@ -127,7 +142,6 @@ describe('SessionService', () => {
       expect(result!.isPinned).toBe(false);
       expect(result!.isShared).toBe(false);
     });
-
   });
 
   // =========================================================================
@@ -230,14 +244,14 @@ describe('SessionService', () => {
 
       const result = await service.createSession(
         'user-1',
-        COURSE,
+        COURSE_ID,
         'Lecture Helper' as TutoringMode,
         'New Session',
       );
 
       expect(sessionRepo.create).toHaveBeenCalledWith({
         userId: 'user-1',
-        course: COURSE,
+        courseId: COURSE_ID,
         mode: 'Lecture Helper',
         title: 'New Session',
       });
@@ -250,7 +264,7 @@ describe('SessionService', () => {
       const created = makeSessionEntity({ mode: null });
       sessionRepo.create.mockResolvedValue(created);
 
-      const result = await service.createSession('user-1', COURSE, null, 'No Mode Session');
+      const result = await service.createSession('user-1', COURSE_ID, null, 'No Mode Session');
 
       expect(sessionRepo.create).toHaveBeenCalledWith(expect.objectContaining({ mode: null }));
       expect(result.mode).toBeNull();

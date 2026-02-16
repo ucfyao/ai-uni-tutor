@@ -398,21 +398,11 @@ export function MockExamClient({ initialMock }: Props) {
                 currentQuestionIndex === 0 &&
                 !currentFeedback &&
                 (() => {
-                  const scorePercent = Math.round(
-                    (mock.score / mock.totalPoints) * 100,
-                  );
+                  const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
                   const ringColor =
-                    scorePercent >= 80
-                      ? 'green'
-                      : scorePercent >= 50
-                        ? 'yellow'
-                        : 'red';
-                  const correctCount = mock.responses.filter(
-                    (r) => r.isCorrect,
-                  ).length;
-                  const incorrectCount = mock.responses.filter(
-                    (r) => !r.isCorrect,
-                  ).length;
+                    scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
+                  const correctCount = mock.responses.filter((r) => r.isCorrect).length;
+                  const incorrectCount = mock.responses.filter((r) => !r.isCorrect).length;
 
                   return (
                     <Card

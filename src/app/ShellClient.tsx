@@ -18,7 +18,7 @@ import { useHeader } from '@/context/HeaderContext';
 import { useSessions } from '@/context/SessionContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { showNotification } from '@/lib/notifications';
-import { Course, TutoringMode } from '@/types/index';
+import { TutoringMode } from '@/types/index';
 
 export default function ShellClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -66,9 +66,9 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     openModal();
   };
 
-  const handleStartSession = async (course: Course, mode: TutoringMode) => {
+  const handleStartSession = async (courseId: string, mode: TutoringMode) => {
     closeModal();
-    const newId = await addSession(course, mode);
+    const newId = await addSession(courseId, mode);
     if (!newId) {
       showNotification({ title: 'Error', message: 'Failed to create session', color: 'red' });
       return;

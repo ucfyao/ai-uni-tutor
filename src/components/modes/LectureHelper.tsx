@@ -184,7 +184,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
     await streamChatResponse(
       {
-        course: session.course,
+        course: session.course ?? { code: '', name: '' },
         mode: session.mode,
         history: session.messages.map((m) => ({
           role: m.role,
@@ -231,7 +231,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     setLoadingCardId(card.id);
 
     try {
-      const result = await askCardQuestion(card.id, cardType, question, session.course.code);
+      const result = await askCardQuestion(card.id, cardType, question, session.course?.code ?? '');
 
       if (!result.success) {
         showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
@@ -394,7 +394,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             mode={session.mode}
             onAddCard={handleAddCard}
             isKnowledgeMode={true}
-            courseCode={session.course.code}
+            courseCode={session.course?.code ?? ''}
             onPromptSelect={(prompt) => handleSend(prompt)}
             onRegenerate={handleRegenerate}
             contentClassName="chat-scroll-content-offset"

@@ -101,9 +101,7 @@ export async function fetchRelatedCards(
 /**
  * Fetch user-created cards, optionally filtered by session.
  */
-export async function fetchUserCards(
-  sessionId?: string,
-): Promise<ActionResult<UserCardEntity[]>> {
+export async function fetchUserCards(sessionId?: string): Promise<ActionResult<UserCardEntity[]>> {
   try {
     const parsed = fetchUserCardsSchema.safeParse({ sessionId });
     if (!parsed.success) {

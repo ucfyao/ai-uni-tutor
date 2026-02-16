@@ -1,3 +1,4 @@
+import { IconCheck } from '@tabler/icons-react';
 import { Check, Copy, Quote, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -12,7 +13,6 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
-import { IconCheck } from '@tabler/icons-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { ChatMessage, TutoringMode } from '@/types/index';
@@ -367,10 +367,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </Text>
           ) : (
             <>
-              <MarkdownRenderer
-                content={message.content}
-                tight
-              />
+              <MarkdownRenderer content={message.content} tight />
               {isStreaming && (
                 <Box
                   component="span"

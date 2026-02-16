@@ -90,7 +90,7 @@ export const ModeSelectionGrid: React.FC<ModeSelectionGridProps> = ({
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                {session.course.code}
+                {session.course?.code ?? 'Course'}
               </span>
             </Text>
             <Text

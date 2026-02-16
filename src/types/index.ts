@@ -27,7 +27,7 @@ export interface ChatMessage {
 
 export interface ChatSession {
   id: string;
-  course: Course;
+  course: Course | null;
   mode: TutoringMode | null;
   title: string;
   messages: ChatMessage[];

@@ -140,7 +140,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
         await updateChatSessionMode(updated.id, updated.mode).catch((e) => console.error(e));
 
         if (session.title.includes('New Session')) {
-          const newTitle = `${session.course.code} - ${updated.mode}`;
+          const newTitle = `${session.course?.code ?? 'Session'} - ${updated.mode}`;
           await updateChatSessionTitle(updated.id, newTitle).catch((e) => console.error(e));
 
           const updatedWithTitle = { ...updated, title: newTitle };

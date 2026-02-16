@@ -10,9 +10,7 @@ export function FullScreenModal({ children, ...props }: ModalProps) {
     <Modal
       {...props}
       fullScreen={isMobile}
-      transitionProps={
-        isMobile ? { transition: 'slide-up', duration: 300 } : props.transitionProps
-      }
+      transitionProps={isMobile ? { transition: 'slide-up', duration: 300 } : props.transitionProps}
     >
       {children}
     </Modal>

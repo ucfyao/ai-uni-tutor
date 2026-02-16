@@ -36,8 +36,7 @@ export class UserCardRepository implements IUserCardRepository {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error)
-      throw new DatabaseError(`Failed to fetch user cards: ${error.message}`, error);
+    if (error) throw new DatabaseError(`Failed to fetch user cards: ${error.message}`, error);
     return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
@@ -67,11 +66,7 @@ export class UserCardRepository implements IUserCardRepository {
       source_role: dto.sourceRole ?? null,
     };
 
-    const { data, error } = await supabase
-      .from('user_cards')
-      .insert(insertData)
-      .select()
-      .single();
+    const { data, error } = await supabase.from('user_cards').insert(insertData).select().single();
 
     if (error || !data)
       throw new DatabaseError(`Failed to create user card: ${error?.message}`, error);
@@ -80,14 +75,9 @@ export class UserCardRepository implements IUserCardRepository {
 
   async delete(id: string, userId: string): Promise<void> {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from('user_cards')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
+    const { error } = await supabase.from('user_cards').delete().eq('id', id).eq('user_id', userId);
 
-    if (error)
-      throw new DatabaseError(`Failed to delete user card: ${error.message}`, error);
+    if (error) throw new DatabaseError(`Failed to delete user card: ${error.message}`, error);
   }
 }
 

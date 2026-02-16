@@ -19,7 +19,13 @@ const DeleteSessionModal: React.FC<DeleteSessionModalProps> = ({
   const { t } = useLanguage();
 
   return (
-    <FullScreenModal opened={opened} onClose={onClose} title={t.modals.deleteChat} centered size="sm">
+    <FullScreenModal
+      opened={opened}
+      onClose={onClose}
+      title={t.modals.deleteChat}
+      centered
+      size="sm"
+    >
       <Text size="sm" mb="lg">
         {t.modals.deleteConfirm}
       </Text>
