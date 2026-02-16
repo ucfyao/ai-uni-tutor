@@ -16,4 +16,11 @@ export const queryKeys = {
   profile: {
     all: ['profile'] as const,
   },
+  universities: {
+    all: ['universities'] as const,
+  },
+  courses: {
+    all: ['courses'] as const,
+    byUniversity: (uniId: string) => ['courses', uniId] as const,
+  },
 } as const;
