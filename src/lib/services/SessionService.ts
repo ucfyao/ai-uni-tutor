@@ -9,6 +9,7 @@ import { ForbiddenError } from '@/lib/errors';
 import { getMessageRepository, getSessionRepository } from '@/lib/repositories';
 import type { MessageRepository } from '@/lib/repositories/MessageRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
+import { getCourseService } from '@/lib/services/CourseService';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types';
 
 export class SessionService {
@@ -21,6 +22,22 @@ export class SessionService {
   }
 
   /**
+   * Resolve a courseId to a full Course object via CourseService
+   */
+  private async resolveCourse(courseId: string | null): Promise<Course | null> {
+    if (!courseId) return null;
+    const courseService = getCourseService();
+    const entity = await courseService.getCourseById(courseId);
+    if (!entity) return null;
+    return {
+      id: entity.id,
+      universityId: entity.universityId,
+      code: entity.code,
+      name: entity.name,
+    };
+  }
+
+  /**
    * Get a complete session with all messages
    */
   async getFullSession(sessionId: string, userId: string): Promise<ChatSession | null> {
@@ -28,10 +45,11 @@ export class SessionService {
     if (!session) return null;
 
     const messageEntities = await this.messageRepo.findBySessionId(sessionId);
+    const course = await this.resolveCourse(session.courseId);
 
     return {
       id: session.id,
-      course: session.course,
+      course,
       mode: session.mode,
       title: session.title,
       messages: messageEntities.map((m) => ({
@@ -69,17 +87,30 @@ export class SessionService {
    */
   async getUserSessions(userId: string): Promise<ChatSession[]> {
     const sessions = await this.sessionRepo.findAllByUserId(userId);
+    const courseService = getCourseService();
+    const allCourses = await courseService.getAllCourses();
+    const courseMap = new Map(allCourses.map((c) => [c.id, c]));
 
-    return sessions.map((s) => ({
-      id: s.id,
-      course: s.course,
-      mode: s.mode,
-      title: s.title,
-      messages: [], // Empty for list view - lazy loaded
-      lastUpdated: s.updatedAt.getTime(),
-      isPinned: s.isPinned,
-      isShared: s.isShared,
-    }));
+    return sessions.map((s) => {
+      const courseEntity = s.courseId ? courseMap.get(s.courseId) : null;
+      return {
+        id: s.id,
+        course: courseEntity
+          ? {
+              id: courseEntity.id,
+              universityId: courseEntity.universityId,
+              code: courseEntity.code,
+              name: courseEntity.name,
+            }
+          : null,
+        mode: s.mode,
+        title: s.title,
+        messages: [], // Empty for list view - lazy loaded
+        lastUpdated: s.updatedAt.getTime(),
+        isPinned: s.isPinned,
+        isShared: s.isShared,
+      };
+    });
   }
 
   /**
@@ -90,10 +121,11 @@ export class SessionService {
     if (!session) return null;
 
     const messageEntities = await this.messageRepo.findBySessionId(sessionId);
+    const course = await this.resolveCourse(session.courseId);
 
     return {
       id: session.id,
-      course: session.course,
+      course,
       mode: session.mode,
       title: session.title,
       messages: messageEntities.map((m) => ({
@@ -113,20 +145,21 @@ export class SessionService {
    */
   async createSession(
     userId: string,
-    course: Course,
+    courseId: string,
     mode: TutoringMode | null,
     title: string,
   ): Promise<ChatSession> {
     const entity = await this.sessionRepo.create({
       userId,
-      course,
+      courseId,
       mode,
       title,
     });
+    const course = await this.resolveCourse(entity.courseId);
 
     return {
       id: entity.id,
-      course: entity.course,
+      course,
       mode: entity.mode,
       title: entity.title,
       messages: [],

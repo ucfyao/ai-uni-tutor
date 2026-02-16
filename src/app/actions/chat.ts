@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { QuotaExceededError } from '@/lib/errors';
 import { getChatService } from '@/lib/services/ChatService';
+import { getCourseService } from '@/lib/services/CourseService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getSessionService } from '@/lib/services/SessionService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -23,12 +24,7 @@ import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
 
 const tutoringModeSchema = z.enum(['Lecture Helper', 'Assignment Coach', 'Mock Exam']);
 
-const courseSchema = z.object({
-  id: z.string().min(1),
-  universityId: z.string().min(1),
-  code: z.string().min(1),
-  name: z.string().min(1),
-});
+const courseIdSchema = z.string().uuid();
 
 const chatMessageSchema = z.object({
   id: z.string().min(1),
@@ -38,7 +34,7 @@ const chatMessageSchema = z.object({
 });
 
 const generateChatSchema = z.object({
-  course: courseSchema,
+  courseId: courseIdSchema,
   mode: tutoringModeSchema,
   history: z.array(chatMessageSchema),
   userInput: z.string().min(1),
@@ -48,7 +44,7 @@ const sessionIdSchema = z.string().min(1);
 
 const createSessionSchema = z
   .object({
-    course: courseSchema,
+    courseId: courseIdSchema,
     mode: tutoringModeSchema.nullable(),
     title: z.string().min(1),
   })
@@ -103,14 +99,14 @@ export type ExplainConceptResponse = ActionResult<string>;
  * Generate AI chat response using Strategy pattern
  */
 export async function generateChatResponse(
-  course: Course,
+  courseId: string,
   mode: TutoringMode | null,
   history: ChatMessage[],
   userInput: string,
 ): Promise<ChatActionResponse> {
   try {
     // Validation (Zod)
-    const parsed = generateChatSchema.safeParse({ course, mode, history, userInput });
+    const parsed = generateChatSchema.safeParse({ courseId, mode, history, userInput });
     if (!parsed.success) {
       // Provide a specific error when mode is missing/invalid
       const hasModeError = parsed.error.issues.some((issue) => issue.path[0] === 'mode');
@@ -128,10 +124,21 @@ export async function generateChatResponse(
     const quotaService = getQuotaService();
     await quotaService.enforce(user.id);
 
+    // Resolve courseId → full Course object for ChatService
+    const courseService = getCourseService();
+    const courseEntity = await courseService.getCourseById(parsed.data.courseId);
+    if (!courseEntity) throw new Error('Validation Failed: Invalid Course Context');
+    const course: Course = {
+      id: courseEntity.id,
+      universityId: courseEntity.universityId,
+      code: courseEntity.code,
+      name: courseEntity.name,
+    };
+
     // Delegate to ChatService (uses Strategy pattern internally)
     const chatService = getChatService();
     const response = await chatService.generateResponse({
-      course: parsed.data.course,
+      course,
       mode: parsed.data.mode,
       history: parsed.data.history,
       userInput: parsed.data.userInput,
@@ -237,9 +244,11 @@ export async function getSharedSession(sessionId: string): Promise<ChatSession |
 /**
  * Create a new session
  */
-export async function createChatSession(
-  session: Omit<ChatSession, 'id' | 'lastUpdated'>,
-): Promise<ChatSession> {
+export async function createChatSession(session: {
+  courseId: string;
+  mode: TutoringMode | null;
+  title: string;
+}): Promise<ChatSession> {
   const parsed = createSessionSchema.safeParse(session);
   if (!parsed.success) {
     throw new Error('Validation Failed: Invalid chat session payload.');
@@ -249,7 +258,12 @@ export async function createChatSession(
   if (!user) throw new Error('Not authenticated');
 
   const sessionService = getSessionService();
-  return sessionService.createSession(user.id, session.course, session.mode, session.title);
+  return sessionService.createSession(
+    user.id,
+    parsed.data.courseId,
+    parsed.data.mode,
+    parsed.data.title,
+  );
 }
 
 /**
