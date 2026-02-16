@@ -1,5 +1,4 @@
-import { BookOpen, ChevronDown } from 'lucide-react';
-import Link from 'next/link';
+import { BookOpen, ChevronDown, TextSelect } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Accordion,
@@ -14,12 +13,11 @@ import {
   Text,
   ThemeIcon,
 } from '@mantine/core';
-import { IconArrowRight, IconBook2 } from '@tabler/icons-react';
 import { fetchCardConversations } from '@/app/actions/knowledge-cards';
+import { useLanguage } from '@/i18n/LanguageContext';
 import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
 import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
 import type { UserCardEntity } from '@/lib/domain/models/UserCard';
-import { useLanguage } from '@/i18n/LanguageContext';
 import KnowledgeCardItem from './KnowledgeCardItem';
 
 export type PanelCard =
@@ -36,7 +34,7 @@ interface KnowledgePanelProps {
     card: { id: string; title: string },
     question: string,
     cardType: 'knowledge' | 'user',
-  ) => void;
+  ) => Promise<string | null>;
   onDelete: (cardId: string) => void;
   loadingCardId: string | null;
   onClose?: () => void;
@@ -220,17 +218,71 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   }, []);
 
   const handleAskOfficial = useCallback(
-    (card: { id: string; title: string }, question: string) => {
-      onAsk(card, question, 'knowledge');
+    async (card: { id: string; title: string }, question: string) => {
       setInputs((prev) => ({ ...prev, [card.id]: '' }));
+      // Optimistically add user message
+      const userMsg: CardConversationEntity = {
+        id: `temp_u_${Date.now()}`,
+        cardId: card.id,
+        cardType: 'knowledge',
+        userId: '',
+        sessionId: null,
+        courseCode: null,
+        role: 'user',
+        content: question,
+        createdAt: new Date(),
+      };
+      setCardChats((prev) => ({ ...prev, [card.id]: [...(prev[card.id] || []), userMsg] }));
+      const answer = await onAsk(card, question, 'knowledge');
+      if (answer) {
+        const aiMsg: CardConversationEntity = {
+          id: `temp_a_${Date.now()}`,
+          cardId: card.id,
+          cardType: 'knowledge',
+          userId: '',
+          sessionId: null,
+          courseCode: null,
+          role: 'assistant',
+          content: answer,
+          createdAt: new Date(),
+        };
+        setCardChats((prev) => ({ ...prev, [card.id]: [...(prev[card.id] || []), aiMsg] }));
+      }
     },
     [onAsk],
   );
 
   const handleAskUser = useCallback(
-    (card: { id: string; title: string }, question: string) => {
-      onAsk(card, question, 'user');
+    async (card: { id: string; title: string }, question: string) => {
       setInputs((prev) => ({ ...prev, [card.id]: '' }));
+      // Optimistically add user message
+      const userMsg: CardConversationEntity = {
+        id: `temp_u_${Date.now()}`,
+        cardId: card.id,
+        cardType: 'user',
+        userId: '',
+        sessionId: null,
+        courseCode: null,
+        role: 'user',
+        content: question,
+        createdAt: new Date(),
+      };
+      setCardChats((prev) => ({ ...prev, [card.id]: [...(prev[card.id] || []), userMsg] }));
+      const answer = await onAsk(card, question, 'user');
+      if (answer) {
+        const aiMsg: CardConversationEntity = {
+          id: `temp_a_${Date.now()}`,
+          cardId: card.id,
+          cardType: 'user',
+          userId: '',
+          sessionId: null,
+          courseCode: null,
+          role: 'assistant',
+          content: answer,
+          createdAt: new Date(),
+        };
+        setCardChats((prev) => ({ ...prev, [card.id]: [...(prev[card.id] || []), aiMsg] }));
+      }
     },
     [onAsk],
   );
@@ -245,47 +297,45 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        background: 'var(--mantine-color-default-hover)',
       }}
     >
-      {/* Header - 52px to match app header */}
-      <Group
-        gap={8}
-        px="md"
-        h={52}
-        justify="space-between"
-        align="center"
-        wrap="nowrap"
-        style={{
-          borderBottom: '1px solid var(--mantine-color-default-border)',
-          backgroundColor: 'var(--mantine-color-default-hover)',
-          backdropFilter: 'blur(10px)',
-        }}
-      >
-        <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-          <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
-            <BookOpen size={16} />
-          </ThemeIcon>
-          <Text size="sm" fw={600} lineClamp={1} style={{ lineHeight: 1.1 }}>
-            {t.chat.knowledgeCards}
-          </Text>
-          {totalCards > 0 && (
-            <Badge
-              variant="light"
-              color="gray"
-              size="xs"
-              radius="xl"
-              style={{ flexShrink: 0 }}
-              styles={{ root: { height: 18, padding: '0 8px', fontSize: 10 } }}
-            >
-              {totalCards}
-            </Badge>
-          )}
-        </Group>
-        {onClose && (
+      {/* Header — only in Drawer mode (onClose provided) */}
+      {onClose && (
+        <Group
+          gap={8}
+          px="md"
+          h={52}
+          justify="space-between"
+          align="center"
+          wrap="nowrap"
+          style={{
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+            <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
+              <BookOpen size={16} />
+            </ThemeIcon>
+            <Text size="sm" fw={600} lineClamp={1} style={{ lineHeight: 1.1 }}>
+              {t.chat.knowledgeCards}
+            </Text>
+            {totalCards > 0 && (
+              <Badge
+                variant="light"
+                color="gray"
+                size="xs"
+                radius="xl"
+                style={{ flexShrink: 0 }}
+                styles={{ root: { height: 18, padding: '0 8px', fontSize: 10 } }}
+              >
+                {totalCards}
+              </Badge>
+            )}
+          </Group>
           <CloseButton onClick={onClose} size="sm" variant="subtle" style={{ flexShrink: 0 }} />
-        )}
-      </Group>
+        </Group>
+      )}
 
       <Box
         style={{
@@ -310,23 +360,36 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         >
           <Stack gap={10} p="md">
             {totalCards === 0 && (
-              <Stack align="center" gap="md" py="xl">
-                <ThemeIcon size={48} radius="xl" variant="light" color="gray">
-                  <IconBook2 size={24} />
-                </ThemeIcon>
-                <Text ta="center" c="dimmed" fz="sm">
-                  {t.chat.noKnowledgeFound}
-                </Text>
-                <Button
-                  component={Link}
-                  href="/knowledge"
-                  variant="subtle"
-                  size="xs"
-                  rightSection={<IconArrowRight size={14} />}
-                >
-                  {t.chat.uploadDocuments}
-                </Button>
-              </Stack>
+              <Box
+                p="lg"
+                style={{
+                  backgroundColor: 'var(--mantine-color-body)',
+                  border: '1px solid var(--mantine-color-default-border)',
+                  borderRadius: 14,
+                  boxShadow:
+                    '0 2px 4px rgba(15, 23, 42, 0.04), 0 8px 20px rgba(15, 23, 42, 0.06), 0 1px 0 rgba(255, 255, 255, 0.6) inset',
+                }}
+              >
+                <Group gap="md" wrap="nowrap" align="flex-start">
+                  <ThemeIcon
+                    size={36}
+                    radius="xl"
+                    variant="light"
+                    color="indigo"
+                    style={{ flexShrink: 0 }}
+                  >
+                    <TextSelect size={18} />
+                  </ThemeIcon>
+                  <Stack gap={4}>
+                    <Text fw={600} fz="sm">
+                      {t.chat.noKnowledgeFound}
+                    </Text>
+                    <Text fz="xs" c="dimmed" lh={1.6}>
+                      {t.chat.noKnowledgeHint}
+                    </Text>
+                  </Stack>
+                </Group>
+              </Box>
             )}
 
             {(officialCards.length > 0 || userCards.length > 0) && (
@@ -346,15 +409,14 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                     gap: 10,
                   },
                   item: {
-                    backgroundColor: 'color-mix(in srgb, var(--mantine-color-body) 74%, transparent)',
-                    WebkitBackdropFilter: 'blur(10px) saturate(1.05)',
-                    backdropFilter: 'blur(10px) saturate(1.05)',
+                    backgroundColor: 'var(--mantine-color-body)',
                     border: '1px solid var(--mantine-color-default-border)',
                     borderRadius: 14,
                     overflow: 'hidden',
                     margin: 0,
                     boxShadow:
-                      '0 10px 24px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.03)',
+                      '0 2px 4px rgba(15, 23, 42, 0.04), 0 8px 20px rgba(15, 23, 42, 0.06), 0 1px 0 rgba(255, 255, 255, 0.6) inset',
+                    transition: 'box-shadow 160ms ease, transform 160ms ease',
                   },
                   control: {
                     backgroundColor: 'transparent',
@@ -413,7 +475,12 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                         {officialCards.map((card) => (
                           <KnowledgeCardItem
                             key={card.id}
-                            card={{ id: card.id, title: card.title, content: card.definition, keyConcepts: card.keyConcepts }}
+                            card={{
+                              id: card.id,
+                              title: card.title,
+                              content: card.definition,
+                              keyConcepts: card.keyConcepts,
+                            }}
                             cardType="knowledge"
                             isActive={activeCardId === card.id}
                             chats={cardChats[card.id] || []}
@@ -473,7 +540,12 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                         {userCards.map((card) => (
                           <KnowledgeCardItem
                             key={card.id}
-                            card={{ id: card.id, title: card.title, content: card.content, excerpt: card.excerpt }}
+                            card={{
+                              id: card.id,
+                              title: card.title,
+                              content: card.content,
+                              excerpt: card.excerpt,
+                            }}
                             cardType="user"
                             isActive={activeCardId === card.id}
                             chats={cardChats[card.id] || []}

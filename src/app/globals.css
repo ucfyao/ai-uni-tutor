@@ -6,7 +6,7 @@
   --marketing-container: min(90vw, 1600px);
 
   /* Shadcn/UI Variables */
-  --background: 226 100% 97%;
+  --background: 220 20% 98%;
   --foreground: 220 20% 15%;
 
   --card: 0 0% 100%;
@@ -1036,4 +1036,34 @@ body {
   [data-mantine-color-scheme='dark'] .knowledge-card--active {
     background: var(--mantine-color-dark-5) !important;
   }
+}
+
+/* ============================================================================
+ * Chat + Knowledge panel unified layout offset
+ * On lg+ screens the knowledge panel overlays the chat area (380px + 16px gap).
+ * This pushes chat content left so it doesn't sit behind the panel,
+ * while the ScrollArea scrollbar stays at the far-right viewport edge.
+ * ============================================================================ */
+
+@media (min-width: 75em) {
+  .chat-scroll-content-offset {
+    padding-right: 396px;
+  }
+
+  .chat-scroll-btn-offset {
+    right: 396px !important;
+  }
+}
+
+/* Chat area scrollbar: thicker & darker for visibility next to knowledge panel */
+.chat-main-scroll .mantine-ScrollArea-scrollbar[data-orientation='vertical'] {
+  width: 10px !important;
+}
+
+.chat-main-scroll .mantine-ScrollArea-thumb {
+  background-color: var(--mantine-color-gray-5) !important;
+}
+
+[data-mantine-color-scheme='dark'] .chat-main-scroll .mantine-ScrollArea-thumb {
+  background-color: var(--mantine-color-dark-2) !important;
 }

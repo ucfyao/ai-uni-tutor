@@ -30,7 +30,6 @@ import {
   Avatar,
   Badge,
   Box,
-  Divider,
   Group,
   Menu,
   ScrollArea,
@@ -329,7 +328,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Module sections + jump links */}
       <ScrollArea flex={1} scrollbarSize={4} scrollbars="y">
-        <Stack gap={2} mt={4}>
+        <Stack gap={2} mt={12}>
           {/* Jump links — Knowledge Base at top */}
           {JUMP_LINKS.map((link) => {
             const Icon = link.icon;
@@ -357,7 +356,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
 
-          <Divider my={8} mx={16} />
+          <Box h={8} />
 
           {CHAT_MODULES.map((mod) => (
             <ModuleSection
@@ -539,11 +538,6 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
             <Text size="md" fw={600} truncate>
               {label}
             </Text>
-            {sessions.length > 0 && (
-              <Badge size="xs" variant="light" color="gray" ml={-4}>
-                {sessions.length}
-              </Badge>
-            )}
             <ChevronDown
               size={12}
               color="var(--mantine-color-gray-4)"
