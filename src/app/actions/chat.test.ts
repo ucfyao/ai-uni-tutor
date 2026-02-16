@@ -74,7 +74,7 @@ const {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const COURSE_ID = '00000000-0000-0000-0000-000000000001';
+const COURSE_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 const COURSE: Course = {
   id: COURSE_ID,
   universityId: 'uni-1',
