@@ -237,7 +237,7 @@ describe('SessionRepository', () => {
 
       const dto = {
         userId: 'user-free-001',
-        course: testCourse,
+        courseId: testCourse.id,
         mode: 'Lecture Helper' as const,
         title: 'My First Session',
       };
@@ -248,7 +248,7 @@ describe('SessionRepository', () => {
       expect(mockSupabase.client.from).toHaveBeenCalledWith('chat_sessions');
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith({
         user_id: 'user-free-001',
-        course: testCourse,
+        course_id: testCourse.id,
         mode: 'Lecture Helper',
         title: 'My First Session',
         is_pinned: false,
@@ -263,7 +263,7 @@ describe('SessionRepository', () => {
 
       const dto = {
         userId: 'user-free-001',
-        course: testCourse,
+        courseId: testCourse.id,
         mode: null,
         title: 'Test',
       };

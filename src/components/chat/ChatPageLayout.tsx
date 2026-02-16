@@ -51,7 +51,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
           className="sidebar-hover rounded-lg"
         >
           <Text fw={650} size={isMobile ? 'md' : 'lg'} truncate>
-            {session.course.code}
+            {session.course?.code ?? 'Untitled'}
           </Text>
           <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
             {' '}
@@ -145,7 +145,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
     ),
     [
       t,
-      session.course.code,
+      session.course?.code,
       session.mode,
       session.isPinned,
       showKnowledgePanel,

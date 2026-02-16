@@ -152,7 +152,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
 
         // Auto-rename if title still contains "New Session"
         if (session.title.includes('New Session')) {
-          const newTitle = `${session.course.code} - ${updated.mode}`;
+          const newTitle = `${session.course?.code ?? 'Session'} - ${updated.mode}`;
 
           await updateChatSessionTitle(updated.id, newTitle).catch((e) => console.error(e));
 

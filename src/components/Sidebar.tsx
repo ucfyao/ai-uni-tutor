@@ -648,7 +648,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
           fw={isActive ? 500 : 400}
           style={{ flex: 1 }}
         >
-          {session.title || session.course.code}
+          {session.title || session.course?.code || 'Untitled'}
         </Text>
 
         {/* Pin indicator: show when pinned AND not hovered */}
@@ -685,7 +685,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
                 leftSection={<PenLine size={14} />}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRename?.(session.id, session.title || session.course.code);
+                  onRename?.(session.id, session.title || session.course?.code || 'Untitled');
                 }}
               >
                 {t.sidebar.rename}

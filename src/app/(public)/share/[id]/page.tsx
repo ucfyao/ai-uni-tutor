@@ -25,7 +25,11 @@ export default async function SharedSessionPage({ params }: PageProps) {
   return (
     <Box mih="100vh">
       {/* Header */}
-      <Box py="md" px="xl" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+      <Box
+        py="md"
+        px="xl"
+        style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
+      >
         <Container size="lg">
           <Group justify="space-between">
             <Group gap="xs">
@@ -58,11 +62,11 @@ export default async function SharedSessionPage({ params }: PageProps) {
         <Stack gap="xl">
           <Box>
             <Title order={1} size="h2" mb="xs">
-              {session.title || session.course.code}
+              {session.title || session.course?.code || 'Untitled'}
             </Title>
             <Group justify="space-between">
               <Text c="dimmed">
-                {session.course.code}: {session.course.name} • {session.mode}
+                {session.course?.code}: {session.course?.name} • {session.mode}
               </Text>
               <Group gap="xs">
                 <Calendar size={16} className="text-gray-500" />

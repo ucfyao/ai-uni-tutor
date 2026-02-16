@@ -43,6 +43,13 @@ vi.mock('@/lib/services/QuotaService', () => ({
   getQuotaService: () => mockQuotaService,
 }));
 
+const mockCourseService = {
+  getCourseById: vi.fn(),
+};
+vi.mock('@/lib/services/CourseService', () => ({
+  getCourseService: () => mockCourseService,
+}));
+
 // ---------------------------------------------------------------------------
 // Import actions (after mocks are registered)
 // ---------------------------------------------------------------------------
@@ -67,8 +74,9 @@ const {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const COURSE_ID = '00000000-0000-0000-0000-000000000001';
 const COURSE: Course = {
-  id: 'course-1',
+  id: COURSE_ID,
   universityId: 'uni-1',
   code: 'CS101',
   name: 'Intro to CS',
@@ -105,6 +113,7 @@ describe('Chat Actions', () => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(MOCK_USER);
     mockQuotaService.enforce.mockResolvedValue(undefined);
+    mockCourseService.getCourseById.mockResolvedValue(COURSE);
   });
 
   // =========================================================================
@@ -115,7 +124,7 @@ describe('Chat Actions', () => {
       mockChatService.generateResponse.mockResolvedValue('Recursion is...');
 
       const result = await generateChatResponse(
-        COURSE,
+        COURSE_ID,
         VALID_MODE,
         VALID_HISTORY,
         'Explain recursion',
@@ -131,7 +140,7 @@ describe('Chat Actions', () => {
     });
 
     it('should return error when mode is null', async () => {
-      const result = await generateChatResponse(COURSE, null, VALID_HISTORY, 'input');
+      const result = await generateChatResponse(COURSE_ID, null, VALID_HISTORY, 'input');
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -143,7 +152,7 @@ describe('Chat Actions', () => {
     it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      const result = await generateChatResponse(COURSE, VALID_MODE, VALID_HISTORY, 'input');
+      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -154,7 +163,7 @@ describe('Chat Actions', () => {
     it('should return isLimitError when quota is exceeded', async () => {
       mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
 
-      const result = await generateChatResponse(COURSE, VALID_MODE, VALID_HISTORY, 'input');
+      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -163,7 +172,7 @@ describe('Chat Actions', () => {
     });
 
     it('should return validation error for empty userInput', async () => {
-      const result = await generateChatResponse(COURSE, VALID_MODE, VALID_HISTORY, '');
+      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, '');
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -171,10 +180,8 @@ describe('Chat Actions', () => {
       }
     });
 
-    it('should return validation error for invalid course (empty code)', async () => {
-      const badCourse = { ...COURSE, code: '' };
-
-      const result = await generateChatResponse(badCourse, VALID_MODE, VALID_HISTORY, 'input');
+    it('should return validation error for invalid courseId (not a UUID)', async () => {
+      const result = await generateChatResponse('bad-id', VALID_MODE, VALID_HISTORY, 'input');
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -184,7 +191,7 @@ describe('Chat Actions', () => {
 
     it('should return validation error for invalid mode value', async () => {
       const result = await generateChatResponse(
-        COURSE,
+        COURSE_ID,
         'Invalid Mode' as TutoringMode,
         VALID_HISTORY,
         'input',
@@ -200,7 +207,7 @@ describe('Chat Actions', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockChatService.generateResponse.mockRejectedValue(new Error('Gemini API timeout'));
 
-      const result = await generateChatResponse(COURSE, VALID_MODE, VALID_HISTORY, 'input');
+      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -212,10 +219,21 @@ describe('Chat Actions', () => {
     it('should check quota before calling chat service', async () => {
       mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
 
-      await generateChatResponse(COURSE, VALID_MODE, VALID_HISTORY, 'input');
+      await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
 
       expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
       expect(mockChatService.generateResponse).not.toHaveBeenCalled();
+    });
+
+    it('should return error when course is not found', async () => {
+      mockCourseService.getCourseById.mockResolvedValue(null);
+
+      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Invalid Course Context');
+      }
     });
   });
 
@@ -434,12 +452,9 @@ describe('Chat Actions', () => {
       mockSessionService.createSession.mockResolvedValue(created);
 
       const input = {
-        course: COURSE,
+        courseId: COURSE_ID,
         mode: 'Lecture Helper' as TutoringMode,
         title: 'New Session',
-        messages: [],
-        isPinned: false,
-        isShared: false,
       };
 
       const result = await createChatSession(input);
@@ -447,7 +462,7 @@ describe('Chat Actions', () => {
       expect(result).toEqual(created);
       expect(mockSessionService.createSession).toHaveBeenCalledWith(
         'user-1',
-        COURSE,
+        COURSE_ID,
         'Lecture Helper',
         'New Session',
       );
@@ -457,10 +472,9 @@ describe('Chat Actions', () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const input = {
-        course: COURSE,
+        courseId: COURSE_ID,
         mode: 'Lecture Helper' as TutoringMode,
         title: 'New Session',
-        messages: [],
       };
 
       await expect(createChatSession(input)).rejects.toThrow('Not authenticated');
@@ -468,10 +482,9 @@ describe('Chat Actions', () => {
 
     it('should throw for invalid payload (empty title)', async () => {
       const input = {
-        course: COURSE,
+        courseId: COURSE_ID,
         mode: 'Lecture Helper' as TutoringMode,
         title: '',
-        messages: [],
       };
 
       await expect(createChatSession(input)).rejects.toThrow('Validation Failed');
@@ -482,10 +495,9 @@ describe('Chat Actions', () => {
       mockSessionService.createSession.mockResolvedValue(created);
 
       const input = {
-        course: COURSE,
+        courseId: COURSE_ID,
         mode: null,
         title: 'No Mode Session',
-        messages: [],
       };
 
       const result = await createChatSession(input);
@@ -493,7 +505,7 @@ describe('Chat Actions', () => {
       expect(result.mode).toBeNull();
       expect(mockSessionService.createSession).toHaveBeenCalledWith(
         'user-1',
-        COURSE,
+        COURSE_ID,
         null,
         'No Mode Session',
       );

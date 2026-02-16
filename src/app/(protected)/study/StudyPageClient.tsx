@@ -12,7 +12,7 @@ import { MODES_METADATA } from '@/constants/modes';
 import { useSessions } from '@/context/SessionContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
-import { Course, TutoringMode } from '@/types/index';
+import { TutoringMode } from '@/types/index';
 
 function getFeatureCards(t: TranslationKey) {
   return [
@@ -52,10 +52,10 @@ export function StudyPageClient() {
   const { t } = useLanguage();
   const FEATURE_CARDS = getFeatureCards(t);
 
-  const handleCourseSelected = async (course: Course, mode: TutoringMode) => {
+  const handleCourseSelected = async (courseId: string, mode: TutoringMode) => {
     closeModal();
 
-    const newId = await addSession(course, mode);
+    const newId = await addSession(courseId, mode);
     if (!newId) return;
 
     const modeRoute = MODES_METADATA[mode].id;
@@ -275,7 +275,13 @@ export function StudyPageClient() {
                           {card.label}
                         </Text>
 
-                        <Text size="sm" c="dimmed" lh={1.4} mih={40} className="text-left sm:text-center">
+                        <Text
+                          size="sm"
+                          c="dimmed"
+                          lh={1.4}
+                          mih={40}
+                          className="text-left sm:text-center"
+                        >
                           {card.subtitle}
                         </Text>
 
@@ -326,7 +332,7 @@ export function StudyPageClient() {
           setSelectedMode(null);
         }}
         preSelectedMode={selectedMode}
-        onStart={(course, mode) => handleCourseSelected(course, mode)}
+        onStart={(courseId, mode) => handleCourseSelected(courseId, mode)}
       />
 
       <MockExamModal opened={mockExamOpened} onClose={closeMockExam} />

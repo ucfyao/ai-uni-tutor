@@ -22,7 +22,7 @@ export const testCourse: Course = {
 export const sessionRow = {
   id: 'session-001',
   user_id: 'user-free-001',
-  course: testCourse,
+  course_id: testCourse.id,
   mode: 'Lecture Helper' as string | null,
   title: 'My First Session',
   is_pinned: false,
@@ -37,7 +37,7 @@ export const sessionRow = {
 export const sessionEntity: SessionEntity = {
   id: sessionRow.id,
   userId: sessionRow.user_id,
-  course: sessionRow.course,
+  courseId: sessionRow.course_id,
   mode: sessionRow.mode as TutoringMode | null,
   title: sessionRow.title,
   isPinned: sessionRow.is_pinned,
