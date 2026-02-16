@@ -241,7 +241,7 @@ describe('Document Actions', () => {
           documentId: 'doc-1',
         }),
       );
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
     it('should process exam document with questions', async () => {
@@ -325,7 +325,7 @@ describe('Document Actions', () => {
       await deleteDocument('doc-1');
 
       expect(mockDocumentService.deleteDocument).toHaveBeenCalledWith('doc-1', 'user-1');
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
     it('should throw when user is not authenticated', async () => {
@@ -355,8 +355,8 @@ describe('Document Actions', () => {
       expect(mockDocumentService.updateChunk).toHaveBeenCalledWith('chunk-1', 'updated content', {
         type: 'test',
       });
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge/doc-1');
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge/doc-1');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
     it('should return error when user is not authenticated', async () => {
@@ -480,7 +480,7 @@ describe('Document Actions', () => {
       expect(result).toEqual({ status: 'success', message: 'Document removed. Please re-upload.' });
       expect(mockDocumentService.deleteChunksByDocumentId).toHaveBeenCalledWith('doc-1');
       expect(mockDocumentService.deleteDocument).toHaveBeenCalledWith('doc-1', 'user-1');
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
     it('should return error when user is not authenticated', async () => {
@@ -522,7 +522,7 @@ describe('Document Actions', () => {
       expect(mockDocumentService.updateDocumentMetadata).toHaveBeenCalledWith('doc-1', {
         name: 'new-name.pdf',
       });
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/knowledge/doc-1');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge/doc-1');
     });
 
     it('should update school and course metadata', async () => {

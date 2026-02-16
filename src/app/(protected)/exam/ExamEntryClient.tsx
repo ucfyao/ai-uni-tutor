@@ -1,14 +1,12 @@
 'use client';
 
 import {
-  IconArrowRight,
   IconArrowsShuffle,
   IconCheck,
   IconFilterQuestion,
   IconFileText,
   IconSparkles,
 } from '@tabler/icons-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
@@ -231,14 +229,6 @@ export function ExamEntryClient() {
                   <Text fw={500}>{t.exam.noPapersTitle}</Text>
                   <Text fz="sm" c="dimmed">{t.exam.noPapersDescription}</Text>
                 </Box>
-                <Button
-                  component={Link}
-                  href="/knowledge"
-                  variant="light"
-                  rightSection={<IconArrowRight size={14} />}
-                >
-                  {t.exam.uploadPapers}
-                </Button>
               </Group>
             </Paper>
           )}
@@ -267,14 +257,6 @@ export function ExamEntryClient() {
                   <Text fw={500}>{t.exam.noPapersTitle}</Text>
                   <Text fz="sm" c="dimmed">{t.exam.noPapersDescription}</Text>
                 </Box>
-                <Button
-                  component={Link}
-                  href="/knowledge"
-                  variant="light"
-                  rightSection={<IconArrowRight size={14} />}
-                >
-                  {t.exam.uploadPapers}
-                </Button>
               </Group>
             </Paper>
           )}
