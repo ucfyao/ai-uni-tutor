@@ -310,7 +310,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       }}
     >
       {/* Header: Logo and Toggle — 52px, matches AppShell header */}
-      <Group justify="space-between" align="center" h={52} px={8}>
+      <Group
+        justify="space-between"
+        align="center"
+        h={52}
+        px={8}
+        style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
+      >
         <UnstyledButton
           onClick={onGoHome}
           h={36}

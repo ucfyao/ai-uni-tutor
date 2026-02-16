@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -245,47 +245,19 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        position: 'relative',
         background: 'var(--mantine-color-default-hover)',
       }}
     >
-      {/* Header - 52px to match app header */}
-      <Group
-        gap={8}
-        px="md"
-        h={52}
-        justify="space-between"
-        align="center"
-        wrap="nowrap"
-        style={{
-          borderBottom: '1px solid var(--mantine-color-default-border)',
-          backgroundColor: 'var(--mantine-color-default-hover)',
-          backdropFilter: 'blur(10px)',
-        }}
-      >
-        <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-          <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
-            <BookOpen size={16} />
-          </ThemeIcon>
-          <Text size="sm" fw={600} lineClamp={1} style={{ lineHeight: 1.1 }}>
-            {t.chat.knowledgeCards}
-          </Text>
-          {totalCards > 0 && (
-            <Badge
-              variant="light"
-              color="gray"
-              size="xs"
-              radius="xl"
-              style={{ flexShrink: 0 }}
-              styles={{ root: { height: 18, padding: '0 8px', fontSize: 10 } }}
-            >
-              {totalCards}
-            </Badge>
-          )}
-        </Group>
-        {onClose && (
-          <CloseButton onClick={onClose} size="sm" variant="subtle" style={{ flexShrink: 0 }} />
-        )}
-      </Group>
+      {/* Drawer close button — only shown inside mobile/tablet drawer */}
+      {onClose && (
+        <CloseButton
+          onClick={onClose}
+          size="sm"
+          variant="subtle"
+          style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
+        />
+      )}
 
       <Box
         style={{
