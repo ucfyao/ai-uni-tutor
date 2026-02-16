@@ -45,16 +45,65 @@ export interface Database {
         };
         Relationships: [];
       };
+      universities: {
+        Row: {
+          id: string;
+          name: string;
+          short_name: string;
+          logo_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          short_name: string;
+          logo_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          short_name?: string;
+          logo_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      courses: {
+        Row: {
+          id: string;
+          university_id: string;
+          code: string;
+          name: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          university_id: string;
+          code: string;
+          name: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          university_id?: string;
+          code?: string;
+          name?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       chat_sessions: {
         Row: {
           id: string;
           user_id: string;
-          course: {
-            id: string;
-            universityId: string;
-            code: string;
-            name: string;
-          };
+          course_id: string | null;
           mode: string | null;
           title: string;
           is_pinned: boolean;
@@ -66,12 +115,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          course: {
-            id: string;
-            universityId: string;
-            code: string;
-            name: string;
-          };
+          course_id?: string | null;
           mode?: string | null;
           title: string;
           is_pinned?: boolean;
@@ -83,12 +127,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          course?: {
-            id: string;
-            universityId: string;
-            code: string;
-            name: string;
-          };
+          course_id?: string | null;
           mode?: string | null;
           title?: string;
           is_pinned?: boolean;
