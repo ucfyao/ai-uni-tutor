@@ -240,6 +240,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           </li>
         ),
         hr: () => <Divider my={isTightSpacing ? 'md' : 'xl'} />,
+        // Suppress browser warning for unknown <card> tags from AI responses
+        ...({
+          card: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+        } as Record<string, React.ComponentType<{ children?: React.ReactNode }>>),
         img: ({ src, alt }) => (
           <Paper p="xs" withBorder radius="md" my="md">
             <Image src={src} alt={alt} radius="sm" />

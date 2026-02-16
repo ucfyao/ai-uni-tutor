@@ -1,7 +1,6 @@
 import dynamic from 'next/dynamic';
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Drawer, Group, Loader, Stack } from '@mantine/core';
-import { IconCheck } from '@tabler/icons-react';
+import { Box, Drawer, Loader, Stack } from '@mantine/core';
 import { askCardQuestion } from '@/app/actions/knowledge-cards';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
@@ -226,26 +225,23 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     card: { id: string; title: string },
     question: string,
     cardType: 'knowledge' | 'user' = 'knowledge',
-  ) => {
-    if (!session) return;
+  ): Promise<string | null> => {
+    if (!session) return null;
 
     setLoadingCardId(card.id);
 
     try {
-      const result = await askCardQuestion(
-        card.id,
-        cardType,
-        question,
-        session.course.code,
-      );
+      const result = await askCardQuestion(card.id, cardType, question, session.course.code);
 
       if (!result.success) {
         showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
+        return null;
       }
-      // Conversation is saved server-side by askCardQuestion
+      return result.data;
     } catch (e) {
       console.error('Card ask error:', e);
       showNotification({ title: 'Error', message: 'Failed to connect', color: 'red' });
+      return null;
     } finally {
       setLoadingCardId(null);
     }
@@ -268,13 +264,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       role: options?.source?.role,
     });
     if (!cardId) return;
-
-    showNotification({
-      message: t.toast.changesSaved,
-      color: 'green',
-      icon: <IconCheck size={16} />,
-      autoClose: 3000,
-    });
 
     setActiveCardId(cardId);
     setKnowledgePanelDrawerOpened(true);
@@ -378,21 +367,19 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   if (!session) return null;
 
   return (
-    <Stack gap={0} h="100dvh" w="100%" style={{ minHeight: 0, overflow: 'hidden', maxHeight: '100%' }}>
-      <Group
-        flex={1}
-        gap={0}
-        bg="transparent"
-        align="stretch"
-        style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}
-      >
-        {/* Left: Chat - minHeight: 0 so MessageList ScrollArea gets bounded height */}
+    <Stack
+      gap={0}
+      h="100dvh"
+      w="100%"
+      style={{ minHeight: 0, overflow: 'hidden', maxHeight: '100%' }}
+    >
+      <Box flex={1} pos="relative" style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}>
+        {/* Chat area – full width so ScrollArea scrollbar sits at far-right edge */}
         <Stack
           gap={0}
+          w="100%"
           h="100%"
           style={{
-            flex: 1,
-            minWidth: 0,
             minHeight: 0,
             opacity: mounted ? 1 : 0,
             transition: 'opacity 0.15s ease',
@@ -410,11 +397,12 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             courseCode={session.course.code}
             onPromptSelect={(prompt) => handleSend(prompt)}
             onRegenerate={handleRegenerate}
+            contentClassName="chat-scroll-content-offset"
           />
 
           <Box
             px={0}
-            className="chat-input-fade"
+            className="chat-input-fade chat-scroll-content-offset"
             style={{
               flexShrink: 0,
               zIndex: 5,
@@ -443,16 +431,18 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           </Box>
         </Stack>
 
-        {/* Right: Knowledge Panel - Hide on tablets/small desktops, show on large screens */}
+        {/* Knowledge Panel – overlays chat area on lg+ screens, right: 8px leaves room for scrollbar */}
         <Box
           hiddenFrom="base"
           visibleFrom="lg"
+          pos="absolute"
+          top={0}
+          right={8}
           h="100%"
           w={380}
           style={{
-            borderLeft: '1px solid var(--mantine-color-default-border)',
-            flexShrink: 0,
-            minHeight: 0,
+            zIndex: 10,
+            backgroundColor: 'var(--mantine-color-body)',
           }}
         >
           <KnowledgePanel
@@ -471,7 +461,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onPrefillConsumed={() => setCardPrefillInput(null)}
           />
         </Box>
-      </Group>
+      </Box>
 
       {/* Knowledge Panel Drawer for smaller screens */}
       <Drawer

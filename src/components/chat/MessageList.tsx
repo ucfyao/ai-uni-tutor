@@ -1,6 +1,16 @@
 import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionIcon, Box, Button, Container, Group, ScrollArea, Skeleton, Stack, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Container,
+  Group,
+  ScrollArea,
+  Skeleton,
+  Stack,
+  Text,
+} from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MessageBubble } from './MessageBubble';
@@ -52,6 +62,7 @@ interface MessageListProps {
   onPromptSelect?: (prompt: string) => void;
   onRegenerate?: (messageId: string) => void;
   isLoading?: boolean;
+  contentClassName?: string;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -67,6 +78,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onPromptSelect,
   onRegenerate,
   isLoading = false,
+  contentClassName,
 }) => {
   const { t } = useLanguage();
   const viewport = useRef<HTMLDivElement>(null);
@@ -135,7 +147,11 @@ export const MessageList: React.FC<MessageListProps> = ({
   // Show loading skeleton during initial session load
   if (isLoading && messages.length === 0) {
     return (
-      <Box bg="var(--mantine-color-body)" style={{ flex: 1, minHeight: 0 }}>
+      <Box
+        bg="var(--mantine-color-body)"
+        className={contentClassName}
+        style={{ flex: 1, minHeight: 0 }}
+      >
         <ChatSkeleton />
       </Box>
     );
@@ -146,7 +162,9 @@ export const MessageList: React.FC<MessageListProps> = ({
     return (
       <Box bg="var(--mantine-color-body)" style={{ flex: 1, minHeight: 0 }}>
         <ScrollArea h="100%" scrollbarSize={6} type="auto">
-          <WelcomeScreen mode={mode} courseCode={courseCode} onPromptSelect={onPromptSelect} />
+          <Box className={contentClassName}>
+            <WelcomeScreen mode={mode} courseCode={courseCode} onPromptSelect={onPromptSelect} />
+          </Box>
         </ScrollArea>
       </Box>
     );
@@ -157,11 +175,12 @@ export const MessageList: React.FC<MessageListProps> = ({
       <ScrollArea
         viewportRef={viewport}
         h="100%"
-        scrollbarSize={6}
-        type="auto"
+        scrollbarSize={10}
+        type="scroll"
+        className="chat-main-scroll"
         onScrollPositionChange={handleScroll}
       >
-        <Box pt="md" pb="md">
+        <Box pt="md" pb="md" className={contentClassName}>
           {/* Max-width container for optimal line length */}
           <Container size="56.25rem" w="100%" px="md">
             <Stack gap="sm">
@@ -248,6 +267,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           left={0}
           right={0}
           mx="auto"
+          className="chat-scroll-btn-offset"
           style={{
             zIndex: 10,
             backgroundColor: 'var(--mantine-color-body)',

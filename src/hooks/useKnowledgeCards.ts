@@ -57,7 +57,6 @@ export function useKnowledgeCards({ sessionId, enabled }: UseKnowledgeCardsOptio
       const result = await createUserCard({
         sessionId,
         title: title.trim(),
-        content: content.trim(),
         sourceMessageId: source?.messageId,
         sourceRole: source?.role,
       });
@@ -72,15 +71,12 @@ export function useKnowledgeCards({ sessionId, enabled }: UseKnowledgeCardsOptio
   );
 
   // Delete a user card via server action
-  const deleteCard = useCallback(
-    async (cardId: string) => {
-      const result = await deleteUserCard(cardId);
-      if (result.success) {
-        setUserCards((prev) => prev.filter((c) => c.id !== cardId));
-      }
-    },
-    [],
-  );
+  const deleteCard = useCallback(async (cardId: string) => {
+    const result = await deleteUserCard(cardId);
+    if (result.success) {
+      setUserCards((prev) => prev.filter((c) => c.id !== cardId));
+    }
+  }, []);
 
   return {
     officialCards,
