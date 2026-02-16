@@ -65,6 +65,22 @@ Scopes: `chat` `rag` `api` `ui` `auth` `stripe` `db` `deps` `config`
 
 Git hooks: pre-commit (lint-staged) · pre-push (build) · commit-msg (commitlint). Main branch is protected — must go through PR with Vercel check.
 
+## UI/CSS Changes
+
+- Before making any CSS/layout change, identify the root cause — do NOT trial-and-error CSS adjustments
+- Describe what will change (which CSS properties, before → after values) and wait for approval BEFORE editing
+- For responsive layout work, check all breakpoints (mobile <768px, tablet 768-1024px, desktop >1024px) in a single pass
+- Never revert or remove code the user hasn't explicitly asked to remove
+- If the user says something looks wrong, ask for specifics (which element, current vs desired appearance) — do NOT guess
+
+## Sub-Agent / Team Workflow
+
+- When spawning sub-agents for code changes, explicitly grant Edit, Write, and Bash permissions
+- If a sub-agent fails with permission errors, retry with Bash-based file operations as fallback
+- Verify sub-agent outputs (lint, type-check) before marking tasks complete
+- For large plans (10+ tasks), execute in waves of 5 — verify each wave before starting the next
+- Implement backend first (API/service layer), then frontend — do NOT run backend and frontend sub-agents in parallel unless APIs are already stable
+
 ## Key Rules
 
 - Public routes: `/`, `/zh`, `/login`, `/auth/callback`, `/share/[id]` — all others require auth
