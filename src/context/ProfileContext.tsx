@@ -20,6 +20,7 @@ type Profile = {
   subscription_status?: string;
   current_period_end?: string;
   created_at?: string;
+  role?: string;
 };
 
 interface ProfileContextType {
@@ -139,5 +140,6 @@ function profileDataToContext(data: ProfileData): Profile {
     subscription_status: data.subscription_status ?? undefined,
     current_period_end: data.current_period_end ?? undefined,
     created_at: data.created_at ?? undefined,
+    role: data.role ?? undefined,
   };
 }

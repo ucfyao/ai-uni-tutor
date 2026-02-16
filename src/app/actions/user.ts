@@ -14,6 +14,7 @@ export type ProfileData = {
   subscription_status: string | null;
   current_period_end: string | null;
   created_at: string | null;
+  role: string | null;
 };
 
 const updateProfileSchema = z.object({
@@ -79,6 +80,7 @@ export async function updateProfileFields(input: {
       subscription_status: profile.subscriptionStatus,
       current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
       created_at: profile.createdAt?.toISOString() ?? null,
+      role: profile.role ?? null,
     },
   };
 }
@@ -113,5 +115,6 @@ export async function getProfile(): Promise<ProfileData | null> {
     subscription_status: profile.subscriptionStatus,
     current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
     created_at: profile.createdAt?.toISOString() ?? null,
+    role: profile.role ?? null,
   };
 }
