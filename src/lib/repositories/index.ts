@@ -15,3 +15,5 @@ export {
   CardConversationRepository,
   getCardConversationRepository,
 } from './CardConversationRepository';
+export { UniversityRepository, getUniversityRepository } from './UniversityRepository';
+export { CourseRepository, getCourseRepository } from './CourseRepository';
