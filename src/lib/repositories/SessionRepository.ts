@@ -19,12 +19,7 @@ import type { Database } from '@/types/database';
 interface SessionRow {
   id: string;
   user_id: string;
-  course: {
-    id: string;
-    universityId: string;
-    code: string;
-    name: string;
-  };
+  course_id: string | null;
   mode: string | null;
   title: string;
   is_pinned: boolean;
@@ -42,7 +37,7 @@ export class SessionRepository implements ISessionRepository {
     return {
       id: row.id,
       userId: row.user_id,
-      course: row.course,
+      courseId: row.course_id,
       mode: row.mode as SessionEntity['mode'],
       title: row.title,
       isPinned: row.is_pinned,
@@ -121,7 +116,7 @@ export class SessionRepository implements ISessionRepository {
       .from('chat_sessions')
       .insert({
         user_id: dto.userId,
-        course: dto.course,
+        course_id: dto.courseId,
         mode: dto.mode,
         title: dto.title,
         is_pinned: false,

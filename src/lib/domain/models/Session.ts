@@ -5,12 +5,12 @@
  * Independent of database implementation.
  */
 
-import { Course, TutoringMode } from '@/types';
+import { TutoringMode } from '@/types';
 
 export interface SessionEntity {
   id: string;
   userId: string;
-  course: Course;
+  courseId: string | null;
   mode: TutoringMode | null;
   title: string;
   isPinned: boolean;
@@ -22,7 +22,7 @@ export interface SessionEntity {
 
 export interface CreateSessionDTO {
   userId: string;
-  course: Course;
+  courseId: string;
   mode: TutoringMode | null;
   title: string;
 }
