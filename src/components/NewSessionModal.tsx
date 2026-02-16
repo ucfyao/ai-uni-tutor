@@ -13,15 +13,15 @@ import {
 } from '@mantine/core';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { MODES_METADATA } from '@/constants/modes';
+import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { COURSES, UNIVERSITIES } from '../constants/index';
 import { PLACEHOLDERS } from '../constants/placeholders';
-import { Course, TutoringMode } from '../types/index';
+import { TutoringMode } from '../types/index';
 
 interface NewSessionModalProps {
   opened: boolean;
   onClose: () => void;
-  onStart: (course: Course, mode: TutoringMode) => void | Promise<void>;
+  onStart: (courseId: string, mode: TutoringMode) => void | Promise<void>;
   preSelectedMode?: TutoringMode | null;
 }
 
@@ -76,6 +76,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLanguage();
+  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
 
   React.useEffect(() => {
     const lastUni = localStorage.getItem('lastUniId');
@@ -83,24 +84,21 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     if (lastUni) {
       setSelectedUniId(lastUni);
       if (lastCourse) {
-        const courseExists = COURSES.some((c) => c.id === lastCourse && c.universityId === lastUni);
+        const courseExists = allCourses.some(
+          (c) => c.id === lastCourse && c.universityId === lastUni,
+        );
         if (courseExists) setSelectedCourseId(lastCourse);
       }
     }
-  }, [preSelectedMode]);
-
-  const filteredCourses = useMemo(() => {
-    return COURSES.filter((c) => c.universityId === selectedUniId);
-  }, [selectedUniId]);
+  }, [preSelectedMode, allCourses]);
 
   const handleStart = async () => {
-    const course = COURSES.find((c) => c.id === selectedCourseId);
-    if (course && preSelectedMode) {
+    if (selectedCourseId && selectedUniId && preSelectedMode) {
       setIsLoading(true);
       try {
-        localStorage.setItem('lastUniId', course.universityId);
-        localStorage.setItem('lastCourseId', course.id);
-        await onStart(course, preSelectedMode);
+        localStorage.setItem('lastUniId', selectedUniId);
+        localStorage.setItem('lastCourseId', selectedCourseId);
+        await onStart(selectedCourseId, preSelectedMode);
       } finally {
         setIsLoading(false);
       }
@@ -245,7 +243,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
             active={true}
           >
             <Select
-              data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
+              data={universities.map((u) => ({ value: u.id, label: u.name }))}
               value={selectedUniId}
               onChange={(val) => {
                 setSelectedUniId(val);

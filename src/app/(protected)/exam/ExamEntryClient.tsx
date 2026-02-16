@@ -3,8 +3,8 @@
 import {
   IconArrowsShuffle,
   IconCheck,
-  IconFilterQuestion,
   IconFileText,
+  IconFilterQuestion,
   IconSparkles,
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
@@ -29,7 +29,7 @@ import {
   generateMockFromTopic,
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
-import { COURSES, UNIVERSITIES } from '@/constants';
+import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
 
@@ -63,19 +63,19 @@ export function ExamEntryClient() {
   // Mode (shared by all sources)
   const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
 
+  const { universities, courses: filteredCourses } = useCourseData(selectedUniId);
+
   // University options
   const uniOptions = useMemo(
-    () => (UNIVERSITIES ?? []).map((u) => ({ value: u.id, label: u.name })),
-    [],
+    () => universities.map((u) => ({ value: u.id, label: u.name })),
+    [universities],
   );
 
   // Course options filtered by university
   const courseOptions = useMemo(() => {
     if (!selectedUniId) return [];
-    return (COURSES ?? [])
-      .filter((c) => c.universityId === selectedUniId)
-      .map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
-  }, [selectedUniId]);
+    return filteredCourses.map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
+  }, [selectedUniId, filteredCourses]);
 
   // Reset course when university changes
   useEffect(() => {
@@ -227,7 +227,9 @@ export function ExamEntryClient() {
                 </ThemeIcon>
                 <Box flex={1}>
                   <Text fw={500}>{t.exam.noPapersTitle}</Text>
-                  <Text fz="sm" c="dimmed">{t.exam.noPapersDescription}</Text>
+                  <Text fz="sm" c="dimmed">
+                    {t.exam.noPapersDescription}
+                  </Text>
                 </Box>
               </Group>
             </Paper>
@@ -255,7 +257,9 @@ export function ExamEntryClient() {
                 </ThemeIcon>
                 <Box flex={1}>
                   <Text fw={500}>{t.exam.noPapersTitle}</Text>
-                  <Text fz="sm" c="dimmed">{t.exam.noPapersDescription}</Text>
+                  <Text fz="sm" c="dimmed">
+                    {t.exam.noPapersDescription}
+                  </Text>
                 </Box>
               </Group>
             </Paper>

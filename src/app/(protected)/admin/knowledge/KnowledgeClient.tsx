@@ -27,8 +27,8 @@ import { deleteDocument, fetchDocuments } from '@/app/actions/documents';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { DOC_TYPES } from '@/constants/doc-types';
-import { COURSES, UNIVERSITIES } from '@/constants/index';
 import { useHeader } from '@/context/HeaderContext';
+import { useCourseData } from '@/hooks/useCourseData';
 import { useStreamingParse } from '@/hooks/useStreamingParse';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -122,10 +122,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   const parseState = useStreamingParse();
-
-  const filteredCourses = selectedUniId
-    ? COURSES.filter((c) => c.universityId === selectedUniId)
-    : [];
+  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
 
   const isFormValid = selectedFile && selectedUniId && selectedCourseId;
 
@@ -161,8 +158,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const handleStartParse = () => {
     if (!selectedFile || !selectedUniId || !selectedCourseId) return;
 
-    const uniObj = UNIVERSITIES.find((u) => u.id === selectedUniId);
-    const courseObj = COURSES.find((c) => c.id === selectedCourseId);
+    const uniObj = universities.find((u) => u.id === selectedUniId);
+    const courseObj = allCourses.find((c) => c.id === selectedCourseId);
 
     parseState.startParse(selectedFile, {
       docType: activeTab,
@@ -431,10 +428,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               <Text c="dimmed" ta="center" maw={400}>
                 {t.knowledge.emptyDescription}
               </Text>
-              <Button
-                leftSection={<Upload size={16} />}
-                onClick={() => setUploadModalOpen(true)}
-              >
+              <Button leftSection={<Upload size={16} />} onClick={() => setUploadModalOpen(true)}>
                 {t.knowledge.uploadCTA}
               </Button>
             </Stack>
@@ -558,7 +552,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             {/* University & Course */}
             <Select
               placeholder={t.knowledge.university}
-              data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
+              data={universities.map((u) => ({ value: u.id, label: u.name }))}
               value={selectedUniId}
               onChange={(val) => {
                 setSelectedUniId(val);

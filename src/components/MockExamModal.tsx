@@ -15,13 +15,13 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
-import { FullScreenModal } from '@/components/FullScreenModal';
 import {
   createRandomMixMock,
   createRealExamMock,
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
-import { COURSES, UNIVERSITIES } from '@/constants';
+import { FullScreenModal } from '@/components/FullScreenModal';
+import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
 
@@ -66,6 +66,8 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const [numQuestions, setNumQuestions] = useState<string | null>('10');
   const [pendingMode, setPendingMode] = useState<ExamMode | null>(null);
 
+  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
+
   // Force SegmentedControl remount after modal transition settles
   const [segKey, setSegKey] = useState(0);
 
@@ -84,24 +86,22 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     if (lastUni) {
       setSelectedUniId(lastUni);
       if (lastCourse) {
-        const course = COURSES.find((c) => c.id === lastCourse && c.universityId === lastUni);
+        const course = allCourses.find((c) => c.id === lastCourse && c.universityId === lastUni);
         if (course) setSelectedCourseCode(course.code);
       }
     }
     return () => clearTimeout(timer);
-  }, [opened]);
+  }, [opened, allCourses]);
 
   const uniOptions = useMemo(
-    () => (UNIVERSITIES ?? []).map((u) => ({ value: u.id, label: u.name })),
-    [],
+    () => universities.map((u) => ({ value: u.id, label: u.name })),
+    [universities],
   );
 
   const courseOptions = useMemo(() => {
     if (!selectedUniId) return [];
-    return (COURSES ?? [])
-      .filter((c) => c.universityId === selectedUniId)
-      .map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
-  }, [selectedUniId]);
+    return filteredCourses.map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
+  }, [selectedUniId, filteredCourses]);
 
   useEffect(() => {
     setSelectedCourseCode(null);
@@ -131,7 +131,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     if (source === 'ai') {
       if (!selectedCourseCode) return;
       if (selectedUniId) localStorage.setItem('lastUniId', selectedUniId);
-      const course = COURSES.find((c) => c.code === selectedCourseCode);
+      const course = allCourses.find((c) => c.code === selectedCourseCode);
       if (course) localStorage.setItem('lastCourseId', course.id);
       onClose();
       router.push(`/exam/ai?course=${selectedCourseCode}`);
@@ -150,7 +150,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       }
       if (result.success) {
         if (selectedUniId) localStorage.setItem('lastUniId', selectedUniId);
-        const course = COURSES.find((c) => c.code === selectedCourseCode);
+        const course = allCourses.find((c) => c.code === selectedCourseCode);
         if (course) localStorage.setItem('lastCourseId', course.id);
         onClose();
         router.push(`/exam/mock/${result.mockId}`);

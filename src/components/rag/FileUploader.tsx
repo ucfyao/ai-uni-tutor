@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react';
 import { Alert, Box, Group, Progress, rem, Select, SimpleGrid, Stack, Text } from '@mantine/core';
 import { Dropzone, DropzoneProps, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { uploadDocument } from '@/app/actions/documents';
-import { COURSES, UNIVERSITIES } from '@/constants/index';
 import { PLACEHOLDERS } from '@/constants/placeholders';
+import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 
@@ -48,6 +48,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [stage, setStage] = useState<ProcessingStage>('idle');
   const [fileName, setFileName] = useState<string | null>(null);
+  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
 
   // Simulate progress stages during processing
   useEffect(() => {
@@ -69,11 +70,6 @@ export function FileUploader(props: Partial<DropzoneProps>) {
 
     return () => clearInterval(interval);
   }, [loading]);
-
-  // Derived state for courses based on selected university
-  const filteredCourses = selectedUniId
-    ? COURSES.filter((c) => c.universityId === selectedUniId)
-    : [];
 
   const handleDrop = async (files: File[]) => {
     setLoading(true);
@@ -97,8 +93,8 @@ export function FileUploader(props: Partial<DropzoneProps>) {
     }
 
     // Get actual string values
-    const uniObj = UNIVERSITIES.find((u) => u.id === selectedUniId);
-    const courseObj = COURSES.find((c) => c.id === selectedCourseId);
+    const uniObj = universities.find((u) => u.id === selectedUniId);
+    const courseObj = allCourses.find((c) => c.id === selectedCourseId);
 
     // Fallback to "General" if not found (shouldn't happen with valid selection)
     const schoolName = uniObj ? uniObj.shortName : 'General';
@@ -226,7 +222,7 @@ export function FileUploader(props: Partial<DropzoneProps>) {
         <Select
           label="University"
           placeholder={PLACEHOLDERS.SELECT_UNIVERSITY}
-          data={UNIVERSITIES.map((u) => ({ value: u.id, label: u.name }))}
+          data={universities.map((u) => ({ value: u.id, label: u.name }))}
           value={selectedUniId}
           onChange={(val) => {
             setSelectedUniId(val);
