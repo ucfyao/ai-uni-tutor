@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DocumentEntity } from '@/lib/domain/models/Document';
-import { QuotaExceededError } from '@/lib/errors';
+import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockGetCurrentUser = vi.fn();
+const mockRequireAdmin = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
-  getCurrentUser: () => mockGetCurrentUser(),
+  requireAdmin: () => mockRequireAdmin(),
 }));
 
 const mockRevalidatePath = vi.fn();
@@ -130,7 +130,7 @@ function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity 
 describe('Document Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+    mockRequireAdmin.mockResolvedValue(MOCK_USER);
     mockQuotaService.enforce.mockResolvedValue(undefined);
   });
 
@@ -158,14 +158,14 @@ describe('Document Actions', () => {
       expect(result.message).toContain('PDF');
     });
 
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+    it('should return error when user is not admin', async () => {
+      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
       const fd = makeFormData();
 
       const result = await uploadDocument(INITIAL_STATE, fd);
 
       expect(result.status).toBe('error');
-      expect(result.message).toBe('Unauthorized');
+      expect(result.message).toBe('Admin access required');
     });
 
     it('should return error when quota is exceeded', async () => {
@@ -328,10 +328,10 @@ describe('Document Actions', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
-    it('should throw when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+    it('should throw when user is not admin', async () => {
+      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(deleteDocument('doc-1')).rejects.toThrow('Unauthorized');
+      await expect(deleteDocument('doc-1')).rejects.toThrow('Admin access required');
     });
   });
 
@@ -359,12 +359,10 @@ describe('Document Actions', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+    it('should throw when user is not admin', async () => {
+      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      const result = await updateDocumentChunks('doc-1', [], []);
-
-      expect(result).toEqual({ status: 'error', message: 'Unauthorized' });
+      await expect(updateDocumentChunks('doc-1', [], [])).rejects.toThrow('Admin access required');
     });
 
     it('should return error when document is not found', async () => {
@@ -422,12 +420,10 @@ describe('Document Actions', () => {
       expect(mockDocumentService.updateStatus).toHaveBeenCalledWith('doc-1', 'ready');
     });
 
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+    it('should throw when user is not admin', async () => {
+      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      const result = await regenerateEmbeddings('doc-1');
-
-      expect(result).toEqual({ status: 'error', message: 'Unauthorized' });
+      await expect(regenerateEmbeddings('doc-1')).rejects.toThrow('Admin access required');
     });
 
     it('should return error when document is not found', async () => {
@@ -483,12 +479,10 @@ describe('Document Actions', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+    it('should throw when user is not admin', async () => {
+      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      const result = await retryDocument('doc-1');
-
-      expect(result).toEqual({ status: 'error', message: 'Unauthorized' });
+      await expect(retryDocument('doc-1')).rejects.toThrow('Admin access required');
     });
 
     it('should return error when document is not found', async () => {
@@ -539,12 +533,12 @@ describe('Document Actions', () => {
       });
     });
 
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+    it('should throw when user is not admin', async () => {
+      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      const result = await updateDocumentMeta('doc-1', { name: 'new-name.pdf' });
-
-      expect(result).toEqual({ status: 'error', message: 'Unauthorized' });
+      await expect(updateDocumentMeta('doc-1', { name: 'new-name.pdf' })).rejects.toThrow(
+        'Admin access required',
+      );
     });
 
     it('should return error when document is not found', async () => {

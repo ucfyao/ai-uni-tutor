@@ -152,6 +152,9 @@ export async function uploadDocument(
     revalidatePath('/admin/knowledge');
     return { status: 'success', message: 'Document processed successfully' };
   } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return { status: 'error', message: 'Admin access required' };
+    }
     if (error instanceof QuotaExceededError) {
       return { status: 'error', message: error.message };
     }
@@ -266,8 +269,7 @@ export async function updateDocumentMeta(
   documentId: string,
   updates: { name?: string; school?: string; course?: string },
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await getCurrentUser();
-  if (!user) return { status: 'error', message: 'Unauthorized' };
+  const user = await requireAdmin();
 
   const parsed = updateDocumentMetaSchema.safeParse(updates);
   if (!parsed.success) {
