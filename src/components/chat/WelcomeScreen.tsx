@@ -1,3 +1,4 @@
+import { IconMessageCircle } from '@tabler/icons-react';
 import { Sparkles } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,7 +13,6 @@ import {
   Title,
   Transition,
 } from '@mantine/core';
-import { IconMessageCircle } from '@tabler/icons-react';
 import { MODES_METADATA } from '@/constants/modes';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';

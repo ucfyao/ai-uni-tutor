@@ -38,7 +38,12 @@
   --radius: 0.75rem;
 
   /* Custom tokens */
-  --gradient-primary: linear-gradient(135deg, hsl(243 75% 40%) 0%, hsl(243 75% 59%) 50%, hsl(234 89% 74%) 100%);
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(243 75% 40%) 0%,
+    hsl(243 75% 59%) 50%,
+    hsl(234 89% 74%) 100%
+  );
   --gradient-hero: linear-gradient(180deg, hsl(220 20% 98%) 0%, hsl(220 15% 96%) 100%);
   --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.9) 0%, hsl(220 15% 98% / 0.8) 100%);
   --gradient-glow: radial-gradient(
@@ -81,11 +86,7 @@
   --border: 220 6% 23%;
   --input: 224 7% 19%;
   --gradient-hero: linear-gradient(180deg, hsl(230 8% 11%) 0%, hsl(228 6% 16%) 100%);
-  --gradient-card: linear-gradient(
-    135deg,
-    hsl(228 6% 18% / 0.9) 0%,
-    hsl(228 6% 16% / 0.8) 100%
-  );
+  --gradient-card: linear-gradient(135deg, hsl(228 6% 18% / 0.9) 0%, hsl(228 6% 16% / 0.8) 100%);
   --shadow-glow: 0 0 60px hsl(243 75% 59% / 0.2);
   --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.4);
   --sidebar-background: 230 8% 11%;
@@ -804,7 +805,7 @@ body {
 }
 
 .login-page-title {
-  background: linear-gradient(135deg, #4338CA 0%, #4F46E5 50%, #818CF8 100%);
+  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 50%, #818cf8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -942,7 +943,9 @@ body {
   background-color: var(--mantine-color-dark-5);
 }
 
-[data-mantine-color-scheme='dark'] .knowledge-card:not(.knowledge-card--active) .knowledge-card__header:hover {
+[data-mantine-color-scheme='dark']
+  .knowledge-card:not(.knowledge-card--active)
+  .knowledge-card__header:hover {
   background: var(--mantine-color-dark-5);
 }
 
@@ -1002,14 +1005,17 @@ body {
  * ============================================================================ */
 
 .chat-input-fade {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.85) 28%, rgba(255, 255, 255, 1) 60%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.85) 28%,
+    rgba(255, 255, 255, 1) 60%
+  );
   backdrop-filter: blur(8px);
 }
 
 [data-mantine-color-scheme='dark'] .chat-input-fade {
-  background:
-    linear-gradient(180deg, transparent 0%, var(--mantine-color-body) 60%);
+  background: linear-gradient(180deg, transparent 0%, var(--mantine-color-body) 60%);
 }
 
 /* ============================================================================

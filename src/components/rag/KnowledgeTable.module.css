@@ -8,7 +8,9 @@
 }
 
 .tableRow {
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .tableRow:hover {
@@ -20,7 +22,10 @@
 }
 
 .mobileCard {
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
 }
 
 .mobileCard:active {

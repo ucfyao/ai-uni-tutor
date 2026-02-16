@@ -82,7 +82,9 @@ export function ChunkTable({
         <Skeleton height={16} width="60%" />
         <Skeleton height={16} width="80%" />
         <Skeleton height={16} width="50%" />
-        <Text c="dimmed" fz="sm">{t.knowledge.processingDocument}</Text>
+        <Text c="dimmed" fz="sm">
+          {t.knowledge.processingDocument}
+        </Text>
       </Stack>
     );
   }
@@ -96,7 +98,9 @@ export function ChunkTable({
           </Badge>
           {selectedIds.size > 0 && (
             <Group gap="xs">
-              <Text fz="sm" c="dimmed">{selectedIds.size} selected</Text>
+              <Text fz="sm" c="dimmed">
+                {selectedIds.size} selected
+              </Text>
               <Button size="xs" color="red" variant="light" onClick={onBulkDelete}>
                 {t.knowledge.bulkDelete}
               </Button>
@@ -135,7 +139,9 @@ export function ChunkTable({
         </Badge>
         {selectedIds.size > 0 && (
           <Group gap="xs">
-            <Text fz="sm" c="dimmed">{selectedIds.size} selected</Text>
+            <Text fz="sm" c="dimmed">
+              {selectedIds.size} selected
+            </Text>
             <Button size="xs" color="red" variant="light" onClick={onBulkDelete}>
               {t.knowledge.bulkDelete}
             </Button>

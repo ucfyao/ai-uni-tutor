@@ -159,78 +159,78 @@ export default function PricingPage() {
             >
               {t.pricing.mostPopular}
             </Badge>
-          <Paper
-            withBorder
-            p={32}
-            radius="lg"
-            style={{
-              borderColor: 'var(--mantine-color-violet-4)',
-              borderWidth: 2,
-            }}
-          >
-            <Stack gap="xl" justify="space-between" h="100%">
-              <Stack gap="xl">
-                <Box>
-                  <Group gap="xs" mb="xs">
-                    <ThemeIcon variant="light" color="violet" size={28} radius="xl">
-                      <Crown size={14} />
-                    </ThemeIcon>
-                    <Text fw={700} fz="xl">
-                      {t.pricing.pro.name}
-                    </Text>
-                  </Group>
-                  <Group align="baseline" gap={6} mt="sm" wrap="nowrap">
-                    <Text fz={44} fw={800} lh={1} c="violet.7">
-                      {proPrice}
-                    </Text>
-                    <Text size="sm" c="dimmed" fw={500}>
-                      {proPeriod}
-                    </Text>
-                    {billing === 'semester' && (
-                      <Text size="sm" td="line-through" c="dimmed" fw={400}>
-                        {t.pricing.pro.originalPrice}
+            <Paper
+              withBorder
+              p={32}
+              radius="lg"
+              style={{
+                borderColor: 'var(--mantine-color-violet-4)',
+                borderWidth: 2,
+              }}
+            >
+              <Stack gap="xl" justify="space-between" h="100%">
+                <Stack gap="xl">
+                  <Box>
+                    <Group gap="xs" mb="xs">
+                      <ThemeIcon variant="light" color="violet" size={28} radius="xl">
+                        <Crown size={14} />
+                      </ThemeIcon>
+                      <Text fw={700} fz="xl">
+                        {t.pricing.pro.name}
                       </Text>
-                    )}
-                  </Group>
-                </Box>
+                    </Group>
+                    <Group align="baseline" gap={6} mt="sm" wrap="nowrap">
+                      <Text fz={44} fw={800} lh={1} c="violet.7">
+                        {proPrice}
+                      </Text>
+                      <Text size="sm" c="dimmed" fw={500}>
+                        {proPeriod}
+                      </Text>
+                      {billing === 'semester' && (
+                        <Text size="sm" td="line-through" c="dimmed" fw={400}>
+                          {t.pricing.pro.originalPrice}
+                        </Text>
+                      )}
+                    </Group>
+                  </Box>
 
-                <List
-                  spacing="md"
-                  size="sm"
-                  center
-                  icon={
-                    <ThemeIcon color="violet" size={22} radius="xl" variant="light">
-                      <Check size={13} strokeWidth={3} />
-                    </ThemeIcon>
-                  }
-                >
-                  {t.pricing.pro.features.map((feature, i) => (
-                    <List.Item key={i}>
-                      <Text size="sm">{feature}</Text>
-                    </List.Item>
-                  ))}
-                </List>
+                  <List
+                    spacing="md"
+                    size="sm"
+                    center
+                    icon={
+                      <ThemeIcon color="violet" size={22} radius="xl" variant="light">
+                        <Check size={13} strokeWidth={3} />
+                      </ThemeIcon>
+                    }
+                  >
+                    {t.pricing.pro.features.map((feature, i) => (
+                      <List.Item key={i}>
+                        <Text size="sm">{feature}</Text>
+                      </List.Item>
+                    ))}
+                  </List>
+                </Stack>
+
+                {isPro ? (
+                  <Button fullWidth variant="light" color="gray" radius="md" size="md" disabled>
+                    {t.pricing.pro.currentPlan}
+                  </Button>
+                ) : (
+                  <Button
+                    fullWidth
+                    color="violet"
+                    radius="md"
+                    size="lg"
+                    onClick={handleUpgrade}
+                    loading={loading}
+                    leftSection={<Sparkles size={18} />}
+                  >
+                    {t.pricing.pro.cta}
+                  </Button>
+                )}
               </Stack>
-
-              {isPro ? (
-                <Button fullWidth variant="light" color="gray" radius="md" size="md" disabled>
-                  {t.pricing.pro.currentPlan}
-                </Button>
-              ) : (
-                <Button
-                  fullWidth
-                  color="violet"
-                  radius="md"
-                  size="lg"
-                  onClick={handleUpgrade}
-                  loading={loading}
-                  leftSection={<Sparkles size={18} />}
-                >
-                  {t.pricing.pro.cta}
-                </Button>
-              )}
-            </Stack>
-          </Paper>
+            </Paper>
           </Box>
         </SimpleGrid>
 
@@ -248,9 +248,21 @@ export default function PricingPage() {
               {[
                 { name: t.pricing.featureDailyQueries, free: '3/day', pro: '30/day' },
                 { name: t.pricing.featureDocUploads, free: '5', pro: t.pricing.unlimited },
-                { name: t.pricing.featureExamModes, free: t.pricing.practiceOnly, pro: t.pricing.allModes },
-                { name: t.pricing.featureKnowledgeCards, free: <IconCheck size={16} color="var(--mantine-color-green-6)" />, pro: <IconCheck size={16} color="var(--mantine-color-green-6)" /> },
-                { name: t.pricing.featurePriority, free: <IconX size={16} color="var(--mantine-color-gray-5)" />, pro: <IconCheck size={16} color="var(--mantine-color-green-6)" /> },
+                {
+                  name: t.pricing.featureExamModes,
+                  free: t.pricing.practiceOnly,
+                  pro: t.pricing.allModes,
+                },
+                {
+                  name: t.pricing.featureKnowledgeCards,
+                  free: <IconCheck size={16} color="var(--mantine-color-green-6)" />,
+                  pro: <IconCheck size={16} color="var(--mantine-color-green-6)" />,
+                },
+                {
+                  name: t.pricing.featurePriority,
+                  free: <IconX size={16} color="var(--mantine-color-gray-5)" />,
+                  pro: <IconCheck size={16} color="var(--mantine-color-green-6)" />,
+                },
               ].map((f, i) => (
                 <Table.Tr key={i}>
                   <Table.Td>{f.name}</Table.Td>

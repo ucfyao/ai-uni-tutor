@@ -27,7 +27,13 @@ const RenameSessionModal: React.FC<RenameSessionModalProps> = ({
   }, [currentTitle, opened]);
 
   return (
-    <FullScreenModal opened={opened} onClose={onClose} title={t.modals.renameSession} centered size="sm">
+    <FullScreenModal
+      opened={opened}
+      onClose={onClose}
+      title={t.modals.renameSession}
+      centered
+      size="sm"
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();

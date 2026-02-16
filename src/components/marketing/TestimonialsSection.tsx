@@ -1,5 +1,15 @@
 import { Quote, Star } from 'lucide-react';
-import { Avatar, Box, Container, Group, Paper, ScrollArea, SimpleGrid, Text, Title } from '@mantine/core';
+import {
+  Avatar,
+  Box,
+  Container,
+  Group,
+  Paper,
+  ScrollArea,
+  SimpleGrid,
+  Text,
+  Title,
+} from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const TestimonialsSection = () => {
@@ -58,8 +68,12 @@ const TestimonialsSection = () => {
                       {testimonial.avatar}
                     </Avatar>
                     <Box>
-                      <Text fw={600} fz="sm">{testimonial.name}</Text>
-                      <Text size="xs" c="dimmed">{testimonial.role}</Text>
+                      <Text fw={600} fz="sm">
+                        {testimonial.name}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {testimonial.role}
+                      </Text>
                     </Box>
                   </Group>
                 </Paper>
@@ -98,7 +112,9 @@ const TestimonialsSection = () => {
                 </Avatar>
                 <Box>
                   <Text fw={600}>{testimonial.name}</Text>
-                  <Text size="sm" c="dimmed">{testimonial.role}</Text>
+                  <Text size="sm" c="dimmed">
+                    {testimonial.role}
+                  </Text>
                 </Box>
               </Group>
             </Box>

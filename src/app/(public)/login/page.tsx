@@ -57,7 +57,14 @@ function LoginForm() {
   };
 
   const strengthColor = ['red', 'red', 'orange', 'yellow', 'green', 'green'] as const;
-  const strengthLabel = ['', t.login.weak, t.login.weak, t.login.medium, t.login.strong, t.login.strong];
+  const strengthLabel = [
+    '',
+    t.login.weak,
+    t.login.weak,
+    t.login.medium,
+    t.login.strong,
+    t.login.strong,
+  ];
   const strength = getPasswordStrength(password);
 
   const handleAuth = async (e: React.FormEvent) => {

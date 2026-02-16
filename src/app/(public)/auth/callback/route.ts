@@ -21,9 +21,7 @@ export function sanitizeRedirectPath(value: string | undefined): string {
   if (!value) return '/';
   if (value.startsWith('//') || value.includes('://')) return '/';
   if (value === '/') return '/';
-  return ALLOWED_PATH_PREFIXES.some((prefix) => value.startsWith(prefix))
-    ? value
-    : '/';
+  return ALLOWED_PATH_PREFIXES.some((prefix) => value.startsWith(prefix)) ? value : '/';
 }
 
 const callbackParamsSchema = z.object({

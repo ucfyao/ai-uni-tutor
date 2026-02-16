@@ -15,8 +15,8 @@ import {
   type MantineColor,
 } from '@mantine/core';
 import { PLACEHOLDERS } from '@/constants/placeholders';
-import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
 import { useLanguage } from '@/i18n/LanguageContext';
+import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
 
 const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
   ssr: false,

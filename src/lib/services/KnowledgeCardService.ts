@@ -41,10 +41,7 @@ export class KnowledgeCardService {
    * Save extracted knowledge points as cards (called during document upload).
    * Deduplicates by title — existing cards are updated, new ones created.
    */
-  async saveFromKnowledgePoints(
-    points: KnowledgePoint[],
-    documentId: string,
-  ): Promise<void> {
+  async saveFromKnowledgePoints(points: KnowledgePoint[], documentId: string): Promise<void> {
     for (const point of points) {
       const embedding = await generateEmbeddingWithRetry(
         [point.title, point.definition].join('\n'),
@@ -66,10 +63,7 @@ export class KnowledgeCardService {
    * Retrieve knowledge cards related to a query (called during chat).
    * Uses embedding similarity search.
    */
-  async findRelatedCards(
-    query: string,
-    matchCount: number = 5,
-  ): Promise<KnowledgeCardSummary[]> {
+  async findRelatedCards(query: string, matchCount: number = 5): Promise<KnowledgeCardSummary[]> {
     const embedding = await generateEmbeddingWithRetry(query);
     const cards = await this.knowledgeCardRepo.searchByEmbedding(embedding, matchCount);
     return cards.map((c) => ({
@@ -106,9 +100,7 @@ export class KnowledgeCardService {
     return this.cardConversationRepo.findByCardId(cardId, cardType);
   }
 
-  async addCardConversation(
-    dto: CreateCardConversationDTO,
-  ): Promise<CardConversationEntity> {
+  async addCardConversation(dto: CreateCardConversationDTO): Promise<CardConversationEntity> {
     return this.cardConversationRepo.create(dto);
   }
 }

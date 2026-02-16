@@ -6,7 +6,10 @@
  */
 
 import type { IKnowledgeCardRepository } from '@/lib/domain/interfaces/IKnowledgeCardRepository';
-import type { CreateKnowledgeCardDTO, KnowledgeCardEntity } from '@/lib/domain/models/KnowledgeCard';
+import type {
+  CreateKnowledgeCardDTO,
+  KnowledgeCardEntity,
+} from '@/lib/domain/models/KnowledgeCard';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
@@ -74,18 +77,14 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
     return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
-  async searchByEmbedding(
-    embedding: number[],
-    matchCount: number,
-  ): Promise<KnowledgeCardEntity[]> {
+  async searchByEmbedding(embedding: number[], matchCount: number): Promise<KnowledgeCardEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc('match_knowledge_cards', {
       query_embedding: embedding,
       match_count: matchCount,
     });
 
-    if (error)
-      throw new DatabaseError(`Failed to search knowledge cards: ${error.message}`, error);
+    if (error) throw new DatabaseError(`Failed to search knowledge cards: ${error.message}`, error);
 
     return (data ?? []).map(
       (row: Database['public']['Functions']['match_knowledge_cards']['Returns'][number]) => ({
@@ -175,10 +174,7 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
 
   async deleteByDocumentId(documentId: string): Promise<void> {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from('knowledge_cards')
-      .delete()
-      .eq('document_id', documentId);
+    const { error } = await supabase.from('knowledge_cards').delete().eq('document_id', documentId);
 
     if (error)
       throw new DatabaseError(`Failed to delete cards by document: ${error.message}`, error);

@@ -38,7 +38,7 @@ function CountUpStat({ target, suffix, label }: { target: number; suffix: string
           requestAnimationFrame(animate);
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.5 },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -47,7 +47,8 @@ function CountUpStat({ target, suffix, label }: { target: number; suffix: string
   return (
     <Box ref={elementRef}>
       <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
-        {count.toLocaleString()}{suffix}
+        {count.toLocaleString()}
+        {suffix}
       </Text>
       <Text c="dimmed" mt="0.25rem">
         {label}

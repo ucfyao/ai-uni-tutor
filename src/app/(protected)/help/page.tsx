@@ -2,7 +2,16 @@
 
 import { BookOpen, Cpu, CreditCard, GraduationCap, Mail, Search } from 'lucide-react';
 import { useState } from 'react';
-import { Accordion, Group, Paper, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core';
+import {
+  Accordion,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+  UnstyledButton,
+} from '@mantine/core';
 import { PageShell } from '@/components/PageShell';
 import { useLanguage } from '@/i18n/LanguageContext';
 

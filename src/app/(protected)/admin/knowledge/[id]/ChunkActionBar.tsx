@@ -3,10 +3,7 @@
 import { Check, RefreshCw, Save } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card, Group, Text } from '@mantine/core';
-import {
-  regenerateEmbeddings,
-  updateDocumentChunks,
-} from '@/app/actions/documents';
+import { regenerateEmbeddings, updateDocumentChunks } from '@/app/actions/documents';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 
