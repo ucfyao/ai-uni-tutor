@@ -1,13 +1,13 @@
 import { AlertCircle } from 'lucide-react';
-import { redirect } from 'next/navigation';
 import { Alert, Container } from '@mantine/core';
 import { getDocumentService } from '@/lib/services/DocumentService';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/server';
 import { KnowledgeClient } from './KnowledgeClient';
 
 const DEFAULT_DOC_TYPE = 'lecture';
 
 export default async function KnowledgePage() {
+  // AdminLayout already enforces auth + admin role
   const user = await getCurrentUser();
 
   if (!user) {
@@ -20,20 +20,6 @@ export default async function KnowledgePage() {
     );
   }
 
-  const supabase = await createClient();
-
-  // Admin redirect
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.role === 'admin') {
-    redirect('/admin/content');
-  }
-
-  // Fetch initial documents for default tab via service layer
   const service = getDocumentService();
   const entities = await service.getDocumentsByType(user.id, DEFAULT_DOC_TYPE);
 
