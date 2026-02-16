@@ -293,7 +293,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                     <ActionIcon
                       variant="subtle"
                       color="gray"
-                      onClick={() => router.push(`/knowledge/${doc.id}`)}
+                      onClick={() => router.push(`/admin/knowledge/${doc.id}`)}
                       aria-label="View document details"
                     >
                       <Eye size={16} />
@@ -450,7 +450,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                       <ActionIcon
                         variant="subtle"
                         color="gray"
-                        onClick={() => router.push(`/knowledge/${doc.id}`)}
+                        onClick={() => router.push(`/admin/knowledge/${doc.id}`)}
                         aria-label="View document details"
                       >
                         <Eye size={16} />

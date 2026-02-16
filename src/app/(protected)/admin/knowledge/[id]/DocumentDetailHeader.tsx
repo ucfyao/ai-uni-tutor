@@ -55,7 +55,7 @@ export function DocumentDetailHeader({
       <Group gap="sm" wrap="nowrap" style={{ flex: 1, overflow: 'hidden' }}>
         <Button
           component={Link}
-          href="/knowledge"
+          href="/admin/knowledge"
           variant="subtle"
           color="gray"
           size="compact-sm"

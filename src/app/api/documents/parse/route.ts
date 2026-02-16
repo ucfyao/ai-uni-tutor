@@ -8,7 +8,7 @@ import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
-import { getCurrentUser } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/supabase/server';
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -79,9 +79,11 @@ export async function POST(request: Request) {
 
     try {
       // ── Auth ──
-      const user = await getCurrentUser();
-      if (!user) {
-        send('error', { message: 'Unauthorized', code: 'UNAUTHORIZED' });
+      let user;
+      try {
+        user = await requireAdmin();
+      } catch {
+        send('error', { message: 'Admin access required', code: 'FORBIDDEN' });
         return;
       }
 

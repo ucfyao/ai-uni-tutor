@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 const ALLOWED_PATH_PREFIXES = [
   '/study',
   '/exam',
-  '/knowledge',
   '/lecture',
   '/admin',
   '/assignment',

@@ -52,7 +52,6 @@ describe('sanitizeRedirectPath', () => {
     expect(sanitizeRedirectPath('/study')).toBe('/study');
     expect(sanitizeRedirectPath('/study/abc')).toBe('/study/abc');
     expect(sanitizeRedirectPath('/exam/123')).toBe('/exam/123');
-    expect(sanitizeRedirectPath('/knowledge')).toBe('/knowledge');
     expect(sanitizeRedirectPath('/lecture/1')).toBe('/lecture/1');
     expect(sanitizeRedirectPath('/admin')).toBe('/admin');
     expect(sanitizeRedirectPath('/assignment')).toBe('/assignment');
