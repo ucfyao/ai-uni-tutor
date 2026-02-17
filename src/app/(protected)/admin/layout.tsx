@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'admin') redirect('/study');
+  if (profile?.role !== 'admin' && profile?.role !== 'super_admin') redirect('/study');
 
   return <>{children}</>;
 }
