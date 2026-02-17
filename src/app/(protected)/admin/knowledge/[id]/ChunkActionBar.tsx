@@ -3,12 +3,19 @@
 import { Check, RefreshCw, Save } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card, Group, Text } from '@mantine/core';
-import { regenerateEmbeddings, updateDocumentChunks } from '@/app/actions/documents';
+import {
+  regenerateEmbeddings,
+  updateAssignmentItems,
+  updateDocumentChunks,
+  updateExamQuestions,
+} from '@/app/actions/documents';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
+import type { DocType } from './types';
 
 interface ChunkActionBarProps {
   docId: string;
+  docType: DocType;
   pendingChanges: number;
   editedChunks: Map<string, { content: string; metadata: Record<string, unknown> }>;
   deletedChunkIds: Set<string>;
@@ -17,6 +24,7 @@ interface ChunkActionBarProps {
 
 export function ChunkActionBar({
   docId,
+  docType,
   pendingChanges,
   editedChunks,
   deletedChunkIds,
@@ -34,7 +42,17 @@ export function ChunkActionBar({
         content: data.content,
         metadata: data.metadata,
       }));
-      const result = await updateDocumentChunks(docId, updates, Array.from(deletedChunkIds));
+      const deletedArr = Array.from(deletedChunkIds);
+
+      let result: { status: string; message: string };
+      if (docType === 'exam') {
+        result = await updateExamQuestions(docId, updates, deletedArr);
+      } else if (docType === 'assignment') {
+        result = await updateAssignmentItems(docId, updates, deletedArr);
+      } else {
+        result = await updateDocumentChunks(docId, updates, deletedArr);
+      }
+
       if (result.status === 'success') {
         showNotification({
           message: t.toast.changesSaved,
@@ -96,17 +114,19 @@ export function ChunkActionBar({
             : t.documentDetail.noChanges}
         </Text>
         <Group gap="sm">
-          <Button
-            variant="light"
-            color="gray"
-            leftSection={<RefreshCw size={16} />}
-            loading={regenerating}
-            disabled={regenerating}
-            onClick={handleRegenerate}
-            radius="md"
-          >
-            {t.documentDetail.regenerateEmbeddings}
-          </Button>
+          {docType === 'lecture' && (
+            <Button
+              variant="light"
+              color="gray"
+              leftSection={<RefreshCw size={16} />}
+              loading={regenerating}
+              disabled={regenerating}
+              onClick={handleRegenerate}
+              radius="md"
+            >
+              {t.documentDetail.regenerateEmbeddings}
+            </Button>
+          )}
           <Button
             color="indigo"
             leftSection={<Save size={16} />}
