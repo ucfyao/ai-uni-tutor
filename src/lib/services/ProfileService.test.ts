@@ -20,6 +20,9 @@ function createMockProfileRepo(): {
     updateStripeCustomerId: vi.fn(),
     updateSubscription: vi.fn(),
     updateSubscriptionBySubscriptionId: vi.fn(),
+    findByRole: vi.fn(),
+    searchUsers: vi.fn(),
+    updateRole: vi.fn(),
   };
 }
 
