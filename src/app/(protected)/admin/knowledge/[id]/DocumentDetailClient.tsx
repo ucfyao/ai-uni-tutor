@@ -8,7 +8,7 @@ import { ChunkActionBar } from './ChunkActionBar';
 import { ChunkTable } from './ChunkTable';
 import { DocumentDetailHeader } from './DocumentDetailHeader';
 import type { Chunk, DocType, SerializedDocument } from './types';
-import { metaStr, resolveDocType } from './types';
+import { metaStr } from './types';
 
 interface DocumentDetailClientProps {
   document: SerializedDocument;
@@ -20,7 +20,7 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
   const { setHeaderContent } = useHeader();
 
   /* -- derived from document metadata -- */
-  const docType: DocType = resolveDocType(doc.metadata);
+  const docType: DocType = doc.docType;
   const school = metaStr(doc.metadata, 'school');
   const course = metaStr(doc.metadata, 'course');
 
@@ -194,6 +194,7 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
           {/* Sticky footer */}
           <ChunkActionBar
             docId={doc.id}
+            docType={docType}
             pendingChanges={pendingChanges}
             editedChunks={editedChunks}
             deletedChunkIds={deletedChunkIds}
