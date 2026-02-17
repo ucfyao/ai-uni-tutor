@@ -4,7 +4,7 @@
 
 **Goal:** Implement a three-tier role system (`super_admin` / `admin` / `user`) with course-level permission assignment for document management.
 
-**Architecture:** Extend existing `profiles.role` to support `super_admin`, add `admin_course_assignments` join table, replace `requireAdmin()` with `requireSuperAdmin()` / `requireCourseAdmin(courseId)` / `requireAnyAdmin()`, update all server actions and admin pages accordingly.
+**Architecture:** Extend existing `profiles.role` to support `super_admin`, add `admin_course_assignments` join table, replace `requireAdmin()` with `requireSuperAdmin()` / `requireCourseAdmin(courseId)` / `requireAnyAdmin()`, update all 16 call sites, rewrite RLS for 8 tables, update admin pages.
 
 **Tech Stack:** Supabase (PostgreSQL + RLS), Next.js Server Actions, Mantine v8 components, Zod validation.
 
@@ -21,15 +21,23 @@
 ```sql
 -- Admin Permissions Migration
 -- Adds super_admin role support and course-level permission assignments
+-- Rewrites RLS for 8 tables: admin_course_assignments, documents,
+-- exam_papers, exam_questions, assignments, assignment_items, universities, courses
 
 -- ============================================================================
--- 1. admin_course_assignments table
+-- 1. CHECK constraint on profiles.role
+-- ============================================================================
+ALTER TABLE profiles ADD CONSTRAINT chk_role
+  CHECK (role IN ('user', 'admin', 'super_admin'));
+
+-- ============================================================================
+-- 2. admin_course_assignments table
 -- ============================================================================
 CREATE TABLE admin_course_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   admin_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   course_id uuid NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-  assigned_by uuid NOT NULL REFERENCES profiles(id),
+  assigned_by uuid REFERENCES profiles(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(admin_id, course_id)
 );
@@ -39,7 +47,6 @@ CREATE INDEX idx_admin_course_course ON admin_course_assignments (course_id);
 
 ALTER TABLE admin_course_assignments ENABLE ROW LEVEL SECURITY;
 
--- super_admin can do everything; admin can only read own assignments
 CREATE POLICY "aca_select" ON admin_course_assignments
   FOR SELECT TO authenticated
   USING (
@@ -60,7 +67,231 @@ CREATE POLICY "aca_delete" ON admin_course_assignments
   );
 
 -- ============================================================================
--- 2. Update universities RLS to allow super_admin
+-- 3. documents — NO RLS exists, create from scratch
+-- ============================================================================
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "documents_select" ON documents
+  FOR SELECT TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (
+      SELECT 1 FROM admin_course_assignments
+      WHERE admin_id = auth.uid() AND course_id = documents.course_id
+    )
+  );
+
+CREATE POLICY "documents_insert" ON documents
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (
+      SELECT 1 FROM admin_course_assignments
+      WHERE admin_id = auth.uid() AND course_id = documents.course_id
+    )
+  );
+
+CREATE POLICY "documents_update" ON documents
+  FOR UPDATE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (
+      SELECT 1 FROM admin_course_assignments
+      WHERE admin_id = auth.uid() AND course_id = documents.course_id
+    )
+  );
+
+CREATE POLICY "documents_delete" ON documents
+  FOR DELETE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (
+      SELECT 1 FROM admin_course_assignments
+      WHERE admin_id = auth.uid() AND course_id = documents.course_id
+    )
+  );
+
+-- ============================================================================
+-- 4. exam_papers — drop existing user_id-only policies, add admin support
+-- ============================================================================
+DROP POLICY IF EXISTS "exam_papers_select" ON exam_papers;
+DROP POLICY IF EXISTS "exam_papers_insert" ON exam_papers;
+DROP POLICY IF EXISTS "exam_papers_update" ON exam_papers;
+DROP POLICY IF EXISTS "exam_papers_delete" ON exam_papers;
+
+CREATE POLICY "exam_papers_select" ON exam_papers
+  FOR SELECT TO authenticated
+  USING (
+    visibility = 'public'
+    OR user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "exam_papers_insert" ON exam_papers
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "exam_papers_update" ON exam_papers
+  FOR UPDATE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "exam_papers_delete" ON exam_papers
+  FOR DELETE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+-- ============================================================================
+-- 5. exam_questions — drop existing policies, add admin support
+-- ============================================================================
+DROP POLICY IF EXISTS "exam_questions_select" ON exam_questions;
+DROP POLICY IF EXISTS "exam_questions_insert" ON exam_questions;
+DROP POLICY IF EXISTS "exam_questions_update" ON exam_questions;
+DROP POLICY IF EXISTS "exam_questions_delete" ON exam_questions;
+
+CREATE POLICY "exam_questions_select" ON exam_questions
+  FOR SELECT TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM exam_papers
+    WHERE exam_papers.id = exam_questions.paper_id
+    AND (
+      exam_papers.visibility = 'public'
+      OR exam_papers.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+CREATE POLICY "exam_questions_insert" ON exam_questions
+  FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM exam_papers
+    WHERE exam_papers.id = exam_questions.paper_id
+    AND (
+      exam_papers.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+CREATE POLICY "exam_questions_update" ON exam_questions
+  FOR UPDATE TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM exam_papers
+    WHERE exam_papers.id = exam_questions.paper_id
+    AND (
+      exam_papers.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+CREATE POLICY "exam_questions_delete" ON exam_questions
+  FOR DELETE TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM exam_papers
+    WHERE exam_papers.id = exam_questions.paper_id
+    AND (
+      exam_papers.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+-- ============================================================================
+-- 6. assignments — drop existing policy, add admin support
+-- ============================================================================
+DROP POLICY IF EXISTS "Users can manage own assignments" ON assignments;
+
+CREATE POLICY "assignments_select" ON assignments
+  FOR SELECT TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+  );
+
+CREATE POLICY "assignments_insert" ON assignments
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+  );
+
+CREATE POLICY "assignments_update" ON assignments
+  FOR UPDATE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+  );
+
+CREATE POLICY "assignments_delete" ON assignments
+  FOR DELETE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+  );
+
+-- ============================================================================
+-- 7. assignment_items — drop existing policy, add admin support
+-- ============================================================================
+DROP POLICY IF EXISTS "Users can manage own assignment items" ON assignment_items;
+
+CREATE POLICY "assignment_items_select" ON assignment_items
+  FOR SELECT TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM assignments
+    WHERE assignments.id = assignment_items.assignment_id
+    AND (
+      assignments.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+CREATE POLICY "assignment_items_insert" ON assignment_items
+  FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM assignments
+    WHERE assignments.id = assignment_items.assignment_id
+    AND (
+      assignments.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+CREATE POLICY "assignment_items_update" ON assignment_items
+  FOR UPDATE TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM assignments
+    WHERE assignments.id = assignment_items.assignment_id
+    AND (
+      assignments.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+CREATE POLICY "assignment_items_delete" ON assignment_items
+  FOR DELETE TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM assignments
+    WHERE assignments.id = assignment_items.assignment_id
+    AND (
+      assignments.user_id = auth.uid()
+      OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+    )
+  ));
+
+-- ============================================================================
+-- 8. universities — change role = 'admin' to role = 'super_admin'
 -- ============================================================================
 DROP POLICY IF EXISTS "universities_admin_insert" ON universities;
 DROP POLICY IF EXISTS "universities_admin_update" ON universities;
@@ -85,7 +316,7 @@ CREATE POLICY "universities_superadmin_delete" ON universities
   );
 
 -- ============================================================================
--- 3. Update courses RLS to allow super_admin
+-- 9. courses — change role = 'admin' to role = 'super_admin'
 -- ============================================================================
 DROP POLICY IF EXISTS "courses_admin_insert" ON courses;
 DROP POLICY IF EXISTS "courses_admin_update" ON courses;
@@ -114,7 +345,7 @@ CREATE POLICY "courses_superadmin_delete" ON courses
 
 ```bash
 git add supabase/migrations/20260217_admin_permissions.sql
-git commit -m "feat(db): add admin_course_assignments table and update RLS policies"
+git commit -m "feat(db): add admin_course_assignments table and rewrite RLS for 8 tables"
 ```
 
 ---
@@ -128,7 +359,7 @@ git commit -m "feat(db): add admin_course_assignments table and update RLS polic
 
 **Step 1: Add `admin_course_assignments` to database types**
 
-Add to `src/types/database.ts` inside `Tables`, after the `assignments` block:
+Add to `src/types/database.ts` inside `Tables`, after the `assignment_items` block:
 
 ```typescript
 admin_course_assignments: {
@@ -136,26 +367,28 @@ admin_course_assignments: {
     id: string;
     admin_id: string;
     course_id: string;
-    assigned_by: string;
+    assigned_by: string | null;
     created_at: string;
   };
   Insert: {
     id?: string;
     admin_id: string;
     course_id: string;
-    assigned_by: string;
+    assigned_by?: string | null;
     created_at?: string;
   };
   Update: {
     id?: string;
     admin_id?: string;
     course_id?: string;
-    assigned_by?: string;
+    assigned_by?: string | null;
     created_at?: string;
   };
   Relationships: [];
 };
 ```
+
+Note: `assigned_by` is `string | null` because the column is nullable (`ON DELETE SET NULL`).
 
 **Step 2: Add `UserRole` type to Profile model**
 
@@ -184,7 +417,7 @@ git commit -m "feat(db): add admin_course_assignments types and UserRole"
 
 **Step 1: Replace `requireAdmin` with new permission functions**
 
-Replace the `requireAdmin()` function in `src/lib/supabase/server.ts` with:
+Replace the `requireAdmin()` function (lines 53-61) in `src/lib/supabase/server.ts` with:
 
 ```typescript
 /** Require super_admin role or throw ForbiddenError. */
@@ -205,7 +438,7 @@ export async function requireAnyAdmin() {
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin')
     throw new ForbiddenError('Admin access required');
-  return { user, role: profile.role };
+  return { user, role: profile.role as string };
 }
 
 /** Require course-level admin access: super_admin passes directly, admin checked against assignments. */
@@ -222,11 +455,11 @@ export async function requireCourseAdmin(courseId: string) {
 
 /** @deprecated Use requireSuperAdmin(), requireAnyAdmin(), or requireCourseAdmin() instead. */
 export async function requireAdmin() {
-  return requireSuperAdmin();
+  return (await requireAnyAdmin()).user;
 }
 ```
 
-Keep the deprecated `requireAdmin()` alias pointing to `requireSuperAdmin()` for safety during migration.
+Key change from v1: deprecated `requireAdmin()` now points to `requireAnyAdmin()` (not `requireSuperAdmin()`), so any missed call sites won't break existing `admin` users.
 
 **Step 2: Commit**
 
@@ -350,7 +583,8 @@ export class AdminRepository {
       .from('profiles')
       .select('*')
       .eq('role', 'admin')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (error) throw new DatabaseError(`Failed to list admins: ${error.message}`, error);
 
@@ -472,6 +706,8 @@ export class AdminService {
     await this.adminRepo.updateRole(userId, 'admin');
   }
 
+  /** Demote admin to user. Order: remove courses first, then change role.
+   *  Mid-state (admin with no courses) is safe — no excess permissions. */
   async demoteToUser(adminId: string, requesterId: string): Promise<void> {
     if (adminId === requesterId) {
       throw new ForbiddenError('Cannot demote yourself');
@@ -731,12 +967,12 @@ git commit -m "feat(auth): add admin server actions for user/role management"
 
 - Modify: `src/app/actions/courses.ts`
 
-**Step 1: Replace `requireAdmin` with `requireSuperAdmin` for all mutations**
+**Step 1: Replace `requireAdmin` with `requireSuperAdmin` for all 6 mutations**
 
 In `src/app/actions/courses.ts`:
 
 - Change import: `requireAdmin` → `requireSuperAdmin`
-- Replace all `await requireAdmin()` calls with `await requireSuperAdmin()` in:
+- Replace all 6 `await requireAdmin()` calls with `await requireSuperAdmin()`:
   - `createUniversity` (line 101)
   - `updateUniversity` (line 125)
   - `deleteUniversity` (line 146)
@@ -759,28 +995,41 @@ git commit -m "refactor(auth): use requireSuperAdmin for course mutations"
 
 - Modify: `src/app/actions/documents.ts`
 
-**Step 1: Update imports and permission checks**
+**Step 1: Update imports**
 
-In `src/app/actions/documents.ts`:
+Change import from:
 
-- Change import from `requireAdmin` to `requireAnyAdmin, requireCourseAdmin, requireSuperAdmin`
-- `fetchDocuments`: Change `requireAdmin()` to `requireAnyAdmin()` — this action fetches docs by user ID, admin can only see their own uploads initially. This will be revisited when the frontend sends `courseId` filter.
-- `uploadDocument`: Change `requireAdmin()` at line 131 to `requireCourseAdmin(courseId)` where `courseId` comes from formData. Need to extract `courseId` from formData metadata.
-- `deleteDocument`: Change `requireAdmin()` to `requireAnyAdmin()`, then replace ownership checks with course-level checks for super_admin.
-- `updateDocumentChunks`: Change `requireAdmin()` to `requireAnyAdmin()`.
-- `regenerateEmbeddings`: Change `requireAdmin()` to `requireAnyAdmin()`.
-- `retryDocument`: Change `requireAdmin()` to `requireAnyAdmin()`.
-- `updateDocumentMeta`: Change `requireAdmin()` to `requireAnyAdmin()`.
-- `updateExamQuestions`: Change `requireAdmin()` to `requireAnyAdmin()`.
-- `updateAssignmentItems`: Change `requireAdmin()` to `requireAnyAdmin()`.
+```typescript
+import { requireAdmin } from '@/lib/supabase/server';
+```
 
-Note: The detailed course-level filtering for `fetchDocuments` will be done in the frontend task when we add the course filter dropdown. For now, `requireAnyAdmin()` ensures only admins can access these actions.
+to:
 
-**Step 2: Commit**
+```typescript
+import { requireAnyAdmin } from '@/lib/supabase/server';
+```
+
+**Step 2: Update all 9 call sites**
+
+Replace every `await requireAdmin()` with `await requireAnyAdmin()`:
+
+```typescript
+// Before (9 occurrences):
+const user = await requireAdmin();
+
+// After:
+const { user } = await requireAnyAdmin();
+```
+
+Call sites: `fetchDocuments` (line 29), `uploadDocument` (line 131), `deleteDocument` (line 217), `updateDocumentChunks` (line 245), `regenerateEmbeddings` (line 275), `retryDocument` (line 304), `updateDocumentMeta` (line 327), `updateExamQuestions` (line 362), `updateAssignmentItems` (line 402).
+
+Note: Course-level permission checks (`requireCourseAdmin`) will be added in Task 14 when the frontend sends courseId. For now, `requireAnyAdmin()` + RLS provides the security layer.
+
+**Step 3: Commit**
 
 ```bash
 git add src/app/actions/documents.ts
-git commit -m "refactor(auth): update document actions to use new permission functions"
+git commit -m "refactor(auth): update document actions to use requireAnyAdmin"
 ```
 
 ---
@@ -796,12 +1045,15 @@ git commit -m "refactor(auth): update document actions to use new permission fun
 In `src/app/api/documents/parse/route.ts`:
 
 - Change import from `requireAdmin` to `requireAnyAdmin`
-- Change `user = await requireAdmin()` (line 88) to:
+- Change the auth block (lines 87-91) from:
   ```typescript
-  const { user } = await requireAnyAdmin();
+  user = await requireAdmin();
   ```
-
-Note: The SSE route currently does not receive a `courseId` in its FormData. The course-level permission check should be added when the frontend sends `courseId`. For now, `requireAnyAdmin()` is sufficient since the upload UI will only show courses the admin has access to.
+  to:
+  ```typescript
+  const result = await requireAnyAdmin();
+  user = result.user;
+  ```
 
 **Step 2: Commit**
 
@@ -818,31 +1070,21 @@ git commit -m "refactor(auth): update SSE parse route to use requireAnyAdmin"
 
 - Modify: `src/app/(protected)/admin/layout.tsx`
 
-**Step 1: Update role check to allow both admin and super_admin**
+**Step 1: Rewrite role check to allow both admin and super_admin**
 
-Replace the content of `src/app/(protected)/admin/layout.tsx`:
+Current code (line 16) uses inline Supabase query with strict comparison:
 
 ```typescript
-import { redirect } from 'next/navigation';
-import type { ReactNode } from 'react';
-import { createClient, getCurrentUser } from '@/lib/supabase/server';
-
-export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.role !== 'admin' && profile?.role !== 'super_admin') redirect('/study');
-
-  return <>{children}</>;
-}
+if (profile?.role !== 'admin') redirect('/study');
 ```
+
+Replace with:
+
+```typescript
+if (profile?.role !== 'admin' && profile?.role !== 'super_admin') redirect('/study');
+```
+
+This is a rewrite of the inline comparison, NOT a function call swap.
 
 **Step 2: Commit**
 
@@ -901,7 +1143,7 @@ This is a larger component. Key features:
 
 - Search users by email/name
 - Display user list with role badges
-- Promote/demote buttons (user ↔ admin)
+- Promote/demote buttons (user ↔ admin), disabled for `super_admin` rows
 - Click admin row → expand to show course assignment multi-select
 - Course multi-select with save button
 
@@ -912,9 +1154,9 @@ Create `src/app/(protected)/admin/users/AdminUsersClient.tsx` with a complete Ma
 - Use `Badge` for role display (`super_admin` = red, `admin` = blue, `user` = gray)
 - Use `ActionIcon` or `Button` for promote/demote
 - Use `MultiSelect` (populated from `fetchCourses()`) for course assignment
-- Use `showNotification` for success/error feedback
+- Use `showNotification` from `@/lib/notifications` for success/error feedback
 - Call server actions: `searchUsers`, `promoteToAdmin`, `demoteToUser`, `setAdminCourses`, `getAdminCourseIds`
-- Call `fetchCourses` and `fetchUniversities` for the course selector
+- Call `fetchCourses` and `fetchUniversities` from `@/app/actions/courses` for the course selector
 
 The component should follow existing patterns in `AdminCoursesClient.tsx` for styling and layout.
 
@@ -963,13 +1205,19 @@ git commit -m "feat(ui): add role-based admin navigation menu"
 - Modify: `src/app/(protected)/admin/knowledge/KnowledgeClient.tsx`
 - Modify: `src/app/actions/documents.ts` — `fetchDocuments` to support course filtering
 
-**Step 1: Update fetchDocuments to accept courseId filter**
+**Step 1: Update fetchDocuments to accept courseId filter and resolve courseId for mutations**
 
 In `src/app/actions/documents.ts`, update `fetchDocuments` to:
 
-- Accept an optional `courseId` parameter
+- Accept optional `courseId` and `role` parameters
 - For `super_admin`: if courseId provided, filter by course; otherwise show all
-- For `admin`: always filter by assigned courses only
+- For `admin`: always filter by assigned courses only (query `admin_course_assignments` for the user's course IDs, then filter documents)
+
+For mutation actions (`deleteDocument`, `updateDocumentChunks`, `regenerateEmbeddings`, `retryDocument`, `updateDocumentMeta`, `updateExamQuestions`, `updateAssignmentItems`):
+
+- Look up the entity first to get its `course_id`
+- If `course_id` exists, call `requireCourseAdmin(courseId)` instead of `requireAnyAdmin()`
+- If `course_id` is null (legacy documents), fall back to ownership check (`user_id`)
 
 **Step 2: Update KnowledgeClient**
 
@@ -1055,7 +1303,7 @@ Create test file for `requireSuperAdmin`, `requireAnyAdmin`, `requireCourseAdmin
 
 **Step 2: Write tests for AdminService**
 
-Test `promoteToAdmin`, `demoteToUser`, `setCourses`, `getAvailableCourseIds` — verify role changes and course assignment logic.
+Test `promoteToAdmin`, `demoteToUser`, `setCourses`, `getAvailableCourseIds` — verify role changes and course assignment logic. Verify `demoteToUser` removes all course assignments before changing role.
 
 **Step 3: Run tests**
 
