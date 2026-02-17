@@ -69,11 +69,7 @@ export function ChunkTable({
 
   // Label for count badge
   const countLabel =
-    docType === 'lecture'
-      ? t.documentDetail.knowledgePoints
-      : docType === 'exam'
-        ? t.documentDetail.questions
-        : t.documentDetail.chunks;
+    docType === 'lecture' ? t.documentDetail.knowledgePoints : t.documentDetail.questions;
 
   // Empty chunks skeleton
   if (chunks.length === 0) {
@@ -193,9 +189,17 @@ export function ChunkTable({
                 </>
               )}
               {docType === 'assignment' && (
-                <Table.Th w="75%" style={thStyle}>
-                  {t.documentDetail.content}
-                </Table.Th>
+                <>
+                  <Table.Th w="45%" style={thStyle}>
+                    {t.documentDetail.content}
+                  </Table.Th>
+                  <Table.Th w="20%" style={thStyle}>
+                    {t.documentDetail.answer}
+                  </Table.Th>
+                  <Table.Th w="10%" style={thStyle}>
+                    {t.documentDetail.score}
+                  </Table.Th>
+                </>
               )}
               <Table.Th w="10%" style={thStyle}></Table.Th>
             </Table.Tr>
@@ -206,7 +210,7 @@ export function ChunkTable({
               const content = getEffectiveContent(chunk);
               const isEditing = editingChunkId === chunk.id;
               // +1 for checkbox column
-              const colCount = (docType === 'lecture' ? 4 : docType === 'exam' ? 5 : 3) + 1;
+              const colCount = (docType === 'lecture' ? 4 : docType === 'exam' ? 5 : 5) + 1;
 
               return (
                 <DesktopChunkRows
@@ -331,16 +335,30 @@ function DesktopChunkRows({
         )}
 
         {docType === 'assignment' && (
-          <Table.Td>
-            <Text size="sm" c="dimmed" lineClamp={2}>
-              {content}
-            </Text>
-          </Table.Td>
+          <>
+            <Table.Td>
+              <Text size="sm" c="dimmed" lineClamp={2}>
+                {(meta.content as string) || content}
+              </Text>
+            </Table.Td>
+            <Table.Td>
+              <Text size="sm" c="dimmed" lineClamp={1}>
+                {(meta.referenceAnswer as string) || ''}
+              </Text>
+            </Table.Td>
+            <Table.Td>
+              {meta.points != null && Number(meta.points) > 0 && (
+                <Badge variant="light" color="violet" size="sm">
+                  {String(meta.points)} pts
+                </Badge>
+              )}
+            </Table.Td>
+          </>
         )}
 
         <Table.Td>
           <Group gap={4}>
-            {docType === 'exam' && answer && (
+            {(docType === 'exam' || docType === 'assignment') && answer && (
               <ActionIcon variant="subtle" color="gray" size="sm" onClick={onToggleAnswer}>
                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </ActionIcon>
@@ -355,8 +373,8 @@ function DesktopChunkRows({
         </Table.Td>
       </Table.Tr>
 
-      {/* Expanded answer row (exam only) */}
-      {docType === 'exam' && answer && isExpanded && !isEditing && (
+      {/* Expanded answer row (exam & assignment) */}
+      {(docType === 'exam' || docType === 'assignment') && answer && isExpanded && !isEditing && (
         <Table.Tr>
           <Table.Td colSpan={colCount} p={0}>
             <Box px="md" py="sm" bg="var(--mantine-color-default-hover)">
@@ -444,7 +462,7 @@ function MobileChunkRow({
       ? (meta.title as string) || t.documentDetail.untitled
       : docType === 'exam'
         ? `Q${(meta.questionNumber as string) || index + 1}`
-        : `${t.documentDetail.chunk} ${index + 1}`;
+        : `Q${(meta.questionNumber as string) || index + 1}`;
 
   const preview =
     docType === 'lecture'
@@ -468,7 +486,7 @@ function MobileChunkRow({
             </Text>
           </Group>
           <Group gap={4} wrap="nowrap">
-            {docType === 'exam' && answer && (
+            {(docType === 'exam' || docType === 'assignment') && answer && (
               <ActionIcon variant="subtle" color="gray" size="sm" onClick={onToggleAnswer}>
                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </ActionIcon>
@@ -489,7 +507,12 @@ function MobileChunkRow({
             {String(meta.score)} pts
           </Badge>
         )}
-        {docType === 'exam' && answer && (
+        {docType === 'assignment' && meta.points != null && Number(meta.points) > 0 && (
+          <Badge variant="light" color="violet" size="xs">
+            {String(meta.points)} pts
+          </Badge>
+        )}
+        {(docType === 'exam' || docType === 'assignment') && answer && (
           <Collapse in={isExpanded}>
             <Card bg="var(--mantine-color-default-hover)" p="sm" radius="sm">
               <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
