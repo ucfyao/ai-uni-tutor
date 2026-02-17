@@ -55,22 +55,21 @@ export function AdminUsersClient() {
   const queryClient = useQueryClient();
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Header
-  const { setDesktopHeader, setMobileHeader } = useHeader();
+  // Header (mobile only, following AdminCoursesClient pattern)
+  const { setHeaderContent } = useHeader();
   useEffect(() => {
-    const headerContent = (
-      <Group gap="sm" align="center">
-        <ShieldCheck size={20} />
-        <Title order={3}>User Management</Title>
-      </Group>
-    );
-    setDesktopHeader(headerContent);
-    setMobileHeader(<Title order={4}>User Management</Title>);
-    return () => {
-      setDesktopHeader(null);
-      setMobileHeader(null);
-    };
-  }, [setDesktopHeader, setMobileHeader]);
+    if (isMobile) {
+      setHeaderContent(
+        <Group gap="sm" align="center">
+          <ShieldCheck size={20} />
+          <Title order={4}>User Management</Title>
+        </Group>,
+      );
+    } else {
+      setHeaderContent(null);
+    }
+    return () => setHeaderContent(null);
+  }, [isMobile, setHeaderContent]);
 
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
@@ -133,10 +132,10 @@ export function AdminUsersClient() {
       startTransition(async () => {
         const result = await promoteToAdmin({ userId });
         if (result.success) {
-          showNotification({ type: 'success', message: 'User promoted to admin' });
+          showNotification({ title: 'Success', message: 'User promoted to admin', color: 'green' });
           invalidateAll();
         } else {
-          showNotification({ type: 'error', message: result.error });
+          showNotification({ title: 'Error', message: result.error, color: 'red' });
         }
       });
     },
@@ -148,11 +147,11 @@ export function AdminUsersClient() {
       startTransition(async () => {
         const result = await demoteToUser({ userId });
         if (result.success) {
-          showNotification({ type: 'success', message: 'Admin demoted to user' });
+          showNotification({ title: 'Success', message: 'Admin demoted to user', color: 'green' });
           setExpandedAdminId(null);
           invalidateAll();
         } else {
-          showNotification({ type: 'error', message: result.error });
+          showNotification({ title: 'Error', message: result.error, color: 'red' });
         }
       });
     },
@@ -164,9 +163,13 @@ export function AdminUsersClient() {
       startTransition(async () => {
         const result = await setAdminCourses({ adminId, courseIds: selectedCourseIds });
         if (result.success) {
-          showNotification({ type: 'success', message: 'Course assignments updated' });
+          showNotification({
+            title: 'Success',
+            message: 'Course assignments updated',
+            color: 'green',
+          });
         } else {
-          showNotification({ type: 'error', message: result.error });
+          showNotification({ title: 'Error', message: result.error, color: 'red' });
         }
       });
     },
