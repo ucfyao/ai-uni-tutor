@@ -507,6 +507,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      admin_course_assignments: {
+        Row: {
+          id: string;
+          admin_id: string;
+          course_id: string;
+          assigned_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          admin_id: string;
+          course_id: string;
+          assigned_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          admin_id?: string;
+          course_id?: string;
+          assigned_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       assignment_items: {
         Row: {
           id: string;

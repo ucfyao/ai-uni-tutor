@@ -5,6 +5,8 @@
  * Independent of database implementation.
  */
 
+export type UserRole = 'user' | 'admin' | 'super_admin';
+
 export interface ProfileEntity {
   id: string;
   fullName: string | null;
@@ -14,7 +16,7 @@ export interface ProfileEntity {
   stripePriceId: string | null;
   subscriptionStatus: string | null;
   currentPeriodEnd: Date | null;
-  role: string;
+  role: UserRole;
   createdAt: Date;
   updatedAt: Date;
 }
