@@ -23,6 +23,10 @@
 -- Adds super_admin role support and course-level permission assignments
 -- Rewrites RLS for 8 tables: admin_course_assignments, documents,
 -- exam_papers, exam_questions, assignments, assignment_items, universities, courses
+--
+-- ⚠ BREAKING: universities/courses RLS changes from role='admin' to role='super_admin'.
+-- Existing admin users will lose university/course CRUD access.
+-- Ensure at least one user is set to super_admin BEFORE running this migration.
 
 -- ============================================================================
 -- 1. CHECK constraint on profiles.role
@@ -156,7 +160,7 @@ CREATE POLICY "exam_papers_delete" ON exam_papers
   );
 
 -- ============================================================================
--- 5. exam_questions — drop existing policies, add admin support
+-- 5. exam_questions — no user_id column, uses parent subquery pattern
 -- ============================================================================
 DROP POLICY IF EXISTS "exam_questions_select" ON exam_questions;
 DROP POLICY IF EXISTS "exam_questions_insert" ON exam_questions;
@@ -242,7 +246,7 @@ CREATE POLICY "assignments_delete" ON assignments
   );
 
 -- ============================================================================
--- 7. assignment_items — drop existing policy, add admin support
+-- 7. assignment_items — no user_id column, uses parent subquery pattern
 -- ============================================================================
 DROP POLICY IF EXISTS "Users can manage own assignment items" ON assignment_items;
 
@@ -602,48 +606,10 @@ export class AdminRepository {
       updatedAt: new Date(row.updated_at),
     }));
   }
-
-  async searchUsers(search?: string): Promise<ProfileEntity[]> {
-    const supabase = await createClient();
-    let query = supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (search && search.trim()) {
-      const term = `%${search.trim()}%`;
-      query = query.or(`full_name.ilike.${term},email.ilike.${term}`);
-    }
-
-    const { data, error } = await query;
-    if (error) throw new DatabaseError(`Failed to search users: ${error.message}`, error);
-
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      fullName: row.full_name,
-      email: row.email,
-      stripeCustomerId: row.stripe_customer_id,
-      stripeSubscriptionId: row.stripe_subscription_id,
-      stripePriceId: row.stripe_price_id,
-      subscriptionStatus: row.subscription_status,
-      currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
-      role: row.role,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-    }));
-  }
-
-  async updateRole(userId: string, role: string): Promise<void> {
-    const supabase = await createClient();
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role, updated_at: new Date().toISOString() })
-      .eq('id', userId);
-
-    if (error) throw new DatabaseError(`Failed to update user role: ${error.message}`, error);
-  }
 }
+
+// Note: searchUsers() and updateRole() belong in ProfileRepository
+// since they operate on the profiles table. See Task 4b below.
 
 let _adminRepository: AdminRepository | null = null;
 
@@ -667,7 +633,61 @@ export { AdminRepository, getAdminRepository } from './AdminRepository';
 
 ```bash
 git add src/lib/repositories/AdminRepository.ts src/lib/repositories/index.ts
-git commit -m "feat(auth): add AdminRepository for course assignments and user roles"
+git commit -m "feat(auth): add AdminRepository for course assignments"
+```
+
+---
+
+### Task 4b: Extend ProfileRepository with searchUsers and updateRole
+
+**Files:**
+
+- Modify: `src/lib/repositories/ProfileRepository.ts`
+
+**Step 1: Add `searchUsers` method**
+
+Add to `ProfileRepository` class:
+
+```typescript
+async searchUsers(search?: string): Promise<ProfileEntity[]> {
+  let query = this.supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (search && search.trim()) {
+    const term = `%${search.trim()}%`;
+    query = query.or(`full_name.ilike.${term},email.ilike.${term}`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new DatabaseError(`Failed to search users: ${error.message}`, error);
+
+  return (data ?? []).map((row) => this.mapToEntity(row));
+}
+```
+
+**Step 2: Add `updateRole` method**
+
+Add to `ProfileRepository` class:
+
+```typescript
+async updateRole(userId: string, role: string): Promise<void> {
+  const { error } = await this.supabase
+    .from('profiles')
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (error) throw new DatabaseError(`Failed to update user role: ${error.message}`, error);
+}
+```
+
+**Step 3: Commit**
+
+```bash
+git add src/lib/repositories/ProfileRepository.ts
+git commit -m "feat(auth): add searchUsers and updateRole to ProfileRepository"
 ```
 
 ---
@@ -692,18 +712,22 @@ Create `src/lib/services/AdminService.ts`:
 import type { CourseEntity } from '@/lib/domain/models/Course';
 import type { ProfileEntity, UserRole } from '@/lib/domain/models/Profile';
 import { ForbiddenError } from '@/lib/errors';
+import { getProfileRepository } from '@/lib/repositories';
 import { getAdminRepository } from '@/lib/repositories/AdminRepository';
 import type { AdminRepository } from '@/lib/repositories/AdminRepository';
+import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
 
 export class AdminService {
   private readonly adminRepo: AdminRepository;
+  private readonly profileRepo: ProfileRepository;
 
-  constructor(adminRepo?: AdminRepository) {
+  constructor(adminRepo?: AdminRepository, profileRepo?: ProfileRepository) {
     this.adminRepo = adminRepo ?? getAdminRepository();
+    this.profileRepo = profileRepo ?? getProfileRepository();
   }
 
   async promoteToAdmin(userId: string): Promise<void> {
-    await this.adminRepo.updateRole(userId, 'admin');
+    await this.profileRepo.updateRole(userId, 'admin');
   }
 
   /** Demote admin to user. Order: remove courses first, then change role.
@@ -713,7 +737,7 @@ export class AdminService {
       throw new ForbiddenError('Cannot demote yourself');
     }
     await this.adminRepo.removeAllCourses(adminId);
-    await this.adminRepo.updateRole(adminId, 'user');
+    await this.profileRepo.updateRole(adminId, 'user');
   }
 
   async assignCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
@@ -754,22 +778,27 @@ export class AdminService {
   }
 
   async searchUsers(search?: string): Promise<ProfileEntity[]> {
-    return this.adminRepo.searchUsers(search);
+    return this.profileRepo.searchUsers(search);
   }
 
   async getAdminWithCourses(
     adminId: string,
   ): Promise<{ profile: ProfileEntity; courses: CourseEntity[] } | null> {
-    const { getProfileRepository } = await import('@/lib/repositories');
-    const profile = await getProfileRepository().findById(adminId);
+    const profile = await this.profileRepo.findById(adminId);
     if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) return null;
     const courses = await this.adminRepo.getAssignedCourses(adminId);
     return { profile, courses };
   }
 
-  /** Get available courses for an admin: super_admin sees all, admin sees assigned only. */
-  async getAvailableCourseIds(userId: string, role: UserRole): Promise<string[] | 'all'> {
-    if (role === 'super_admin') return 'all';
+  /** Get available course IDs for an admin.
+   *  super_admin: returns all course IDs from courses table.
+   *  admin: returns assigned course IDs only. */
+  async getAvailableCourseIds(userId: string, role: UserRole): Promise<string[]> {
+    if (role === 'super_admin') {
+      const { getCourseService } = await import('@/lib/services/CourseService');
+      const courses = await getCourseService().listCourses();
+      return courses.map((c) => c.id);
+    }
     return this.adminRepo.getAssignedCourseIds(userId);
   }
 }
@@ -1006,30 +1035,69 @@ import { requireAdmin } from '@/lib/supabase/server';
 to:
 
 ```typescript
-import { requireAnyAdmin } from '@/lib/supabase/server';
+import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 ```
 
-**Step 2: Update all 9 call sites**
+**Step 2: Add courseId resolution helper**
 
-Replace every `await requireAdmin()` with `await requireAnyAdmin()`:
+Add at the top of the file (after imports):
 
 ```typescript
-// Before (9 occurrences):
-const user = await requireAdmin();
-
-// After:
-const { user } = await requireAnyAdmin();
+/** Resolve courseId from a document/exam/assignment entity for permission checking. */
+async function resolveCourseId(documentId: string): Promise<string | null> {
+  const { getDocumentService } = await import('@/lib/services/DocumentService');
+  const doc = await getDocumentService().findById(documentId);
+  return doc?.courseId ?? null;
+}
 ```
 
-Call sites: `fetchDocuments` (line 29), `uploadDocument` (line 131), `deleteDocument` (line 217), `updateDocumentChunks` (line 245), `regenerateEmbeddings` (line 275), `retryDocument` (line 304), `updateDocumentMeta` (line 327), `updateExamQuestions` (line 362), `updateAssignmentItems` (line 402).
+**Step 3: Update all 9 call sites**
 
-Note: Course-level permission checks (`requireCourseAdmin`) will be added in Task 14 when the frontend sends courseId. For now, `requireAnyAdmin()` + RLS provides the security layer.
+- `fetchDocuments` (line 29) → `requireAnyAdmin()` (read-only, course filtering done in query):
 
-**Step 3: Commit**
+  ```typescript
+  const { user } = await requireAnyAdmin();
+  ```
+
+- `uploadDocument` (line 131) → `requireCourseAdmin(courseId)` (courseId from formData):
+
+  ```typescript
+  const courseId = formData.get('courseId') as string;
+  await requireCourseAdmin(courseId);
+  ```
+
+- **7 write actions** — each must resolve courseId from the entity, then call `requireCourseAdmin()`:
+
+  ```typescript
+  // Pattern for deleteDocument, updateDocumentChunks, regenerateEmbeddings,
+  // retryDocument, updateDocumentMeta:
+  const { user } = await requireAnyAdmin();
+  const courseId = await resolveCourseId(documentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  }
+  // If courseId is null (legacy doc without course), ownership is checked by RLS
+
+  // For updateExamQuestions (receives paperId, not documentId):
+  // Resolve courseId from exam_paper's document_id or course_id field
+  const { user } = await requireAnyAdmin();
+  // Look up exam paper to get course_id, then requireCourseAdmin(courseId)
+
+  // For updateAssignmentItems (receives assignmentId):
+  // Resolve courseId from assignment's course field
+  const { user } = await requireAnyAdmin();
+  // Look up assignment to get course, then requireCourseAdmin(courseId)
+  ```
+
+  Call sites: `deleteDocument` (line 217), `updateDocumentChunks` (line 245), `regenerateEmbeddings` (line 275), `retryDocument` (line 304), `updateDocumentMeta` (line 327), `updateExamQuestions` (line 362), `updateAssignmentItems` (line 402).
+
+**Important:** Without `requireCourseAdmin()` on write actions, course-scoped permissions are ineffective — any admin could mutate any document regardless of course assignment.
+
+**Step 4: Commit**
 
 ```bash
 git add src/app/actions/documents.ts
-git commit -m "refactor(auth): update document actions to use requireAnyAdmin"
+git commit -m "refactor(auth): use requireCourseAdmin for document write actions"
 ```
 
 ---

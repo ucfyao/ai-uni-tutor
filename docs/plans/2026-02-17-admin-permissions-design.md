@@ -53,18 +53,18 @@ Current RLS state and required changes:
 | `exam_questions`           | Via parent `exam_papers.user_id = auth.uid()` | Drop & recreate: add OR super_admin/admin conditions               |
 | `assignments`              | `auth.uid() = user_id` for all ops            | Drop & recreate: add OR super_admin/admin conditions               |
 | `assignment_items`         | Via parent `assignments.user_id = auth.uid()` | Drop & recreate: add OR super_admin/admin conditions               |
-| `universities`             | `role = 'admin'` for write ops                | Drop & recreate: change to `role = 'super_admin'`                  |
-| `courses`                  | `role = 'admin'` for write ops                | Drop & recreate: change to `role = 'super_admin'`                  |
+| `universities`             | `role = 'admin'` for write ops                | Drop & recreate: change to `role = 'super_admin'` (**breaking**)   |
+| `courses`                  | `role = 'admin'` for write ops                | Drop & recreate: change to `role = 'super_admin'` (**breaking**)   |
+
+**⚠ Breaking change:** Universities/courses RLS will change from `role = 'admin'` to `role = 'super_admin'`. Existing `admin` users will lose the ability to create/edit/delete universities and courses. This is intentional — only `super_admin` should manage these entities. Ensure at least one user is manually set to `super_admin` in the database before running the migration.
 
 **Key insight:** `documents` table has NO RLS at all — must `ENABLE ROW LEVEL SECURITY` and create all policies from scratch. For `exam_papers`/`assignments`, existing `user_id = auth.uid()` policies would block admins managing other users' content.
 
-All admin-accessible policies follow this pattern:
+**RLS policy patterns:**
+
+Tables with `user_id` column (`documents`, `exam_papers`, `assignments`) use a direct pattern:
 
 ```sql
--- Allow access if:
--- 1. User owns the record (user_id = auth.uid()), OR
--- 2. User is super_admin, OR
--- 3. User is admin (course-level check done in application layer)
 USING (
   user_id = auth.uid()
   OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
@@ -72,7 +72,23 @@ USING (
 )
 ```
 
+Child tables without `user_id` (`exam_questions`, `assignment_items`) use a **parent subquery pattern** — they join to their parent table to check ownership:
+
+```sql
+-- exam_questions: check via parent exam_papers
+USING (EXISTS (
+  SELECT 1 FROM exam_papers
+  WHERE exam_papers.id = exam_questions.paper_id
+  AND (
+    exam_papers.user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+  )
+));
+```
+
 Note: Course-level permission is enforced in the application layer (`requireCourseAdmin()`), not in RLS. RLS only distinguishes admin/super_admin from regular users. This avoids complex cross-table subqueries in every RLS policy.
+
+**⚠ Known risk:** RLS allows **any** admin to read/write records across all courses at the database level. Course-scoped isolation is enforced only in the application layer (`requireCourseAdmin()`). This is an intentional tradeoff to keep RLS simple. **Mitigation rule:** repositories must never be called directly from components or API routes — always go through server actions/services which enforce `requireCourseAdmin()` before data access.
 
 ## Permission Check Layer
 
@@ -112,15 +128,17 @@ Note: Course-level permission is enforced in the application layer (`requireCour
 
 **`src/app/actions/documents.ts`** — 9 calls:
 
-- `fetchDocuments` (line 29) → `requireAnyAdmin()` + course filtering
-- `uploadDocument` (line 131) → `requireCourseAdmin(courseId)`
-- `deleteDocument` (line 217) → `requireAnyAdmin()` + ownership/course check
-- `updateDocumentChunks` (line 245) → `requireAnyAdmin()`
-- `regenerateEmbeddings` (line 275) → `requireAnyAdmin()`
-- `retryDocument` (line 304) → `requireAnyAdmin()`
-- `updateDocumentMeta` (line 327) → `requireAnyAdmin()`
-- `updateExamQuestions` (line 362) → `requireAnyAdmin()`
-- `updateAssignmentItems` (line 402) → `requireAnyAdmin()`
+- `fetchDocuments` (line 29) → `requireAnyAdmin()` + course filtering (read-only, no courseId gate needed)
+- `uploadDocument` (line 131) → `requireCourseAdmin(courseId)` (courseId available from formData)
+- `deleteDocument` (line 217) → `requireCourseAdmin(courseId)` (resolve courseId from document)
+- `updateDocumentChunks` (line 245) → `requireCourseAdmin(courseId)` (resolve courseId from document)
+- `regenerateEmbeddings` (line 275) → `requireCourseAdmin(courseId)` (resolve courseId from document)
+- `retryDocument` (line 304) → `requireCourseAdmin(courseId)` (resolve courseId from document)
+- `updateDocumentMeta` (line 327) → `requireCourseAdmin(courseId)` (resolve courseId from document)
+- `updateExamQuestions` (line 362) → `requireCourseAdmin(courseId)` (resolve courseId from exam paper)
+- `updateAssignmentItems` (line 402) → `requireCourseAdmin(courseId)` (resolve courseId from assignment)
+
+All 7 write actions (lines 217–402) must resolve `courseId` from the entity before calling `requireCourseAdmin()`. Without this, course-scoped permissions are ineffective for writes — any admin could mutate any document regardless of course assignment.
 
 **`src/app/api/documents/parse/route.ts`** — 1 call:
 
@@ -152,6 +170,8 @@ For `deleteDocument`, `updateDocumentChunks`, `regenerateEmbeddings`, etc. — f
 
 ### New: `AdminRepository`
 
+Handles `admin_course_assignments` table operations only.
+
 ```typescript
 class AdminRepository {
   assignCourse(adminId, courseId, assignedBy): Promise<void>;
@@ -161,16 +181,24 @@ class AdminRepository {
   getAssignedCourseIds(adminId): Promise<string[]>;
   hasCourseAccess(adminId, courseId): Promise<boolean>;
   listAdmins(): Promise<Profile[]>; // .limit(100)
-  searchUsers(search?: string): Promise<Profile[]>; // .limit(50)
-  updateRole(userId, role): Promise<void>;
 }
+```
+
+### Existing: `ProfileRepository` (extended)
+
+`searchUsers` and `updateRole` belong in `ProfileRepository` since they operate on the `profiles` table, not `admin_course_assignments`.
+
+```typescript
+// Add to existing ProfileRepository:
+searchUsers(search?: string): Promise<Profile[]>; // .limit(50)
+updateRole(userId, role): Promise<void>;
 ```
 
 ### New: `AdminService`
 
 ```typescript
 class AdminService {
-  promoteToAdmin(userId): Promise<void>        // user → admin
+  promoteToAdmin(userId): Promise<void>        // user → admin (via profileRepo.updateRole)
   demoteToUser(adminId, requesterId): Promise<void>  // admin → user
     // Order: removeAllCourses first, then updateRole
     // Mid-state (admin with no courses) is safe — no excess permissions
@@ -178,7 +206,9 @@ class AdminService {
   removeCourses(adminId, courseIds[]): Promise<void>
   setCourses(adminId, courseIds[], assignedBy): Promise<void>  // diff-based
   getAdminWithCourses(adminId): Promise<{profile, courses[]}>
-  getAvailableCourseIds(userId, role): Promise<string[] | 'all'>
+  getAvailableCourseIds(userId, role): Promise<string[]>
+    // super_admin: returns all course IDs from courses table
+    // admin: returns assigned course IDs only
 }
 ```
 
