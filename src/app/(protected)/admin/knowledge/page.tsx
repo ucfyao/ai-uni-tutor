@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import { Alert, Container } from '@mantine/core';
-import { getDocumentService } from '@/lib/services/DocumentService';
+import { fetchDocuments } from '@/app/actions/documents';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { KnowledgeClient } from './KnowledgeClient';
 
@@ -20,21 +20,8 @@ export default async function KnowledgePage() {
     );
   }
 
-  const service = getDocumentService();
-  const entities = await service.getDocumentsByType(user.id, DEFAULT_DOC_TYPE);
-
-  const initialDocuments = entities.map((doc) => ({
-    id: doc.id,
-    name: doc.name,
-    status: doc.status,
-    status_message: doc.statusMessage,
-    created_at: doc.createdAt.toISOString(),
-    doc_type: doc.docType ?? DEFAULT_DOC_TYPE,
-    metadata:
-      doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
-        ? (doc.metadata as { school?: string; course?: string; [key: string]: unknown } | null)
-        : null,
-  }));
+  // fetchDocuments already handles admin role filtering (super_admin sees all, admin sees assigned courses)
+  const initialDocuments = await fetchDocuments(DEFAULT_DOC_TYPE);
 
   return <KnowledgeClient initialDocuments={initialDocuments} initialDocType={DEFAULT_DOC_TYPE} />;
 }
