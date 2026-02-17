@@ -1,4 +1,4 @@
-import { ArrowUp, Paperclip, Square, Upload } from 'lucide-react';
+import { ArrowUp, FileText, Paperclip, Square, Upload } from 'lucide-react';
 import React, { useCallback, useState } from 'react';
 import {
   ActionIcon,
@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { ACCEPTED_FILE_TYPES, getFileDisplayName } from '@/lib/file-utils';
 
 interface ChatInputProps {
   input: string;
@@ -31,6 +32,8 @@ interface ChatInputProps {
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onStop?: () => void;
   isStreaming?: boolean;
+  attachedDocument?: File | null;
+  onRemoveDocument?: () => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -51,6 +54,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onFileSelect,
   onStop,
   isStreaming,
+  attachedDocument,
+  onRemoveDocument,
 }) => {
   const { t } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
@@ -86,14 +91,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       dragCounterRef.current = 0;
       setIsDragging(false);
 
-      const files = Array.from(e.dataTransfer.files);
-      const imageFiles = files.filter((f) => f.type.startsWith('image/'));
-      if (imageFiles.length === 0) return;
+      const files = e.dataTransfer.files;
+      if (files.length === 0) return;
 
-      const dataTransfer = new DataTransfer();
-      imageFiles.forEach((f) => dataTransfer.items.add(f));
       const syntheticEvent = {
-        target: { files: dataTransfer.files },
+        target: { files },
       } as React.ChangeEvent<HTMLInputElement>;
       onFileSelect(syntheticEvent);
     },
@@ -107,6 +109,37 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       w="100%"
     >
       <Stack gap={6}>
+        {/* Document Preview */}
+        {attachedDocument && (
+          <Group gap={8} px={4}>
+            <Box
+              pos="relative"
+              className="group/doc"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 10px',
+                borderRadius: 8,
+                backgroundColor: 'var(--mantine-color-indigo-0)',
+                border: '1px solid var(--mantine-color-indigo-2)',
+              }}
+            >
+              <FileText size={14} color="var(--mantine-color-indigo-6)" />
+              <Text size="xs" fw={500} c="indigo.7" style={{ maxWidth: 200 }} truncate="end">
+                {getFileDisplayName(attachedDocument.name)}
+              </Text>
+              <CloseButton
+                size="xs"
+                radius="xl"
+                variant="subtle"
+                color="indigo"
+                onClick={onRemoveDocument}
+              />
+            </Box>
+          </Group>
+        )}
+
         {/* Image Previews */}
         {imagePreviews.length > 0 && (
           <Group gap={8} px={4}>
@@ -193,7 +226,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <Group gap={6}>
                 <Upload size={16} color="var(--mantine-color-indigo-5)" />
                 <Text size="sm" c="indigo.5" fw={500}>
-                  {t.chat.dropToAttach}
+                  {t.chat.dropToAttachFiles}
                 </Text>
               </Group>
             </Box>
@@ -202,13 +235,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_FILE_TYPES}
             multiple
             style={{ display: 'none' }}
             onChange={onFileSelect}
           />
 
-          <Tooltip label={t.chat.attachImages} position="top" withArrow>
+          <Tooltip label={t.chat.attachFiles} position="top" withArrow>
             <ActionIcon
               variant="subtle"
               c="dimmed"
@@ -276,14 +309,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               size={32}
               radius="xl"
               variant="filled"
-              color={input.trim() || attachedFiles.length > 0 ? 'indigo' : 'gray.4'}
+              color={input.trim() || attachedFiles.length > 0 || attachedDocument ? 'indigo' : 'gray.4'}
               onClick={onSend}
-              disabled={(!input.trim() && attachedFiles.length === 0) || isTyping}
+              disabled={(!input.trim() && attachedFiles.length === 0 && !attachedDocument) || isTyping}
               mr={2}
               mb={4}
               className="transition-all duration-200 active:scale-90"
               style={{
-                opacity: !input.trim() && attachedFiles.length === 0 ? 0.4 : 1,
+                opacity: !input.trim() && attachedFiles.length === 0 && !attachedDocument ? 0.4 : 1,
               }}
               aria-label="Send message"
             >
