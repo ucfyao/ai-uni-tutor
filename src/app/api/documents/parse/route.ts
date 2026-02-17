@@ -3,11 +3,13 @@ import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
+import { buildChunkContent } from '@/lib/rag/build-chunk-content';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getDocumentService } from '@/lib/services/DocumentService';
+import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAdmin } from '@/lib/supabase/server';
@@ -42,32 +44,6 @@ const uploadSchema = z.object({
     z.boolean().optional().default(false),
   ),
 });
-
-function buildChunkContent(
-  type: 'knowledge_point' | 'question',
-  item: KnowledgePoint | ParsedQuestion,
-): string {
-  if (type === 'knowledge_point') {
-    const kp = item as KnowledgePoint;
-    return [
-      kp.title,
-      kp.definition,
-      kp.keyFormulas?.length ? `Formulas: ${kp.keyFormulas.join('; ')}` : '',
-      kp.keyConcepts?.length ? `Concepts: ${kp.keyConcepts.join(', ')}` : '',
-      kp.examples?.length ? `Examples: ${kp.examples.join('; ')}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
-  }
-  const q = item as ParsedQuestion;
-  return [
-    `Q${q.questionNumber}: ${q.content}`,
-    q.options?.length ? `Options: ${q.options.join(' | ')}` : '',
-    q.referenceAnswer ? `Answer: ${q.referenceAnswer}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n');
-}
 
 export async function POST(request: Request) {
   const { stream, send, close } = createSSEStream();
@@ -288,7 +264,17 @@ export async function POST(request: Request) {
       }
 
       if (doc_type === 'lecture') {
-        // ── LECTURE: Embed + save chunks (existing flow, unchanged) ──
+        // ── LECTURE: Save knowledge cards, then embed + save chunks ──
+        const knowledgePoints = items.map((item) => item.data as KnowledgePoint);
+        try {
+          await getKnowledgeCardService().saveFromKnowledgePoints(
+            knowledgePoints,
+            effectiveRecordId,
+          );
+        } catch (cardError) {
+          console.error('Knowledge card save error (non-fatal):', cardError);
+        }
+
         send('status', { stage: 'embedding', message: 'Generating embeddings & saving...' });
         await documentService.updateStatus(
           effectiveRecordId,
@@ -414,6 +400,11 @@ export async function POST(request: Request) {
             );
           } else if (docId) {
             await documentService.updateStatus(docId, 'error', 'Processing failed unexpectedly');
+            try {
+              await getKnowledgeCardService().deleteByDocumentId(docId);
+            } catch {
+              /* ignore card cleanup errors */
+            }
           }
         } catch {
           /* ignore cleanup errors */

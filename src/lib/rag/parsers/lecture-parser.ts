@@ -1,9 +1,19 @@
 import 'server-only';
+import { z } from 'zod';
 import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
 import type { KnowledgePoint } from './types';
 
 const PAGE_BATCH_SIZE = 10;
+
+const knowledgePointSchema = z.object({
+  title: z.string().min(1),
+  definition: z.string().min(1),
+  keyFormulas: z.array(z.string()).optional(),
+  keyConcepts: z.array(z.string()).optional(),
+  examples: z.array(z.string()).optional(),
+  sourcePages: z.array(z.number()).default([]),
+});
 
 async function parseLectureBatch(pages: PDFPage[]): Promise<KnowledgePoint[]> {
   const genAI = getGenAI();
@@ -33,8 +43,32 @@ ${pagesText}`;
   });
 
   const text = response.text ?? '';
-  const parsed = JSON.parse(text) as KnowledgePoint[];
-  return parsed;
+  const raw = JSON.parse(text);
+  const arr = Array.isArray(raw) ? raw : [];
+
+  const validated: KnowledgePoint[] = [];
+  for (const item of arr) {
+    const result = knowledgePointSchema.safeParse(item);
+    if (result.success) {
+      validated.push(result.data);
+    }
+  }
+  return validated;
+}
+
+/**
+ * Deduplicate knowledge points by title (case-insensitive).
+ * First occurrence wins.
+ */
+function deduplicateByTitle(points: KnowledgePoint[]): KnowledgePoint[] {
+  const seen = new Map<string, KnowledgePoint>();
+  for (const kp of points) {
+    const key = kp.title.toLowerCase();
+    if (!seen.has(key)) {
+      seen.set(key, kp);
+    }
+  }
+  return Array.from(seen.values());
 }
 
 export async function parseLecture(
@@ -47,23 +81,19 @@ export async function parseLecture(
     onBatchProgress?.(0, totalBatches);
     const result = await parseLectureBatch(pages);
     onBatchProgress?.(1, totalBatches);
-    return result;
+    return deduplicateByTitle(result);
   }
 
-  const seen = new Map<string, KnowledgePoint>();
+  let all: KnowledgePoint[] = [];
 
   for (let i = 0; i < pages.length; i += PAGE_BATCH_SIZE) {
     const batchIndex = Math.floor(i / PAGE_BATCH_SIZE);
     onBatchProgress?.(batchIndex, totalBatches);
     const batch = pages.slice(i, i + PAGE_BATCH_SIZE);
     const batchResults = await parseLectureBatch(batch);
-    for (const kp of batchResults) {
-      if (!seen.has(kp.title)) {
-        seen.set(kp.title, kp);
-      }
-    }
+    all = all.concat(batchResults);
     onBatchProgress?.(batchIndex + 1, totalBatches);
   }
 
-  return Array.from(seen.values());
+  return deduplicateByTitle(all);
 }
