@@ -142,6 +142,49 @@ export class ProfileRepository implements IProfileRepository {
     if (error) throw new DatabaseError(`Failed to update subscription: ${error.message}`, error);
   }
 
+  async findByRole(role: string): Promise<ProfileEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', role)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw new DatabaseError(`Failed to find profiles by role: ${error.message}`, error);
+
+    return (data ?? []).map((row) => this.mapToEntity(row));
+  }
+
+  async searchUsers(search?: string): Promise<ProfileEntity[]> {
+    const supabase = await createClient();
+    let query = supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (search && search.trim()) {
+      const term = `%${search.trim()}%`;
+      query = query.or(`full_name.ilike.${term},email.ilike.${term}`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new DatabaseError(`Failed to search users: ${error.message}`, error);
+
+    return (data ?? []).map((row) => this.mapToEntity(row));
+  }
+
+  async updateRole(userId: string, role: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw new DatabaseError(`Failed to update user role: ${error.message}`, error);
+  }
+
   async updateSubscriptionBySubscriptionId(
     subscriptionId: string,
     data: {
