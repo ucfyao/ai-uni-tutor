@@ -61,6 +61,12 @@ const chatStreamSchema = z.object({
       }),
     )
     .optional(),
+  document: z
+    .object({
+      data: z.string(),
+      mimeType: z.string(),
+    })
+    .optional(),
 });
 
 // ============================================================================
@@ -81,7 +87,7 @@ export async function POST(req: NextRequest) {
     return errorResponse('Invalid request body', 400, parsed.error.flatten());
   }
 
-  const { course, mode, history, userInput, images } = parsed.data;
+  const { course, mode, history, userInput, images, document } = parsed.data;
 
   // 2. Validate API Key
   if (!process.env.GEMINI_API_KEY) {
@@ -126,6 +132,7 @@ export async function POST(req: NextRequest) {
       history: chatHistory,
       userInput,
       images,
+      document,
     });
 
     // Create SSE stream
