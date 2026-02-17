@@ -79,7 +79,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
   const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
   const router = useRouter();
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<KnowledgeDocument | null>(null);
 
   // Sort state
   type SortField = 'name' | 'date' | null;
@@ -122,9 +122,9 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteDocument(id),
-    onSuccess: (_data, id) => {
-      onDeleted?.(id);
+    mutationFn: (doc: KnowledgeDocument) => deleteDocument(doc.id, doc.doc_type),
+    onSuccess: (_data, doc) => {
+      onDeleted?.(doc.id);
       setDeleteTarget(null);
       showNotification({
         title: t.knowledge.deleted,
@@ -142,7 +142,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
     },
   });
 
-  const handleDelete = (id: string) => setDeleteTarget(id);
+  const handleDelete = (doc: KnowledgeDocument) => setDeleteTarget(doc);
 
   const handleRetry = async (id: string) => {
     try {
@@ -214,8 +214,6 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
     return null;
   };
 
-  const deleteTargetDoc = deleteTarget ? documents.find((d) => d.id === deleteTarget) : null;
-
   const deleteModal = (
     <Modal
       opened={deleteTarget !== null}
@@ -242,7 +240,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
         <Text size="sm" ta="center">
           {t.knowledge.confirmDeletePrefix}{' '}
           <Text span fw={600}>
-            {deleteTargetDoc?.name}
+            {deleteTarget?.name}
           </Text>
           {t.knowledge.confirmDeleteSuffix} {t.knowledge.deleteDocConfirm}
         </Text>
@@ -305,7 +303,9 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                     <ActionIcon
                       variant="subtle"
                       color="gray"
-                      onClick={() => router.push(`/admin/knowledge/${doc.id}`)}
+                      onClick={() =>
+                        router.push(`/admin/knowledge/${doc.id}?type=${doc.doc_type || 'lecture'}`)
+                      }
                       aria-label="View document details"
                     >
                       <Eye size={16} />
@@ -314,8 +314,10 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                       <ActionIcon
                         variant="subtle"
                         color="red"
-                        onClick={() => handleDelete(doc.id)}
-                        loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
+                        onClick={() => handleDelete(doc)}
+                        loading={
+                          deleteMutation.isPending && deleteMutation.variables?.id === doc.id
+                        }
                         aria-label="Delete document"
                       >
                         <Trash2 size={16} />
@@ -463,7 +465,11 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                         <ActionIcon
                           variant="subtle"
                           color="gray"
-                          onClick={() => router.push(`/admin/knowledge/${doc.id}`)}
+                          onClick={() =>
+                            router.push(
+                              `/admin/knowledge/${doc.id}?type=${doc.doc_type || 'lecture'}`,
+                            )
+                          }
                           aria-label="View document details"
                         >
                           <Eye size={16} />
@@ -471,8 +477,10 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                         <ActionIcon
                           variant="subtle"
                           color="red"
-                          onClick={() => handleDelete(doc.id)}
-                          loading={deleteMutation.isPending && deleteMutation.variables === doc.id}
+                          onClick={() => handleDelete(doc)}
+                          loading={
+                            deleteMutation.isPending && deleteMutation.variables?.id === doc.id
+                          }
                           aria-label="Delete document"
                         >
                           <Trash2 size={16} />
