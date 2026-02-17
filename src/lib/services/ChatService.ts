@@ -18,6 +18,7 @@ export interface ChatGenerationOptions {
   history: ChatMessage[];
   userInput: string;
   images?: { data: string; mimeType: string }[];
+  document?: { data: string; mimeType: string };
 }
 
 export interface StreamCallbacks {
@@ -40,7 +41,7 @@ export class ChatService {
    * Generate a complete AI response (non-streaming)
    */
   async generateResponse(options: ChatGenerationOptions): Promise<string> {
-    const { course, mode, history, userInput, images } = options;
+    const { course, mode, history, userInput, images, document } = options;
 
     // Validation
     this.validateRequest(course, mode);
@@ -66,7 +67,7 @@ export class ChatService {
     );
 
     // Prepare contents for Gemini
-    const contents = this.prepareContents(history, processedInput, images);
+    const contents = this.prepareContents(history, processedInput, images, document);
 
     // Generate with retry logic
     const response = await this.generateWithRetry(contents, systemInstruction, config);
@@ -83,7 +84,7 @@ export class ChatService {
    * Generate streaming AI response
    */
   async *generateStream(options: ChatGenerationOptions): AsyncGenerator<string, void, unknown> {
-    const { course, mode, history, userInput, images } = options;
+    const { course, mode, history, userInput, images, document } = options;
 
     // Validation
     this.validateRequest(course, mode);
@@ -109,7 +110,7 @@ export class ChatService {
     );
 
     // Prepare contents
-    const contents = this.prepareContents(history, processedInput, images);
+    const contents = this.prepareContents(history, processedInput, images, document);
 
     // Get AI client
     const ai = getGenAI();
@@ -188,6 +189,7 @@ Guidelines:
     history: ChatMessage[],
     userInput: string,
     images?: { data: string; mimeType: string }[],
+    document?: { data: string; mimeType: string },
   ): Content[] {
     const contents: Content[] = history.map((msg) => {
       const parts: Part[] = [{ text: msg.content }];
@@ -221,6 +223,16 @@ Guidelines:
             mimeType: img.mimeType,
           },
         });
+      });
+    }
+
+    // Add document if present
+    if (document) {
+      userParts.push({
+        inlineData: {
+          data: document.data,
+          mimeType: document.mimeType,
+        },
       });
     }
 

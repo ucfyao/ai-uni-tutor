@@ -283,6 +283,43 @@ describe('ChatService', () => {
       });
     });
 
+    it('should include document as inlineData in the user message', async () => {
+      mockGenerateContent.mockResolvedValue({ text: 'I see a PDF' });
+
+      await service.generateResponse(
+        baseOptions({
+          document: { data: 'pdf-base64-data', mimeType: 'application/pdf' },
+        }),
+      );
+
+      const callArgs = mockGenerateContent.mock.calls[0][0];
+      const lastContent = callArgs.contents[callArgs.contents.length - 1];
+      // text part + document part
+      expect(lastContent.parts).toHaveLength(2);
+      expect(lastContent.parts[1].inlineData).toEqual({
+        data: 'pdf-base64-data',
+        mimeType: 'application/pdf',
+      });
+    });
+
+    it('should include both images and document in the user message', async () => {
+      mockGenerateContent.mockResolvedValue({ text: 'I see both' });
+
+      await service.generateResponse(
+        baseOptions({
+          images: [{ data: 'img-data', mimeType: 'image/png' }],
+          document: { data: 'pdf-data', mimeType: 'application/pdf' },
+        }),
+      );
+
+      const callArgs = mockGenerateContent.mock.calls[0][0];
+      const lastContent = callArgs.contents[callArgs.contents.length - 1];
+      // text part + image part + document part
+      expect(lastContent.parts).toHaveLength(3);
+      expect(lastContent.parts[1].inlineData.mimeType).toBe('image/png');
+      expect(lastContent.parts[2].inlineData.mimeType).toBe('application/pdf');
+    });
+
     it('should call RAG with correct match count per mode', async () => {
       mockGenerateContent.mockResolvedValue({ text: 'Ok' });
 
