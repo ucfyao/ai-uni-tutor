@@ -303,15 +303,29 @@ export async function regenerateEmbeddings(
 
 export async function retryDocument(
   documentId: string,
+  docType?: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
   const user = await requireAdmin();
 
-  const documentService = getDocumentService();
-  const doc = await documentService.findById(documentId);
-  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
-
-  await documentService.deleteChunksByDocumentId(documentId);
-  await documentService.deleteDocument(documentId, user.id);
+  if (docType === 'exam') {
+    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+    const examRepo = getExamPaperRepository();
+    const owner = await examRepo.findOwner(documentId);
+    if (owner !== user.id) return { status: 'error', message: 'Document not found' };
+    await examRepo.delete(documentId);
+  } else if (docType === 'assignment') {
+    const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+    const assignmentRepo = getAssignmentRepository();
+    const owner = await assignmentRepo.findOwner(documentId);
+    if (owner !== user.id) return { status: 'error', message: 'Document not found' };
+    await assignmentRepo.delete(documentId);
+  } else {
+    const documentService = getDocumentService();
+    const doc = await documentService.findById(documentId);
+    if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+    await documentService.deleteChunksByDocumentId(documentId);
+    await documentService.deleteDocument(documentId, user.id);
+  }
 
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Document removed. Please re-upload.' };
@@ -369,6 +383,16 @@ export async function updateExamQuestions(
   const owner = await examRepo.findOwner(paperId);
   if (owner !== user.id) return { status: 'error', message: 'Not authorized' };
 
+  // Verify all question IDs belong to this paper (IDOR protection)
+  const allIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allIds.length > 0) {
+    const paperQuestions = await examRepo.findQuestionsByPaperId(paperId);
+    const validIds = new Set(paperQuestions.map((q) => q.id));
+    if (allIds.some((id) => !validIds.has(id))) {
+      return { status: 'error', message: 'Invalid question IDs' };
+    }
+  }
+
   for (const id of deletedIds) {
     await examRepo.deleteQuestion(id);
   }
@@ -408,6 +432,16 @@ export async function updateAssignmentItems(
   const assignmentRepo = getAssignmentRepository();
   const owner = await assignmentRepo.findOwner(assignmentId);
   if (owner !== user.id) return { status: 'error', message: 'Not authorized' };
+
+  // Verify all item IDs belong to this assignment (IDOR protection)
+  const allIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allIds.length > 0) {
+    const assignmentItems = await assignmentRepo.findItemsByAssignmentId(assignmentId);
+    const validIds = new Set(assignmentItems.map((item) => item.id));
+    if (allIds.some((id) => !validIds.has(id))) {
+      return { status: 'error', message: 'Invalid item IDs' };
+    }
+  }
 
   for (const id of deletedIds) {
     await assignmentRepo.deleteItem(id);
