@@ -89,6 +89,19 @@ export class AssignmentRepository implements IAssignmentRepository {
     return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
   }
 
+  async findAllForAdmin(): Promise<AssignmentEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch assignments: ${error.message}`, error);
+    }
+    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
+  }
+
   async findOwner(id: string): Promise<string | null> {
     const supabase = await createClient();
     const { data, error } = await supabase

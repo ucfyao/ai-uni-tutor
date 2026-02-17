@@ -285,6 +285,20 @@ export class ExamPaperRepository implements IExamPaperRepository {
     return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
   }
 
+  async findAllForAdmin(): Promise<ExamPaper[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('exam_papers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch exam papers: ${error.message}`, error);
+    }
+    return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
+  }
+
   async deleteQuestion(questionId: string): Promise<void> {
     const supabase = await createClient();
 

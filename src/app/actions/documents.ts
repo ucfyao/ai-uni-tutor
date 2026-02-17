@@ -2,12 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import type { UserRole } from '@/lib/domain/models/Profile';
 import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
-import { requireAdmin } from '@/lib/supabase/server';
+import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
 import type { Json } from '@/types/database';
 
@@ -25,14 +26,24 @@ export interface DocumentListItem {
 
 const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
 
+/** Resolve courseId from a document for permission checking. */
+async function resolveCourseId(documentId: string): Promise<string | null> {
+  const documentService = getDocumentService();
+  const doc = await documentService.findById(documentId);
+  return doc?.courseId ?? null;
+}
+
 export async function fetchDocuments(docType: string): Promise<DocumentListItem[]> {
-  const user = await requireAdmin();
+  const { user, role } = await requireAnyAdmin();
   const parsed = docTypeSchema.safeParse(docType);
   if (!parsed.success) throw new Error('Invalid document type');
 
   if (parsed.data === 'lecture') {
+    const { getAdminService } = await import('@/lib/services/AdminService');
+    const adminService = getAdminService();
+    const courseIds = await adminService.getAvailableCourseIds(user.id, role as UserRole);
     const service = getDocumentService();
-    const entities = await service.getDocumentsByType(user.id, 'lecture');
+    const entities = await service.getDocumentsForAdmin('lecture', courseIds);
     return entities.map((doc) => ({
       id: doc.id,
       name: doc.name,
@@ -50,7 +61,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   if (parsed.data === 'exam') {
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
     const examRepo = getExamPaperRepository();
-    const papers = await examRepo.findByUserId(user.id);
+    const papers = await examRepo.findAllForAdmin();
     return papers.map((paper) => ({
       id: paper.id,
       name: paper.title,
@@ -68,7 +79,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   // assignment
   const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
   const assignmentRepo = getAssignmentRepository();
-  const assignments = await assignmentRepo.findByUserId(user.id);
+  const assignments = await assignmentRepo.findAllForAdmin();
   return assignments.map((a) => ({
     id: a.id,
     name: a.title,
@@ -128,7 +139,15 @@ export async function uploadDocument(
       return { status: 'error', message: 'Only PDF files are supported currently' };
     }
 
-    const user = await requireAdmin();
+    // Course-level permission check: courseId from formData
+    const courseId = formData.get('courseId') as string | null;
+    let user;
+    if (courseId) {
+      user = await requireCourseAdmin(courseId);
+    } else {
+      const result = await requireAnyAdmin();
+      user = result.user;
+    }
 
     const documentService = getDocumentService();
 
@@ -150,6 +169,7 @@ export async function uploadDocument(
         course: course || 'General',
       },
       doc_type,
+      courseId ?? undefined,
     );
     docId = doc.id;
 
@@ -214,24 +234,26 @@ export async function uploadDocument(
 }
 
 export async function deleteDocument(documentId: string, docType?: string) {
-  const user = await requireAdmin();
+  await requireAnyAdmin();
 
   if (docType === 'exam') {
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
     const examRepo = getExamPaperRepository();
-    const owner = await examRepo.findOwner(documentId);
-    if (owner !== user.id) throw new ForbiddenError('Not authorized');
+    // Exam papers don't have course_id FK — RLS handles access
     await examRepo.delete(documentId);
   } else if (docType === 'assignment') {
     const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
     const assignmentRepo = getAssignmentRepository();
-    const owner = await assignmentRepo.findOwner(documentId);
-    if (owner !== user.id) throw new ForbiddenError('Not authorized');
+    // Assignments don't have course_id FK — RLS handles access
     await assignmentRepo.delete(documentId);
   } else {
-    // Default: lecture (documents table)
+    // Lecture (documents table) — has course_id, enforce course-level permission
+    const courseId = await resolveCourseId(documentId);
+    if (courseId) {
+      await requireCourseAdmin(courseId);
+    }
     const documentService = getDocumentService();
-    await documentService.deleteDocument(documentId, user.id);
+    await documentService.deleteByAdmin(documentId);
   }
 
   revalidatePath('/admin/knowledge');
@@ -242,11 +264,17 @@ export async function updateDocumentChunks(
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await requireAdmin();
+  await requireAnyAdmin();
+
+  // Resolve courseId for course-level permission
+  const courseId = await resolveCourseId(documentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  }
 
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
-  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+  if (!doc) return { status: 'error', message: 'Document not found' };
 
   // Verify all chunk IDs belong to this document (IDOR protection)
   const allChunkIds = [...deletedIds, ...updates.map((u) => u.id)];
@@ -272,11 +300,17 @@ export async function updateDocumentChunks(
 export async function regenerateEmbeddings(
   documentId: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await requireAdmin();
+  await requireAnyAdmin();
+
+  // Resolve courseId for course-level permission
+  const courseId = await resolveCourseId(documentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  }
 
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
-  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+  if (!doc) return { status: 'error', message: 'Document not found' };
 
   await documentService.updateStatus(doc.id, 'processing', 'Regenerating embeddings...');
   revalidatePath(`/admin/knowledge/${documentId}`);
@@ -301,14 +335,20 @@ export async function regenerateEmbeddings(
 export async function retryDocument(
   documentId: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await requireAdmin();
+  await requireAnyAdmin();
+
+  // Resolve courseId for course-level permission
+  const courseId = await resolveCourseId(documentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  }
 
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
-  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+  if (!doc) return { status: 'error', message: 'Document not found' };
 
   await documentService.deleteChunksByDocumentId(documentId);
-  await documentService.deleteDocument(documentId, user.id);
+  await documentService.deleteByAdmin(documentId);
 
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Document removed. Please re-upload.' };
@@ -324,7 +364,7 @@ export async function updateDocumentMeta(
   documentId: string,
   updates: { name?: string; school?: string; course?: string },
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await requireAdmin();
+  await requireAnyAdmin();
 
   const parsed = updateDocumentMetaSchema.safeParse(updates);
   if (!parsed.success) {
@@ -332,9 +372,15 @@ export async function updateDocumentMeta(
   }
   const validatedUpdates = parsed.data;
 
+  // Resolve courseId for course-level permission
+  const courseId = await resolveCourseId(documentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  }
+
   const documentService = getDocumentService();
   const doc = await documentService.findById(documentId);
-  if (!doc || doc.userId !== user.id) return { status: 'error', message: 'Document not found' };
+  if (!doc) return { status: 'error', message: 'Document not found' };
 
   const metadataUpdates: { name?: string; metadata?: Json; docType?: string } = {};
   if (validatedUpdates.name) metadataUpdates.name = validatedUpdates.name;
@@ -359,12 +405,11 @@ export async function updateExamQuestions(
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await requireAdmin();
+  // Exam papers don't have course_id FK — RLS handles access
+  await requireAnyAdmin();
 
   const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
   const examRepo = getExamPaperRepository();
-  const owner = await examRepo.findOwner(paperId);
-  if (owner !== user.id) return { status: 'error', message: 'Not authorized' };
 
   for (const id of deletedIds) {
     await examRepo.deleteQuestion(id);
@@ -399,12 +444,11 @@ export async function updateAssignmentItems(
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  const user = await requireAdmin();
+  // Assignments don't have course_id FK — RLS handles access
+  await requireAnyAdmin();
 
   const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
   const assignmentRepo = getAssignmentRepository();
-  const owner = await assignmentRepo.findOwner(assignmentId);
-  if (owner !== user.id) return { status: 'error', message: 'Not authorized' };
 
   for (const id of deletedIds) {
     await assignmentRepo.deleteItem(id);

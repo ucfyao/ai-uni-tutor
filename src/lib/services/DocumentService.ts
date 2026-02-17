@@ -29,6 +29,10 @@ export class DocumentService {
     return this.docRepo.findByUserId(userId, docType);
   }
 
+  async getDocumentsForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
+    return this.docRepo.findByDocTypeForAdmin(docType, courseIds);
+  }
+
   async checkDuplicate(userId: string, name: string): Promise<boolean> {
     const existing = await this.docRepo.findByUserIdAndName(userId, name);
     return existing !== null;

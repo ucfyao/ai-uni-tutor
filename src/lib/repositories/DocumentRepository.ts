@@ -144,6 +144,23 @@ export class DocumentRepository implements IDocumentRepository {
     return !error && data !== null;
   }
 
+  async findByDocTypeForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
+    const supabase = await createClient();
+    let query = supabase
+      .from('documents')
+      .select('*')
+      .eq('doc_type', docType as 'lecture' | 'exam' | 'assignment')
+      .order('created_at', { ascending: false });
+
+    if (courseIds && courseIds.length > 0) {
+      query = query.in('course_id', courseIds);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new DatabaseError(`Failed to fetch documents: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row));
+  }
+
   async findAll(): Promise<DocumentEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
