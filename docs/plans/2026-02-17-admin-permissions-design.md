@@ -65,7 +65,15 @@ Current RLS state and required changes:
 Tables with `user_id` column (`documents`, `exam_papers`, `assignments`) use a direct pattern:
 
 ```sql
+-- SELECT/UPDATE/DELETE → USING (...)
 USING (
+  user_id = auth.uid()
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+)
+
+-- INSERT → WITH CHECK (...) — same condition, different clause
+WITH CHECK (
   user_id = auth.uid()
   OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
   OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
@@ -128,7 +136,7 @@ Note: Course-level permission is enforced in the application layer (`requireCour
 
 **`src/app/actions/documents.ts`** — 9 calls:
 
-- `fetchDocuments` (line 29) → `requireAnyAdmin()` + course filtering (read-only, no courseId gate needed)
+- `fetchDocuments` (line 29) → `requireAnyAdmin()` + backend course filtering via `getAvailableCourseIds()` (admin only sees assigned courses, super_admin sees all)
 - `uploadDocument` (line 131) → `requireCourseAdmin(courseId)` (courseId available from formData)
 - `deleteDocument` (line 217) → `requireCourseAdmin(courseId)` (resolve courseId from document)
 - `updateDocumentChunks` (line 245) → `requireCourseAdmin(courseId)` (resolve courseId from document)
@@ -142,7 +150,7 @@ All 7 write actions (lines 217–402) must resolve `courseId` from the entity be
 
 **`src/app/api/documents/parse/route.ts`** — 1 call:
 
-- SSE pipeline auth (line 88) → `requireAnyAdmin()`
+- SSE pipeline auth (line 88) → `requireCourseAdmin(courseId)` (resolve documentId from request body → courseId)
 
 **`src/app/(protected)/admin/layout.tsx`** — inline Supabase query (NOT a `requireAdmin()` call):
 
@@ -180,18 +188,18 @@ class AdminRepository {
   getAssignedCourses(adminId): Promise<Course[]>;
   getAssignedCourseIds(adminId): Promise<string[]>;
   hasCourseAccess(adminId, courseId): Promise<boolean>;
-  listAdmins(): Promise<Profile[]>; // .limit(100)
 }
 ```
 
 ### Existing: `ProfileRepository` (extended)
 
-`searchUsers` and `updateRole` belong in `ProfileRepository` since they operate on the `profiles` table, not `admin_course_assignments`.
+`searchUsers`, `updateRole`, and `listAdmins` belong in `ProfileRepository` since they operate on the `profiles` table, not `admin_course_assignments`.
 
 ```typescript
 // Add to existing ProfileRepository:
 searchUsers(search?: string): Promise<Profile[]>; // .limit(50)
 updateRole(userId, role): Promise<void>;
+findByRole(role): Promise<Profile[]>; // .limit(100), used for listAdmins
 ```
 
 ### New: `AdminService`

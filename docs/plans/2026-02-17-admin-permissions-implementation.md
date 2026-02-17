@@ -580,35 +580,9 @@ export class AdminRepository {
       throw new DatabaseError(`Failed to fetch assigned course IDs: ${error.message}`, error);
     return (data ?? []).map((row) => row.course_id);
   }
-
-  async listAdmins(): Promise<ProfileEntity[]> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'admin')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) throw new DatabaseError(`Failed to list admins: ${error.message}`, error);
-
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      fullName: row.full_name,
-      email: row.email,
-      stripeCustomerId: row.stripe_customer_id,
-      stripeSubscriptionId: row.stripe_subscription_id,
-      stripePriceId: row.stripe_price_id,
-      subscriptionStatus: row.subscription_status,
-      currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
-      role: row.role,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-    }));
-  }
 }
 
-// Note: searchUsers() and updateRole() belong in ProfileRepository
+// Note: listAdmins(), searchUsers(), and updateRole() belong in ProfileRepository
 // since they operate on the profiles table. See Task 4b below.
 
 let _adminRepository: AdminRepository | null = null;
@@ -638,13 +612,32 @@ git commit -m "feat(auth): add AdminRepository for course assignments"
 
 ---
 
-### Task 4b: Extend ProfileRepository with searchUsers and updateRole
+### Task 4b: Extend ProfileRepository with findByRole, searchUsers, and updateRole
 
 **Files:**
 
 - Modify: `src/lib/repositories/ProfileRepository.ts`
 
-**Step 1: Add `searchUsers` method**
+**Step 1: Add `findByRole` method (used for listAdmins)**
+
+Add to `ProfileRepository` class:
+
+```typescript
+async findByRole(role: string): Promise<ProfileEntity[]> {
+  const { data, error } = await this.supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', role)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) throw new DatabaseError(`Failed to find profiles by role: ${error.message}`, error);
+
+  return (data ?? []).map((row) => this.mapToEntity(row));
+}
+```
+
+**Step 2: Add `searchUsers` method**
 
 Add to `ProfileRepository` class:
 
@@ -668,7 +661,7 @@ async searchUsers(search?: string): Promise<ProfileEntity[]> {
 }
 ```
 
-**Step 2: Add `updateRole` method**
+**Step 3: Add `updateRole` method**
 
 Add to `ProfileRepository` class:
 
@@ -683,11 +676,11 @@ async updateRole(userId: string, role: string): Promise<void> {
 }
 ```
 
-**Step 3: Commit**
+**Step 4: Commit**
 
 ```bash
 git add src/lib/repositories/ProfileRepository.ts
-git commit -m "feat(auth): add searchUsers and updateRole to ProfileRepository"
+git commit -m "feat(auth): add findByRole, searchUsers, updateRole to ProfileRepository"
 ```
 
 ---
@@ -774,7 +767,7 @@ export class AdminService {
   }
 
   async listAdmins(): Promise<ProfileEntity[]> {
-    return this.adminRepo.listAdmins();
+    return this.profileRepo.findByRole('admin');
   }
 
   async searchUsers(search?: string): Promise<ProfileEntity[]> {
@@ -1053,10 +1046,14 @@ async function resolveCourseId(documentId: string): Promise<string | null> {
 
 **Step 3: Update all 9 call sites**
 
-- `fetchDocuments` (line 29) → `requireAnyAdmin()` (read-only, course filtering done in query):
+- `fetchDocuments` (line 29) → `requireAnyAdmin()` + backend course filtering via `getAvailableCourseIds()`:
 
   ```typescript
-  const { user } = await requireAnyAdmin();
+  const { user, role } = await requireAnyAdmin();
+  // Backend must restrict query to assigned courses for admin role
+  const adminService = getAdminService();
+  const courseIds = await adminService.getAvailableCourseIds(user.id, role as UserRole);
+  // Pass courseIds to the query — admin sees only assigned courses, super_admin sees all
   ```
 
 - `uploadDocument` (line 131) → `requireCourseAdmin(courseId)` (courseId from formData):
@@ -1112,15 +1109,24 @@ git commit -m "refactor(auth): use requireCourseAdmin for document write actions
 
 In `src/app/api/documents/parse/route.ts`:
 
-- Change import from `requireAdmin` to `requireAnyAdmin`
+- Change import from `requireAdmin` to `requireCourseAdmin`
+- The SSE route processes a specific document (write operation) — it must resolve courseId and enforce course-level permission, consistent with other document write actions.
 - Change the auth block (lines 87-91) from:
   ```typescript
   user = await requireAdmin();
   ```
   to:
   ```typescript
-  const result = await requireAnyAdmin();
-  user = result.user;
+  // Resolve courseId from the document being parsed
+  const documentId = parsed.documentId; // from request body
+  const courseId = await resolveCourseId(documentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  } else {
+    // Legacy document without course — fall back to any admin check
+    const result = await requireAnyAdmin();
+    user = result.user;
+  }
   ```
 
 **Step 2: Commit**
