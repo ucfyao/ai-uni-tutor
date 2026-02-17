@@ -53,6 +53,7 @@ function createMockPaperRepo(): {
     deleteQuestion: vi.fn(),
     findByCourse: vi.fn(),
     findAllByCourse: vi.fn(),
+    findAllForAdmin: vi.fn(),
   };
 }
 
