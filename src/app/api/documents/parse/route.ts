@@ -10,7 +10,7 @@ import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
-import { requireAdmin } from '@/lib/supabase/server';
+import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -85,7 +85,8 @@ export async function POST(request: Request) {
       // ── Auth ──
       let user;
       try {
-        user = await requireAdmin();
+        const result = await requireAnyAdmin();
+        user = result.user;
       } catch {
         send('error', { message: 'Admin access required', code: 'FORBIDDEN' });
         return;
@@ -128,6 +129,17 @@ export async function POST(request: Request) {
         return;
       }
       const { doc_type, school, course, has_answers } = parsed.data;
+
+      // ── Course-level permission check ──
+      const courseId = formData.get('courseId') as string | null;
+      if (courseId) {
+        try {
+          await requireCourseAdmin(courseId);
+        } catch {
+          send('error', { message: 'No access to this course', code: 'FORBIDDEN' });
+          return;
+        }
+      }
 
       // ── Create record in the correct domain table ──
       let effectiveRecordId: string;
