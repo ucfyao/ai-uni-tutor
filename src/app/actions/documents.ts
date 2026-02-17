@@ -27,24 +27,59 @@ const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
 
 export async function fetchDocuments(docType: string): Promise<DocumentListItem[]> {
   const user = await requireAdmin();
-
   const parsed = docTypeSchema.safeParse(docType);
   if (!parsed.success) throw new Error('Invalid document type');
 
-  const service = getDocumentService();
-  const entities = await service.getDocumentsByType(user.id, parsed.data);
+  if (parsed.data === 'lecture') {
+    const service = getDocumentService();
+    const entities = await service.getDocumentsByType(user.id, 'lecture');
+    return entities.map((doc) => ({
+      id: doc.id,
+      name: doc.name,
+      status: doc.status,
+      status_message: doc.statusMessage,
+      created_at: doc.createdAt.toISOString(),
+      doc_type: 'lecture',
+      metadata:
+        doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
+          ? (doc.metadata as DocumentListItem['metadata'])
+          : null,
+    }));
+  }
 
-  return entities.map((doc) => ({
-    id: doc.id,
-    name: doc.name,
-    status: doc.status,
-    status_message: doc.statusMessage,
-    created_at: doc.createdAt.toISOString(),
-    doc_type: doc.docType ?? 'lecture',
-    metadata:
-      doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
-        ? (doc.metadata as DocumentListItem['metadata'])
-        : null,
+  if (parsed.data === 'exam') {
+    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+    const examRepo = getExamPaperRepository();
+    const papers = await examRepo.findByUserId(user.id);
+    return papers.map((paper) => ({
+      id: paper.id,
+      name: paper.title,
+      status: paper.status === 'parsing' ? 'processing' : paper.status,
+      status_message: paper.statusMessage,
+      created_at: paper.createdAt,
+      doc_type: 'exam',
+      metadata: {
+        school: paper.school ?? undefined,
+        course: paper.course ?? undefined,
+      },
+    }));
+  }
+
+  // assignment
+  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+  const assignmentRepo = getAssignmentRepository();
+  const assignments = await assignmentRepo.findByUserId(user.id);
+  return assignments.map((a) => ({
+    id: a.id,
+    name: a.title,
+    status: a.status === 'parsing' ? 'processing' : a.status,
+    status_message: a.statusMessage,
+    created_at: a.createdAt,
+    doc_type: 'assignment',
+    metadata: {
+      school: a.school ?? undefined,
+      course: a.course ?? undefined,
+    },
   }));
 }
 
@@ -83,6 +118,11 @@ export async function uploadDocument(
     }
 
     const { file, doc_type, school, course, has_answers } = parsed.data;
+
+    // Exam/assignment must use the SSE route (/api/documents/parse) which routes to correct tables
+    if (doc_type !== 'lecture') {
+      return { status: 'error', message: 'Use the streaming upload for exam/assignment documents' };
+    }
 
     if (file.type !== 'application/pdf') {
       return { status: 'error', message: 'Only PDF files are supported currently' };
@@ -173,11 +213,26 @@ export async function uploadDocument(
   }
 }
 
-export async function deleteDocument(documentId: string) {
+export async function deleteDocument(documentId: string, docType?: string) {
   const user = await requireAdmin();
 
-  const documentService = getDocumentService();
-  await documentService.deleteDocument(documentId, user.id);
+  if (docType === 'exam') {
+    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+    const examRepo = getExamPaperRepository();
+    const owner = await examRepo.findOwner(documentId);
+    if (owner !== user.id) throw new ForbiddenError('Not authorized');
+    await examRepo.delete(documentId);
+  } else if (docType === 'assignment') {
+    const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+    const assignmentRepo = getAssignmentRepository();
+    const owner = await assignmentRepo.findOwner(documentId);
+    if (owner !== user.id) throw new ForbiddenError('Not authorized');
+    await assignmentRepo.delete(documentId);
+  } else {
+    // Default: lecture (documents table)
+    const documentService = getDocumentService();
+    await documentService.deleteDocument(documentId, user.id);
+  }
 
   revalidatePath('/admin/knowledge');
 }
@@ -297,4 +352,77 @@ export async function updateDocumentMeta(
   revalidatePath(`/admin/knowledge/${documentId}`);
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Document updated' };
+}
+
+export async function updateExamQuestions(
+  paperId: string,
+  updates: { id: string; content: string; metadata: Record<string, unknown> }[],
+  deletedIds: string[],
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await requireAdmin();
+
+  const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+  const examRepo = getExamPaperRepository();
+  const owner = await examRepo.findOwner(paperId);
+  if (owner !== user.id) return { status: 'error', message: 'Not authorized' };
+
+  for (const id of deletedIds) {
+    await examRepo.deleteQuestion(id);
+  }
+
+  for (const update of updates) {
+    const meta = update.metadata;
+    await examRepo.updateQuestion(update.id, {
+      content: (meta.content as string) || update.content,
+      options: meta.options
+        ? Object.fromEntries(
+            (meta.options as string[]).map((opt: string, j: number) => [
+              String.fromCharCode(65 + j),
+              opt,
+            ]),
+          )
+        : undefined,
+      answer: (meta.answer as string) || undefined,
+      explanation: (meta.explanation as string) || undefined,
+      points: meta.score != null ? Number(meta.score) : undefined,
+      type: (meta.type as string) || undefined,
+    });
+  }
+
+  revalidatePath(`/admin/knowledge/${paperId}`);
+  revalidatePath('/admin/knowledge');
+  return { status: 'success', message: 'Changes saved' };
+}
+
+export async function updateAssignmentItems(
+  assignmentId: string,
+  updates: { id: string; content: string; metadata: Record<string, unknown> }[],
+  deletedIds: string[],
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const user = await requireAdmin();
+
+  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+  const assignmentRepo = getAssignmentRepository();
+  const owner = await assignmentRepo.findOwner(assignmentId);
+  if (owner !== user.id) return { status: 'error', message: 'Not authorized' };
+
+  for (const id of deletedIds) {
+    await assignmentRepo.deleteItem(id);
+  }
+
+  for (const update of updates) {
+    const meta = update.metadata;
+    await assignmentRepo.updateItem(update.id, {
+      content: (meta.content as string) || update.content,
+      referenceAnswer: (meta.referenceAnswer as string) || undefined,
+      explanation: (meta.explanation as string) || undefined,
+      points: meta.points != null ? Number(meta.points) : undefined,
+      difficulty: (meta.difficulty as string) || undefined,
+      type: (meta.type as string) || undefined,
+    });
+  }
+
+  revalidatePath(`/admin/knowledge/${assignmentId}`);
+  revalidatePath('/admin/knowledge');
+  return { status: 'success', message: 'Changes saved' };
 }
