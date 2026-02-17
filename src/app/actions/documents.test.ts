@@ -6,9 +6,13 @@ import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireAdmin = vi.fn();
+const MOCK_USER = { id: 'user-1', email: 'test@example.com' };
+
+const mockRequireAnyAdmin = vi.fn();
+const mockRequireCourseAdmin = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
-  requireAdmin: () => mockRequireAdmin(),
+  requireAnyAdmin: () => mockRequireAnyAdmin(),
+  requireCourseAdmin: (courseId: string) => mockRequireCourseAdmin(courseId),
 }));
 
 const mockRevalidatePath = vi.fn();
@@ -21,7 +25,7 @@ const mockDocumentService = {
   createDocument: vi.fn(),
   updateStatus: vi.fn(),
   saveChunks: vi.fn(),
-  deleteDocument: vi.fn(),
+  deleteByAdmin: vi.fn(),
   deleteChunksByDocumentId: vi.fn(),
   findById: vi.fn(),
   deleteChunk: vi.fn(),
@@ -32,6 +36,7 @@ const mockDocumentService = {
   updateDocumentMetadata: vi.fn(),
   verifyChunksBelongToDocument: vi.fn(),
   saveChunksAndReturn: vi.fn(),
+  getDocumentsForAdmin: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
   getDocumentService: () => mockDocumentService,
@@ -87,8 +92,6 @@ const {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MOCK_USER = { id: 'user-1', email: 'test@example.com' };
-
 function makePdfFile(name = 'test.pdf', content = 'dummy pdf content'): File {
   return new File([content], name, { type: 'application/pdf' });
 }
@@ -130,7 +133,8 @@ function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity 
 describe('Document Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAdmin.mockResolvedValue(MOCK_USER);
+    mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+    mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
     mockQuotaService.enforce.mockResolvedValue(undefined);
   });
 
@@ -159,7 +163,7 @@ describe('Document Actions', () => {
     });
 
     it('should return error when user is not admin', async () => {
-      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
+      mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
       const fd = makeFormData();
 
       const result = await uploadDocument(INITIAL_STATE, fd);
@@ -300,17 +304,18 @@ describe('Document Actions', () => {
   // deleteDocument
   // =========================================================================
   describe('deleteDocument', () => {
-    it('should delete document for authenticated user', async () => {
-      mockDocumentService.deleteDocument.mockResolvedValue(undefined);
+    it('should delete lecture document via deleteByAdmin', async () => {
+      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
+      mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
       await deleteDocument('doc-1');
 
-      expect(mockDocumentService.deleteDocument).toHaveBeenCalledWith('doc-1', 'user-1');
+      expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
     it('should throw when user is not admin', async () => {
-      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
+      mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
       await expect(deleteDocument('doc-1')).rejects.toThrow('Admin access required');
     });
@@ -320,8 +325,8 @@ describe('Document Actions', () => {
   // updateDocumentChunks
   // =========================================================================
   describe('updateDocumentChunks', () => {
-    it('should update and delete chunks for document owner', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity());
+    it('should update and delete chunks', async () => {
+      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
       mockDocumentService.verifyChunksBelongToDocument.mockResolvedValue(true);
       mockDocumentService.deleteChunk.mockResolvedValue(undefined);
       mockDocumentService.updateChunk.mockResolvedValue(undefined);
@@ -341,21 +346,14 @@ describe('Document Actions', () => {
     });
 
     it('should throw when user is not admin', async () => {
-      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
+      mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
       await expect(updateDocumentChunks('doc-1', [], [])).rejects.toThrow('Admin access required');
     });
 
     it('should return error when document is not found', async () => {
+      // resolveCourseId calls findById first (returns null → courseId=null)
       mockDocumentService.findById.mockResolvedValue(null);
-
-      const result = await updateDocumentChunks('doc-1', [], []);
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
-    });
-
-    it('should return error when document belongs to another user', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ userId: 'other-user' }));
 
       const result = await updateDocumentChunks('doc-1', [], []);
 
@@ -368,7 +366,9 @@ describe('Document Actions', () => {
   // =========================================================================
   describe('regenerateEmbeddings', () => {
     it('should regenerate embeddings for all chunks', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ status: 'ready' }));
+      mockDocumentService.findById.mockResolvedValue(
+        makeDocEntity({ status: 'ready', courseId: null }),
+      );
       mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([
         { id: 'chunk-1', content: 'content 1', embedding: [0.1], metadata: {} },
         { id: 'chunk-2', content: 'content 2', embedding: [0.2], metadata: {} },
@@ -402,7 +402,7 @@ describe('Document Actions', () => {
     });
 
     it('should throw when user is not admin', async () => {
-      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
+      mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
       await expect(regenerateEmbeddings('doc-1')).rejects.toThrow('Admin access required');
     });
@@ -415,17 +415,9 @@ describe('Document Actions', () => {
       expect(result).toEqual({ status: 'error', message: 'Document not found' });
     });
 
-    it('should return error when document belongs to another user', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ userId: 'other-user' }));
-
-      const result = await regenerateEmbeddings('doc-1');
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
-    });
-
     it('should handle embedding regeneration error gracefully', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity());
+      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
       mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([
         { id: 'chunk-1', content: 'content 1', embedding: [0.1], metadata: {} },
       ]);
@@ -448,34 +440,26 @@ describe('Document Actions', () => {
   // =========================================================================
   describe('retryDocument', () => {
     it('should delete chunks and document, then return success', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity());
+      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
       mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-      mockDocumentService.deleteDocument.mockResolvedValue(undefined);
+      mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
       const result = await retryDocument('doc-1');
 
       expect(result).toEqual({ status: 'success', message: 'Document removed. Please re-upload.' });
       expect(mockDocumentService.deleteChunksByDocumentId).toHaveBeenCalledWith('doc-1');
-      expect(mockDocumentService.deleteDocument).toHaveBeenCalledWith('doc-1', 'user-1');
+      expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
     it('should throw when user is not admin', async () => {
-      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
+      mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
       await expect(retryDocument('doc-1')).rejects.toThrow('Admin access required');
     });
 
     it('should return error when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
-
-      const result = await retryDocument('doc-1');
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
-    });
-
-    it('should return error when document belongs to another user', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ userId: 'other-user' }));
 
       const result = await retryDocument('doc-1');
 
@@ -488,7 +472,7 @@ describe('Document Actions', () => {
   // =========================================================================
   describe('updateDocumentMeta', () => {
     it('should update document name', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity());
+      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
       mockDocumentService.updateDocumentMetadata.mockResolvedValue(undefined);
 
       const result = await updateDocumentMeta('doc-1', { name: 'new-name.pdf' });
@@ -502,7 +486,7 @@ describe('Document Actions', () => {
 
     it('should update school and course metadata', async () => {
       mockDocumentService.findById.mockResolvedValue(
-        makeDocEntity({ metadata: { school: 'Old School', course: 'Old Course' } }),
+        makeDocEntity({ metadata: { school: 'Old School', course: 'Old Course' }, courseId: null }),
       );
       mockDocumentService.updateDocumentMetadata.mockResolvedValue(undefined);
 
@@ -515,7 +499,7 @@ describe('Document Actions', () => {
     });
 
     it('should throw when user is not admin', async () => {
-      mockRequireAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
+      mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
       await expect(updateDocumentMeta('doc-1', { name: 'new-name.pdf' })).rejects.toThrow(
         'Admin access required',
@@ -526,14 +510,6 @@ describe('Document Actions', () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
       const result = await updateDocumentMeta('doc-1', { name: 'new-name.pdf' });
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
-    });
-
-    it('should return error when document belongs to another user', async () => {
-      mockDocumentService.findById.mockResolvedValue(makeDocEntity({ userId: 'other-user' }));
-
-      const result = await updateDocumentMeta('doc-1', { name: 'test' });
 
       expect(result).toEqual({ status: 'error', message: 'Document not found' });
     });
@@ -554,7 +530,10 @@ describe('Document Actions', () => {
 
     it('should merge with existing metadata when updating school only', async () => {
       mockDocumentService.findById.mockResolvedValue(
-        makeDocEntity({ metadata: { school: 'Old', course: 'Existing', otherField: 'keep' } }),
+        makeDocEntity({
+          metadata: { school: 'Old', course: 'Existing', otherField: 'keep' },
+          courseId: null,
+        }),
       );
       mockDocumentService.updateDocumentMetadata.mockResolvedValue(undefined);
 
