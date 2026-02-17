@@ -50,12 +50,40 @@ export async function requireUser() {
   return user;
 }
 
-/** Require admin role or throw ForbiddenError. */
-export async function requireAdmin() {
+/** Require super_admin role or throw ForbiddenError. */
+export async function requireSuperAdmin() {
   const { ForbiddenError } = await import('@/lib/errors');
   const user = await requireUser();
   const { getProfileRepository } = await import('@/lib/repositories');
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'admin') throw new ForbiddenError('Admin access required');
+  if (profile?.role !== 'super_admin') throw new ForbiddenError('Super admin access required');
   return user;
+}
+
+/** Require admin or super_admin role or throw ForbiddenError. */
+export async function requireAnyAdmin() {
+  const { ForbiddenError } = await import('@/lib/errors');
+  const user = await requireUser();
+  const { getProfileRepository } = await import('@/lib/repositories');
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'admin' && profile?.role !== 'super_admin')
+    throw new ForbiddenError('Admin access required');
+  return { user, role: profile.role as string };
+}
+
+/** Require course-level admin access: super_admin passes directly, admin checked against assignments. */
+export async function requireCourseAdmin(courseId: string) {
+  const { ForbiddenError } = await import('@/lib/errors');
+  const { user, role } = await requireAnyAdmin();
+  if (role === 'super_admin') return user;
+  // admin: check course assignment
+  const { getAdminRepository } = await import('@/lib/repositories/AdminRepository');
+  const hasAccess = await getAdminRepository().hasCourseAccess(user.id, courseId);
+  if (!hasAccess) throw new ForbiddenError('No access to this course');
+  return user;
+}
+
+/** @deprecated Use requireSuperAdmin(), requireAnyAdmin(), or requireCourseAdmin() instead. */
+export async function requireAdmin() {
+  return (await requireAnyAdmin()).user;
 }
