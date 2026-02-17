@@ -8,6 +8,7 @@ interface StreamChatOptions {
   history: { role: string; content: string; images?: { data: string; mimeType: string }[] }[];
   userInput: string;
   images?: { data: string; mimeType: string }[];
+  document?: { data: string; mimeType: string };
 }
 
 interface StreamCallbacks {
@@ -24,7 +25,7 @@ export function useChatStream() {
 
   const streamChatResponse = useCallback(
     async (options: StreamChatOptions, callbacks: StreamCallbacks) => {
-      const { course, mode, history, userInput, images = [] } = options;
+      const { course, mode, history, userInput, images = [], document } = options;
       const { onChunk, onError, onComplete } = callbacks;
 
       cancelledRef.current = false;
@@ -39,7 +40,7 @@ export function useChatStream() {
         const response = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ course, mode, history, userInput, images }),
+          body: JSON.stringify({ course, mode, history, userInput, images, document }),
           signal: controller.signal,
         });
 
