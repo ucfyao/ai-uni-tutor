@@ -121,12 +121,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 gap: 6,
                 padding: '4px 10px',
                 borderRadius: 8,
-                backgroundColor: 'var(--mantine-color-indigo-0)',
-                border: '1px solid var(--mantine-color-indigo-2)',
+                backgroundColor:
+                  'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))',
+                border:
+                  '1px solid light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))',
               }}
             >
-              <FileText size={14} color="var(--mantine-color-indigo-6)" />
-              <Text size="xs" fw={500} c="indigo.7" style={{ maxWidth: 200 }} truncate="end">
+              <FileText size={14} color="var(--mantine-color-indigo-5)" />
+              <Text size="xs" fw={500} c="indigo" style={{ maxWidth: 200 }} truncate="end">
                 {getFileDisplayName(attachedDocument.name)}
               </Text>
               <CloseButton

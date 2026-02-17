@@ -97,3 +97,6 @@ Git hooks: pre-commit (lint-staged) · pre-push (build) · commit-msg (commitlin
 - **Pricing model:** Free vs Pro subscription with monthly/semester billing toggle. Stripe Checkout for payment, Stripe Portal for management. (#117)
 - **Settings vs Personalization split:** Personalization = profile + account overview + partner program + data/privacy. Settings = theme/language preferences + plan/billing + usage limits. (#118, #119)
 - **Environment variables:** Centralized via `src/lib/env.ts` — single source of truth, validated at import. (#129)
+- **FullScreenModal pattern:** `src/components/FullScreenModal.tsx` wraps Mantine `Modal` — auto-fullscreen with slide-up on mobile (<768px via `useIsMobile`). All 6 app modals use it. New modals must use `FullScreenModal` instead of `Modal`. (#138)
+- **Toast system:** `showNotification()` from `src/lib/notifications.ts` — throttled wrapper (2s dedup). Shared i18n keys in `t.toast.*` namespace. Use for all user feedback. (#138)
+- **UI/UX polish (full frontend):** Page-by-page improvements across study, chat, exam, knowledge, settings/pricing/help/personalization, landing/login. Design doc in `docs/plans/2026-02-16-uiux-improvement-design.md`. (#136-#144)

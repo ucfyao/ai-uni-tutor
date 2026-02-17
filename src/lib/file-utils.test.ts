@@ -4,7 +4,6 @@ import {
   getFileDisplayName,
   isDocumentFile,
   isImageFile,
-  isSupportedFile,
   MAX_FILE_SIZE_BYTES,
 } from './file-utils';
 
@@ -40,19 +39,6 @@ describe('file-utils', () => {
 
     it('returns false for unsupported types', () => {
       expect(isDocumentFile('application/msword')).toBe(false);
-    });
-  });
-
-  describe('isSupportedFile', () => {
-    it('returns true for images and documents', () => {
-      expect(isSupportedFile('image/png')).toBe(true);
-      expect(isSupportedFile('application/pdf')).toBe(true);
-      expect(isSupportedFile('text/plain')).toBe(true);
-    });
-
-    it('returns false for unsupported types', () => {
-      expect(isSupportedFile('application/zip')).toBe(false);
-      expect(isSupportedFile('video/mp4')).toBe(false);
     });
   });
 

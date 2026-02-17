@@ -22,10 +22,6 @@ export function isDocumentFile(mimeType: string): boolean {
   return DOCUMENT_MIME_TYPES.has(mimeType);
 }
 
-export function isSupportedFile(mimeType: string): boolean {
-  return isImageFile(mimeType) || isDocumentFile(mimeType);
-}
-
 /** Truncate long filenames for display, preserving the extension. */
 export function getFileDisplayName(filename: string, maxLength = 30): string {
   if (filename.length <= maxLength) return filename;
