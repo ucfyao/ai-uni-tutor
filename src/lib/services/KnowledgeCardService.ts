@@ -11,7 +11,7 @@ import type {
 } from '@/lib/domain/models/CardConversation';
 import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
 import type { CreateUserCardDTO, UserCardEntity } from '@/lib/domain/models/UserCard';
-import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
+import { generateEmbeddingBatch } from '@/lib/rag/embedding';
 import type { KnowledgePoint } from '@/lib/rag/parsers/types';
 import {
   getCardConversationRepository,
@@ -40,23 +40,41 @@ export class KnowledgeCardService {
   /**
    * Save extracted knowledge points as cards (called during document upload).
    * Deduplicates by title — existing cards are updated, new ones created.
+   * Generates embeddings in batches for performance.
    */
   async saveFromKnowledgePoints(points: KnowledgePoint[], documentId: string): Promise<void> {
-    for (const point of points) {
-      const embedding = await generateEmbeddingWithRetry(
-        [point.title, point.definition].join('\n'),
+    if (points.length === 0) return;
+
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < points.length; i += BATCH_SIZE) {
+      const batch = points.slice(i, i + BATCH_SIZE);
+      const texts = batch.map((p) => [p.title, p.definition].join('\n'));
+      const embeddings = await generateEmbeddingBatch(texts, BATCH_SIZE);
+
+      await Promise.all(
+        batch.map((point, j) =>
+          this.knowledgeCardRepo.upsertByTitle({
+            title: point.title,
+            definition: point.definition,
+            keyFormulas: point.keyFormulas,
+            keyConcepts: point.keyConcepts,
+            examples: point.examples,
+            sourcePages: point.sourcePages,
+            documentId,
+            embedding: embeddings[j],
+          }),
+        ),
       );
-      await this.knowledgeCardRepo.upsertByTitle({
-        title: point.title,
-        definition: point.definition,
-        keyFormulas: point.keyFormulas,
-        keyConcepts: point.keyConcepts,
-        examples: point.examples,
-        sourcePages: point.sourcePages,
-        documentId,
-        embedding,
-      });
     }
+  }
+
+  /**
+   * Delete all knowledge cards associated with a document.
+   * Used for cleanup on processing failure.
+   */
+  async deleteByDocumentId(documentId: string): Promise<void> {
+    await this.knowledgeCardRepo.deleteByDocumentId(documentId);
   }
 
   /**
@@ -64,7 +82,7 @@ export class KnowledgeCardService {
    * Uses embedding similarity search.
    */
   async findRelatedCards(query: string, matchCount: number = 5): Promise<KnowledgeCardSummary[]> {
-    const embedding = await generateEmbeddingWithRetry(query);
+    const [embedding] = await generateEmbeddingBatch([query], 1);
     const cards = await this.knowledgeCardRepo.searchByEmbedding(embedding, matchCount);
     return cards.map((c) => ({
       id: c.id,

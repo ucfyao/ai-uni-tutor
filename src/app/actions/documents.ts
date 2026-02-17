@@ -6,6 +6,7 @@ import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
 import { getDocumentService } from '@/lib/services/DocumentService';
+import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { requireAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
@@ -177,6 +178,7 @@ export async function uploadDocument(
       console.error('Error during document processing:', e);
       try {
         await documentService.deleteChunksByDocumentId(doc.id);
+        await getKnowledgeCardService().deleteByDocumentId(doc.id);
       } catch {
         /* ignore cleanup errors */
       }
@@ -203,6 +205,7 @@ export async function uploadDocument(
       try {
         const documentService = getDocumentService();
         await documentService.deleteChunksByDocumentId(docId);
+        await getKnowledgeCardService().deleteByDocumentId(docId);
         await documentService.updateStatus(docId, 'error', 'Upload failed unexpectedly');
         revalidatePath('/admin/knowledge');
       } catch {
