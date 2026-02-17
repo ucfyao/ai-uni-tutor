@@ -9,6 +9,7 @@ import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useKnowledgeCards } from '@/hooks/useKnowledgeCards';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { isDocumentFile, isImageFile, MAX_FILE_SIZE_BYTES } from '@/lib/file-utils';
 import { showNotification } from '@/lib/notifications';
 import { ChatMessage, ChatSession } from '@/types';
 
@@ -80,6 +81,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   // File upload state
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [attachedDocument, setAttachedDocument] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -117,7 +119,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const handleSend = async (retryInput?: string) => {
     const messageToSend = retryInput || input.trim();
 
-    if ((!messageToSend && attachedFiles.length === 0) || isStreaming || isSendingRef.current)
+    if ((!messageToSend && attachedFiles.length === 0 && !attachedDocument) || isStreaming || isSendingRef.current)
       return;
     if (!session) return;
 
@@ -152,11 +154,38 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       }
     }
 
+    // Convert attached document to base64
+    let documentData: { data: string; mimeType: string } | undefined;
+    if (attachedDocument) {
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(attachedDocument);
+        });
+        documentData = { data: base64, mimeType: attachedDocument.type };
+      } catch (error) {
+        console.error('Failed to process document:', error);
+        showNotification({
+          title: t.chat.error,
+          message: 'Failed to process document attachment',
+          color: 'red',
+        });
+        isSendingRef.current = false;
+        return;
+      }
+    }
+
     // Add user message and AI placeholder in one update (avoid stale session: second addMessage would overwrite user msg)
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
       role: 'user',
-      content: messageToSend || '(Image attached)',
+      content: messageToSend || (imageData.length > 0 ? '(Image attached)' : '(Document attached)'),
       timestamp: Date.now(),
       images: imageData.length > 0 ? imageData : undefined,
     };
@@ -193,6 +222,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         })),
         userInput: messageToSend,
         images: imageData,
+        document: documentData,
       },
       {
         onChunk: (text) => {
@@ -307,40 +337,66 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (files.length === 0) return;
 
-    if (imageFiles.length === 0) {
-      showNotification({
-        title: 'Invalid file type',
-        message: 'Please select image files only',
-        color: 'red',
-      });
-      return;
+    for (const file of files) {
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        showNotification({
+          title: t.chat.fileTooLarge,
+          message: t.chat.fileTooLargeMessage,
+          color: 'red',
+        });
+        continue;
+      }
+
+      if (isImageFile(file.type)) {
+        // Image handling
+        if (attachedFiles.length >= 4) {
+          showNotification({
+            title: 'Too many files',
+            message: 'You can attach up to 4 images',
+            color: 'orange',
+          });
+          continue;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setImagePreviews((prev) => [...prev, ev.target?.result as string]);
+        };
+        reader.readAsDataURL(file);
+        setAttachedFiles((prev) => [...prev, file]);
+      } else if (isDocumentFile(file.type)) {
+        // Document handling — one document per conversation
+        if (attachedDocument) {
+          showNotification({
+            title: t.chat.oneDocumentLimit,
+            message: t.chat.oneDocumentLimitMessage,
+            color: 'orange',
+          });
+          continue;
+        }
+        setAttachedDocument(file);
+      } else {
+        showNotification({
+          title: t.chat.unsupportedFileType,
+          message: t.chat.unsupportedFileTypeMessage,
+          color: 'red',
+        });
+      }
     }
 
-    if (attachedFiles.length + imageFiles.length > 4) {
-      showNotification({
-        title: 'Too many files',
-        message: 'You can attach up to 4 images',
-        color: 'orange',
-      });
-      return;
-    }
-
-    imageFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreviews((prev) => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    setAttachedFiles((prev) => [...prev, ...imageFiles]);
+    // Reset input so the same file can be re-selected
+    if (e.target) e.target.value = '';
   };
 
   const handleRemoveFile = (index: number) => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveDocument = () => {
+    setAttachedDocument(null);
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -426,6 +482,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 onFileSelect={handleFileSelect}
                 onStop={cancelStream}
                 isStreaming={isStreaming}
+                attachedDocument={attachedDocument}
+                onRemoveDocument={handleRemoveDocument}
               />
             </Box>
           </Box>
