@@ -47,6 +47,25 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
   parseQuestions: (...args: unknown[]) => mockParseQuestions(...args),
 }));
 
+const mockExamPaperRepo = {
+  create: vi.fn(),
+  updateStatus: vi.fn(),
+  insertQuestions: vi.fn(),
+  updatePaper: vi.fn(),
+};
+vi.mock('@/lib/repositories/ExamPaperRepository', () => ({
+  getExamPaperRepository: () => mockExamPaperRepo,
+}));
+
+const mockAssignmentRepo = {
+  create: vi.fn(),
+  updateStatus: vi.fn(),
+  insertItems: vi.fn(),
+};
+vi.mock('@/lib/repositories/AssignmentRepository', () => ({
+  getAssignmentRepository: () => mockAssignmentRepo,
+}));
+
 // ---------------------------------------------------------------------------
 // Import route handler (after mocks are registered)
 // ---------------------------------------------------------------------------
@@ -484,6 +503,10 @@ describe('POST /api/documents/parse', () => {
   describe('exam doc type', () => {
     it('sends question-type items for exam documents', async () => {
       setupSuccessfulParse();
+      mockExamPaperRepo.create.mockResolvedValue('exam-123');
+      mockExamPaperRepo.insertQuestions.mockResolvedValue(undefined);
+      mockExamPaperRepo.updateStatus.mockResolvedValue(undefined);
+      mockExamPaperRepo.updatePaper.mockResolvedValue(undefined);
 
       const response = await POST(makeRequest({ doc_type: 'exam' }));
       const events = await readSSEEvents(response);
