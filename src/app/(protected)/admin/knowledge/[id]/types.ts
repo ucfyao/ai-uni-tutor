@@ -7,6 +7,7 @@ export interface SerializedDocument {
   status: string;
   statusMessage: string | null;
   metadata: Json;
+  docType: DocType;
   createdAt: string;
 }
 
