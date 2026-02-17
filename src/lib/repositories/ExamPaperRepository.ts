@@ -270,6 +270,31 @@ export class ExamPaperRepository implements IExamPaperRepository {
     }
   }
 
+  async findByUserId(userId: string): Promise<ExamPaper[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('exam_papers')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch exam papers: ${error.message}`, error);
+    }
+    return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
+  }
+
+  async deleteQuestion(questionId: string): Promise<void> {
+    const supabase = await createClient();
+
+    const { error } = await supabase.from('exam_questions').delete().eq('id', questionId);
+
+    if (error) {
+      throw new DatabaseError(`Failed to delete question: ${error.message}`, error);
+    }
+  }
+
   async findByCourse(courseCode: string): Promise<string | null> {
     // Sanitize: allow only alphanumeric, spaces, hyphens, underscores
     const sanitized = courseCode.replace(/[^A-Za-z0-9 _-]/g, '');

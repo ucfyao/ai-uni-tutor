@@ -244,22 +244,12 @@ describe('Document Actions', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
-    it('should process exam document with questions', async () => {
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity({ docType: 'exam' }));
-      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
+    it('should reject exam document type (must use SSE route)', async () => {
       const fd = makeFormData({ doc_type: 'exam' });
       const result = await uploadDocument(INITIAL_STATE, fd);
 
-      expect(result.status).toBe('success');
-      expect(mockProcessingService.processWithLLM).toHaveBeenCalledWith(
-        expect.objectContaining({
-          documentId: 'doc-1',
-          docType: 'exam',
-        }),
-      );
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('streaming upload');
     });
 
     it('should handle content extraction failure and clean up', async () => {
@@ -297,21 +287,12 @@ describe('Document Actions', () => {
       expect(result.message).toContain('Failed to save document chunks');
     });
 
-    it('should pass has_answers to processWithLLM for exam type', async () => {
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity({ docType: 'exam' }));
-      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
+    it('should reject non-lecture doc types with error', async () => {
       const fd = makeFormData({ doc_type: 'exam', has_answers: 'true' });
       const result = await uploadDocument(INITIAL_STATE, fd);
 
-      expect(result.status).toBe('success');
-      expect(mockProcessingService.processWithLLM).toHaveBeenCalledWith(
-        expect.objectContaining({
-          hasAnswers: true,
-        }),
-      );
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('streaming upload');
     });
   });
 

@@ -474,6 +474,81 @@ export interface Database {
         };
         Relationships: [];
       };
+      assignments: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          school: string | null;
+          course: string | null;
+          status: string;
+          status_message: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          school?: string | null;
+          course?: string | null;
+          status?: string;
+          status_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          school?: string | null;
+          course?: string | null;
+          status?: string;
+          status_message?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      assignment_items: {
+        Row: {
+          id: string;
+          assignment_id: string;
+          order_num: number;
+          type: string;
+          content: string;
+          reference_answer: string;
+          explanation: string;
+          points: number;
+          difficulty: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          assignment_id: string;
+          order_num: number;
+          type?: string;
+          content: string;
+          reference_answer?: string;
+          explanation?: string;
+          points?: number;
+          difficulty?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          assignment_id?: string;
+          order_num?: number;
+          type?: string;
+          content?: string;
+          reference_answer?: string;
+          explanation?: string;
+          points?: number;
+          difficulty?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -122,6 +122,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   const parseState = useStreamingParse();
+  const parseDocTypeRef = useRef<string>(activeTab);
   const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
 
   const isFormValid = selectedFile && selectedUniId && selectedCourseId;
@@ -158,6 +159,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const handleStartParse = () => {
     if (!selectedFile || !selectedUniId || !selectedCourseId) return;
 
+    parseDocTypeRef.current = activeTab;
+
     const uniObj = universities.find((u) => u.id === selectedUniId);
     const courseObj = allCourses.find((c) => c.id === selectedCourseId);
 
@@ -173,7 +176,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     // Auto-delete the document record if parsing failed
     if (parseState.status === 'error' && parseState.documentId) {
       try {
-        await deleteDocument(parseState.documentId);
+        await deleteDocument(parseState.documentId, parseDocTypeRef.current);
       } catch {
         // Ignore — record may already be gone
       }
@@ -636,9 +639,10 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 fullWidth
                 onClick={() => {
                   const docId = parseState.documentId;
+                  const parsedType = parseDocTypeRef.current;
                   handleDismissParse();
                   setUploadModalOpen(false);
-                  router.push(`/admin/knowledge/${docId}`);
+                  router.push(`/admin/knowledge/${docId}?type=${parsedType}`);
                 }}
               >
                 {t.knowledge.viewDetailsLink}

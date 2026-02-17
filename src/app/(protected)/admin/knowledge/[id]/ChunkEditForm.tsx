@@ -46,6 +46,18 @@ export function ChunkEditForm({
     );
   }
 
+  if (docType === 'assignment') {
+    return (
+      <AssignmentEditForm
+        chunkId={chunk.id}
+        meta={meta}
+        initialContent={initialContent}
+        onSave={onSave}
+        onCancel={onCancel}
+      />
+    );
+  }
+
   return (
     <FallbackEditForm
       chunkId={chunk.id}
@@ -233,6 +245,90 @@ function ExamEditForm({
           minRows={2}
           autosize
         />
+        <Group justify="flex-end" gap="sm">
+          <Button variant="default" size="sm" onClick={onCancel} radius="md">
+            {t.documentDetail.cancel}
+          </Button>
+          <Button color="indigo" size="sm" onClick={handleSave} radius="md">
+            {t.documentDetail.save}
+          </Button>
+        </Group>
+      </Stack>
+    </Card>
+  );
+}
+
+/* -- Assignment Edit -- */
+
+function AssignmentEditForm({
+  chunkId,
+  meta,
+  initialContent,
+  onSave,
+  onCancel,
+}: {
+  chunkId: string;
+  meta: Record<string, unknown>;
+  initialContent: string;
+  onSave: (id: string, content: string, meta: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [content, setContent] = useState((meta.content as string) || initialContent);
+  const [referenceAnswer, setReferenceAnswer] = useState((meta.referenceAnswer as string) || '');
+  const [explanation, setExplanation] = useState((meta.explanation as string) || '');
+  const [points, setPoints] = useState(meta.points != null ? String(meta.points) : '');
+  const [difficulty, setDifficulty] = useState((meta.difficulty as string) || '');
+
+  const handleSave = () => {
+    const updated: Record<string, unknown> = {
+      ...meta,
+      content,
+      referenceAnswer,
+      explanation,
+      points: points ? Number(points) : 0,
+      difficulty,
+    };
+    onSave(chunkId, content, updated);
+  };
+
+  return (
+    <Card withBorder radius="lg" p="md" bg="var(--mantine-color-indigo-0)">
+      <Stack gap="sm">
+        <Textarea
+          label={t.documentDetail.content}
+          value={content}
+          onChange={(e) => setContent(e.currentTarget.value)}
+          minRows={3}
+          autosize
+        />
+        <Textarea
+          label={t.documentDetail.answer}
+          value={referenceAnswer}
+          onChange={(e) => setReferenceAnswer(e.currentTarget.value)}
+          minRows={2}
+          autosize
+        />
+        <Textarea
+          label={t.documentDetail.explanation || 'Explanation'}
+          value={explanation}
+          onChange={(e) => setExplanation(e.currentTarget.value)}
+          minRows={2}
+          autosize
+        />
+        <Group grow>
+          <TextInput
+            label={t.documentDetail.score}
+            value={points}
+            onChange={(e) => setPoints(e.currentTarget.value)}
+            type="number"
+          />
+          <TextInput
+            label={t.documentDetail.difficulty || 'Difficulty'}
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.currentTarget.value)}
+          />
+        </Group>
         <Group justify="flex-end" gap="sm">
           <Button variant="default" size="sm" onClick={onCancel} radius="md">
             {t.documentDetail.cancel}

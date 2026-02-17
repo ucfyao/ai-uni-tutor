@@ -311,6 +311,9 @@ export const translations = {
       failedToRegenerate: '重新生成嵌入向量失败',
       failedToSave: '保存更改失败',
       onePerLine: '每行一个',
+      explanation: '解释',
+      difficulty: '难度',
+      items: '题目',
     },
     // Exam
     exam: {
@@ -993,6 +996,9 @@ export const translations = {
       failedToRegenerate: 'Failed to regenerate embeddings',
       failedToSave: 'Failed to save changes',
       onePerLine: 'one per line',
+      explanation: 'Explanation',
+      difficulty: 'Difficulty',
+      items: 'Items',
     },
     // Exam
     exam: {
