@@ -13,9 +13,9 @@ import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
 import type { Json } from '@/types/database';
 
-export type UploadState = FormActionState;
+type UploadState = FormActionState;
 
-export interface DocumentListItem {
+interface DocumentListItem {
   id: string;
   name: string;
   status: string;

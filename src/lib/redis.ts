@@ -36,7 +36,7 @@ function getRedis(): Redis {
 }
 
 /** Lazy: validated on first use so pages/tests without Redis env don't crash at import. */
-export const redis = new Proxy({} as Redis, {
+const redis = new Proxy({} as Redis, {
   get(_, prop) {
     const r = getRedis();
     const v = (r as unknown as Record<string, unknown>)[prop as string];

@@ -16,14 +16,3 @@ export interface ParsedQuestion {
   sourcePage: number;
 }
 
-export interface LectureParseResult {
-  type: 'lecture';
-  knowledgePoints: KnowledgePoint[];
-}
-
-export interface QuestionParseResult {
-  type: 'question';
-  questions: ParsedQuestion[];
-}
-
-export type ParseResult = LectureParseResult | QuestionParseResult;

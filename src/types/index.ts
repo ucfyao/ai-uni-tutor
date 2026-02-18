@@ -1,10 +1,3 @@
-export type University = {
-  id: string;
-  name: string;
-  shortName: string;
-  logo?: string;
-};
-
 export type Course = {
   id: string;
   universityId: string;

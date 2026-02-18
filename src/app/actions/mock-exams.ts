@@ -7,37 +7,6 @@ import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { BatchSubmitResult, ExamPaper, MockExam, MockExamResponse } from '@/types/exam';
 
-/**
- * Start a mock exam session: find an exam paper for the course, generate a mock, link to session.
- */
-export async function startMockExamSession(
-  sessionId: string,
-  courseCode: string,
-  mode: 'practice' | 'exam' = 'practice',
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-
-    await getQuotaService().enforce(user.id);
-
-    const service = getMockExamService();
-    const result = await service.startFromCourse(user.id, sessionId, courseCode, mode);
-
-    revalidatePath('/exam');
-    return { success: true, mockId: result.mockId };
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
-    }
-    console.error('Mock exam session start error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to start mock exam',
-    };
-  }
-}
-
 export async function generateMockFromTopic(
   topic: string,
   numQuestions: number,
@@ -76,40 +45,6 @@ export async function generateMockFromTopic(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to generate mock exam from topic',
-    };
-  }
-}
-
-export async function generateMockExam(
-  courseCode: string,
-  mode: 'practice' | 'exam',
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-
-    if (!courseCode.trim()) return { success: false, error: 'Course is required' };
-    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
-
-    await getQuotaService().enforce(user.id);
-
-    const service = getMockExamService();
-    const paperId = await service.findPaperByCourse(courseCode);
-    if (!paperId) {
-      return { success: false, error: 'No exam papers available for this course' };
-    }
-    const { mockId } = await service.generateMock(user.id, paperId, mode);
-
-    revalidatePath('/exam');
-    return { success: true, mockId };
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
-    }
-    console.error('Mock exam generation error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate mock exam',
     };
   }
 }
@@ -171,14 +106,6 @@ export async function getMockExamDetail(mockId: string): Promise<MockExam | null
 
   const service = getMockExamService();
   return service.getMock(user.id, mockId);
-}
-
-export async function getMockExamList(): Promise<MockExam[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
-
-  const service = getMockExamService();
-  return service.getHistory(user.id);
 }
 
 export async function getExamPapersForCourse(

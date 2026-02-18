@@ -15,8 +15,6 @@ export interface IAssignmentRepository {
   }): Promise<string>;
 
   findById(id: string): Promise<AssignmentEntity | null>;
-  findByUserId(userId: string): Promise<AssignmentEntity[]>;
-  findOwner(id: string): Promise<string | null>;
   findCourseId(id: string): Promise<string | null>;
   findAllForAdmin(courseIds?: string[]): Promise<AssignmentEntity[]>;
   updateStatus(id: string, status: string, statusMessage?: string): Promise<void>;

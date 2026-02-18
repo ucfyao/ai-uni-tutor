@@ -40,7 +40,7 @@ vi.mock('@/lib/services/QuotaService', () => ({
 // Import actions (after mocks are registered)
 // ---------------------------------------------------------------------------
 
-const { uploadAndParseExamPaper, getExamPaperList, getExamPaperDetail, deleteExamPaper } =
+const { uploadAndParseExamPaper, getExamPaperList, deleteExamPaper } =
   await import('./exam-papers');
 
 // ---------------------------------------------------------------------------
@@ -82,18 +82,6 @@ function makeExamPaper(overrides: Partial<ExamPaper> = {}): ExamPaper {
     questionCount: 10,
     createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
-  };
-}
-
-function mockSupabaseQuery(data: unknown, error: unknown = null) {
-  return {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: vi.fn().mockResolvedValue({ data, error }),
-        }),
-      }),
-    }),
   };
 }
 
@@ -252,55 +240,6 @@ describe('Exam Paper Actions', () => {
 
       expect(result).toEqual([]);
       expect(mockExamPaperService.getPapers).not.toHaveBeenCalled();
-    });
-  });
-
-  // =========================================================================
-  // getExamPaperDetail
-  // =========================================================================
-  describe('getExamPaperDetail', () => {
-    it('should return paper detail when user owns the paper', async () => {
-      const paperDetail = { paper: makeExamPaper(), questions: [] };
-      mockExamPaperService.getPaperDetail.mockResolvedValue(paperDetail);
-
-      const result = await getExamPaperDetail('paper-1');
-
-      expect(result).toEqual(paperDetail);
-      expect(mockExamPaperService.getPaperDetail).toHaveBeenCalledWith('paper-1', 'user-1');
-    });
-
-    it('should return paper detail for public paper owned by another user', async () => {
-      const paperDetail = { paper: makeExamPaper({ visibility: 'public' }), questions: [] };
-      mockExamPaperService.getPaperDetail.mockResolvedValue(paperDetail);
-
-      const result = await getExamPaperDetail('paper-1');
-
-      expect(result).toEqual(paperDetail);
-      expect(mockExamPaperService.getPaperDetail).toHaveBeenCalledWith('paper-1', 'user-1');
-    });
-
-    it('should return null for private paper owned by another user', async () => {
-      mockExamPaperService.getPaperDetail.mockResolvedValue(null);
-
-      const result = await getExamPaperDetail('paper-1');
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await getExamPaperDetail('paper-1');
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null when paper is not found', async () => {
-      mockExamPaperService.getPaperDetail.mockResolvedValue(null);
-
-      const result = await getExamPaperDetail('nonexistent');
-
-      expect(result).toBeNull();
     });
   });
 

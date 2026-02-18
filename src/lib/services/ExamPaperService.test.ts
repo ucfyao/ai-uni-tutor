@@ -41,7 +41,6 @@ function createMockExamPaperRepo(): {
     insertQuestions: vi.fn(),
     findQuestionsByPaperId: vi.fn(),
     updateQuestion: vi.fn(),
-    findByUserId: vi.fn(),
     deleteQuestion: vi.fn(),
     findByCourse: vi.fn(),
     findAllByCourse: vi.fn(),
@@ -397,30 +396,6 @@ describe('ExamPaperService', () => {
     });
   });
 
-  // ==================== getPaperWithQuestions ====================
-
-  describe('getPaperWithQuestions', () => {
-    it('should return paper and questions when paper exists', async () => {
-      repo.findById.mockResolvedValue(PAPER);
-      repo.findQuestionsByPaperId.mockResolvedValue(QUESTIONS);
-
-      const result = await service.getPaperWithQuestions(PAPER_ID);
-
-      expect(result).toEqual({ paper: PAPER, questions: QUESTIONS });
-      expect(repo.findById).toHaveBeenCalledWith(PAPER_ID);
-      expect(repo.findQuestionsByPaperId).toHaveBeenCalledWith(PAPER_ID);
-    });
-
-    it('should return null when paper not found', async () => {
-      repo.findById.mockResolvedValue(null);
-
-      const result = await service.getPaperWithQuestions('nonexistent');
-
-      expect(result).toBeNull();
-      expect(repo.findQuestionsByPaperId).not.toHaveBeenCalled();
-    });
-  });
-
   // ==================== deletePaper ====================
 
   describe('deletePaper', () => {
@@ -448,26 +423,6 @@ describe('ExamPaperService', () => {
       await expect(service.deletePaper(USER_ID, PAPER_ID)).rejects.toThrow(
         'You do not own this paper',
       );
-    });
-  });
-
-  // ==================== deleteByAdmin ====================
-
-  describe('deleteByAdmin', () => {
-    it('should delete paper without ownership check', async () => {
-      repo.findOwner.mockResolvedValue(OTHER_USER);
-      repo.delete.mockResolvedValue(undefined);
-
-      await service.deleteByAdmin(PAPER_ID);
-
-      expect(repo.findOwner).toHaveBeenCalledWith(PAPER_ID);
-      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
-    });
-
-    it('should throw NOT_FOUND when paper does not exist', async () => {
-      repo.findOwner.mockResolvedValue(null);
-
-      await expect(service.deleteByAdmin('nonexistent')).rejects.toThrow('Paper not found');
     });
   });
 
