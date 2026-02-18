@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { expect, test } from '../../fixtures/base.fixture';
 import { mockGeminiStream } from '../../helpers/mock-gemini';
 import { ChatPanel } from '../../pages/components/ChatPanel';
@@ -28,9 +27,6 @@ test.describe('Image Upload', () => {
       await studyPage.selectLectureHelper();
 
       // Create a minimal test PNG in memory (1x1 pixel)
-      const testImagePath = path.resolve('e2e/fixtures/test-image.png');
-
-      // Use setInputFiles with a buffer-based file if the fixture doesn't exist
       await chat.fileInput.setInputFiles({
         name: 'test-image.png',
         mimeType: 'image/png',
