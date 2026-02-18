@@ -22,6 +22,7 @@ export interface ParseMetadata {
   docType: string;
   school?: string;
   course?: string;
+  courseId?: string;
   hasAnswers?: boolean;
 }
 
@@ -89,6 +90,7 @@ export function useStreamingParse(): StreamingParseState {
     formData.append('doc_type', metadata.docType);
     if (metadata.school) formData.append('school', metadata.school);
     if (metadata.course) formData.append('course', metadata.course);
+    if (metadata.courseId) formData.append('courseId', metadata.courseId);
     if (metadata.hasAnswers) formData.append('has_answers', 'true');
 
     (async () => {

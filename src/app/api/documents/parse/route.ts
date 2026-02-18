@@ -12,7 +12,7 @@ import { getDocumentService } from '@/lib/services/DocumentService';
 import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
-import { requireAdmin } from '@/lib/supabase/server';
+import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -60,22 +60,13 @@ export async function POST(request: Request) {
     try {
       // ── Auth ──
       let user;
+      let authRole: string;
       try {
-        user = await requireAdmin();
+        const result = await requireAnyAdmin();
+        user = result.user;
+        authRole = result.role;
       } catch {
         send('error', { message: 'Admin access required', code: 'FORBIDDEN' });
-        return;
-      }
-
-      // ── Quota ──
-      try {
-        await getQuotaService().enforce(user.id);
-      } catch (error) {
-        if (error instanceof QuotaExceededError) {
-          send('error', { message: error.message, code: 'QUOTA_EXCEEDED' });
-        } else {
-          send('error', { message: 'Quota check failed', code: 'QUOTA_ERROR' });
-        }
         return;
       }
 
@@ -105,6 +96,42 @@ export async function POST(request: Request) {
       }
       const { doc_type, school, course, has_answers } = parsed.data;
 
+      // ── Course-level permission check ──
+      const rawCourseId = formData.get('courseId') as string | null;
+      if (rawCourseId && !z.string().uuid().safeParse(rawCourseId).success) {
+        send('error', { message: 'Invalid course ID', code: 'VALIDATION_ERROR' });
+        return;
+      }
+      const courseId = rawCourseId ?? null;
+      // Admin (non-super_admin) must provide courseId for all uploads
+      if (authRole === 'admin' && !courseId) {
+        send('error', {
+          message: 'Admin must select a course for uploads',
+          code: 'FORBIDDEN',
+        });
+        return;
+      }
+      if (courseId) {
+        try {
+          await requireCourseAdmin(courseId);
+        } catch {
+          send('error', { message: 'No access to this course', code: 'FORBIDDEN' });
+          return;
+        }
+      }
+
+      // ── Quota (after auth + course permission, so unauthorized requests don't consume quota) ──
+      try {
+        await getQuotaService().enforce(user.id);
+      } catch (error) {
+        if (error instanceof QuotaExceededError) {
+          send('error', { message: error.message, code: 'QUOTA_EXCEEDED' });
+        } else {
+          send('error', { message: 'Quota check failed', code: 'QUOTA_ERROR' });
+        }
+        return;
+      }
+
       // ── Create record in the correct domain table ──
       let effectiveRecordId: string;
       recordDocType = doc_type;
@@ -121,6 +148,7 @@ export async function POST(request: Request) {
           file.name,
           { school: school || 'Unspecified', course: course || 'General' },
           doc_type,
+          courseId ?? undefined,
         );
         effectiveRecordId = doc.id;
         docId = doc.id;
@@ -131,6 +159,7 @@ export async function POST(request: Request) {
           title: file.name,
           school: school || null,
           course: course || null,
+          courseId: courseId ?? undefined,
           status: 'parsing',
         });
       } else {
@@ -140,6 +169,7 @@ export async function POST(request: Request) {
           title: file.name,
           school: school || null,
           course: course || null,
+          courseId: courseId ?? undefined,
           status: 'parsing',
         });
       }

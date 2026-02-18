@@ -43,6 +43,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     title: string;
     school?: string | null;
     course?: string | null;
+    courseId?: string;
     status?: string;
   }): Promise<string> {
     const supabase = await createClient();
@@ -53,6 +54,7 @@ export class AssignmentRepository implements IAssignmentRepository {
         title: data.title,
         school: data.school ?? null,
         course: data.course ?? null,
+        course_id: data.courseId ?? null,
         status: data.status ?? 'parsing',
       })
       .select('id')
@@ -89,6 +91,19 @@ export class AssignmentRepository implements IAssignmentRepository {
     return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
   }
 
+  async findAllForAdmin(): Promise<AssignmentEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch assignments: ${error.message}`, error);
+    }
+    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
+  }
+
   async findOwner(id: string): Promise<string | null> {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -101,6 +116,35 @@ export class AssignmentRepository implements IAssignmentRepository {
       throw new DatabaseError(`Failed to fetch assignment owner: ${error.message}`, error);
     }
     return (data?.user_id as string) ?? null;
+  }
+
+  async findCourseId(id: string): Promise<string | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('course_id')
+      .eq('id', id)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch assignment course_id: ${error.message}`, error);
+    }
+    return (data?.course_id as string) ?? null;
+  }
+
+  async findByCourseIds(courseIds: string[]): Promise<AssignmentEntity[]> {
+    if (courseIds.length === 0) return [];
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('*')
+      .in('course_id', courseIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch assignments by course: ${error.message}`, error);
+    }
+    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
   }
 
   async updateStatus(id: string, status: string, statusMessage?: string): Promise<void> {

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { mapError } from '@/lib/errors';
 import { getCourseService } from '@/lib/services/CourseService';
-import { getCurrentUser, requireAdmin } from '@/lib/supabase/server';
+import { requireSuperAdmin, requireUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
 
 // ============================================================================
@@ -54,7 +54,7 @@ export interface CourseListItem {
 
 export async function fetchUniversities(): Promise<ActionResult<UniversityListItem[]>> {
   try {
-    await getCurrentUser();
+    await requireUser();
     const service = getCourseService();
     const entities = await service.getAllUniversities();
     return {
@@ -73,7 +73,7 @@ export async function fetchUniversities(): Promise<ActionResult<UniversityListIt
 
 export async function fetchCourses(universityId?: string): Promise<ActionResult<CourseListItem[]>> {
   try {
-    await getCurrentUser();
+    await requireUser();
     const service = getCourseService();
     const entities = universityId
       ? await service.getCoursesByUniversity(universityId)
@@ -98,7 +98,7 @@ export async function fetchCourses(universityId?: string): Promise<ActionResult<
 
 export async function createUniversity(input: unknown): Promise<ActionResult<UniversityListItem>> {
   try {
-    await requireAdmin();
+    await requireSuperAdmin();
     const parsed = createUniversitySchema.parse(input);
     const service = getCourseService();
     const entity = await service.createUniversity(parsed);
@@ -122,7 +122,7 @@ export async function updateUniversity(
   input: unknown,
 ): Promise<ActionResult<UniversityListItem>> {
   try {
-    await requireAdmin();
+    await requireSuperAdmin();
     const parsed = updateUniversitySchema.parse(input);
     const service = getCourseService();
     const entity = await service.updateUniversity(id, parsed);
@@ -143,7 +143,7 @@ export async function updateUniversity(
 
 export async function deleteUniversity(id: string): Promise<ActionResult<void>> {
   try {
-    await requireAdmin();
+    await requireSuperAdmin();
     const service = getCourseService();
     await service.deleteUniversity(id);
     revalidatePath('/admin/courses');
@@ -155,7 +155,7 @@ export async function deleteUniversity(id: string): Promise<ActionResult<void>> 
 
 export async function createCourse(input: unknown): Promise<ActionResult<CourseListItem>> {
   try {
-    await requireAdmin();
+    await requireSuperAdmin();
     const parsed = createCourseSchema.parse(input);
     const service = getCourseService();
     const entity = await service.createCourse(parsed);
@@ -179,7 +179,7 @@ export async function updateCourse(
   input: unknown,
 ): Promise<ActionResult<CourseListItem>> {
   try {
-    await requireAdmin();
+    await requireSuperAdmin();
     const parsed = updateCourseSchema.parse(input);
     const service = getCourseService();
     const entity = await service.updateCourse(id, parsed);
@@ -200,7 +200,7 @@ export async function updateCourse(
 
 export async function deleteCourse(id: string): Promise<ActionResult<void>> {
   try {
-    await requireAdmin();
+    await requireSuperAdmin();
     const service = getCourseService();
     await service.deleteCourse(id);
     revalidatePath('/admin/courses');

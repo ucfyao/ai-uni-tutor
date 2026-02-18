@@ -10,6 +10,7 @@ import type {
   ProfileEntity,
   SubscriptionInfo,
   UpdateProfileDTO,
+  UserRole,
 } from '@/lib/domain/models/Profile';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
@@ -28,7 +29,7 @@ export class ProfileRepository implements IProfileRepository {
       stripePriceId: row.stripe_price_id,
       subscriptionStatus: row.subscription_status,
       currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
-      role: row.role,
+      role: row.role as UserRole,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
@@ -140,6 +141,56 @@ export class ProfileRepository implements IProfileRepository {
       .eq('id', userId);
 
     if (error) throw new DatabaseError(`Failed to update subscription: ${error.message}`, error);
+  }
+
+  async findByRole(role: UserRole): Promise<ProfileEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', role)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw new DatabaseError(`Failed to find profiles by role: ${error.message}`, error);
+
+    return (data ?? []).map((row) => this.mapToEntity(row));
+  }
+
+  async searchUsers(search?: string): Promise<ProfileEntity[]> {
+    const supabase = await createClient();
+    let query = supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (search && search.trim()) {
+      // Escape PostgREST filter syntax characters and SQL wildcards
+      const sanitized = search
+        .trim()
+        .replace(/\\/g, '\\\\') // escape backslash first
+        .replace(/[%_]/g, '\\$&') // escape SQL wildcards
+        .replace(/[(),."*]/g, ''); // strip PostgREST filter delimiters
+      if (sanitized) {
+        query = query.or(`full_name.ilike.%${sanitized}%,email.ilike.%${sanitized}%`);
+      }
+    }
+
+    const { data, error } = await query;
+    if (error) throw new DatabaseError(`Failed to search users: ${error.message}`, error);
+
+    return (data ?? []).map((row) => this.mapToEntity(row));
+  }
+
+  async updateRole(userId: string, role: UserRole): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw new DatabaseError(`Failed to update user role: ${error.message}`, error);
   }
 
   async updateSubscriptionBySubscriptionId(
