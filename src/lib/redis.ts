@@ -20,7 +20,7 @@ let _proRatelimit: Ratelimit | null = null; // logged-in
 let _llmFreeRatelimit: Ratelimit | null = null;
 let _llmProRatelimit: Ratelimit | null = null;
 
-function getRedis(): Redis {
+export function getRedis(): Redis {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     throw new Error(
       'Redis credentials are not defined (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN)',
