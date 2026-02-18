@@ -80,6 +80,18 @@ export class AdminRepository {
     return data !== null;
   }
 
+  /** Atomically replace all course assignments for an admin via DB RPC. */
+  async setCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc('set_admin_courses', {
+      p_admin_id: adminId,
+      p_course_ids: courseIds,
+      p_assigned_by: assignedBy,
+    });
+    if (error)
+      throw new DatabaseError(`Failed to set admin courses: ${error.message}`, error);
+  }
+
   async getAssignedCourseIds(adminId: string): Promise<string[]> {
     const supabase = await createClient();
     const { data, error } = await supabase

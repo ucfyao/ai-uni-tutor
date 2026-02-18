@@ -615,6 +615,14 @@ export interface Database {
           similarity: number;
         }[];
       };
+      set_admin_courses: {
+        Args: {
+          p_admin_id: string;
+          p_course_ids: string[];
+          p_assigned_by: string;
+        };
+        Returns: undefined;
+      };
       hybrid_search: {
         Args: {
           query_text: string;
