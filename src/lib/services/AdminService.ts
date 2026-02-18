@@ -56,6 +56,18 @@ export class AdminService {
   }
 
   async removeCourses(adminId: string, courseIds: string[]): Promise<void> {
+    const profile = await this.profileRepo.findById(adminId);
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      throw new ForbiddenError('Target user is not an admin');
+    }
+    const assignedIds = await this.adminRepo.getAssignedCourseIds(adminId);
+    const assignedSet = new Set(assignedIds);
+    const unassigned = courseIds.filter((id) => !assignedSet.has(id));
+    if (unassigned.length > 0) {
+      throw new ForbiddenError(
+        `Courses not assigned to this admin: ${unassigned.join(', ')}`,
+      );
+    }
     for (const courseId of courseIds) {
       await this.adminRepo.removeCourse(adminId, courseId);
     }
