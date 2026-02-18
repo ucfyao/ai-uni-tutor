@@ -74,6 +74,7 @@ const PAPER: ExamPaper = {
   visibility: 'private',
   school: null,
   course: 'CALC101',
+  courseId: null,
   year: '2024',
   questionTypes: ['choice', 'short_answer'],
   status: 'ready',

@@ -48,6 +48,7 @@ export const examPaperEntity: ExamPaper = {
   visibility: examPaperRow.visibility,
   school: examPaperRow.school,
   course: examPaperRow.course,
+  courseId: null,
   year: examPaperRow.year,
   questionTypes: examPaperRow.question_types,
   status: examPaperRow.status,

@@ -65,6 +65,7 @@ const PAPER: ExamPaper = {
   visibility: 'private',
   school: 'MIT',
   course: 'MATH101',
+  courseId: null,
   year: '2024',
   questionTypes: ['choice', 'short_answer'],
   status: 'ready',

@@ -15,6 +15,7 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentEntity {
     title: row.title as string,
     school: (row.school as string) ?? null,
     course: (row.course as string) ?? null,
+    courseId: (row.course_id as string) ?? null,
     status: row.status as 'parsing' | 'ready' | 'error',
     statusMessage: (row.status_message as string) ?? null,
     createdAt: row.created_at as string,

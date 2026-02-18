@@ -10,6 +10,7 @@ export interface ExamPaper {
   visibility: 'public' | 'private';
   school: string | null;
   course: string | null;
+  courseId: string | null;
   year: string | null;
   questionTypes: string[];
   status: 'parsing' | 'ready' | 'error';

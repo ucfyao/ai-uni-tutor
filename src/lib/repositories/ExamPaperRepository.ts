@@ -22,6 +22,7 @@ function mapPaperRow(row: Record<string, unknown>, questionCount?: number): Exam
     visibility: row.visibility as 'public' | 'private',
     school: (row.school as string) ?? null,
     course: (row.course as string) ?? null,
+    courseId: (row.course_id as string) ?? null,
     year: (row.year as string) ?? null,
     questionTypes: (row.question_types as string[]) ?? [],
     status: row.status as 'parsing' | 'ready' | 'error',
