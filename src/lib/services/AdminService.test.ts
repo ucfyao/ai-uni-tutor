@@ -15,6 +15,7 @@ function createMockAdminRepo(): {
     assignCourse: vi.fn(),
     removeCourse: vi.fn(),
     removeAllCourses: vi.fn(),
+    setCourses: vi.fn(),
     getAssignedCourses: vi.fn(),
     hasCourseAccess: vi.fn(),
     getAssignedCourseIds: vi.fn(),
@@ -239,56 +240,26 @@ describe('AdminService', () => {
   // ==================== setCourses ====================
 
   describe('setCourses', () => {
-    it('should add new courses and remove old ones', async () => {
+    it('should delegate to atomic repo.setCourses', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a', 'course-b']);
-      adminRepo.removeCourse.mockResolvedValue(undefined);
-      adminRepo.assignCourse.mockResolvedValue(undefined);
+      adminRepo.setCourses.mockResolvedValue(undefined);
 
-      // Set to [course-b, course-c]: remove course-a, add course-c
       await service.setCourses(ADMIN_ID, ['course-b', 'course-c'], SUPER_ADMIN_ID);
 
-      expect(adminRepo.removeCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a');
-      expect(adminRepo.removeCourse).toHaveBeenCalledTimes(1);
-      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-c', SUPER_ADMIN_ID);
-      expect(adminRepo.assignCourse).toHaveBeenCalledTimes(1);
-    });
-
-    it('should call assignCourse before removeCourse (safe mid-state)', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
-      const callOrder: string[] = [];
-      adminRepo.assignCourse.mockImplementation(async () => {
-        callOrder.push('assignCourse');
-      });
-      adminRepo.removeCourse.mockImplementation(async () => {
-        callOrder.push('removeCourse');
-      });
-
-      await service.setCourses(ADMIN_ID, ['course-b'], SUPER_ADMIN_ID);
-
-      expect(callOrder).toEqual(['assignCourse', 'removeCourse']);
-    });
-
-    it('should handle no changes needed', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
-
-      await service.setCourses(ADMIN_ID, ['course-a'], SUPER_ADMIN_ID);
-
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
-      expect(adminRepo.assignCourse).not.toHaveBeenCalled();
+      expect(adminRepo.setCourses).toHaveBeenCalledWith(
+        ADMIN_ID,
+        ['course-b', 'course-c'],
+        SUPER_ADMIN_ID,
+      );
     });
 
     it('should handle setting to empty', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a', 'course-b']);
-      adminRepo.removeCourse.mockResolvedValue(undefined);
+      adminRepo.setCourses.mockResolvedValue(undefined);
 
       await service.setCourses(ADMIN_ID, [], SUPER_ADMIN_ID);
 
-      expect(adminRepo.removeCourse).toHaveBeenCalledTimes(2);
-      expect(adminRepo.assignCourse).not.toHaveBeenCalled();
+      expect(adminRepo.setCourses).toHaveBeenCalledWith(ADMIN_ID, [], SUPER_ADMIN_ID);
     });
 
     it('should throw if target is not admin', async () => {
@@ -297,12 +268,12 @@ describe('AdminService', () => {
       await expect(service.setCourses(USER_ID, ['course-a'], SUPER_ADMIN_ID)).rejects.toThrow(
         'Target user is not an admin',
       );
+      expect(adminRepo.setCourses).not.toHaveBeenCalled();
     });
 
-    it('should deduplicate courseIds', async () => {
+    it('should deduplicate courseIds before passing to repo', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue([]);
-      adminRepo.assignCourse.mockResolvedValue(undefined);
+      adminRepo.setCourses.mockResolvedValue(undefined);
 
       await service.setCourses(
         ADMIN_ID,
@@ -310,9 +281,11 @@ describe('AdminService', () => {
         SUPER_ADMIN_ID,
       );
 
-      expect(adminRepo.assignCourse).toHaveBeenCalledTimes(2);
-      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a', SUPER_ADMIN_ID);
-      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-b', SUPER_ADMIN_ID);
+      expect(adminRepo.setCourses).toHaveBeenCalledWith(
+        ADMIN_ID,
+        ['course-a', 'course-b'],
+        SUPER_ADMIN_ID,
+      );
     });
   });
 
