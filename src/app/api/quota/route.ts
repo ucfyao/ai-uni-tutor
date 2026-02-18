@@ -16,7 +16,14 @@ export async function GET() {
       Promise.resolve(quotaService.getSystemLimits()),
     ]);
 
-    return NextResponse.json({ status, limits });
+    return NextResponse.json(
+      { status, limits },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+        },
+      },
+    );
   } catch (error) {
     console.error('Failed to fetch quota status', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
