@@ -168,6 +168,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       docType: activeTab,
       school: uniObj?.shortName ?? '',
       course: courseObj?.code ?? '',
+      courseId: selectedCourseId,
       hasAnswers: false,
     });
   };

@@ -115,6 +115,7 @@ function makeRequest(overrides?: {
   doc_type?: string;
   school?: string;
   course?: string;
+  courseId?: string;
   has_answers?: string;
   skipFile?: boolean;
 }): Request {
@@ -131,6 +132,9 @@ function makeRequest(overrides?: {
   formData.append('school', overrides?.school ?? '');
   formData.append('course', overrides?.course ?? '');
   formData.append('has_answers', overrides?.has_answers ?? 'false');
+  if (overrides?.courseId) {
+    formData.append('courseId', overrides.courseId);
+  }
 
   return new Request('http://localhost/api/documents/parse', {
     method: 'POST',
@@ -194,7 +198,7 @@ function findEvents(events: Array<{ event: string; data: unknown }>, type: strin
 // ---------------------------------------------------------------------------
 
 function setupSuccessfulParse() {
-  mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+  mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
   mockQuotaService.enforce.mockResolvedValue(undefined);
   mockDocumentService.checkDuplicate.mockResolvedValue(false);
   mockDocumentService.createDocument.mockResolvedValue({
@@ -259,17 +263,80 @@ describe('POST /api/documents/parse', () => {
   });
 
   // =========================================================================
+  // Course permission enforcement
+  // =========================================================================
+
+  describe('course permission enforcement', () => {
+    it('sends FORBIDDEN when admin role does not provide courseId', async () => {
+      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+
+      const response = await POST(makeRequest()); // no courseId
+      const events = await readSSEEvents(response);
+
+      const errorEvent = findEvent(events, 'error');
+      expect(errorEvent).toBeDefined();
+      expect((errorEvent!.data as any).code).toBe('FORBIDDEN');
+      expect((errorEvent!.data as any).message).toContain('must select a course');
+    });
+
+    it('sends VALIDATION_ERROR when courseId is not a valid UUID', async () => {
+      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+
+      const response = await POST(makeRequest({ courseId: 'not-a-uuid' }));
+      const events = await readSSEEvents(response);
+
+      const errorEvent = findEvent(events, 'error');
+      expect(errorEvent).toBeDefined();
+      expect((errorEvent!.data as any).code).toBe('VALIDATION_ERROR');
+      expect((errorEvent!.data as any).message).toContain('Invalid course ID');
+    });
+
+    it('sends FORBIDDEN when admin lacks access to the specified course', async () => {
+      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+      mockRequireCourseAdmin.mockRejectedValue(new Error('No access'));
+
+      const response = await POST(
+        makeRequest({ courseId: '550e8400-e29b-41d4-a716-446655440000' }),
+      );
+      const events = await readSSEEvents(response);
+
+      const errorEvent = findEvent(events, 'error');
+      expect(errorEvent).toBeDefined();
+      expect((errorEvent!.data as any).code).toBe('FORBIDDEN');
+      expect((errorEvent!.data as any).message).toContain('No access to this course');
+    });
+
+    it('allows super_admin to upload without courseId', async () => {
+      setupSuccessfulParse(); // uses super_admin role, no courseId
+
+      const response = await POST(makeRequest());
+      const events = await readSSEEvents(response);
+
+      const errorEvent = findEvent(events, 'error');
+      expect(errorEvent).toBeUndefined();
+
+      const completeEvent = findEvents(events, 'status').find(
+        (e) => (e.data as any).stage === 'complete',
+      );
+      expect(completeEvent).toBeDefined();
+    });
+  });
+
+  // =========================================================================
   // Quota enforcement
   // =========================================================================
 
   describe('quota enforcement', () => {
     it('sends error event with QUOTA_EXCEEDED code when quota is exceeded', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+      mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
 
       const { QuotaExceededError } = await import('@/lib/errors');
       mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
 
-      const response = await POST(makeRequest());
+      const response = await POST(
+        makeRequest({ courseId: '550e8400-e29b-41d4-a716-446655440000' }),
+      );
       const events = await readSSEEvents(response);
 
       const errorEvent = findEvent(events, 'error');
@@ -279,9 +346,12 @@ describe('POST /api/documents/parse', () => {
 
     it('sends error event with QUOTA_ERROR code for generic quota failures', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+      mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
       mockQuotaService.enforce.mockRejectedValue(new Error('Redis connection failed'));
 
-      const response = await POST(makeRequest());
+      const response = await POST(
+        makeRequest({ courseId: '550e8400-e29b-41d4-a716-446655440000' }),
+      );
       const events = await readSSEEvents(response);
 
       const errorEvent = findEvent(events, 'error');
@@ -338,7 +408,7 @@ describe('POST /api/documents/parse', () => {
     });
 
     it('sends error event with INVALID_FILE code when PDF has invalid magic bytes', async () => {
-      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
       mockQuotaService.enforce.mockResolvedValue(undefined);
       mockDocumentService.checkDuplicate.mockResolvedValue(false);
       mockDocumentService.createDocument.mockResolvedValue({
@@ -402,7 +472,7 @@ describe('POST /api/documents/parse', () => {
 
   describe('duplicate check', () => {
     it('sends error event with DUPLICATE code when file already exists', async () => {
-      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
       mockQuotaService.enforce.mockResolvedValue(undefined);
       mockDocumentService.checkDuplicate.mockResolvedValue(true);
 
@@ -641,6 +711,7 @@ describe('POST /api/documents/parse', () => {
         'lecture.pdf',
         { school: 'MIT', course: 'CS101' },
         'lecture',
+        undefined,
       );
     });
 
@@ -655,6 +726,7 @@ describe('POST /api/documents/parse', () => {
         'lecture.pdf',
         { school: 'Unspecified', course: 'General' },
         'lecture',
+        undefined,
       );
     });
 
