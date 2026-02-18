@@ -21,7 +21,7 @@ import {
 } from '@mantine/core';
 import { Logo } from '@/components/Logo';
 import { LanguageProvider, useLanguage } from '@/i18n/LanguageContext';
-import { login, signup } from './actions';
+import { login, requestPasswordReset, signup } from './actions';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -34,6 +34,8 @@ function LoginForm() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [shake, setShake] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const { t } = useLanguage();
 
   const validateEmail = (value: string) => {
@@ -116,6 +118,39 @@ function LoginForm() {
     }
   };
 
+  const handleResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const eErr = validateEmail(email);
+    setEmailError(eErr);
+    if (eErr) return;
+
+    setResetLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('email', email);
+      const res = await requestPasswordReset(formData);
+      if (res?.error) {
+        setError(res.error);
+        setShake(true);
+        setTimeout(() => setShake(false), 600);
+      } else if (res?.success) {
+        setSuccessMsg(t.login.resetLinkSent);
+      }
+    } catch (err) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : t.login.unexpectedError;
+      setError(msg);
+      setShake(true);
+      setTimeout(() => setShake(false), 600);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const inputStyles = {
     label: {
       marginBottom: 6,
@@ -153,10 +188,18 @@ function LoginForm() {
             className="login-page-title"
             style={{ fontSize: 'clamp(24px, 2.4vw, 32px)', lineHeight: 1.2 }}
           >
-            {isSignUp ? t.login.joinTitle : t.login.welcomeBack}
+            {isForgotPassword
+              ? t.login.forgotPasswordTitle
+              : isSignUp
+                ? t.login.joinTitle
+                : t.login.welcomeBack}
           </Title>
           <Text c="dimmed" size="sm" fw={500}>
-            {isSignUp ? t.login.joinSubtitle : t.login.readySubtitle}
+            {isForgotPassword
+              ? t.login.forgotPasswordSubtitle
+              : isSignUp
+                ? t.login.joinSubtitle
+                : t.login.readySubtitle}
           </Text>
         </Stack>
 
@@ -202,76 +245,104 @@ function LoginForm() {
             </Alert>
           )}
 
-          <form onSubmit={handleAuth}>
-            <Stack gap="sm">
-              <TextInput
-                label={t.login.email}
-                placeholder={t.login.emailPlaceholder}
-                required
-                size="md"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (emailError) setEmailError(validateEmail(e.target.value));
-                }}
-                onBlur={(e) => setEmailError(validateEmail(e.currentTarget.value))}
-                error={emailError}
-                leftSection={<Mail size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
-                radius="md"
-                styles={inputStyles}
-                classNames={{ input: 'login-input' }}
-              />
-
-              <Box>
-                <PasswordInput
-                  label={t.login.password}
-                  placeholder={
-                    isSignUp ? t.login.passwordPlaceholderSignup : t.login.passwordPlaceholderLogin
-                  }
+          {isForgotPassword ? (
+            <form onSubmit={handleResetRequest}>
+              <Stack gap="sm">
+                <TextInput
+                  label={t.login.email}
+                  placeholder={t.login.emailPlaceholder}
                   required
                   size="md"
-                  mt={2}
-                  value={password}
+                  value={email}
                   onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (passwordError) setPasswordError(validatePassword(e.target.value));
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(validateEmail(e.target.value));
                   }}
-                  onBlur={(e) => setPasswordError(validatePassword(e.currentTarget.value))}
-                  error={passwordError}
-                  leftSection={<Lock size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
+                  onBlur={(e) => setEmailError(validateEmail(e.currentTarget.value))}
+                  error={emailError}
+                  leftSection={<Mail size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
                   radius="md"
                   styles={inputStyles}
                   classNames={{ input: 'login-input' }}
                 />
-                {isSignUp && password && (
-                  <Box mt={6}>
-                    <Progress
-                      value={(strength / 5) * 100}
-                      color={strengthColor[strength]}
-                      size="xs"
-                      radius="xl"
-                      mb={4}
-                    />
-                    <Text fz="xs" c={strengthColor[strength]}>
-                      {strengthLabel[strength]}
-                    </Text>
-                  </Box>
-                )}
-                {isSignUp && !password && (
-                  <Text size="xs" c="dimmed" mt={2} style={{ lineHeight: 1.35 }}>
-                    {t.login.passwordHint}
-                  </Text>
-                )}
 
-                {isSignUp && (
+                <Button
+                  fullWidth
+                  size="lg"
+                  radius="md"
+                  type="submit"
+                  loading={resetLoading}
+                  variant="gradient"
+                  gradient={{ from: 'indigo.7', to: 'indigo.3', deg: 105 }}
+                  mt="sm"
+                  fw={600}
+                  py={12}
+                  style={{
+                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  }}
+                  className="login-submit-btn"
+                >
+                  {t.login.sendResetLink}
+                </Button>
+
+                <Center>
+                  <Anchor
+                    href="#"
+                    size="sm"
+                    fw={600}
+                    c="indigo.6"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsForgotPassword(false);
+                      setError(null);
+                      setSuccessMsg(null);
+                    }}
+                  >
+                    {t.login.backToLogin}
+                  </Anchor>
+                </Center>
+              </Stack>
+            </form>
+          ) : (
+            <form onSubmit={handleAuth}>
+              <Stack gap="sm">
+                <TextInput
+                  label={t.login.email}
+                  placeholder={t.login.emailPlaceholder}
+                  required
+                  size="md"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(validateEmail(e.target.value));
+                  }}
+                  onBlur={(e) => setEmailError(validateEmail(e.currentTarget.value))}
+                  error={emailError}
+                  leftSection={<Mail size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />}
+                  radius="md"
+                  styles={inputStyles}
+                  classNames={{ input: 'login-input' }}
+                />
+
+                <Box>
                   <PasswordInput
-                    label={t.login.confirm}
-                    placeholder={t.login.confirmPlaceholder}
+                    label={t.login.password}
+                    placeholder={
+                      isSignUp
+                        ? t.login.passwordPlaceholderSignup
+                        : t.login.passwordPlaceholderLogin
+                    }
                     required
                     size="md"
-                    mt="sm"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    mt={2}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (passwordError) setPasswordError(validatePassword(e.target.value));
+                    }}
+                    onBlur={(e) => setPasswordError(validatePassword(e.currentTarget.value))}
+                    error={passwordError}
                     leftSection={
                       <Lock size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />
                     }
@@ -279,99 +350,151 @@ function LoginForm() {
                     styles={inputStyles}
                     classNames={{ input: 'login-input' }}
                   />
-                )}
+                  {isSignUp && password && (
+                    <Box mt={6}>
+                      <Progress
+                        value={(strength / 5) * 100}
+                        color={strengthColor[strength]}
+                        size="xs"
+                        radius="xl"
+                        mb={4}
+                      />
+                      <Text fz="xs" c={strengthColor[strength]}>
+                        {strengthLabel[strength]}
+                      </Text>
+                    </Box>
+                  )}
+                  {isSignUp && !password && (
+                    <Text size="xs" c="dimmed" mt={2} style={{ lineHeight: 1.35 }}>
+                      {t.login.passwordHint}
+                    </Text>
+                  )}
 
-                {!isSignUp && (
-                  <Group justify="flex-end" mt={4}>
-                    <Anchor href="#" size="sm" fw={600} c="indigo.6">
-                      {t.login.forgotPassword}
-                    </Anchor>
-                  </Group>
-                )}
-              </Box>
+                  {isSignUp && (
+                    <PasswordInput
+                      label={t.login.confirm}
+                      placeholder={t.login.confirmPlaceholder}
+                      required
+                      size="md"
+                      mt="sm"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      leftSection={
+                        <Lock size={16} style={{ color: 'var(--mantine-color-slate-5)' }} />
+                      }
+                      radius="md"
+                      styles={inputStyles}
+                      classNames={{ input: 'login-input' }}
+                    />
+                  )}
 
-              <Button
-                fullWidth
-                size="lg"
-                radius="md"
-                type="submit"
-                loading={loading}
-                variant="gradient"
-                gradient={{ from: 'indigo.7', to: 'indigo.3', deg: 105 }}
-                mt="sm"
-                fw={600}
-                py={12}
-                style={{
-                  boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
-                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  {!isSignUp && (
+                    <Group justify="flex-end" mt={4}>
+                      <Anchor
+                        href="#"
+                        size="sm"
+                        fw={600}
+                        c="indigo.6"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsForgotPassword(true);
+                          setError(null);
+                          setSuccessMsg(null);
+                        }}
+                      >
+                        {t.login.forgotPassword}
+                      </Anchor>
+                    </Group>
+                  )}
+                </Box>
+
+                <Button
+                  fullWidth
+                  size="lg"
+                  radius="md"
+                  type="submit"
+                  loading={loading}
+                  variant="gradient"
+                  gradient={{ from: 'indigo.7', to: 'indigo.3', deg: 105 }}
+                  mt="sm"
+                  fw={600}
+                  py={12}
+                  style={{
+                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  }}
+                  className="login-submit-btn"
+                >
+                  {isSignUp ? t.login.createAccount : t.login.signIn}
+                </Button>
+              </Stack>
+            </form>
+          )}
+
+          {!isForgotPassword && (
+            <>
+              <Divider
+                label={t.login.orContinueWith}
+                labelPosition="center"
+                my="lg"
+                styles={{
+                  label: { fontSize: 13, color: 'var(--mantine-color-slate-5)', fontWeight: 500 },
                 }}
-                className="login-submit-btn"
-              >
-                {isSignUp ? t.login.createAccount : t.login.signIn}
-              </Button>
-            </Stack>
-          </form>
+              />
 
-          <Divider
-            label={t.login.orContinueWith}
-            labelPosition="center"
-            my="lg"
-            styles={{
-              label: { fontSize: 13, color: 'var(--mantine-color-slate-5)', fontWeight: 500 },
-            }}
-          />
+              <Group grow gap="xs">
+                <Button
+                  variant="default"
+                  size="md"
+                  radius="md"
+                  disabled
+                  style={{
+                    border: '1px solid var(--mantine-color-slate-2)',
+                    backgroundColor: 'var(--mantine-color-body)',
+                    color: 'var(--mantine-color-slate-6)',
+                    fontWeight: 500,
+                  }}
+                >
+                  Google
+                </Button>
+                <Button
+                  variant="default"
+                  size="md"
+                  radius="md"
+                  disabled
+                  style={{
+                    border: '1px solid var(--mantine-color-slate-2)',
+                    backgroundColor: 'var(--mantine-color-body)',
+                    color: 'var(--mantine-color-slate-6)',
+                    fontWeight: 500,
+                  }}
+                >
+                  GitHub
+                </Button>
+              </Group>
 
-          <Group grow gap="xs">
-            <Button
-              variant="default"
-              size="md"
-              radius="md"
-              disabled
-              style={{
-                border: '1px solid var(--mantine-color-slate-2)',
-                backgroundColor: 'var(--mantine-color-body)',
-                color: 'var(--mantine-color-slate-6)',
-                fontWeight: 500,
-              }}
-            >
-              Google
-            </Button>
-            <Button
-              variant="default"
-              size="md"
-              radius="md"
-              disabled
-              style={{
-                border: '1px solid var(--mantine-color-slate-2)',
-                backgroundColor: 'var(--mantine-color-body)',
-                color: 'var(--mantine-color-slate-6)',
-                fontWeight: 500,
-              }}
-            >
-              GitHub
-            </Button>
-          </Group>
-
-          <Center mt="lg">
-            <Text size="sm" c="dimmed" span>
-              {isSignUp ? t.login.alreadyHaveAccount : t.login.newUser}
-              <Anchor<'a'>
-                href="#"
-                fw={600}
-                c="indigo.6"
-                size="sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIsSignUp(!isSignUp);
-                  setError(null);
-                  setSuccessMsg(null);
-                  setConfirmPassword('');
-                }}
-              >
-                {isSignUp ? t.login.signIn : t.login.createAccount}
-              </Anchor>
-            </Text>
-          </Center>
+              <Center mt="lg">
+                <Text size="sm" c="dimmed" span>
+                  {isSignUp ? t.login.alreadyHaveAccount : t.login.newUser}
+                  <Anchor<'a'>
+                    href="#"
+                    fw={600}
+                    c="indigo.6"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsSignUp(!isSignUp);
+                      setError(null);
+                      setSuccessMsg(null);
+                      setConfirmPassword('');
+                    }}
+                  >
+                    {isSignUp ? t.login.signIn : t.login.createAccount}
+                  </Anchor>
+                </Text>
+              </Center>
+            </>
+          )}
         </Paper>
 
         <Text ta="center" size="sm" c="dimmed" mt="lg">
