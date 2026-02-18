@@ -21,6 +21,7 @@
     "@mantine/core": "^8.3.13",
     "@mantine/dropzone": "^8.3.13",
     "@mantine/hooks": "^8.3.13",
+    "@mantine/modals": "^8.3.14",
     "@mantine/notifications": "^8.3.13",
     "@stripe/stripe-js": "^8.6.4",
     "@supabase/ssr": "^0.8.0",
