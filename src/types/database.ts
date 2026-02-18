@@ -83,6 +83,8 @@ export interface Database {
           name: string;
           created_at: string;
           updated_at: string;
+          knowledge_outline: Json | null;
+          knowledge_outline_embedding: string | null;
         };
         Insert: {
           id?: string;
@@ -91,6 +93,8 @@ export interface Database {
           name: string;
           created_at?: string;
           updated_at?: string;
+          knowledge_outline?: Json | null;
+          knowledge_outline_embedding?: string | null;
         };
         Update: {
           id?: string;
@@ -99,6 +103,8 @@ export interface Database {
           name?: string;
           created_at?: string;
           updated_at?: string;
+          knowledge_outline?: Json | null;
+          knowledge_outline_embedding?: string | null;
         };
         Relationships: [];
       };
@@ -290,6 +296,8 @@ export interface Database {
           course_id: string | null;
           created_at: string;
           metadata: Json;
+          outline: Json | null;
+          outline_embedding: string | null;
         };
         Insert: {
           id?: string;
@@ -301,6 +309,8 @@ export interface Database {
           course_id?: string | null;
           created_at?: string;
           metadata?: Json;
+          outline?: Json | null;
+          outline_embedding?: string | null;
         };
         Update: {
           id?: string;
@@ -312,6 +322,8 @@ export interface Database {
           course_id?: string | null;
           created_at?: string;
           metadata?: Json;
+          outline?: Json | null;
+          outline_embedding?: string | null;
         };
         Relationships: [];
       };

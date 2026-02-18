@@ -25,7 +25,7 @@ vi.mock('@/lib/supabase/server', () => {
 });
 
 // Import after mocks
-const { retrieveContext } = await import('./retrieval');
+const { retrieveContext, retrieveOutlineContext } = await import('./retrieval');
 
 describe('retrieval', () => {
   beforeEach(() => {
@@ -167,5 +167,56 @@ describe('retrieval', () => {
       const result = await retrieveContext('query');
       expect(result).toBe('');
     });
+  });
+});
+
+describe('retrieveOutlineContext', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    mockSupabase.reset();
+  });
+
+  it('returns document and course outlines', async () => {
+    // Mock documents query
+    const docChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({
+        data: [
+          {
+            outline: {
+              title: 'Lecture 1',
+              summary: 'Covers trees',
+              sections: [{ title: 'BST', briefDescription: 'Binary search trees' }],
+            },
+          },
+        ],
+      }),
+    };
+
+    // Mock courses query
+    const courseChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          knowledge_outline: {
+            topics: [{ topic: 'Data Structures', subtopics: ['BST', 'Hash Table'] }],
+          },
+        },
+      }),
+    };
+
+    mockSupabase.client.from.mockImplementation((table: string) => {
+      if (table === 'documents') return docChain;
+      if (table === 'courses') return courseChain;
+      return {};
+    });
+
+    const result = await retrieveOutlineContext('what is BST?', 'course-1');
+
+    expect(result.documentOutline).toContain('Lecture 1');
+    expect(result.courseOutline).toContain('Data Structures');
   });
 });

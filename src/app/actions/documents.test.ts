@@ -66,10 +66,10 @@ vi.mock('@/lib/rag/embedding', () => ({
   generateEmbeddingWithRetry: (...args: unknown[]) => mockGenerateEmbeddingWithRetry(...args),
 }));
 
-const mockParseLecture = vi.fn();
+const mockParseLectureMultiPass = vi.fn();
 const mockParseQuestions = vi.fn();
 vi.mock('@/lib/rag/parsers/lecture-parser', () => ({
-  parseLecture: (...args: unknown[]) => mockParseLecture(...args),
+  parseLectureMultiPass: (...args: unknown[]) => mockParseLectureMultiPass(...args),
 }));
 vi.mock('@/lib/rag/parsers/question-parser', () => ({
   parseQuestions: (...args: unknown[]) => mockParseQuestions(...args),
@@ -156,6 +156,7 @@ function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity 
     metadata: { school: 'MIT', course: 'CS101' },
     docType: 'lecture',
     courseId: null,
+    outline: null,
     createdAt: new Date(),
     ...overrides,
   };
@@ -618,9 +619,7 @@ describe('Document Actions', () => {
       it('should allow admin access to document with assigned courseId', async () => {
         mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
         mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
-        mockDocumentService.findById.mockResolvedValue(
-          makeDocEntity({ courseId: 'course-1' }),
-        );
+        mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: 'course-1' }));
         mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
         mockKnowledgeCardService.deleteByDocumentId.mockResolvedValue(undefined);
         mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);

@@ -18,6 +18,8 @@ export const documentRow = {
   doc_type: 'lecture' as const,
   course_id: 'course-001',
   metadata: { pageCount: 12, size: 204800 },
+  outline: null,
+  outline_embedding: null,
   created_at: '2025-06-01T08:00:00Z',
 };
 
@@ -47,6 +49,7 @@ export const documentEntity: DocumentEntity = {
   metadata: documentRow.metadata,
   docType: documentRow.doc_type,
   courseId: documentRow.course_id,
+  outline: null,
   createdAt: new Date(documentRow.created_at),
 };
 

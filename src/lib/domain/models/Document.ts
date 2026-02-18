@@ -20,6 +20,7 @@ export interface DocumentEntity {
   metadata: Json;
   docType: DocumentType | null;
   courseId: string | null;
+  outline: Json | null;
   createdAt: Date;
 }
 

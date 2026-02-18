@@ -25,6 +25,7 @@ function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity 
     metadata: {},
     docType: 'lecture',
     courseId: 'course-1',
+    outline: null,
     createdAt: now,
     ...overrides,
   };
@@ -53,6 +54,7 @@ function createMockDocRepo(): Record<keyof DocumentRepository, ReturnType<typeof
     findByUserId: vi.fn(),
     findByDocTypeForAdmin: vi.fn(),
     deleteById: vi.fn(),
+    saveOutline: vi.fn(),
   };
 }
 
