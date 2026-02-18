@@ -76,14 +76,6 @@ export async function getExamPaperList(filters?: PaperFilters): Promise<ExamPape
   return service.getPapers(filters);
 }
 
-export async function getExamPaperDetail(paperId: string) {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
-  const service = getExamPaperService();
-  return service.getPaperDetail(paperId, user.id);
-}
-
 export async function deleteExamPaper(paperId: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error('Unauthorized');

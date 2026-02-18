@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import type { ProfileEntity } from '@/lib/domain/models/Profile';
 import { mapError } from '@/lib/errors';
 import { getAdminService } from '@/lib/services/AdminService';
 import { requireSuperAdmin } from '@/lib/supabase/server';
@@ -17,6 +18,7 @@ export interface AdminUserItem {
   email: string | null;
   role: string;
   createdAt: string;
+  isActive: boolean;
 }
 
 // ============================================================================
@@ -40,6 +42,21 @@ const setCoursesSchema = z.object({
   courseIds: z.array(z.string().uuid()),
 });
 
+const updateUserSchema = z.object({
+  userId: z.string().uuid(),
+  fullName: z.string().min(1).max(255).optional(),
+  role: z.enum(['user', 'admin']).optional(),
+});
+
+const disableUserSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+const listAllUsersSchema = z.object({
+  search: z.string().max(100).optional(),
+  role: z.enum(['user', 'admin', 'super_admin']).optional(),
+});
+
 // ============================================================================
 // Actions
 // ============================================================================
@@ -58,6 +75,7 @@ export async function searchUsers(input: unknown): Promise<ActionResult<AdminUse
         email: u.email,
         role: u.role,
         createdAt: u.createdAt.toISOString(),
+        isActive: u.isActive,
       })),
     };
   } catch (error) {
@@ -78,6 +96,7 @@ export async function listAdmins(): Promise<ActionResult<AdminUserItem[]>> {
         email: u.email,
         role: u.role,
         createdAt: u.createdAt.toISOString(),
+        isActive: u.isActive,
       })),
     };
   } catch (error) {
@@ -141,6 +160,72 @@ export async function setAdminCourses(input: unknown): Promise<ActionResult<void
     await service.setCourses(parsed.adminId, parsed.courseIds, user.id);
     revalidatePath('/admin/users');
     return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function updateUser(input: unknown): Promise<ActionResult<void>> {
+  try {
+    const user = await requireSuperAdmin();
+    const parsed = updateUserSchema.parse(input);
+    if (parsed.userId === user.id) {
+      return { success: false, error: 'Cannot modify your own account' };
+    }
+    const service = getAdminService();
+    if (parsed.fullName !== undefined) {
+      await service.updateUserName(parsed.userId, parsed.fullName);
+    }
+    if (parsed.role !== undefined) {
+      await service.updateUserRole(parsed.userId, parsed.role, user.id);
+    }
+    revalidatePath('/admin/users');
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function disableUser(input: unknown): Promise<ActionResult<void>> {
+  try {
+    const user = await requireSuperAdmin();
+    const parsed = disableUserSchema.parse(input);
+    if (parsed.userId === user.id) {
+      return { success: false, error: 'Cannot disable yourself' };
+    }
+    const service = getAdminService();
+    await service.disableUser(parsed.userId, user.id);
+    revalidatePath('/admin/users');
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function listAllUsers(input: unknown): Promise<ActionResult<AdminUserItem[]>> {
+  try {
+    await requireSuperAdmin();
+    const parsed = listAllUsersSchema.parse(input);
+    const service = getAdminService();
+    let users: ProfileEntity[];
+    if (parsed.role) {
+      users = await service.listByRole(parsed.role);
+    } else if (parsed.search) {
+      users = await service.searchUsers(parsed.search);
+    } else {
+      users = await service.searchUsers();
+    }
+    return {
+      success: true,
+      data: users.map((u) => ({
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        role: u.role,
+        createdAt: u.createdAt.toISOString(),
+        isActive: u.isActive,
+      })),
+    };
   } catch (error) {
     return mapError(error);
   }

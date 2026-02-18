@@ -1,17 +1,19 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, Shield, ShieldCheck, User } from 'lucide-react';
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { Check, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import {
   ActionIcon,
   Badge,
-  Box,
   Button,
   Card,
   Group,
   Loader,
   MultiSelect,
+  Popover,
+  SegmentedControl,
+  Select,
   Stack,
   Table,
   Text,
@@ -20,13 +22,13 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
+import { modals } from '@mantine/modals';
 import {
-  demoteToUser,
+  disableUser,
   getAdminCourseIds,
-  listAdmins,
-  promoteToAdmin,
-  searchUsers,
+  listAllUsers,
   setAdminCourses,
+  updateUser,
 } from '@/app/actions/admin';
 import type { AdminUserItem } from '@/app/actions/admin';
 import { fetchCourses } from '@/app/actions/courses';
@@ -46,17 +48,26 @@ const ROLE_ICONS: Record<string, typeof User> = {
   user: User,
 };
 
-export function AdminUsersClient() {
+interface Props {
+  currentUserId: string;
+}
+
+export function AdminUsersClient({ currentUserId }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchTerm, 300);
-  const [expandedAdminId, setExpandedAdminId] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [coursePopoverId, setCoursePopoverId] = useState<string | null>(null);
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [loadingCourseIds, setLoadingCourseIds] = useState(false);
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Header (mobile only, following AdminCoursesClient pattern)
   const { setHeaderContent } = useHeader();
   useEffect(() => {
     if (isMobile) {
@@ -72,27 +83,20 @@ export function AdminUsersClient() {
     return () => setHeaderContent(null);
   }, [isMobile, setHeaderContent]);
 
-  // Fetch users
+  // Unified user list query
   const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ['admin-users', debouncedSearch],
+    queryKey: ['admin-users', debouncedSearch, roleFilter],
     queryFn: async () => {
-      const result = await searchUsers({ search: debouncedSearch || undefined });
+      const result = await listAllUsers({
+        search: debouncedSearch || undefined,
+        role: roleFilter !== 'all' ? roleFilter : undefined,
+      });
       if (!result.success) throw new Error(result.error);
       return result.data;
     },
   });
 
-  // Fetch admins
-  const { data: admins = [] } = useQuery({
-    queryKey: ['admin-admins'],
-    queryFn: async () => {
-      const result = await listAdmins();
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    },
-  });
-
-  // Fetch courses for the multi-select
+  // All courses for MultiSelect
   const { data: courses = [] } = useQuery<CourseListItem[]>({
     queryKey: ['admin-all-courses'],
     queryFn: async () => {
@@ -107,30 +111,65 @@ export function AdminUsersClient() {
     label: `${c.code} — ${c.name}`,
   }));
 
-  const invalidateAll = useCallback(() => {
+  const invalidateUsers = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-    queryClient.invalidateQueries({ queryKey: ['admin-admins'] });
   }, [queryClient]);
 
-  // Expand admin row to show course assignment
-  const handleExpandAdmin = useCallback(
-    async (adminId: string) => {
-      if (expandedAdminId === adminId) {
-        setExpandedAdminId(null);
-        setSelectedCourseIds([]);
+  // --- Inline edit handlers ---
+  const startEdit = useCallback((user: AdminUserItem) => {
+    setEditingUserId(user.id);
+    setEditName(user.fullName || '');
+    setEditRole(user.role);
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditingUserId(null);
+    setEditName('');
+    setEditRole('');
+  }, []);
+
+  const saveEdit = useCallback(() => {
+    if (!editingUserId) return;
+    const userId = editingUserId;
+    startTransition(async () => {
+      const original = users.find((u) => u.id === userId);
+      const updates: { userId: string; fullName?: string; role?: 'user' | 'admin' } = { userId };
+      if (original && editName !== (original.fullName || '')) {
+        updates.fullName = editName;
+      }
+      if (original && editRole !== original.role) {
+        updates.role = editRole as 'user' | 'admin';
+      }
+      if (!updates.fullName && !updates.role) {
+        cancelEdit();
         return;
       }
-      setSelectedCourseIds([]); // Clear immediately to prevent stale data from previous admin
-      setExpandedAdminId(adminId);
+      const result = await updateUser(updates);
+      if (result.success) {
+        showNotification({ title: 'Success', message: 'User updated', color: 'green' });
+        cancelEdit();
+        invalidateUsers();
+      } else {
+        showNotification({ title: 'Error', message: result.error, color: 'red' });
+      }
+    });
+  }, [editingUserId, editName, editRole, users, cancelEdit, invalidateUsers]);
+
+  // --- Course popover handlers ---
+  const openCoursePopover = useCallback(
+    async (adminId: string) => {
+      if (coursePopoverId === adminId) {
+        setCoursePopoverId(null);
+        return;
+      }
+      setSelectedCourseIds([]);
+      setCoursePopoverId(adminId);
       setLoadingCourseIds(true);
       try {
         const result = await getAdminCourseIds({ adminId });
-        // Guard: only apply if this admin is still the expanded one (prevents race on fast switching)
         if (result.success) {
-          setExpandedAdminId((current) => {
-            if (current === adminId) {
-              setSelectedCourseIds(result.data);
-            }
+          setCoursePopoverId((current) => {
+            if (current === adminId) setSelectedCourseIds(result.data);
             return current;
           });
         }
@@ -138,50 +177,16 @@ export function AdminUsersClient() {
         setLoadingCourseIds(false);
       }
     },
-    [expandedAdminId],
+    [coursePopoverId],
   );
 
-  const handlePromote = useCallback(
-    (userId: string) => {
-      startTransition(async () => {
-        const result = await promoteToAdmin({ userId });
-        if (result.success) {
-          showNotification({ title: 'Success', message: 'User promoted to admin', color: 'green' });
-          invalidateAll();
-        } else {
-          showNotification({ title: 'Error', message: result.error, color: 'red' });
-        }
-      });
-    },
-    [invalidateAll],
-  );
-
-  const handleDemote = useCallback(
-    (userId: string) => {
-      startTransition(async () => {
-        const result = await demoteToUser({ userId });
-        if (result.success) {
-          showNotification({ title: 'Success', message: 'Admin demoted to user', color: 'green' });
-          setExpandedAdminId(null);
-          invalidateAll();
-        } else {
-          showNotification({ title: 'Error', message: result.error, color: 'red' });
-        }
-      });
-    },
-    [invalidateAll],
-  );
-
-  const handleSaveCourses = useCallback(
+  const saveCourses = useCallback(
     (adminId: string) => {
       startTransition(async () => {
         const result = await setAdminCourses({ adminId, courseIds: selectedCourseIds });
         if (result.success) {
-          showNotification({
-            title: 'Success',
-            message: 'Course assignments updated',
-            color: 'green',
-          });
+          showNotification({ title: 'Success', message: 'Courses updated', color: 'green' });
+          setCoursePopoverId(null);
         } else {
           showNotification({ title: 'Error', message: result.error, color: 'red' });
         }
@@ -190,6 +195,48 @@ export function AdminUsersClient() {
     [selectedCourseIds],
   );
 
+  // --- Delete handler ---
+  const handleDisable = useCallback(
+    (user: AdminUserItem) => {
+      modals.openConfirmModal({
+        title: 'Disable User',
+        children: (
+          <Text size="sm">
+            Are you sure you want to disable <strong>{user.fullName || user.email}</strong>? They
+            will no longer be able to log in.
+          </Text>
+        ),
+        labels: { confirm: 'Disable', cancel: 'Cancel' },
+        confirmProps: { color: 'red' },
+        onConfirm: () => {
+          startTransition(async () => {
+            const result = await disableUser({ userId: user.id });
+            if (result.success) {
+              showNotification({ title: 'Success', message: 'User disabled', color: 'green' });
+              invalidateUsers();
+            } else {
+              showNotification({ title: 'Error', message: result.error, color: 'red' });
+            }
+          });
+        },
+      });
+    },
+    [invalidateUsers],
+  );
+
+  // --- Search expand/collapse ---
+  const handleSearchExpand = useCallback(() => {
+    setSearchExpanded(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }, []);
+
+  const handleSearchBlur = useCallback(() => {
+    if (!searchTerm) {
+      setSearchExpanded(false);
+    }
+  }, [searchTerm]);
+
+  // --- Render helpers ---
   const renderRoleBadge = (role: string) => {
     const Icon = ROLE_ICONS[role] || User;
     return (
@@ -204,166 +251,296 @@ export function AdminUsersClient() {
     );
   };
 
-  const renderUserRow = (user: AdminUserItem) => {
-    const isExpanded = expandedAdminId === user.id;
-    const isSuperAdmin = user.role === 'super_admin';
+  const canEditUser = (user: AdminUserItem) =>
+    user.id !== currentUserId && user.role !== 'super_admin';
+
+  const isAdminRole = (role: string) => role === 'admin' || role === 'super_admin';
+
+  const renderRow = (user: AdminUserItem) => {
+    const isEditing = editingUserId === user.id;
+    const editable = canEditUser(user);
 
     return (
-      <Box key={user.id}>
-        <Table.Tr>
-          <Table.Td>
+      <Table.Tr key={user.id}>
+        {/* Name */}
+        <Table.Td>
+          {isEditing ? (
+            <TextInput
+              size="xs"
+              value={editName}
+              onChange={(e) => setEditName(e.currentTarget.value)}
+              style={{ maxWidth: 200 }}
+            />
+          ) : (
             <Text size="sm" fw={500}>
               {user.fullName || '—'}
             </Text>
-            <Text size="xs" c="dimmed">
-              {user.email || '—'}
-            </Text>
+          )}
+        </Table.Td>
+
+        {/* Email */}
+        <Table.Td>
+          <Text size="sm" c="dimmed">
+            {user.email || '—'}
+          </Text>
+        </Table.Td>
+
+        {/* Role */}
+        <Table.Td>
+          {isEditing ? (
+            <Select
+              size="xs"
+              data={[
+                { value: 'user', label: 'user' },
+                { value: 'admin', label: 'admin' },
+              ]}
+              value={editRole}
+              onChange={(v) => v && setEditRole(v)}
+              style={{ maxWidth: 120 }}
+            />
+          ) : (
+            renderRoleBadge(user.role)
+          )}
+        </Table.Td>
+
+        {/* Courses (hidden on mobile) */}
+        {!isMobile && (
+          <Table.Td>
+            {isAdminRole(user.role) ? (
+              <CourseBadges
+                userId={user.id}
+                isOpen={coursePopoverId === user.id}
+                courseOptions={courseOptions}
+                selectedCourseIds={selectedCourseIds}
+                loadingCourseIds={loadingCourseIds}
+                isPending={isPending}
+                onToggle={() => openCoursePopover(user.id)}
+                onChange={setSelectedCourseIds}
+                onSave={() => saveCourses(user.id)}
+              />
+            ) : (
+              <Text size="xs" c="dimmed">
+                —
+              </Text>
+            )}
           </Table.Td>
-          <Table.Td>{renderRoleBadge(user.role)}</Table.Td>
+        )}
+
+        {/* Joined (hidden on mobile) */}
+        {!isMobile && (
           <Table.Td>
             <Text size="xs" c="dimmed">
               {new Date(user.createdAt).toLocaleDateString()}
             </Text>
           </Table.Td>
-          <Table.Td>
-            <Group gap={4}>
-              {user.role === 'user' && (
-                <Tooltip label="Promote to Admin">
-                  <ActionIcon
-                    variant="subtle"
-                    color="blue"
-                    size="sm"
-                    loading={isPending}
-                    onClick={() => handlePromote(user.id)}
-                  >
-                    <Shield size={14} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
-              {user.role === 'admin' && (
-                <>
-                  <Tooltip label="Manage Courses">
-                    <ActionIcon
-                      variant="subtle"
-                      color="violet"
-                      size="sm"
-                      onClick={() => handleExpandAdmin(user.id)}
-                    >
-                      <Search size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Demote to User">
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      size="sm"
-                      loading={isPending}
-                      onClick={() => handleDemote(user.id)}
-                    >
-                      <User size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                </>
-              )}
-              {isSuperAdmin && (
-                <Text size="xs" c="dimmed">
-                  —
-                </Text>
-              )}
-            </Group>
-          </Table.Td>
-        </Table.Tr>
-        {isExpanded && user.role === 'admin' && (
-          <Table.Tr>
-            <Table.Td colSpan={4}>
-              <Card withBorder p="sm" mt={4} mb={4} radius="md">
-                <Text size="sm" fw={500} mb="xs">
-                  Assigned Courses
-                </Text>
-                <MultiSelect
-                  data={courseOptions}
-                  value={selectedCourseIds}
-                  onChange={setSelectedCourseIds}
-                  placeholder="Select courses..."
-                  searchable
-                  clearable
-                  disabled={loadingCourseIds}
-                  maxDropdownHeight={200}
-                  mb="xs"
-                />
-                <Button
-                  size="xs"
-                  onClick={() => handleSaveCourses(user.id)}
-                  loading={isPending}
-                  disabled={loadingCourseIds}
-                >
-                  Save
-                </Button>
-              </Card>
-            </Table.Td>
-          </Table.Tr>
         )}
-      </Box>
+
+        {/* Actions */}
+        <Table.Td>
+          {isEditing ? (
+            <Group gap={4}>
+              <Tooltip label="Save">
+                <ActionIcon
+                  variant="subtle"
+                  color="green"
+                  size="sm"
+                  loading={isPending}
+                  onClick={saveEdit}
+                >
+                  <Check size={14} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Cancel">
+                <ActionIcon variant="subtle" color="gray" size="sm" onClick={cancelEdit}>
+                  <X size={14} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          ) : editable ? (
+            <Group gap={4}>
+              <Tooltip label="Edit">
+                <ActionIcon variant="subtle" color="blue" size="sm" onClick={() => startEdit(user)}>
+                  <Pencil size={14} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Disable">
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  size="sm"
+                  onClick={() => handleDisable(user)}
+                >
+                  <Trash2 size={14} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          ) : (
+            <Text size="xs" c="dimmed">
+              —
+            </Text>
+          )}
+        </Table.Td>
+      </Table.Tr>
     );
   };
 
   return (
     <Stack p={isMobile ? 'md' : 'xl'} gap="lg">
-      {/* Admin List Section */}
-      {admins.length > 0 && !debouncedSearch && (
-        <Card withBorder p="md" radius="md">
-          <Text size="sm" fw={600} mb="sm">
-            Current Admins ({admins.length})
-          </Text>
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>User</Table.Th>
-                <Table.Th>Role</Table.Th>
-                <Table.Th>Joined</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>{admins.map(renderUserRow)}</Table.Tbody>
-          </Table>
-        </Card>
-      )}
-
-      {/* Search Section */}
       <Card withBorder p="md" radius="md">
-        <Text size="sm" fw={600} mb="sm">
-          Search Users
-        </Text>
-        <TextInput
-          placeholder="Search by name or email..."
-          leftSection={<Search size={16} />}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.currentTarget.value)}
-          mb="md"
-        />
+        {/* Header: Search icon (left) + SegmentedControl tabs (center/right) */}
+        <Group mb="md" gap="sm" justify="space-between">
+          <Group gap="sm" style={{ flex: searchExpanded ? 1 : undefined }}>
+            {searchExpanded ? (
+              <TextInput
+                ref={searchInputRef}
+                placeholder="Search by name or email..."
+                leftSection={<Search size={16} />}
+                rightSection={
+                  searchTerm ? (
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="xs"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setSearchExpanded(false);
+                      }}
+                    >
+                      <X size={14} />
+                    </ActionIcon>
+                  ) : undefined
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                onBlur={handleSearchBlur}
+                size="xs"
+                style={{ width: isMobile ? '100%' : 260 }}
+              />
+            ) : (
+              <Tooltip label="Search">
+                <ActionIcon variant="subtle" color="gray" size="md" onClick={handleSearchExpand}>
+                  <Search size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
 
+          {!(isMobile && searchExpanded) && (
+            <SegmentedControl
+              size="xs"
+              value={roleFilter}
+              onChange={setRoleFilter}
+              data={[
+                { value: 'all', label: 'All' },
+                { value: 'user', label: 'User' },
+                { value: 'admin', label: 'Admin' },
+                { value: 'super_admin', label: 'Super' },
+              ]}
+            />
+          )}
+        </Group>
+
+        {/* User table */}
         {usersLoading ? (
           <Group justify="center" py="xl">
             <Loader size="sm" />
           </Group>
         ) : users.length === 0 ? (
           <Text c="dimmed" ta="center" py="xl" size="sm">
-            {debouncedSearch ? 'No users found.' : 'Type to search for users.'}
+            No users found.
           </Text>
         ) : (
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>User</Table.Th>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Email</Table.Th>
                 <Table.Th>Role</Table.Th>
-                <Table.Th>Joined</Table.Th>
+                {!isMobile && <Table.Th>Courses</Table.Th>}
+                {!isMobile && <Table.Th>Joined</Table.Th>}
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
-            <Table.Tbody>{users.map(renderUserRow)}</Table.Tbody>
+            <Table.Tbody>{users.map(renderRow)}</Table.Tbody>
           </Table>
         )}
       </Card>
     </Stack>
+  );
+}
+
+// --- Sub-component: Course badges with popover ---
+
+interface CourseBadgesProps {
+  userId: string;
+  isOpen: boolean;
+  courseOptions: { value: string; label: string }[];
+  selectedCourseIds: string[];
+  loadingCourseIds: boolean;
+  isPending: boolean;
+  onToggle: () => void;
+  onChange: (ids: string[]) => void;
+  onSave: () => void;
+}
+
+function CourseBadges({
+  isOpen,
+  courseOptions,
+  selectedCourseIds,
+  loadingCourseIds,
+  isPending,
+  onToggle,
+  onChange,
+  onSave,
+}: CourseBadgesProps) {
+  // Find labels for selected courses to show as badges
+  const selectedLabels = courseOptions
+    .filter((c) => selectedCourseIds.includes(c.value))
+    .map((c) => c.label.split(' — ')[0]); // show course code only
+
+  return (
+    <Group gap={4} wrap="wrap">
+      {isOpen &&
+        selectedLabels.length > 0 &&
+        selectedLabels.map((code) => (
+          <Badge key={code} size="xs" variant="light" color="violet">
+            {code}
+          </Badge>
+        ))}
+      {!isOpen && selectedLabels.length === 0 && (
+        <Text size="xs" c="dimmed">
+          None
+        </Text>
+      )}
+      <Popover opened={isOpen} onClose={onToggle} width={300} position="bottom-start">
+        <Popover.Target>
+          <Tooltip label="Manage Courses">
+            <ActionIcon variant="subtle" color="violet" size="xs" onClick={onToggle}>
+              <Plus size={12} />
+            </ActionIcon>
+          </Tooltip>
+        </Popover.Target>
+        <Popover.Dropdown>
+          <Stack gap="xs">
+            <Text size="sm" fw={500}>
+              Assigned Courses
+            </Text>
+            <MultiSelect
+              data={courseOptions}
+              value={selectedCourseIds}
+              onChange={onChange}
+              placeholder="Select courses..."
+              searchable
+              clearable
+              disabled={loadingCourseIds}
+              maxDropdownHeight={200}
+            />
+            <Button size="xs" onClick={onSave} loading={isPending} disabled={loadingCourseIds}>
+              Save
+            </Button>
+          </Stack>
+        </Popover.Dropdown>
+      </Popover>
+    </Group>
   );
 }

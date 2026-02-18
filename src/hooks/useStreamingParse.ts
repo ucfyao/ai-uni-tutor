@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import type { SSEEventMap } from '@/lib/sse';
 
-export type ParseStatus =
+type ParseStatus =
   | 'idle'
   | 'parsing_pdf'
   | 'extracting'
@@ -12,13 +12,13 @@ export type ParseStatus =
   | 'complete'
   | 'error';
 
-export interface ParsedItem {
+interface ParsedItem {
   index: number;
   type: 'knowledge_point' | 'question';
   data: KnowledgePoint | ParsedQuestion;
 }
 
-export interface ParseMetadata {
+interface ParseMetadata {
   docType: string;
   school?: string;
   course?: string;
@@ -26,12 +26,12 @@ export interface ParseMetadata {
   hasAnswers?: boolean;
 }
 
-export interface StageTime {
+interface StageTime {
   start: number;
   end?: number;
 }
 
-export interface StreamingParseState {
+interface StreamingParseState {
   startParse: (file: File, metadata: ParseMetadata) => void;
   items: ParsedItem[];
   status: ParseStatus;

@@ -2,7 +2,7 @@
  * Domain Models - Assignment Entity
  */
 
-export type AssignmentStatus = 'parsing' | 'ready' | 'error';
+type AssignmentStatus = 'parsing' | 'ready' | 'error';
 
 export interface AssignmentEntity {
   id: string;

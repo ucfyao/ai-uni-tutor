@@ -48,18 +48,6 @@ export class SessionRepository implements ISessionRepository {
     };
   }
 
-  async findById(id: string): Promise<SessionEntity | null> {
-    const supabase = await createClient();
-    const { data, error } = await supabase.from('chat_sessions').select('*').eq('id', id).single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new DatabaseError(`Failed to fetch session: ${error.message}`, error);
-    }
-    if (!data) return null;
-    return this.mapToEntity(data as SessionRow);
-  }
-
   async findByIdAndUserId(id: string, userId: string): Promise<SessionEntity | null> {
     const supabase = await createClient();
     const { data, error } = await supabase

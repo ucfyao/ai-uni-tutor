@@ -69,6 +69,13 @@ function LoginForm() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const eErr = validateEmail(email);
+    const pErr = validatePassword(password);
+    setEmailError(eErr);
+    setPasswordError(pErr);
+    if (eErr || pErr) return;
+
     setLoading(true);
     setError(null);
     setSuccessMsg(null);

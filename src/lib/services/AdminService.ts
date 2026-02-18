@@ -5,7 +5,7 @@
  */
 
 import type { CourseEntity } from '@/lib/domain/models/Course';
-import type { ProfileEntity } from '@/lib/domain/models/Profile';
+import type { ProfileEntity, UserRole } from '@/lib/domain/models/Profile';
 import { ForbiddenError } from '@/lib/errors';
 import { getProfileRepository } from '@/lib/repositories';
 import { getAdminRepository } from '@/lib/repositories/AdminRepository';
@@ -64,9 +64,7 @@ export class AdminService {
     const assignedSet = new Set(assignedIds);
     const unassigned = courseIds.filter((id) => !assignedSet.has(id));
     if (unassigned.length > 0) {
-      throw new ForbiddenError(
-        `Courses not assigned to this admin: ${unassigned.join(', ')}`,
-      );
+      throw new ForbiddenError(`Courses not assigned to this admin: ${unassigned.join(', ')}`);
     }
     for (const courseId of courseIds) {
       await this.adminRepo.removeCourse(adminId, courseId);
@@ -101,6 +99,48 @@ export class AdminService {
 
   async searchUsers(search?: string): Promise<ProfileEntity[]> {
     return this.profileRepo.searchUsers(search);
+  }
+
+  async listByRole(role: UserRole): Promise<ProfileEntity[]> {
+    return this.profileRepo.findByRole(role);
+  }
+
+  async updateUserName(userId: string, fullName: string): Promise<void> {
+    const profile = await this.profileRepo.findById(userId);
+    if (!profile) throw new ForbiddenError('User not found');
+    await this.profileRepo.updateName(userId, fullName);
+  }
+
+  async updateUserRole(userId: string, newRole: UserRole, requesterId: string): Promise<void> {
+    if (userId === requesterId) {
+      throw new ForbiddenError('Cannot change your own role');
+    }
+    const profile = await this.profileRepo.findById(userId);
+    if (!profile) throw new ForbiddenError('User not found');
+    if (profile.role === 'super_admin') {
+      throw new ForbiddenError('Cannot change a super admin role');
+    }
+    // If demoting from admin to user, remove course assignments first
+    if (profile.role === 'admin' && newRole === 'user') {
+      await this.adminRepo.removeAllCourses(userId);
+    }
+    await this.profileRepo.updateRole(userId, newRole);
+  }
+
+  async disableUser(userId: string, requesterId: string): Promise<void> {
+    if (userId === requesterId) {
+      throw new ForbiddenError('Cannot disable yourself');
+    }
+    const profile = await this.profileRepo.findById(userId);
+    if (!profile) throw new ForbiddenError('User not found');
+    if (profile.role === 'super_admin') {
+      throw new ForbiddenError('Cannot disable a super admin');
+    }
+    // If target is admin, remove course assignments first
+    if (profile.role === 'admin') {
+      await this.adminRepo.removeAllCourses(userId);
+    }
+    await this.profileRepo.softDelete(userId);
   }
 
   async getAdminWithCourses(

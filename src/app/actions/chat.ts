@@ -9,14 +9,9 @@
  * Architecture: Actions → Services → Repositories → Database
  */
 import { z } from 'zod';
-import { QuotaExceededError } from '@/lib/errors';
-import { getChatService } from '@/lib/services/ChatService';
-import { getCourseService } from '@/lib/services/CourseService';
-import { getQuotaService } from '@/lib/services/QuotaService';
 import { getSessionService } from '@/lib/services/SessionService';
 import { getCurrentUser } from '@/lib/supabase/server';
-import type { ActionResult } from '@/types/actions';
-import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types/index';
+import { ChatMessage, ChatSession, TutoringMode } from '@/types/index';
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -31,13 +26,6 @@ const chatMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string().min(1),
   timestamp: z.number().finite(),
-});
-
-const generateChatSchema = z.object({
-  courseId: courseIdSchema,
-  mode: tutoringModeSchema,
-  history: z.array(chatMessageSchema),
-  userInput: z.string().min(1),
 });
 
 const sessionIdSchema = z.string().min(1);
@@ -74,118 +62,6 @@ const toggleShareSchema = z.object({
   sessionId: sessionIdSchema,
   isShared: z.boolean(),
 });
-
-const explainConceptSchema = z.object({
-  concept: z.string().min(1),
-  context: z.string().min(1),
-  courseId: z.string().uuid().optional(),
-});
-
-// ============================================================================
-// RESPONSE TYPES
-// ============================================================================
-
-export type ChatActionResponse =
-  | { success: true; data: string }
-  | { success: false; error: string; isLimitError?: boolean };
-
-export type ExplainConceptResponse = ActionResult<string>;
-
-// ============================================================================
-// AI GENERATION ACTIONS
-// ============================================================================
-
-/**
- * Generate AI chat response using Strategy pattern
- */
-export async function generateChatResponse(
-  courseId: string,
-  mode: TutoringMode | null,
-  history: ChatMessage[],
-  userInput: string,
-): Promise<ChatActionResponse> {
-  try {
-    // Validation (Zod)
-    const parsed = generateChatSchema.safeParse({ courseId, mode, history, userInput });
-    if (!parsed.success) {
-      // Provide a specific error when mode is missing/invalid
-      const hasModeError = parsed.error.issues.some((issue) => issue.path[0] === 'mode');
-      if (hasModeError) {
-        throw new Error('Tutoring Mode must be selected');
-      }
-      throw new Error('Validation Failed: Invalid chat request payload.');
-    }
-
-    // Auth
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
-
-    // Quota Check
-    const quotaService = getQuotaService();
-    await quotaService.enforce(user.id);
-
-    // Resolve courseId → full Course object for ChatService
-    const courseService = getCourseService();
-    const courseEntity = await courseService.getCourseById(parsed.data.courseId);
-    if (!courseEntity) throw new Error('Validation Failed: Invalid Course Context');
-    const course: Course = {
-      id: courseEntity.id,
-      universityId: courseEntity.universityId,
-      code: courseEntity.code,
-      name: courseEntity.name,
-    };
-
-    // Delegate to ChatService (uses Strategy pattern internally)
-    const chatService = getChatService();
-    const response = await chatService.generateResponse({
-      course,
-      mode: parsed.data.mode,
-      history: parsed.data.history,
-      userInput: parsed.data.userInput,
-    });
-
-    return { success: true, data: response };
-  } catch (error: unknown) {
-    return handleChatError(error);
-  }
-}
-
-/**
- * Explain a concept for knowledge cards
- */
-export async function explainConcept(
-  concept: string,
-  context: string,
-  courseId?: string,
-): Promise<ExplainConceptResponse> {
-  try {
-    const parsed = explainConceptSchema.safeParse({ concept, context, courseId });
-    if (!parsed.success) {
-      return { success: false, error: 'Invalid explain concept payload.' };
-    }
-
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Unauthorized');
-
-    // Quota Check
-    const quotaService = getQuotaService();
-    await quotaService.enforce(user.id);
-
-    // Delegate to ChatService
-    const chatService = getChatService();
-    const explanation = await chatService.explainConcept(concept, context, parsed.data.courseId);
-
-    return { success: true, data: explanation };
-  } catch (error: unknown) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
-    }
-
-    console.error('explainConcept error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to explain concept';
-    return { success: false, error: message };
-  }
-}
 
 // ============================================================================
 // SESSION CRUD ACTIONS
@@ -362,32 +238,3 @@ export async function deleteChatSession(sessionId: string): Promise<void> {
   await sessionService.deleteSession(sessionId, user.id);
 }
 
-// ============================================================================
-// ERROR HANDLING
-// ============================================================================
-
-function handleChatError(error: unknown): ChatActionResponse {
-  // Quota Exceeded: trigger UI Modal
-  if (error instanceof QuotaExceededError) {
-    return { success: false, error: error.message, isLimitError: true };
-  }
-
-  // Business Logic Errors: Propagate message
-  const message = error instanceof Error ? error.message : String(error);
-
-  if (
-    message.includes('Validation Failed') ||
-    message.includes('Unauthorized') ||
-    message.includes('Tutoring Mode must be selected') ||
-    message.includes('Invalid Course Context')
-  ) {
-    return { success: false, error: message };
-  }
-
-  // Technical/Third-Party Errors: Log and Mask
-  console.error('Internal/Third-Party Error:', error);
-  return {
-    success: false,
-    error: 'An unexpected error occurred with the AI service. Please contact the administrator.',
-  };
-}

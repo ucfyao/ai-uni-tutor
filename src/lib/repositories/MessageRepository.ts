@@ -63,13 +63,6 @@ export class MessageRepository implements IMessageRepository {
 
     return this.mapToEntity(data as MessageRow);
   }
-
-  async deleteBySessionId(sessionId: string): Promise<void> {
-    const supabase = await createClient();
-    const { error } = await supabase.from('chat_messages').delete().eq('session_id', sessionId);
-
-    if (error) throw new DatabaseError(`Failed to delete messages: ${error.message}`, error);
-  }
 }
 
 // Singleton instance

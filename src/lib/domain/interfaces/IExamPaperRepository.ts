@@ -53,7 +53,6 @@ export interface IExamPaperRepository {
       Pick<ExamQuestion, 'content' | 'options' | 'answer' | 'explanation' | 'points' | 'type'>
     >,
   ): Promise<void>;
-  findByUserId(userId: string): Promise<ExamPaper[]>;
   deleteQuestion(questionId: string): Promise<void>;
   findByCourse(courseCode: string): Promise<string | null>; // returns first ready paper ID
   findAllByCourse(courseCode: string): Promise<ExamPaper[]>;

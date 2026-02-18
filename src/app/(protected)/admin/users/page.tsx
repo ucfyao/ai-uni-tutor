@@ -10,5 +10,5 @@ export default async function AdminUsersPage() {
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'super_admin') redirect('/admin/knowledge');
 
-  return <AdminUsersClient />;
+  return <AdminUsersClient currentUserId={user.id} />;
 }

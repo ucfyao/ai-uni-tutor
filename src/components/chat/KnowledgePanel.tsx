@@ -20,10 +20,6 @@ import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
 import type { UserCardEntity } from '@/lib/domain/models/UserCard';
 import KnowledgeCardItem from './KnowledgeCardItem';
 
-export type PanelCard =
-  | { type: 'knowledge'; data: KnowledgeCardSummary }
-  | { type: 'user'; data: UserCardEntity };
-
 interface KnowledgePanelProps {
   officialCards: KnowledgeCardSummary[];
   userCards: UserCardEntity[];

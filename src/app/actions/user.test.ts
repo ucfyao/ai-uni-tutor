@@ -27,7 +27,7 @@ vi.mock('@/lib/services/ProfileService', () => ({
 // Import actions (after mocks are registered)
 // ---------------------------------------------------------------------------
 
-const { updateProfileFields, updateProfile, getProfile } = await import('./user');
+const { updateProfileFields, getProfile } = await import('./user');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,8 +53,6 @@ const EXPECTED_PROFILE_DATA = {
   created_at: '2025-01-15T00:00:00.000Z',
   role: null,
 };
-
-const INITIAL_STATE = { status: 'idle' as const, message: '' };
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -186,69 +184,6 @@ describe('User Actions', () => {
       expect(mockProfileService.updateProfile).toHaveBeenCalledWith('user-1', {
         fullName: 'Jane Doe',
       });
-    });
-  });
-
-  // =========================================================================
-  // updateProfile (form-based)
-  // =========================================================================
-  describe('updateProfile', () => {
-    it('should update profile via form data successfully', async () => {
-      mockProfileService.updateProfile.mockResolvedValue(undefined);
-      mockProfileService.getProfile.mockResolvedValue(MOCK_PROFILE);
-
-      const fd = new FormData();
-      fd.set('fullName', 'Jane Doe');
-
-      const result = await updateProfile(INITIAL_STATE, fd);
-
-      expect(result).toEqual({ message: 'Profile updated successfully', status: 'success' });
-    });
-
-    it('should return error status when updateProfileFields fails', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const fd = new FormData();
-      fd.set('fullName', 'Jane Doe');
-
-      const result = await updateProfile(INITIAL_STATE, fd);
-
-      expect(result).toEqual({ message: 'Unauthorized', status: 'error' });
-    });
-
-    it('should handle missing fullName in form data', async () => {
-      mockProfileService.getProfile.mockResolvedValue(MOCK_PROFILE);
-
-      const fd = new FormData();
-      // No fullName field at all
-
-      const result = await updateProfile(INITIAL_STATE, fd);
-
-      // When fullName is not in FormData, entries.fullName is undefined,
-      // typeof undefined !== 'string', so fullName becomes undefined
-      expect(result.status).toBe('success');
-    });
-
-    it('should handle non-string form values gracefully', async () => {
-      mockProfileService.getProfile.mockResolvedValue(MOCK_PROFILE);
-
-      const fd = new FormData();
-      fd.set('fullName', new File([''], 'test.txt'));
-
-      const result = await updateProfile(INITIAL_STATE, fd);
-
-      // File is not a string, so fullName becomes undefined
-      expect(result.status).toBe('success');
-    });
-
-    it('should return validation error for name exceeding max length via form', async () => {
-      const fd = new FormData();
-      fd.set('fullName', 'A'.repeat(FULL_NAME_MAX_LENGTH + 1));
-
-      const result = await updateProfile(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain(`at most ${FULL_NAME_MAX_LENGTH}`);
     });
   });
 

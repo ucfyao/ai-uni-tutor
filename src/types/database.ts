@@ -16,6 +16,7 @@ export interface Database {
           role: 'user' | 'admin' | 'super_admin';
           created_at: string;
           updated_at: string;
+          is_active: boolean;
         };
         Insert: {
           id?: string;
@@ -29,6 +30,7 @@ export interface Database {
           role?: 'user' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
+          is_active?: boolean;
         };
         Update: {
           id?: string;
@@ -42,6 +44,7 @@ export interface Database {
           role?: 'user' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
+          is_active?: boolean;
         };
         Relationships: [];
       };
