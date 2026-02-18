@@ -14,13 +14,21 @@ import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { parsePDF } from '@/lib/pdf';
 import { buildChunkContent } from '@/lib/rag/build-chunk-content';
 import { generateEmbeddingBatch } from '@/lib/rag/embedding';
-import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
+import type {
+  DocumentOutline,
+  KnowledgePoint,
+  ParsedQuestion,
+  PipelineProgress,
+} from '@/lib/rag/parsers/types';
+import { getDocumentRepository } from '@/lib/repositories/DocumentRepository';
+import type { Json } from '@/types/database';
 import type { DocumentService } from './DocumentService';
 import { getDocumentService } from './DocumentService';
 import { getKnowledgeCardService } from './KnowledgeCardService';
 
 interface ProcessingCallbacks {
   onProgress?: (stage: string, message: string) => void;
+  onPipelineProgress?: (progress: PipelineProgress) => void;
   onItem?: (index: number, total: number, type: string) => void;
   signal?: AbortSignal;
 }
@@ -47,11 +55,25 @@ export class DocumentProcessingService {
     pages: { text: string; page: number }[],
     docType: 'lecture' | 'exam' | 'assignment',
     hasAnswers = false,
-  ): Promise<{ items: (KnowledgePoint | ParsedQuestion)[]; type: 'knowledge_point' | 'question' }> {
+    params?: { documentId?: string; onPipelineProgress?: (p: PipelineProgress) => void },
+  ): Promise<{
+    items: (KnowledgePoint | ParsedQuestion)[];
+    type: 'knowledge_point' | 'question';
+    outline?: DocumentOutline;
+  }> {
+    // [C3] No mutable instance state — use return value directly
     if (docType === 'lecture') {
-      const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
-      const knowledgePoints = await parseLecture(pages);
-      return { items: knowledgePoints, type: 'knowledge_point' };
+      const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
+      const result = await parseLectureMultiPass(pages, {
+        documentId: params?.documentId,
+        onProgress: params?.onPipelineProgress,
+      });
+      // Outline is returned via result, saved by caller (not stored on singleton)
+      return {
+        items: result.knowledgePoints,
+        type: 'knowledge_point' as const,
+        outline: result.outline,
+      };
     } else {
       const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
       const questions = await parseQuestions(pages, hasAnswers);
@@ -135,7 +157,10 @@ export class DocumentProcessingService {
 
     // 3. LLM extraction
     callbacks?.onProgress?.('extracting', 'Extracting content...');
-    const { items, type } = await this.extractWithLLM(pdfData.pages, docType, hasAnswers);
+    const { items, type, outline } = await this.extractWithLLM(pdfData.pages, docType, hasAnswers, {
+      documentId,
+      onPipelineProgress: callbacks?.onPipelineProgress,
+    });
 
     if (items.length === 0) {
       throw new Error('No content extracted from PDF');
@@ -147,6 +172,22 @@ export class DocumentProcessingService {
         items as KnowledgePoint[],
         documentId,
       );
+    }
+
+    // [C3] Save outline from return value — no singleton mutable state
+    if (outline) {
+      try {
+        const { generateEmbedding } = await import('@/lib/rag/embedding');
+        const outlineText = JSON.stringify(outline);
+        const embedding = await generateEmbedding(outlineText.slice(0, 2000));
+        await getDocumentRepository().saveOutline(
+          documentId,
+          outline as unknown as Json,
+          embedding,
+        );
+      } catch (error) {
+        console.warn('Failed to save document outline (non-fatal):', error);
+      }
     }
 
     // 4. Build chunks with embeddings

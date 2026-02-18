@@ -66,10 +66,10 @@ vi.mock('@/lib/rag/embedding', () => ({
   generateEmbeddingWithRetry: (...args: unknown[]) => mockGenerateEmbeddingWithRetry(...args),
 }));
 
-const mockParseLecture = vi.fn();
+const mockParseLectureMultiPass = vi.fn();
 const mockParseQuestions = vi.fn();
 vi.mock('@/lib/rag/parsers/lecture-parser', () => ({
-  parseLecture: (...args: unknown[]) => mockParseLecture(...args),
+  parseLectureMultiPass: (...args: unknown[]) => mockParseLectureMultiPass(...args),
 }));
 vi.mock('@/lib/rag/parsers/question-parser', () => ({
   parseQuestions: (...args: unknown[]) => mockParseQuestions(...args),

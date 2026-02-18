@@ -13,6 +13,7 @@ import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
+import type { Json } from '@/types/database';
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -243,6 +244,7 @@ export async function POST(request: Request) {
         type: 'knowledge_point' | 'question';
         data: KnowledgePoint | ParsedQuestion;
       }>;
+      let documentOutline: import('@/lib/rag/parsers/types').DocumentOutline | undefined;
 
       try {
         const onBatchProgress = (current: number, total: number) => {
@@ -250,9 +252,16 @@ export async function POST(request: Request) {
         };
 
         if (doc_type === 'lecture') {
-          const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
-          const knowledgePoints = await parseLecture(pdfData.pages, onBatchProgress);
+          const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
+          const parseResult = await parseLectureMultiPass(pdfData.pages, {
+            documentId: effectiveRecordId,
+            onBatchProgress,
+            onProgress: (progress) => send('pipeline_progress', progress),
+            signal,
+          });
+          const knowledgePoints = parseResult.knowledgePoints;
           items = knowledgePoints.map((kp) => ({ type: 'knowledge_point' as const, data: kp }));
+          documentOutline = parseResult.outline;
         } else {
           const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
           const questions = await parseQuestions(pdfData.pages, has_answers, onBatchProgress);
@@ -303,6 +312,23 @@ export async function POST(request: Request) {
           );
         } catch (cardError) {
           console.error('Knowledge card save error (non-fatal):', cardError);
+        }
+
+        // Save document outline if generated
+        if (documentOutline) {
+          try {
+            const { getDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
+            const { generateEmbedding } = await import('@/lib/rag/embedding');
+            const outlineText = JSON.stringify(documentOutline);
+            const embedding = await generateEmbedding(outlineText.slice(0, 2000));
+            await getDocumentRepository().saveOutline(
+              effectiveRecordId,
+              documentOutline as unknown as Json,
+              embedding,
+            );
+          } catch (outlineError) {
+            console.warn('Failed to save document outline (non-fatal):', outlineError);
+          }
         }
 
         send('status', { stage: 'embedding', message: 'Generating embeddings & saving...' });

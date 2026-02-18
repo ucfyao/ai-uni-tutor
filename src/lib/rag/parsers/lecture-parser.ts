@@ -1,99 +1,130 @@
 import 'server-only';
-import { z } from 'zod';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
-import type { KnowledgePoint } from './types';
+import { generateDocumentOutline } from './outline-generator';
+import { qualityGate } from './quality-gate';
+import { extractSections } from './section-extractor';
+import { analyzeStructure } from './structure-analyzer';
+import type {
+  DocumentOutline,
+  KnowledgePoint,
+  ParseLectureResult,
+  PipelineProgress,
+} from './types';
 
-const PAGE_BATCH_SIZE = 10;
+export interface ParseLectureOptions {
+  documentId?: string;
+  onProgress?: (progress: PipelineProgress) => void;
+  onBatchProgress?: (current: number, total: number) => void;
+  signal?: AbortSignal; // [m5]
+}
 
-const knowledgePointSchema = z.object({
-  title: z.string().min(1),
-  definition: z.string().min(1),
-  keyFormulas: z.array(z.string()).optional(),
-  keyConcepts: z.array(z.string()).optional(),
-  examples: z.array(z.string()).optional(),
-  sourcePages: z.array(z.number()).default([]),
-});
+function reportProgress(
+  options: ParseLectureOptions | undefined,
+  phase: PipelineProgress['phase'],
+  phaseProgress: number,
+  detail: string,
+) {
+  if (!options?.onProgress) return;
 
-async function parseLectureBatch(pages: PDFPage[]): Promise<KnowledgePoint[]> {
-  const genAI = getGenAI();
-  const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
+  const phaseWeights: Record<PipelineProgress['phase'], { start: number; weight: number }> = {
+    structure_analysis: { start: 0, weight: 10 },
+    extraction: { start: 10, weight: 50 },
+    quality_gate: { start: 60, weight: 25 },
+    outline_generation: { start: 85, weight: 15 },
+  };
 
-  const prompt = `You are an expert academic content analyzer. Analyze the following lecture content and extract structured knowledge points.
-
-For each knowledge point, extract:
-- title: A clear, concise title for the concept
-- definition: A comprehensive explanation/definition
-- keyFormulas: Any relevant mathematical formulas (optional, omit if none)
-- keyConcepts: Related key terms and concepts (optional, omit if none)
-- examples: Concrete examples mentioned (optional, omit if none)
-- sourcePages: Array of page numbers where this concept appears
-
-Return ONLY a valid JSON array of knowledge points. No markdown, no explanation.
-
-Lecture content:
-${pagesText}`;
-
-  const response = await genAI.models.generateContent({
-    model: GEMINI_MODELS.parse,
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  const text = response.text ?? '';
-  const raw = JSON.parse(text);
-  const arr = Array.isArray(raw) ? raw : [];
-
-  const validated: KnowledgePoint[] = [];
-  for (const item of arr) {
-    const result = knowledgePointSchema.safeParse(item);
-    if (result.success) {
-      validated.push(result.data);
-    }
-  }
-  return validated;
+  const { start, weight } = phaseWeights[phase];
+  const totalProgress = Math.round(start + (phaseProgress / 100) * weight);
+  options.onProgress({ phase, phaseProgress, totalProgress, detail });
 }
 
 /**
- * Deduplicate knowledge points by title (case-insensitive).
- * First occurrence wins.
+ * Multi-pass lecture parsing pipeline.
+ * Returns both knowledge points and optional document outline.
  */
-function deduplicateByTitle(points: KnowledgePoint[]): KnowledgePoint[] {
-  const seen = new Map<string, KnowledgePoint>();
-  for (const kp of points) {
-    const key = kp.title.toLowerCase();
-    if (!seen.has(key)) {
-      seen.set(key, kp);
-    }
+export async function parseLectureMultiPass(
+  pages: PDFPage[],
+  options?: ParseLectureOptions,
+): Promise<ParseLectureResult> {
+  // === Pass 1: Structure Analysis ===
+  reportProgress(options, 'structure_analysis', 0, 'Analyzing document structure...');
+  const structure = await analyzeStructure(pages);
+  reportProgress(
+    options,
+    'structure_analysis',
+    100,
+    `Identified ${structure.sections.length} sections`,
+  );
+  options?.onBatchProgress?.(0, 4);
+
+  // === Pass 2: Knowledge Extraction ===
+  reportProgress(options, 'extraction', 0, 'Extracting knowledge points...');
+  const rawPoints = await extractSections(
+    pages,
+    structure,
+    (completed, total) => {
+      const pct = Math.round((completed / total) * 100);
+      reportProgress(options, 'extraction', pct, `Processing section ${completed}/${total}...`);
+    },
+    options?.signal, // [m5]
+  );
+  options?.onBatchProgress?.(1, 4);
+
+  if (rawPoints.length === 0) {
+    reportProgress(options, 'extraction', 100, 'No knowledge points found');
+    return { knowledgePoints: [] };
   }
-  return Array.from(seen.values());
+  reportProgress(options, 'extraction', 100, `Extracted ${rawPoints.length} raw knowledge points`);
+
+  // === Pass 3: Quality Gate ===
+  reportProgress(options, 'quality_gate', 0, 'Reviewing extraction quality...');
+  const qualityPoints = await qualityGate(
+    rawPoints,
+    (reviewed, total) => {
+      const pct = Math.round((reviewed / total) * 100);
+      reportProgress(options, 'quality_gate', pct, `Reviewed ${reviewed}/${total} points...`);
+    },
+    options?.signal, // [m5]
+  );
+  reportProgress(
+    options,
+    'quality_gate',
+    100,
+    `${qualityPoints.length}/${rawPoints.length} passed`,
+  );
+  options?.onBatchProgress?.(2, 4);
+
+  // === Pass 4: Outline Generation ===
+  let outline: DocumentOutline | undefined;
+  if (options?.documentId) {
+    reportProgress(options, 'outline_generation', 0, 'Generating document outline...');
+    outline = await generateDocumentOutline(options.documentId, structure, qualityPoints);
+    reportProgress(options, 'outline_generation', 100, 'Outline generated');
+  }
+  options?.onBatchProgress?.(3, 4);
+
+  return { knowledgePoints: qualityPoints, outline };
 }
 
+/**
+ * Backward-compatible wrapper.
+ * Returns KnowledgePoint[] directly (same signature as the old parser).
+ *
+ * [C2] Handles case where second arg is a function (old SSE route pattern)
+ * or a ParseLectureOptions object (new pattern).
+ */
 export async function parseLecture(
   pages: PDFPage[],
-  onBatchProgress?: (current: number, total: number) => void,
+  optionsOrCallback?: ParseLectureOptions | ((current: number, total: number) => void),
 ): Promise<KnowledgePoint[]> {
-  const totalBatches = Math.ceil(pages.length / PAGE_BATCH_SIZE);
-
-  if (pages.length <= PAGE_BATCH_SIZE) {
-    onBatchProgress?.(0, totalBatches);
-    const result = await parseLectureBatch(pages);
-    onBatchProgress?.(1, totalBatches);
-    return deduplicateByTitle(result);
+  // [C2] Runtime detection: if second arg is a function, wrap it
+  let options: ParseLectureOptions | undefined;
+  if (typeof optionsOrCallback === 'function') {
+    options = { onBatchProgress: optionsOrCallback };
+  } else {
+    options = optionsOrCallback;
   }
 
-  let all: KnowledgePoint[] = [];
-
-  for (let i = 0; i < pages.length; i += PAGE_BATCH_SIZE) {
-    const batchIndex = Math.floor(i / PAGE_BATCH_SIZE);
-    onBatchProgress?.(batchIndex, totalBatches);
-    const batch = pages.slice(i, i + PAGE_BATCH_SIZE);
-    const batchResults = await parseLectureBatch(batch);
-    all = all.concat(batchResults);
-    onBatchProgress?.(batchIndex + 1, totalBatches);
-  }
-
-  return deduplicateByTitle(all);
+  const result = await parseLectureMultiPass(pages, options);
+  return result.knowledgePoints;
 }

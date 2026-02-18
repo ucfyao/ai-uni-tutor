@@ -1,4 +1,4 @@
-import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
+import type { KnowledgePoint, ParsedQuestion, PipelineProgress } from '@/lib/rag/parsers/types';
 
 // ─── SSE Event Payloads ───
 
@@ -39,6 +39,7 @@ export type SSEEventMap = {
   progress: SSEProgressEvent;
   error: SSEErrorEvent;
   document_created: SSEDocumentCreatedEvent;
+  pipeline_progress: PipelineProgress;
 };
 
 // ─── SSE Formatting ───

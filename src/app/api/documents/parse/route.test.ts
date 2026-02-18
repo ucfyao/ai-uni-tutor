@@ -34,14 +34,23 @@ vi.mock('@/lib/pdf', () => ({
 }));
 
 const mockGenerateEmbeddingWithRetry = vi.fn();
+const mockGenerateEmbedding = vi.fn();
 vi.mock('@/lib/rag/embedding', () => ({
   generateEmbeddingWithRetry: (...args: unknown[]) => mockGenerateEmbeddingWithRetry(...args),
+  generateEmbedding: (...args: unknown[]) => mockGenerateEmbedding(...args),
+}));
+
+const mockDocumentRepo = {
+  saveOutline: vi.fn(),
+};
+vi.mock('@/lib/repositories/DocumentRepository', () => ({
+  getDocumentRepository: () => mockDocumentRepo,
 }));
 
 // Mock parsers that are dynamically imported
-const mockParseLecture = vi.fn();
+const mockParseLectureMultiPass = vi.fn();
 vi.mock('@/lib/rag/parsers/lecture-parser', () => ({
-  parseLecture: (...args: unknown[]) => mockParseLecture(...args),
+  parseLectureMultiPass: (...args: unknown[]) => mockParseLectureMultiPass(...args),
 }));
 
 const mockParseQuestions = vi.fn();
@@ -213,7 +222,12 @@ function setupSuccessfulParse() {
     pages: [{ text: 'Some lecture content about algorithms' }],
   });
   mockGenerateEmbeddingWithRetry.mockResolvedValue(Array.from({ length: 768 }, () => 0.01));
-  mockParseLecture.mockResolvedValue([MOCK_KNOWLEDGE_POINT]);
+  mockGenerateEmbedding.mockResolvedValue(Array.from({ length: 768 }, () => 0.01));
+  mockDocumentRepo.saveOutline.mockResolvedValue(undefined);
+  mockParseLectureMultiPass.mockResolvedValue({
+    knowledgePoints: [MOCK_KNOWLEDGE_POINT],
+    outline: undefined,
+  });
   mockParseQuestions.mockResolvedValue([MOCK_QUESTION]);
 }
 
@@ -632,7 +646,7 @@ describe('POST /api/documents/parse', () => {
   describe('LLM extraction failure', () => {
     it('sends error event with EXTRACTION_ERROR when LLM extraction fails', async () => {
       setupSuccessfulParse();
-      mockParseLecture.mockRejectedValue(new Error('Gemini API error'));
+      mockParseLectureMultiPass.mockRejectedValue(new Error('Gemini API error'));
 
       const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
@@ -650,7 +664,10 @@ describe('POST /api/documents/parse', () => {
   describe('no items extracted', () => {
     it('sends progress 0/0 and complete status when no items are extracted', async () => {
       setupSuccessfulParse();
-      mockParseLecture.mockResolvedValue([]);
+      mockParseLectureMultiPass.mockResolvedValue({
+        knowledgePoints: [],
+        outline: undefined,
+      });
 
       const response = await POST(makeRequest());
       const events = await readSSEEvents(response);

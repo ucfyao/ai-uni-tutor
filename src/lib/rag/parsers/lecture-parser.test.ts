@@ -1,156 +1,122 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
+import type { KnowledgePoint, PipelineProgress } from './types';
 
-// ── Mocks ──
-
-// Suppress server-only guard in tests
 vi.mock('server-only', () => ({}));
 
-let mockGemini: MockGeminiResult;
+// Mock all 4 pass modules
+const mockAnalyzeStructure = vi.fn();
+const mockExtractSections = vi.fn();
+const mockQualityGate = vi.fn();
+const mockGenerateDocumentOutline = vi.fn();
 
-vi.mock('@/lib/gemini', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/gemini')>();
-  mockGemini = createMockGemini();
-  return {
-    ...actual,
-    genAI: mockGemini.client,
-    getGenAI: () => mockGemini.client,
-  };
-});
+vi.mock('./structure-analyzer', () => ({
+  analyzeStructure: (...args: unknown[]) => mockAnalyzeStructure(...args),
+}));
+vi.mock('./section-extractor', () => ({
+  extractSections: (...args: unknown[]) => mockExtractSections(...args),
+}));
+vi.mock('./quality-gate', () => ({
+  qualityGate: (...args: unknown[]) => mockQualityGate(...args),
+}));
+vi.mock('./outline-generator', () => ({
+  generateDocumentOutline: (...args: unknown[]) => mockGenerateDocumentOutline(...args),
+}));
 
-// Import after mocks
-const { parseLecture } = await import('./lecture-parser');
-const { GEMINI_MODELS } = await import('@/lib/gemini');
+const { parseLecture, parseLectureMultiPass } = await import('./lecture-parser');
 
-describe('lecture-parser', () => {
+function setupDefaultMocks(points: KnowledgePoint[] = []) {
+  mockAnalyzeStructure.mockResolvedValue({
+    subject: 'CS',
+    documentType: 'lecture',
+    sections: [{ title: 'A', startPage: 1, endPage: 5, contentType: 'mixed' }],
+  });
+  mockExtractSections.mockResolvedValue(points);
+  mockQualityGate.mockResolvedValue(points);
+  mockGenerateDocumentOutline.mockResolvedValue({
+    documentId: 'doc-1',
+    title: 'Test',
+    subject: 'CS',
+    totalKnowledgePoints: points.length,
+    sections: [],
+    summary: 'Test',
+  });
+}
+
+describe('lecture-parser (multi-pass)', () => {
   beforeEach(() => {
-    mockGemini.reset();
+    mockAnalyzeStructure.mockReset();
+    mockExtractSections.mockReset();
+    mockQualityGate.mockReset();
+    mockGenerateDocumentOutline.mockReset();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe('parseLecture', () => {
-    it('should extract knowledge points from pages', async () => {
-      const knowledgePoints = [
-        {
-          title: "Newton's First Law",
-          definition: 'An object at rest stays at rest unless acted upon by a force.',
-          keyFormulas: ['F = 0 → a = 0'],
-          keyConcepts: ['inertia', 'equilibrium'],
-          examples: ['A book on a table'],
-          sourcePages: [1],
-        },
-        {
-          title: "Newton's Second Law",
-          definition: 'Force equals mass times acceleration.',
-          keyFormulas: ['F = ma'],
-          keyConcepts: ['force', 'mass', 'acceleration'],
-          examples: ['Pushing a shopping cart'],
-          sourcePages: [2, 3],
-        },
+  describe('parseLectureMultiPass', () => {
+    it('chains all four passes and returns knowledge points + outline', async () => {
+      const kp: KnowledgePoint[] = [
+        { title: 'BST', definition: 'Binary search tree', sourcePages: [5] },
       ];
+      setupDefaultMocks(kp);
 
-      mockGemini.setGenerateJSON(knowledgePoints);
+      const pages = Array.from({ length: 10 }, (_, i) => ({ page: i + 1, text: `P${i + 1}` }));
+      const result = await parseLectureMultiPass(pages, { documentId: 'doc-1' });
 
-      const pages = [
-        { text: "Introduction to Newton's First Law of Motion...", page: 1 },
-        { text: "Newton's Second Law states that F = ma...", page: 2 },
-        { text: 'Examples of the second law in practice...', page: 3 },
-      ];
-
-      const result = await parseLecture(pages);
-
-      expect(result).toEqual(knowledgePoints);
-      expect(result).toHaveLength(2);
-      expect(result[0].title).toBe("Newton's First Law");
-      expect(result[1].keyFormulas).toContain('F = ma');
-      expect(result[1].sourcePages).toEqual([2, 3]);
+      expect(result.knowledgePoints).toHaveLength(1);
+      expect(result.outline).toBeDefined();
+      expect(result.outline?.documentId).toBe('doc-1');
+      expect(mockAnalyzeStructure).toHaveBeenCalledWith(pages);
+      expect(mockExtractSections).toHaveBeenCalled();
+      expect(mockQualityGate).toHaveBeenCalled();
     });
 
-    it('should call Gemini with correct model and JSON response type', async () => {
-      mockGemini.setGenerateJSON([]);
+    it('reports progress through all phases', async () => {
+      const kp = [{ title: 'X', definition: 'Y', sourcePages: [1] }];
+      setupDefaultMocks(kp);
 
-      const pages = [{ text: 'Some content', page: 1 }];
-      await parseLecture(pages);
+      const pages = [{ page: 1, text: 'Page 1' }];
+      const progressEvents: PipelineProgress[] = [];
 
-      expect(mockGemini.client.models.generateContent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          model: GEMINI_MODELS.parse,
-          config: {
-            responseMimeType: 'application/json',
-          },
-        }),
-      );
+      await parseLectureMultiPass(pages, {
+        documentId: 'doc-2',
+        onProgress: (p) => progressEvents.push({ ...p }),
+      });
+
+      const phases = progressEvents.map((e) => e.phase);
+      expect(phases).toContain('structure_analysis');
+      expect(phases).toContain('extraction');
+      expect(phases).toContain('quality_gate');
+      expect(phases).toContain('outline_generation');
+    });
+  });
+
+  describe('parseLecture (backward compat)', () => {
+    it('returns KnowledgePoint[] directly', async () => {
+      setupDefaultMocks([]);
+
+      const result = await parseLecture([{ page: 1, text: 'P1' }]);
+
+      expect(Array.isArray(result)).toBe(true);
     });
 
-    it('should format page text with page markers in the prompt', async () => {
-      mockGemini.setGenerateJSON([]);
+    it('[C2] accepts a function as second argument (old SSE route pattern)', async () => {
+      setupDefaultMocks([]);
 
-      const pages = [
-        { text: 'Page one content', page: 1 },
-        { text: 'Page two content', page: 2 },
-      ];
-      await parseLecture(pages);
+      const batchCb = vi.fn();
+      await parseLecture([{ page: 1, text: 'P1' }], batchCb);
 
-      const callArgs = mockGemini.client.models.generateContent.mock.calls[0][0];
-      const prompt = callArgs.contents as string;
-      expect(prompt).toContain('[Page 1]');
-      expect(prompt).toContain('Page one content');
-      expect(prompt).toContain('[Page 2]');
-      expect(prompt).toContain('Page two content');
+      expect(batchCb).toHaveBeenCalled();
     });
 
-    it('should handle empty pages array', async () => {
-      mockGemini.setGenerateJSON([]);
+    it('accepts ParseLectureOptions as second argument', async () => {
+      setupDefaultMocks([]);
 
-      const result = await parseLecture([]);
-      expect(result).toEqual([]);
-    });
+      const batchCb = vi.fn();
+      await parseLecture([{ page: 1, text: 'P1' }], { onBatchProgress: batchCb });
 
-    it('should handle knowledge points without optional fields', async () => {
-      const knowledgePoints = [
-        {
-          title: 'Simple Concept',
-          definition: 'A basic definition.',
-          sourcePages: [1],
-        },
-      ];
-
-      mockGemini.setGenerateJSON(knowledgePoints);
-
-      const pages = [{ text: 'Simple concept explanation', page: 1 }];
-      const result = await parseLecture(pages);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].title).toBe('Simple Concept');
-      expect(result[0].keyFormulas).toBeUndefined();
-      expect(result[0].keyConcepts).toBeUndefined();
-      expect(result[0].examples).toBeUndefined();
-    });
-
-    it('should throw on invalid JSON response from AI', async () => {
-      mockGemini.setGenerateResponse('not valid json at all');
-
-      const pages = [{ text: 'Content', page: 1 }];
-      await expect(parseLecture(pages)).rejects.toThrow();
-    });
-
-    it('should handle empty string response from AI', async () => {
-      // When response.text is empty string, JSON.parse('') throws
-      mockGemini.setGenerateResponse('');
-
-      const pages = [{ text: 'Content', page: 1 }];
-      await expect(parseLecture(pages)).rejects.toThrow();
-    });
-
-    it('should handle response.text being undefined (falls back to empty string)', async () => {
-      // Simulate undefined text → falls back to ''
-      mockGemini.client.models.generateContent.mockResolvedValue({ text: undefined });
-
-      const pages = [{ text: 'Content', page: 1 }];
-      await expect(parseLecture(pages)).rejects.toThrow();
+      expect(batchCb).toHaveBeenCalled();
     });
   });
 });
