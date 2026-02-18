@@ -10,6 +10,7 @@ import type {
   DocumentEntity,
   DocumentStatus,
 } from '@/lib/domain/models/Document';
+import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { ForbiddenError } from '@/lib/errors';
 import { getDocumentChunkRepository, getDocumentRepository } from '@/lib/repositories';
 import type { DocumentChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
@@ -25,8 +26,12 @@ export class DocumentService {
     this.chunkRepo = chunkRepo ?? getDocumentChunkRepository();
   }
 
-  async getDocumentsForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
-    return this.docRepo.findByDocTypeForAdmin(docType, courseIds);
+  async getDocumentsForAdmin(
+    docType: string,
+    courseIds?: string[],
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<DocumentEntity>> {
+    return this.docRepo.findByDocTypeForAdmin(docType, courseIds, pagination);
   }
 
   async checkDuplicate(userId: string, name: string): Promise<boolean> {

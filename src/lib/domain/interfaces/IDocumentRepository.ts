@@ -10,6 +10,7 @@ import type {
   DocumentEntity,
   UpdateDocumentStatusDTO,
 } from '../models/Document';
+import type { PaginatedResult, PaginationOptions } from '../models/Pagination';
 
 export interface IDocumentRepository {
   findByUserId(userId: string, docType?: string): Promise<DocumentEntity[]>;
@@ -23,5 +24,10 @@ export interface IDocumentRepository {
   ): Promise<void>;
   delete(id: string, userId: string): Promise<void>;
   verifyOwnership(id: string, userId: string): Promise<boolean>;
+  findByDocTypeForAdmin(
+    docType: string,
+    courseIds?: string[],
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<DocumentEntity>>;
   deleteById(id: string): Promise<void>;
 }

@@ -11,6 +11,7 @@ import type {
   DocumentEntity,
   UpdateDocumentStatusDTO,
 } from '@/lib/domain/models/Document';
+import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database, Json } from '@/types/database';
@@ -144,26 +145,38 @@ export class DocumentRepository implements IDocumentRepository {
     return !error && data !== null;
   }
 
-  async findByDocTypeForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
+  async findByDocTypeForAdmin(
+    docType: string,
+    courseIds?: string[],
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<DocumentEntity>> {
     // If courseIds is provided but empty, admin has no assigned courses → return nothing
     if (courseIds !== undefined && courseIds.length === 0) {
-      return [];
+      return { data: [], total: 0 };
     }
 
+    const { limit = 50, offset = 0 } = pagination ?? {};
     const supabase = await createClient();
     let query = supabase
       .from('documents')
-      .select('*')
+      .select(
+        'id, user_id, name, status, status_message, metadata, doc_type, course_id, created_at',
+        { count: 'exact' },
+      )
       .eq('doc_type', docType as 'lecture' | 'exam' | 'assignment')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (courseIds && courseIds.length > 0) {
       query = query.in('course_id', courseIds);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw new DatabaseError(`Failed to fetch documents: ${error.message}`, error);
-    return (data ?? []).map((row) => this.mapToEntity(row));
+    return {
+      data: (data ?? []).map((row) => this.mapToEntity(row as DocumentRow)),
+      total: count ?? 0,
+    };
   }
 
   async deleteById(id: string): Promise<void> {
