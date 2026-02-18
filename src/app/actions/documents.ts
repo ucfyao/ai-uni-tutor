@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import type { DocumentEntity } from '@/lib/domain/models/Document';
 import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
@@ -26,11 +27,62 @@ export interface DocumentListItem {
 
 const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
 
-/** Resolve courseId from a document for permission checking. */
-async function resolveCourseId(documentId: string): Promise<string | null> {
-  const documentService = getDocumentService();
-  const doc = await documentService.findById(documentId);
-  return doc?.courseId ?? null;
+/** Enforce course-level or ownership permission for a lecture document.
+ *  Returns the document entity so callers can reuse it without extra DB reads.
+ *  Admin users must go through course assignment — no owner fallback. */
+async function requireLectureAccess(
+  documentId: string,
+  userId: string,
+  role: string,
+): Promise<DocumentEntity> {
+  const doc = await getDocumentService().findById(documentId);
+  if (!doc) throw new ForbiddenError('Document not found');
+
+  if (doc.courseId) {
+    await requireCourseAdmin(doc.courseId);
+  } else if (role !== 'super_admin') {
+    // No course_id: only super_admin can access legacy/unlinked documents
+    throw new ForbiddenError('No access to this document');
+  }
+  return doc;
+}
+
+/** Enforce course-level or ownership permission for an exam paper.
+ *  Admin users must go through course assignment — no owner fallback. */
+async function requireExamAccess(
+  paperId: string,
+  _userId: string,
+  role: string,
+): Promise<void> {
+  if (role === 'super_admin') return;
+  const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+  const examRepo = getExamPaperRepository();
+  const courseId = await examRepo.findCourseId(paperId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  } else {
+    // No course_id: only super_admin can access legacy/unlinked papers (handled above)
+    throw new ForbiddenError('No access to this exam paper');
+  }
+}
+
+/** Enforce course-level or ownership permission for an assignment.
+ *  Admin users must go through course assignment — no owner fallback. */
+async function requireAssignmentAccess(
+  assignmentId: string,
+  _userId: string,
+  role: string,
+): Promise<void> {
+  if (role === 'super_admin') return;
+  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+  const assignmentRepo = getAssignmentRepository();
+  const courseId = await assignmentRepo.findCourseId(assignmentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  } else {
+    // No course_id: only super_admin can access legacy/unlinked assignments (handled above)
+    throw new ForbiddenError('No access to this assignment');
+  }
 }
 
 export async function fetchDocuments(docType: string): Promise<DocumentListItem[]> {
@@ -39,10 +91,13 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   if (!parsed.success) throw new Error('Invalid document type');
 
   if (parsed.data === 'lecture') {
-    const { getAdminService } = await import('@/lib/services/AdminService');
-    const adminService = getAdminService();
-    const courseIds = await adminService.getAvailableCourseIds(user.id, role);
     const service = getDocumentService();
+    // super_admin sees all lectures (no course filter); admin sees only assigned courses
+    let courseIds: string[] | undefined;
+    if (role !== 'super_admin') {
+      const { getAdminService } = await import('@/lib/services/AdminService');
+      courseIds = await getAdminService().getAssignedCourseIds(user.id);
+    }
     const entities = await service.getDocumentsForAdmin('lecture', courseIds);
     return entities.map((doc) => ({
       id: doc.id,
@@ -61,11 +116,15 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   if (parsed.data === 'exam') {
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
     const examRepo = getExamPaperRepository();
-    // super_admin sees all; admin sees only own uploads (no course_id FK for course-level filtering)
-    const papers =
-      role === 'super_admin'
-        ? await examRepo.findAllForAdmin()
-        : await examRepo.findByUserId(user.id);
+    // super_admin sees all; admin sees only papers in assigned courses
+    let papers;
+    if (role === 'super_admin') {
+      papers = await examRepo.findAllForAdmin();
+    } else {
+      const { getAdminService } = await import('@/lib/services/AdminService');
+      const courseIds = await getAdminService().getAssignedCourseIds(user.id);
+      papers = await examRepo.findByCourseIds(courseIds);
+    }
     return papers.map((paper) => ({
       id: paper.id,
       name: paper.title,
@@ -83,11 +142,15 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   // assignment
   const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
   const assignmentRepo = getAssignmentRepository();
-  // super_admin sees all; admin sees only own uploads (no course_id FK for course-level filtering)
-  const assignments =
-    role === 'super_admin'
-      ? await assignmentRepo.findAllForAdmin()
-      : await assignmentRepo.findByUserId(user.id);
+  // super_admin sees all; admin sees only assignments in assigned courses
+  let assignments;
+  if (role === 'super_admin') {
+    assignments = await assignmentRepo.findAllForAdmin();
+  } else {
+    const { getAdminService } = await import('@/lib/services/AdminService');
+    const courseIds = await getAdminService().getAssignedCourseIds(user.id);
+    assignments = await assignmentRepo.findByCourseIds(courseIds);
+  }
   return assignments.map((a) => ({
     id: a.id,
     name: a.title,
@@ -148,13 +211,20 @@ export async function uploadDocument(
     }
 
     // Course-level permission check: courseId from formData
-    const courseId = formData.get('courseId') as string | null;
-    let user;
+    const rawCourseId = formData.get('courseId') as string | null;
+    if (rawCourseId && !z.string().uuid().safeParse(rawCourseId).success) {
+      return { status: 'error', message: 'Invalid course ID' };
+    }
+    const courseId = rawCourseId ?? null;
+    const { user: authUser, role } = await requireAnyAdmin();
+    let user = authUser;
+
+    // Admin (non-super_admin) must provide courseId for lecture uploads
+    if (role === 'admin' && !courseId) {
+      return { status: 'error', message: 'Admin must select a course for lecture uploads' };
+    }
     if (courseId) {
       user = await requireCourseAdmin(courseId);
-    } else {
-      const result = await requireAnyAdmin();
-      user = result.user;
     }
 
     const documentService = getDocumentService();
@@ -243,34 +313,26 @@ export async function uploadDocument(
   }
 }
 
-export async function deleteDocument(documentId: string, docType?: string) {
+export async function deleteDocument(documentId: string, docType: string) {
+  const parsedType = docTypeSchema.safeParse(docType);
+  if (!parsedType.success) throw new Error('Invalid document type');
+
   const { user, role } = await requireAnyAdmin();
 
-  if (docType === 'exam') {
+  if (parsedType.data === 'exam') {
+    await requireExamAccess(documentId, user.id, role);
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    const examRepo = getExamPaperRepository();
-    // No course_id FK — super_admin can delete any; admin only own uploads
-    if (role !== 'super_admin') {
-      const owner = await examRepo.findOwner(documentId);
-      if (owner !== user.id) throw new ForbiddenError('No access to this exam paper');
-    }
-    await examRepo.delete(documentId);
-  } else if (docType === 'assignment') {
+    await getExamPaperRepository().delete(documentId);
+  } else if (parsedType.data === 'assignment') {
+    await requireAssignmentAccess(documentId, user.id, role);
     const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-    const assignmentRepo = getAssignmentRepository();
-    // No course_id FK — super_admin can delete any; admin only own uploads
-    if (role !== 'super_admin') {
-      const owner = await assignmentRepo.findOwner(documentId);
-      if (owner !== user.id) throw new ForbiddenError('No access to this assignment');
-    }
-    await assignmentRepo.delete(documentId);
+    await getAssignmentRepository().delete(documentId);
   } else {
-    // Lecture (documents table) — has course_id, enforce course-level permission
-    const courseId = await resolveCourseId(documentId);
-    if (courseId) {
-      await requireCourseAdmin(courseId);
-    }
+    // Lecture (documents table) — enforce course-level or ownership permission
+    await requireLectureAccess(documentId, user.id, role);
     const documentService = getDocumentService();
+    await documentService.deleteChunksByDocumentId(documentId);
+    await getKnowledgeCardService().deleteByDocumentId(documentId);
     await documentService.deleteByAdmin(documentId);
   }
 
@@ -282,17 +344,10 @@ export async function updateDocumentChunks(
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  await requireAnyAdmin();
-
-  // Resolve courseId for course-level permission
-  const courseId = await resolveCourseId(documentId);
-  if (courseId) {
-    await requireCourseAdmin(courseId);
-  }
+  const { user, role } = await requireAnyAdmin();
+  await requireLectureAccess(documentId, user.id, role);
 
   const documentService = getDocumentService();
-  const doc = await documentService.findById(documentId);
-  if (!doc) return { status: 'error', message: 'Document not found' };
 
   // Verify all chunk IDs belong to this document (IDOR protection)
   const allChunkIds = [...deletedIds, ...updates.map((u) => u.id)];
@@ -318,17 +373,10 @@ export async function updateDocumentChunks(
 export async function regenerateEmbeddings(
   documentId: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  await requireAnyAdmin();
-
-  // Resolve courseId for course-level permission
-  const courseId = await resolveCourseId(documentId);
-  if (courseId) {
-    await requireCourseAdmin(courseId);
-  }
+  const { user, role } = await requireAnyAdmin();
+  const doc = await requireLectureAccess(documentId, user.id, role);
 
   const documentService = getDocumentService();
-  const doc = await documentService.findById(documentId);
-  if (!doc) return { status: 'error', message: 'Document not found' };
 
   await documentService.updateStatus(doc.id, 'processing', 'Regenerating embeddings...');
   revalidatePath(`/admin/knowledge/${documentId}`);
@@ -343,6 +391,9 @@ export async function regenerateEmbeddings(
   } catch (e) {
     console.error('Error regenerating embeddings:', e);
     await documentService.updateStatus(doc.id, 'error', 'Failed to regenerate embeddings');
+    revalidatePath(`/admin/knowledge/${documentId}`);
+    revalidatePath('/admin/knowledge');
+    return { status: 'error', message: 'Failed to regenerate embeddings' };
   }
 
   revalidatePath(`/admin/knowledge/${documentId}`);
@@ -352,36 +403,27 @@ export async function regenerateEmbeddings(
 
 export async function retryDocument(
   documentId: string,
-  docType?: string,
+  docType: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
+  const parsedType = docTypeSchema.safeParse(docType);
+  if (!parsedType.success) return { status: 'error', message: 'Invalid document type' };
+
   const { user, role } = await requireAnyAdmin();
 
-  if (docType === 'exam') {
+  if (parsedType.data === 'exam') {
+    await requireExamAccess(documentId, user.id, role);
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    const examRepo = getExamPaperRepository();
-    if (role !== 'super_admin') {
-      const owner = await examRepo.findOwner(documentId);
-      if (owner !== user.id) return { status: 'error', message: 'No access to this exam paper' };
-    }
-    await examRepo.delete(documentId);
-  } else if (docType === 'assignment') {
+    await getExamPaperRepository().delete(documentId);
+  } else if (parsedType.data === 'assignment') {
+    await requireAssignmentAccess(documentId, user.id, role);
     const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-    const assignmentRepo = getAssignmentRepository();
-    if (role !== 'super_admin') {
-      const owner = await assignmentRepo.findOwner(documentId);
-      if (owner !== user.id) return { status: 'error', message: 'No access to this assignment' };
-    }
-    await assignmentRepo.delete(documentId);
+    await getAssignmentRepository().delete(documentId);
   } else {
-    // Lecture — has course_id, enforce course-level permission
-    const courseId = await resolveCourseId(documentId);
-    if (courseId) {
-      await requireCourseAdmin(courseId);
-    }
+    // Lecture — enforce course-level or ownership permission
+    await requireLectureAccess(documentId, user.id, role);
     const documentService = getDocumentService();
-    const doc = await documentService.findById(documentId);
-    if (!doc) return { status: 'error', message: 'Document not found' };
     await documentService.deleteChunksByDocumentId(documentId);
+    await getKnowledgeCardService().deleteByDocumentId(documentId);
     await documentService.deleteByAdmin(documentId);
   }
 
@@ -399,7 +441,7 @@ export async function updateDocumentMeta(
   documentId: string,
   updates: { name?: string; school?: string; course?: string },
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  await requireAnyAdmin();
+  const { user, role } = await requireAnyAdmin();
 
   const parsed = updateDocumentMetaSchema.safeParse(updates);
   if (!parsed.success) {
@@ -407,15 +449,9 @@ export async function updateDocumentMeta(
   }
   const validatedUpdates = parsed.data;
 
-  // Resolve courseId for course-level permission
-  const courseId = await resolveCourseId(documentId);
-  if (courseId) {
-    await requireCourseAdmin(courseId);
-  }
+  const doc = await requireLectureAccess(documentId, user.id, role);
 
   const documentService = getDocumentService();
-  const doc = await documentService.findById(documentId);
-  if (!doc) return { status: 'error', message: 'Document not found' };
 
   const metadataUpdates: { name?: string; metadata?: Json; docType?: string } = {};
   if (validatedUpdates.name !== undefined) metadataUpdates.name = validatedUpdates.name;
@@ -440,8 +476,9 @@ export async function updateExamQuestions(
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  // Exam papers don't have course_id FK — RLS handles access
-  await requireAnyAdmin();
+  const { user, role } = await requireAnyAdmin();
+
+  await requireExamAccess(paperId, user.id, role);
 
   const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
   const examRepo = getExamPaperRepository();
@@ -489,8 +526,9 @@ export async function updateAssignmentItems(
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  // Assignments don't have course_id FK — RLS handles access
-  await requireAnyAdmin();
+  const { user, role } = await requireAnyAdmin();
+
+  await requireAssignmentAccess(assignmentId, user.id, role);
 
   const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
   const assignmentRepo = getAssignmentRepository();

@@ -75,6 +75,41 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
   parseQuestions: (...args: unknown[]) => mockParseQuestions(...args),
 }));
 
+const mockKnowledgeCardService = {
+  deleteByDocumentId: vi.fn(),
+};
+vi.mock('@/lib/services/KnowledgeCardService', () => ({
+  getKnowledgeCardService: () => mockKnowledgeCardService,
+}));
+
+const mockExamPaperRepo = {
+  findCourseId: vi.fn(),
+  findOwner: vi.fn(),
+  delete: vi.fn(),
+  findAllForAdmin: vi.fn(),
+  findByCourseIds: vi.fn(),
+  findQuestionsByPaperId: vi.fn(),
+  deleteQuestion: vi.fn(),
+  updateQuestion: vi.fn(),
+};
+vi.mock('@/lib/repositories/ExamPaperRepository', () => ({
+  getExamPaperRepository: () => mockExamPaperRepo,
+}));
+
+const mockAssignmentRepo = {
+  findCourseId: vi.fn(),
+  findOwner: vi.fn(),
+  delete: vi.fn(),
+  findAllForAdmin: vi.fn(),
+  findByCourseIds: vi.fn(),
+  findItemsByAssignmentId: vi.fn(),
+  deleteItem: vi.fn(),
+  updateItem: vi.fn(),
+};
+vi.mock('@/lib/repositories/AssignmentRepository', () => ({
+  getAssignmentRepository: () => mockAssignmentRepo,
+}));
+
 // ---------------------------------------------------------------------------
 // Import actions (after mocks)
 // ---------------------------------------------------------------------------
@@ -133,7 +168,7 @@ function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity 
 describe('Document Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+    mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
     mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
     mockQuotaService.enforce.mockResolvedValue(undefined);
   });
@@ -308,7 +343,7 @@ describe('Document Actions', () => {
       mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
       mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
-      await deleteDocument('doc-1');
+      await deleteDocument('doc-1', 'lecture');
 
       expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
@@ -317,7 +352,7 @@ describe('Document Actions', () => {
     it('should throw when user is not admin', async () => {
       mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(deleteDocument('doc-1')).rejects.toThrow('Admin access required');
+      await expect(deleteDocument('doc-1', 'lecture')).rejects.toThrow('Admin access required');
     });
   });
 
@@ -351,13 +386,10 @@ describe('Document Actions', () => {
       await expect(updateDocumentChunks('doc-1', [], [])).rejects.toThrow('Admin access required');
     });
 
-    it('should return error when document is not found', async () => {
-      // resolveCourseId calls findById first (returns null → courseId=null)
+    it('should throw when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      const result = await updateDocumentChunks('doc-1', [], []);
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
+      await expect(updateDocumentChunks('doc-1', [], [])).rejects.toThrow('Document not found');
     });
   });
 
@@ -407,15 +439,13 @@ describe('Document Actions', () => {
       await expect(regenerateEmbeddings('doc-1')).rejects.toThrow('Admin access required');
     });
 
-    it('should return error when document is not found', async () => {
+    it('should throw when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      const result = await regenerateEmbeddings('doc-1');
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
+      await expect(regenerateEmbeddings('doc-1')).rejects.toThrow('Document not found');
     });
 
-    it('should handle embedding regeneration error gracefully', async () => {
+    it('should return error when embedding regeneration fails', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
       mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([
@@ -426,7 +456,7 @@ describe('Document Actions', () => {
 
       const result = await regenerateEmbeddings('doc-1');
 
-      expect(result).toEqual({ status: 'success', message: 'Embeddings regenerated' });
+      expect(result).toEqual({ status: 'error', message: 'Failed to regenerate embeddings' });
       expect(mockDocumentService.updateStatus).toHaveBeenCalledWith(
         'doc-1',
         'error',
@@ -444,7 +474,7 @@ describe('Document Actions', () => {
       mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
       mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
-      const result = await retryDocument('doc-1');
+      const result = await retryDocument('doc-1', 'lecture');
 
       expect(result).toEqual({ status: 'success', message: 'Document removed. Please re-upload.' });
       expect(mockDocumentService.deleteChunksByDocumentId).toHaveBeenCalledWith('doc-1');
@@ -455,15 +485,13 @@ describe('Document Actions', () => {
     it('should throw when user is not admin', async () => {
       mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(retryDocument('doc-1')).rejects.toThrow('Admin access required');
+      await expect(retryDocument('doc-1', 'lecture')).rejects.toThrow('Admin access required');
     });
 
-    it('should return error when document is not found', async () => {
+    it('should throw when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      const result = await retryDocument('doc-1');
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
+      await expect(retryDocument('doc-1', 'lecture')).rejects.toThrow('Document not found');
     });
   });
 
@@ -506,12 +534,12 @@ describe('Document Actions', () => {
       );
     });
 
-    it('should return error when document is not found', async () => {
+    it('should throw when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      const result = await updateDocumentMeta('doc-1', { name: 'new-name.pdf' });
-
-      expect(result).toEqual({ status: 'error', message: 'Document not found' });
+      await expect(updateDocumentMeta('doc-1', { name: 'new-name.pdf' })).rejects.toThrow(
+        'Document not found',
+      );
     });
 
     it('should return error for invalid input (name too long)', async () => {
@@ -546,6 +574,210 @@ describe('Document Actions', () => {
           otherField: 'keep',
         }),
       });
+    });
+  });
+
+  // =========================================================================
+  // Admin course isolation (requireLectureAccess / requireExamAccess / requireAssignmentAccess)
+  // =========================================================================
+  describe('admin course isolation', () => {
+    describe('lecture — requireLectureAccess', () => {
+      it('should deny admin access to document with null courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockDocumentService.findById.mockResolvedValue(
+          makeDocEntity({ userId: MOCK_USER.id, courseId: null }),
+        );
+
+        await expect(deleteDocument('doc-1', 'lecture')).rejects.toThrow(ForbiddenError);
+      });
+
+      it('should deny admin access to document with null courseId even if owner', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockDocumentService.findById.mockResolvedValue(
+          makeDocEntity({ userId: MOCK_USER.id, courseId: null }),
+        );
+
+        await expect(retryDocument('doc-1', 'lecture')).rejects.toThrow(
+          'No access to this document',
+        );
+        expect(mockDocumentService.deleteByAdmin).not.toHaveBeenCalled();
+      });
+
+      it('should allow super_admin access to document with null courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
+        mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
+        mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
+        mockKnowledgeCardService.deleteByDocumentId.mockResolvedValue(undefined);
+        mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
+
+        await deleteDocument('doc-1', 'lecture');
+
+        expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
+      });
+
+      it('should allow admin access to document with assigned courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
+        mockDocumentService.findById.mockResolvedValue(
+          makeDocEntity({ courseId: 'course-1' }),
+        );
+        mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
+        mockKnowledgeCardService.deleteByDocumentId.mockResolvedValue(undefined);
+        mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
+
+        await deleteDocument('doc-1', 'lecture');
+
+        expect(mockRequireCourseAdmin).toHaveBeenCalledWith('course-1');
+        expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
+      });
+
+      it('should deny admin access to document with unassigned courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockRequireCourseAdmin.mockRejectedValue(new ForbiddenError('No access to this course'));
+        mockDocumentService.findById.mockResolvedValue(
+          makeDocEntity({ courseId: 'unassigned-course' }),
+        );
+
+        await expect(deleteDocument('doc-1', 'lecture')).rejects.toThrow(ForbiddenError);
+        expect(mockDocumentService.deleteByAdmin).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('exam — requireExamAccess', () => {
+      it('should deny admin access to exam paper with null courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockExamPaperRepo.findCourseId.mockResolvedValue(null);
+
+        await expect(deleteDocument('paper-1', 'exam')).rejects.toThrow(
+          'No access to this exam paper',
+        );
+        expect(mockExamPaperRepo.delete).not.toHaveBeenCalled();
+      });
+
+      it('should deny admin access to exam paper with null courseId even if owner', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockExamPaperRepo.findCourseId.mockResolvedValue(null);
+        mockExamPaperRepo.findOwner.mockResolvedValue(MOCK_USER.id);
+
+        await expect(deleteDocument('paper-1', 'exam')).rejects.toThrow(ForbiddenError);
+        expect(mockExamPaperRepo.delete).not.toHaveBeenCalled();
+      });
+
+      it('should allow super_admin access to exam paper with null courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
+        mockExamPaperRepo.delete.mockResolvedValue(undefined);
+
+        await deleteDocument('paper-1', 'exam');
+
+        expect(mockExamPaperRepo.findCourseId).not.toHaveBeenCalled();
+        expect(mockExamPaperRepo.delete).toHaveBeenCalledWith('paper-1');
+      });
+
+      it('should allow admin access to exam paper with assigned courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockExamPaperRepo.findCourseId.mockResolvedValue('course-1');
+        mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
+        mockExamPaperRepo.delete.mockResolvedValue(undefined);
+
+        await deleteDocument('paper-1', 'exam');
+
+        expect(mockRequireCourseAdmin).toHaveBeenCalledWith('course-1');
+        expect(mockExamPaperRepo.delete).toHaveBeenCalledWith('paper-1');
+      });
+
+      it('should deny admin access to exam paper with unassigned courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockExamPaperRepo.findCourseId.mockResolvedValue('unassigned-course');
+        mockRequireCourseAdmin.mockRejectedValue(new ForbiddenError('No access'));
+
+        await expect(deleteDocument('paper-1', 'exam')).rejects.toThrow(ForbiddenError);
+        expect(mockExamPaperRepo.delete).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('assignment — requireAssignmentAccess', () => {
+      it('should deny admin access to assignment with null courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockAssignmentRepo.findCourseId.mockResolvedValue(null);
+
+        await expect(deleteDocument('assign-1', 'assignment')).rejects.toThrow(
+          'No access to this assignment',
+        );
+        expect(mockAssignmentRepo.delete).not.toHaveBeenCalled();
+      });
+
+      it('should allow super_admin access to assignment with null courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
+        mockAssignmentRepo.delete.mockResolvedValue(undefined);
+
+        await deleteDocument('assign-1', 'assignment');
+
+        expect(mockAssignmentRepo.findCourseId).not.toHaveBeenCalled();
+        expect(mockAssignmentRepo.delete).toHaveBeenCalledWith('assign-1');
+      });
+
+      it('should allow admin access to assignment with assigned courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockAssignmentRepo.findCourseId.mockResolvedValue('course-1');
+        mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
+        mockAssignmentRepo.delete.mockResolvedValue(undefined);
+
+        await deleteDocument('assign-1', 'assignment');
+
+        expect(mockRequireCourseAdmin).toHaveBeenCalledWith('course-1');
+        expect(mockAssignmentRepo.delete).toHaveBeenCalledWith('assign-1');
+      });
+
+      it('should deny admin access to assignment with unassigned courseId', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+        mockAssignmentRepo.findCourseId.mockResolvedValue('unassigned-course');
+        mockRequireCourseAdmin.mockRejectedValue(new ForbiddenError('No access'));
+
+        await expect(deleteDocument('assign-1', 'assignment')).rejects.toThrow(ForbiddenError);
+        expect(mockAssignmentRepo.delete).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  // =========================================================================
+  // courseId UUID validation
+  // =========================================================================
+  describe('uploadDocument courseId validation', () => {
+    it('should reject malformed courseId', async () => {
+      const fd = makeFormData();
+      fd.set('courseId', 'not-a-uuid');
+
+      const result = await uploadDocument(INITIAL_STATE, fd);
+
+      expect(result.status).toBe('error');
+      expect(result.message).toBe('Invalid course ID');
+    });
+
+    it('should accept valid UUID courseId', async () => {
+      mockDocumentService.checkDuplicate.mockResolvedValue(false);
+      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
+      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
+      mockDocumentService.updateStatus.mockResolvedValue(undefined);
+
+      const fd = makeFormData();
+      fd.set('courseId', '550e8400-e29b-41d4-a716-446655440000');
+
+      const result = await uploadDocument(INITIAL_STATE, fd);
+
+      expect(result.status).toBe('success');
+      expect(mockRequireCourseAdmin).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    it('should require admin to provide courseId', async () => {
+      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+
+      const fd = makeFormData();
+      // no courseId set
+
+      const result = await uploadDocument(INITIAL_STATE, fd);
+
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('must select a course');
     });
   });
 });

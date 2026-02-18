@@ -61,7 +61,10 @@ export async function requireSuperAdmin() {
 }
 
 /** Require admin or super_admin role or throw ForbiddenError. */
-export async function requireAnyAdmin() {
+export async function requireAnyAdmin(): Promise<{
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+  role: 'admin' | 'super_admin';
+}> {
   const { ForbiddenError } = await import('@/lib/errors');
   const user = await requireUser();
   const { getProfileRepository } = await import('@/lib/repositories');

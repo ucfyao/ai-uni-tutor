@@ -30,7 +30,7 @@ export interface KnowledgeDocument {
   status: string; // 'processing' | 'ready' | 'error'
   status_message: string | null;
   created_at: string;
-  doc_type?: string; // 'lecture' | 'exam' | 'assignment'
+  doc_type: string; // 'lecture' | 'exam' | 'assignment'
   metadata: {
     school?: string;
     course?: string;

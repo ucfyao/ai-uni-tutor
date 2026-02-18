@@ -5,7 +5,7 @@
  */
 
 import type { CourseEntity } from '@/lib/domain/models/Course';
-import type { ProfileEntity, UserRole } from '@/lib/domain/models/Profile';
+import type { ProfileEntity } from '@/lib/domain/models/Profile';
 import { ForbiddenError } from '@/lib/errors';
 import { getProfileRepository } from '@/lib/repositories';
 import { getAdminRepository } from '@/lib/repositories/AdminRepository';
@@ -66,15 +66,18 @@ export class AdminService {
     if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
       throw new ForbiddenError('Target user is not an admin');
     }
+    const uniqueIds = [...new Set(courseIds)];
     const currentIds = await this.adminRepo.getAssignedCourseIds(adminId);
-    const toAdd = courseIds.filter((id) => !currentIds.includes(id));
-    const toRemove = currentIds.filter((id) => !courseIds.includes(id));
+    const toAdd = uniqueIds.filter((id) => !currentIds.includes(id));
+    const toRemove = currentIds.filter((id) => !uniqueIds.includes(id));
 
-    for (const id of toRemove) {
-      await this.adminRepo.removeCourse(adminId, id);
-    }
+    // Add first, then remove — if interrupted mid-way, admin has extra courses
+    // (safe) rather than missing courses (unsafe)
     for (const id of toAdd) {
       await this.adminRepo.assignCourse(adminId, id, assignedBy);
+    }
+    for (const id of toRemove) {
+      await this.adminRepo.removeCourse(adminId, id);
     }
   }
 
@@ -105,18 +108,6 @@ export class AdminService {
     if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) return null;
     const courses = await this.adminRepo.getAssignedCourses(adminId);
     return { profile, courses };
-  }
-
-  /** Get available course IDs for an admin.
-   *  super_admin: returns all course IDs from courses table.
-   *  admin: returns assigned course IDs only. */
-  async getAvailableCourseIds(userId: string, role: UserRole): Promise<string[]> {
-    if (role === 'super_admin') {
-      const { getCourseService } = await import('@/lib/services/CourseService');
-      const courses = await getCourseService().getAllCourses();
-      return courses.map((c) => c.id);
-    }
-    return this.adminRepo.getAssignedCourseIds(userId);
   }
 }
 

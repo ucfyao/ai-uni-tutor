@@ -89,10 +89,10 @@ const getAdminCourseIdsSchema = z.object({
   adminId: z.string().uuid(),
 });
 
-export async function getAdminCourseIds(adminId: string): Promise<ActionResult<string[]>> {
+export async function getAdminCourseIds(input: unknown): Promise<ActionResult<string[]>> {
   try {
     await requireSuperAdmin();
-    const parsed = getAdminCourseIdsSchema.parse({ adminId });
+    const parsed = getAdminCourseIdsSchema.parse(input);
     const service = getAdminService();
     const courseIds = await service.getAssignedCourseIds(parsed.adminId);
     return { success: true, data: courseIds };

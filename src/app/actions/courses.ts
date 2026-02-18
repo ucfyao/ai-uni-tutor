@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { mapError } from '@/lib/errors';
 import { getCourseService } from '@/lib/services/CourseService';
-import { getCurrentUser, requireSuperAdmin } from '@/lib/supabase/server';
+import { requireSuperAdmin, requireUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
 
 // ============================================================================
@@ -54,7 +54,7 @@ export interface CourseListItem {
 
 export async function fetchUniversities(): Promise<ActionResult<UniversityListItem[]>> {
   try {
-    await getCurrentUser();
+    await requireUser();
     const service = getCourseService();
     const entities = await service.getAllUniversities();
     return {
@@ -73,7 +73,7 @@ export async function fetchUniversities(): Promise<ActionResult<UniversityListIt
 
 export async function fetchCourses(universityId?: string): Promise<ActionResult<CourseListItem[]>> {
   try {
-    await getCurrentUser();
+    await requireUser();
     const service = getCourseService();
     const entities = universityId
       ? await service.getCoursesByUniversity(universityId)

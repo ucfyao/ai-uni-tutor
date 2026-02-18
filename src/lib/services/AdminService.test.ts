@@ -174,6 +174,21 @@ describe('AdminService', () => {
         "Cannot demote: user has role 'user', expected 'admin'",
       );
     });
+
+    it('should throw if target user is super_admin', async () => {
+      const superAdminProfile: ProfileEntity = {
+        ...ADMIN_PROFILE,
+        id: SUPER_ADMIN_ID,
+        role: 'super_admin',
+      };
+      profileRepo.findById.mockResolvedValue(superAdminProfile);
+
+      await expect(service.demoteToUser(SUPER_ADMIN_ID, 'other-admin')).rejects.toThrow(
+        "Cannot demote: user has role 'super_admin', expected 'admin'",
+      );
+      expect(profileRepo.updateRole).not.toHaveBeenCalled();
+      expect(adminRepo.removeAllCourses).not.toHaveBeenCalled();
+    });
   });
 
   // ==================== assignCourses ====================
@@ -239,6 +254,22 @@ describe('AdminService', () => {
       expect(adminRepo.assignCourse).toHaveBeenCalledTimes(1);
     });
 
+    it('should call assignCourse before removeCourse (safe mid-state)', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
+      const callOrder: string[] = [];
+      adminRepo.assignCourse.mockImplementation(async () => {
+        callOrder.push('assignCourse');
+      });
+      adminRepo.removeCourse.mockImplementation(async () => {
+        callOrder.push('removeCourse');
+      });
+
+      await service.setCourses(ADMIN_ID, ['course-b'], SUPER_ADMIN_ID);
+
+      expect(callOrder).toEqual(['assignCourse', 'removeCourse']);
+    });
+
     it('should handle no changes needed', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
@@ -266,6 +297,22 @@ describe('AdminService', () => {
       await expect(service.setCourses(USER_ID, ['course-a'], SUPER_ADMIN_ID)).rejects.toThrow(
         'Target user is not an admin',
       );
+    });
+
+    it('should deduplicate courseIds', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+      adminRepo.getAssignedCourseIds.mockResolvedValue([]);
+      adminRepo.assignCourse.mockResolvedValue(undefined);
+
+      await service.setCourses(
+        ADMIN_ID,
+        ['course-a', 'course-b', 'course-a'],
+        SUPER_ADMIN_ID,
+      );
+
+      expect(adminRepo.assignCourse).toHaveBeenCalledTimes(2);
+      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a', SUPER_ADMIN_ID);
+      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-b', SUPER_ADMIN_ID);
     });
   });
 
@@ -370,31 +417,4 @@ describe('AdminService', () => {
     });
   });
 
-  // ==================== getAvailableCourseIds ====================
-
-  describe('getAvailableCourseIds', () => {
-    it('should return assigned course IDs for admin role', async () => {
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
-
-      const result = await service.getAvailableCourseIds(ADMIN_ID, 'admin');
-
-      expect(adminRepo.getAssignedCourseIds).toHaveBeenCalledWith(ADMIN_ID);
-      expect(result).toEqual(['course-a']);
-    });
-
-    it('should return all course IDs for super_admin role', async () => {
-      // Mock the dynamic import of CourseService
-      const mockGetAllCourses = vi.fn().mockResolvedValue([COURSE_A, COURSE_B]);
-      vi.doMock('@/lib/services/CourseService', () => ({
-        getCourseService: () => ({ getAllCourses: mockGetAllCourses }),
-      }));
-
-      // Need to reimport to pick up mock — but since AdminService uses dynamic import,
-      // the mock should be picked up automatically
-      const result = await service.getAvailableCourseIds(SUPER_ADMIN_ID, 'super_admin');
-
-      // For super_admin, the result should come from CourseService.getAllCourses
-      expect(result).toEqual(['course-a', 'course-b']);
-    });
-  });
 });

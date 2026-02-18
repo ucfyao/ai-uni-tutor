@@ -143,7 +143,7 @@ export class ProfileRepository implements IProfileRepository {
     if (error) throw new DatabaseError(`Failed to update subscription: ${error.message}`, error);
   }
 
-  async findByRole(role: string): Promise<ProfileEntity[]> {
+  async findByRole(role: UserRole): Promise<ProfileEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('profiles')
@@ -169,8 +169,9 @@ export class ProfileRepository implements IProfileRepository {
       // Escape PostgREST filter syntax characters and SQL wildcards
       const sanitized = search
         .trim()
+        .replace(/\\/g, '\\\\') // escape backslash first
         .replace(/[%_]/g, '\\$&') // escape SQL wildcards
-        .replace(/[(),."]/g, ''); // strip PostgREST filter delimiters
+        .replace(/[(),."*]/g, ''); // strip PostgREST filter delimiters
       if (sanitized) {
         query = query.or(`full_name.ilike.%${sanitized}%,email.ilike.%${sanitized}%`);
       }

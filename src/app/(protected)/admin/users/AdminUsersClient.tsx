@@ -51,6 +51,7 @@ export function AdminUsersClient() {
   const [debouncedSearch] = useDebouncedValue(searchTerm, 300);
   const [expandedAdminId, setExpandedAdminId] = useState<string | null>(null);
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [loadingCourseIds, setLoadingCourseIds] = useState(false);
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -121,9 +122,20 @@ export function AdminUsersClient() {
       }
       setSelectedCourseIds([]); // Clear immediately to prevent stale data from previous admin
       setExpandedAdminId(adminId);
-      const result = await getAdminCourseIds(adminId);
-      if (result.success) {
-        setSelectedCourseIds(result.data);
+      setLoadingCourseIds(true);
+      try {
+        const result = await getAdminCourseIds({ adminId });
+        // Guard: only apply if this admin is still the expanded one (prevents race on fast switching)
+        if (result.success) {
+          setExpandedAdminId((current) => {
+            if (current === adminId) {
+              setSelectedCourseIds(result.data);
+            }
+            return current;
+          });
+        }
+      } finally {
+        setLoadingCourseIds(false);
       }
     },
     [expandedAdminId],
@@ -275,10 +287,16 @@ export function AdminUsersClient() {
                   placeholder="Select courses..."
                   searchable
                   clearable
+                  disabled={loadingCourseIds}
                   maxDropdownHeight={200}
                   mb="xs"
                 />
-                <Button size="xs" onClick={() => handleSaveCourses(user.id)} loading={isPending}>
+                <Button
+                  size="xs"
+                  onClick={() => handleSaveCourses(user.id)}
+                  loading={isPending}
+                  disabled={loadingCourseIds}
+                >
                   Save
                 </Button>
               </Card>

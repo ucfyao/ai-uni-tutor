@@ -54,6 +54,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
     title: string;
     school?: string | null;
     course?: string | null;
+    courseId?: string;
     year?: string | null;
     visibility?: 'public' | 'private';
     status?: 'parsing' | 'ready' | 'error';
@@ -68,6 +69,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
         title: data.title,
         school: data.school ?? null,
         course: data.course ?? null,
+        course_id: data.courseId ?? null,
         year: data.year ?? null,
         visibility: data.visibility ?? 'private',
         status: data.status ?? 'parsing',
@@ -143,6 +145,38 @@ export class ExamPaperRepository implements IExamPaperRepository {
     }
     if (!data) return null;
     return data.user_id as string;
+  }
+
+  async findCourseId(id: string): Promise<string | null> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('exam_papers')
+      .select('course_id')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch paper course_id: ${error.message}`, error);
+    }
+    return (data?.course_id as string) ?? null;
+  }
+
+  async findByCourseIds(courseIds: string[]): Promise<ExamPaper[]> {
+    if (courseIds.length === 0) return [];
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('exam_papers')
+      .select('*')
+      .in('course_id', courseIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch exam papers by course: ${error.message}`, error);
+    }
+    return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
   }
 
   async updateStatus(

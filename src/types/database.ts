@@ -348,6 +348,7 @@ export interface Database {
           visibility: 'public' | 'private';
           school: string | null;
           course: string | null;
+          course_id: string | null;
           year: string | null;
           question_types: string[];
           status: 'parsing' | 'ready' | 'error';
@@ -362,6 +363,7 @@ export interface Database {
           visibility?: 'public' | 'private';
           school?: string | null;
           course?: string | null;
+          course_id?: string | null;
           year?: string | null;
           question_types?: string[];
           status?: 'parsing' | 'ready' | 'error';
@@ -376,6 +378,7 @@ export interface Database {
           visibility?: 'public' | 'private';
           school?: string | null;
           course?: string | null;
+          course_id?: string | null;
           year?: string | null;
           question_types?: string[];
           status?: 'parsing' | 'ready' | 'error';
@@ -481,6 +484,7 @@ export interface Database {
           title: string;
           school: string | null;
           course: string | null;
+          course_id: string | null;
           status: string;
           status_message: string | null;
           created_at: string;
@@ -491,6 +495,7 @@ export interface Database {
           title: string;
           school?: string | null;
           course?: string | null;
+          course_id?: string | null;
           status?: string;
           status_message?: string | null;
           created_at?: string;
@@ -501,6 +506,7 @@ export interface Database {
           title?: string;
           school?: string | null;
           course?: string | null;
+          course_id?: string | null;
           status?: string;
           status_message?: string | null;
           created_at?: string;

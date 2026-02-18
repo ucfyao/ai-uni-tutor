@@ -46,6 +46,8 @@ function createMockExamPaperRepo(): {
     findByCourse: vi.fn(),
     findAllByCourse: vi.fn(),
     findAllForAdmin: vi.fn(),
+    findCourseId: vi.fn(),
+    findByCourseIds: vi.fn(),
   };
 }
 
