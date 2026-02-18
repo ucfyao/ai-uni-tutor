@@ -9,6 +9,7 @@ const ALLOWED_PATH_PREFIXES = [
   '/lecture',
   '/admin',
   '/assignment',
+  '/reset-password',
   '/help',
   '/personalization',
   '/pricing',

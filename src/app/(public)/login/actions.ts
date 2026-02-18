@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/env';
-import { loginSchema, signupSchema } from '@/lib/schemas';
+import { loginSchema, requestResetSchema, signupSchema } from '@/lib/schemas';
 import { createClient } from '@/lib/supabase/server';
 
 export async function login(formData: FormData) {
@@ -66,4 +66,24 @@ export async function signup(formData: FormData) {
   }
 
   return { success: 'Check your email to confirm your account (or log in if already registered)!' };
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const rawData = { email: formData.get('email') as string };
+
+  const validation = requestResetSchema.safeParse(rawData);
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(validation.data.email, {
+    redirectTo: `${getEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=/reset-password`,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
 }
