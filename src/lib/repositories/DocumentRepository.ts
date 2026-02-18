@@ -145,6 +145,11 @@ export class DocumentRepository implements IDocumentRepository {
   }
 
   async findByDocTypeForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
+    // If courseIds is provided but empty, admin has no assigned courses → return nothing
+    if (courseIds !== undefined && courseIds.length === 0) {
+      return [];
+    }
+
     const supabase = await createClient();
     let query = supabase
       .from('documents')

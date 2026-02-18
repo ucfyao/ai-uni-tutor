@@ -43,6 +43,12 @@ CREATE POLICY "aca_insert" ON admin_course_assignments
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
   );
 
+CREATE POLICY "aca_update" ON admin_course_assignments
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+  );
+
 CREATE POLICY "aca_delete" ON admin_course_assignments
   FOR DELETE TO authenticated
   USING (

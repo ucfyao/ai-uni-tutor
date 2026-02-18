@@ -106,11 +106,27 @@ describe('AdminService', () => {
 
   describe('promoteToAdmin', () => {
     it('should update user role to admin', async () => {
+      profileRepo.findById.mockResolvedValue(USER_PROFILE);
       profileRepo.updateRole.mockResolvedValue(undefined);
 
       await service.promoteToAdmin(USER_ID);
 
+      expect(profileRepo.findById).toHaveBeenCalledWith(USER_ID);
       expect(profileRepo.updateRole).toHaveBeenCalledWith(USER_ID, 'admin');
+    });
+
+    it('should throw if user not found', async () => {
+      profileRepo.findById.mockResolvedValue(null);
+
+      await expect(service.promoteToAdmin('nonexistent')).rejects.toThrow(ForbiddenError);
+    });
+
+    it('should throw if user is already admin', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+
+      await expect(service.promoteToAdmin(ADMIN_ID)).rejects.toThrow(
+        "Cannot promote: user already has role 'admin'",
+      );
     });
   });
 
@@ -118,16 +134,19 @@ describe('AdminService', () => {
 
   describe('demoteToUser', () => {
     it('should remove courses then update role', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.removeAllCourses.mockResolvedValue(undefined);
       profileRepo.updateRole.mockResolvedValue(undefined);
 
       await service.demoteToUser(ADMIN_ID, SUPER_ADMIN_ID);
 
+      expect(profileRepo.findById).toHaveBeenCalledWith(ADMIN_ID);
       expect(adminRepo.removeAllCourses).toHaveBeenCalledWith(ADMIN_ID);
       expect(profileRepo.updateRole).toHaveBeenCalledWith(ADMIN_ID, 'user');
     });
 
     it('should call removeAllCourses before updateRole', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       const callOrder: string[] = [];
       adminRepo.removeAllCourses.mockImplementation(async () => {
         callOrder.push('removeAllCourses');
@@ -147,12 +166,21 @@ describe('AdminService', () => {
         'Cannot demote yourself',
       );
     });
+
+    it('should throw if target user is not admin', async () => {
+      profileRepo.findById.mockResolvedValue(USER_PROFILE);
+
+      await expect(service.demoteToUser(USER_ID, SUPER_ADMIN_ID)).rejects.toThrow(
+        "Cannot demote: user has role 'user', expected 'admin'",
+      );
+    });
   });
 
   // ==================== assignCourses ====================
 
   describe('assignCourses', () => {
     it('should assign each course', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.assignCourse.mockResolvedValue(undefined);
 
       await service.assignCourses(ADMIN_ID, ['course-a', 'course-b'], SUPER_ADMIN_ID);
@@ -163,9 +191,19 @@ describe('AdminService', () => {
     });
 
     it('should handle empty array', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+
       await service.assignCourses(ADMIN_ID, [], SUPER_ADMIN_ID);
 
       expect(adminRepo.assignCourse).not.toHaveBeenCalled();
+    });
+
+    it('should throw if target is not admin', async () => {
+      profileRepo.findById.mockResolvedValue(USER_PROFILE);
+
+      await expect(service.assignCourses(USER_ID, ['course-a'], SUPER_ADMIN_ID)).rejects.toThrow(
+        'Target user is not an admin',
+      );
     });
   });
 
@@ -187,6 +225,7 @@ describe('AdminService', () => {
 
   describe('setCourses', () => {
     it('should add new courses and remove old ones', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a', 'course-b']);
       adminRepo.removeCourse.mockResolvedValue(undefined);
       adminRepo.assignCourse.mockResolvedValue(undefined);
@@ -201,6 +240,7 @@ describe('AdminService', () => {
     });
 
     it('should handle no changes needed', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
 
       await service.setCourses(ADMIN_ID, ['course-a'], SUPER_ADMIN_ID);
@@ -210,6 +250,7 @@ describe('AdminService', () => {
     });
 
     it('should handle setting to empty', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a', 'course-b']);
       adminRepo.removeCourse.mockResolvedValue(undefined);
 
@@ -217,6 +258,14 @@ describe('AdminService', () => {
 
       expect(adminRepo.removeCourse).toHaveBeenCalledTimes(2);
       expect(adminRepo.assignCourse).not.toHaveBeenCalled();
+    });
+
+    it('should throw if target is not admin', async () => {
+      profileRepo.findById.mockResolvedValue(USER_PROFILE);
+
+      await expect(service.setCourses(USER_ID, ['course-a'], SUPER_ADMIN_ID)).rejects.toThrow(
+        'Target user is not an admin',
+      );
     });
   });
 
@@ -249,13 +298,25 @@ describe('AdminService', () => {
   // ==================== listAdmins ====================
 
   describe('listAdmins', () => {
-    it('should fetch profiles with admin role', async () => {
-      profileRepo.findByRole.mockResolvedValue([ADMIN_PROFILE]);
+    it('should fetch profiles with both admin and super_admin roles', async () => {
+      const superAdminProfile: ProfileEntity = {
+        ...ADMIN_PROFILE,
+        id: SUPER_ADMIN_ID,
+        role: 'super_admin',
+        fullName: 'Super Admin',
+      };
+      profileRepo.findByRole.mockImplementation(async (role: string) => {
+        if (role === 'admin') return [ADMIN_PROFILE];
+        if (role === 'super_admin') return [superAdminProfile];
+        return [];
+      });
 
       const result = await service.listAdmins();
 
       expect(profileRepo.findByRole).toHaveBeenCalledWith('admin');
-      expect(result).toEqual([ADMIN_PROFILE]);
+      expect(profileRepo.findByRole).toHaveBeenCalledWith('super_admin');
+      // super_admins first, then admins
+      expect(result).toEqual([superAdminProfile, ADMIN_PROFILE]);
     });
   });
 

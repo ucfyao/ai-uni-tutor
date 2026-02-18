@@ -116,8 +116,10 @@ export function AdminUsersClient() {
     async (adminId: string) => {
       if (expandedAdminId === adminId) {
         setExpandedAdminId(null);
+        setSelectedCourseIds([]);
         return;
       }
+      setSelectedCourseIds([]); // Clear immediately to prevent stale data from previous admin
       setExpandedAdminId(adminId);
       const result = await getAdminCourseIds(adminId);
       if (result.success) {

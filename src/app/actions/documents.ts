@@ -244,17 +244,25 @@ export async function uploadDocument(
 }
 
 export async function deleteDocument(documentId: string, docType?: string) {
-  await requireAnyAdmin();
+  const { user, role } = await requireAnyAdmin();
 
   if (docType === 'exam') {
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
     const examRepo = getExamPaperRepository();
-    // Exam papers don't have course_id FK — RLS handles access
+    // No course_id FK — super_admin can delete any; admin only own uploads
+    if (role !== 'super_admin') {
+      const owner = await examRepo.findOwner(documentId);
+      if (owner !== user.id) throw new ForbiddenError('No access to this exam paper');
+    }
     await examRepo.delete(documentId);
   } else if (docType === 'assignment') {
     const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
     const assignmentRepo = getAssignmentRepository();
-    // Assignments don't have course_id FK — RLS handles access
+    // No course_id FK — super_admin can delete any; admin only own uploads
+    if (role !== 'super_admin') {
+      const owner = await assignmentRepo.findOwner(documentId);
+      if (owner !== user.id) throw new ForbiddenError('No access to this assignment');
+    }
     await assignmentRepo.delete(documentId);
   } else {
     // Lecture (documents table) — has course_id, enforce course-level permission
@@ -346,21 +354,30 @@ export async function retryDocument(
   documentId: string,
   docType?: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
-  await requireAnyAdmin();
-
-  // Resolve courseId for course-level permission
-  const courseId = await resolveCourseId(documentId);
-  if (courseId) {
-    await requireCourseAdmin(courseId);
-  }
+  const { user, role } = await requireAnyAdmin();
 
   if (docType === 'exam') {
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    await getExamPaperRepository().delete(documentId);
+    const examRepo = getExamPaperRepository();
+    if (role !== 'super_admin') {
+      const owner = await examRepo.findOwner(documentId);
+      if (owner !== user.id) return { status: 'error', message: 'No access to this exam paper' };
+    }
+    await examRepo.delete(documentId);
   } else if (docType === 'assignment') {
     const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-    await getAssignmentRepository().delete(documentId);
+    const assignmentRepo = getAssignmentRepository();
+    if (role !== 'super_admin') {
+      const owner = await assignmentRepo.findOwner(documentId);
+      if (owner !== user.id) return { status: 'error', message: 'No access to this assignment' };
+    }
+    await assignmentRepo.delete(documentId);
   } else {
+    // Lecture — has course_id, enforce course-level permission
+    const courseId = await resolveCourseId(documentId);
+    if (courseId) {
+      await requireCourseAdmin(courseId);
+    }
     const documentService = getDocumentService();
     const doc = await documentService.findById(documentId);
     if (!doc) return { status: 'error', message: 'Document not found' };
@@ -401,13 +418,13 @@ export async function updateDocumentMeta(
   if (!doc) return { status: 'error', message: 'Document not found' };
 
   const metadataUpdates: { name?: string; metadata?: Json; docType?: string } = {};
-  if (validatedUpdates.name) metadataUpdates.name = validatedUpdates.name;
-  if (validatedUpdates.school || validatedUpdates.course) {
+  if (validatedUpdates.name !== undefined) metadataUpdates.name = validatedUpdates.name;
+  if (validatedUpdates.school !== undefined || validatedUpdates.course !== undefined) {
     const existingMeta = (doc.metadata as Record<string, unknown>) ?? {};
     metadataUpdates.metadata = {
       ...existingMeta,
-      ...(validatedUpdates.school && { school: validatedUpdates.school }),
-      ...(validatedUpdates.course && { course: validatedUpdates.course }),
+      ...(validatedUpdates.school !== undefined && { school: validatedUpdates.school }),
+      ...(validatedUpdates.course !== undefined && { course: validatedUpdates.course }),
     } as Json;
   }
 

@@ -166,8 +166,14 @@ export class ProfileRepository implements IProfileRepository {
       .limit(50);
 
     if (search && search.trim()) {
-      const term = `%${search.trim()}%`;
-      query = query.or(`full_name.ilike.${term},email.ilike.${term}`);
+      // Escape PostgREST filter syntax characters and SQL wildcards
+      const sanitized = search
+        .trim()
+        .replace(/[%_]/g, '\\$&') // escape SQL wildcards
+        .replace(/[(),."]/g, ''); // strip PostgREST filter delimiters
+      if (sanitized) {
+        query = query.or(`full_name.ilike.%${sanitized}%,email.ilike.%${sanitized}%`);
+      }
     }
 
     const { data, error } = await query;
@@ -176,7 +182,7 @@ export class ProfileRepository implements IProfileRepository {
     return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
-  async updateRole(userId: string, role: string): Promise<void> {
+  async updateRole(userId: string, role: UserRole): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase
       .from('profiles')

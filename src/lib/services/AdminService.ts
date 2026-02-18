@@ -22,6 +22,11 @@ export class AdminService {
   }
 
   async promoteToAdmin(userId: string): Promise<void> {
+    const profile = await this.profileRepo.findById(userId);
+    if (!profile) throw new ForbiddenError('User not found');
+    if (profile.role !== 'user') {
+      throw new ForbiddenError(`Cannot promote: user already has role '${profile.role}'`);
+    }
     await this.profileRepo.updateRole(userId, 'admin');
   }
 
@@ -31,11 +36,20 @@ export class AdminService {
     if (adminId === requesterId) {
       throw new ForbiddenError('Cannot demote yourself');
     }
+    const profile = await this.profileRepo.findById(adminId);
+    if (!profile) throw new ForbiddenError('User not found');
+    if (profile.role !== 'admin') {
+      throw new ForbiddenError(`Cannot demote: user has role '${profile.role}', expected 'admin'`);
+    }
     await this.adminRepo.removeAllCourses(adminId);
     await this.profileRepo.updateRole(adminId, 'user');
   }
 
   async assignCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
+    const profile = await this.profileRepo.findById(adminId);
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      throw new ForbiddenError('Target user is not an admin');
+    }
     for (const courseId of courseIds) {
       await this.adminRepo.assignCourse(adminId, courseId, assignedBy);
     }
@@ -48,6 +62,10 @@ export class AdminService {
   }
 
   async setCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
+    const profile = await this.profileRepo.findById(adminId);
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      throw new ForbiddenError('Target user is not an admin');
+    }
     const currentIds = await this.adminRepo.getAssignedCourseIds(adminId);
     const toAdd = courseIds.filter((id) => !currentIds.includes(id));
     const toRemove = currentIds.filter((id) => !courseIds.includes(id));
@@ -69,7 +87,11 @@ export class AdminService {
   }
 
   async listAdmins(): Promise<ProfileEntity[]> {
-    return this.profileRepo.findByRole('admin');
+    const [admins, superAdmins] = await Promise.all([
+      this.profileRepo.findByRole('admin'),
+      this.profileRepo.findByRole('super_admin'),
+    ]);
+    return [...superAdmins, ...admins];
   }
 
   async searchUsers(search?: string): Promise<ProfileEntity[]> {
