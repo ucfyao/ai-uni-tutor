@@ -4,6 +4,8 @@ import { fetchCourses, fetchUniversities } from '@/app/actions/courses';
 import { queryKeys } from '@/lib/query-keys';
 import { StudyPageClient } from './StudyPageClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function StudyPage() {
   const queryClient = new QueryClient();
 
