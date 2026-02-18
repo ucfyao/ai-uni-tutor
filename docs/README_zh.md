@@ -117,8 +117,8 @@ cp .env.example .env.local
 | 变量名 | 必填 | 描述 |
 |:---|:---:|:---|
 | `GEMINI_API_KEY` | **是** | 您的 Google Gemini API Key |
-| `NEXT_PUBLIC_SUPABASE_URL` | **是** | Supabase 项目 URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **是** | Supabase Anon (Public) Key |
+| `SUPABASE_URL` | **是** | Supabase 项目 URL |
+| `SUPABASE_ANON_KEY` | **是** | Supabase Anon Key（仅服务端） |
 | `SUPABASE_SERVICE_ROLE_KEY` | **是** | Supabase Service Role Key (用于索引) |
 
 </details>

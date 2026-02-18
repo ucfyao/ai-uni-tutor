@@ -1,18 +1,8 @@
 'use client';
 
-import type { AuthChangeEvent } from '@supabase/supabase-js';
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { ProfileData } from '@/app/actions/user';
 import { getProfile, updateProfileFields } from '@/app/actions/user';
-import { createClient } from '@/lib/supabase/client';
 
 type Profile = {
   full_name?: string;
@@ -43,7 +33,6 @@ export function ProfileProvider({
     initialProfile ? profileDataToContext(initialProfile) : null,
   );
   const [loading, setLoading] = useState(initialProfile == null);
-  const supabase = useMemo(() => createClient(), []);
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
   const fetchProfile = useCallback((): Promise<void> => {
@@ -68,29 +57,6 @@ export function ProfileProvider({
 
     return fetchInFlightRef.current;
   }, []);
-
-  useEffect(() => {
-    // fetchProfile(); // Initial fetch (Removed)
-  }, [fetchProfile]);
-
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
-      if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        fetchProfile();
-      }
-    });
-    return () => subscription.unsubscribe();
-    // supabase is referentially stable (useMemo), so omitted from deps to avoid redundant effect runs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchProfile]);
 
   const updateProfile = useCallback(
     async (updates: Partial<Profile>) => {

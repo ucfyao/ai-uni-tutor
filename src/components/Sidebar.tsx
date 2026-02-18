@@ -40,11 +40,11 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
+import { signOut } from '@/app/actions/auth';
 import { Logo } from '@/components/Logo';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
-import { createClient } from '@/lib/supabase/client';
 import { ChatSession, TutoringMode } from '../types/index';
 
 // ============================================================================
@@ -125,7 +125,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
   const isSuperAdmin = profile?.role === 'super_admin';
   const { t } = useLanguage();
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   // Auto-expand the module that contains the active session
@@ -161,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [sessions]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     router.refresh();
   };
 

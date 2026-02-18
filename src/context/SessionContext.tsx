@@ -1,12 +1,10 @@
 'use client';
 
-import type { AuthChangeEvent } from '@supabase/supabase-js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
 import { createChatSession, deleteChatSession, getChatSessions } from '@/app/actions/chat';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
-import { createClient } from '@/lib/supabase/client';
 import { ChatSession, TutoringMode } from '@/types/index';
 
 interface SessionContextType {
@@ -35,7 +33,6 @@ export function SessionProvider({
   initialSessions?: ChatSession[];
 }) {
   const queryClient = useQueryClient();
-  const supabase = useMemo(() => createClient(), []);
 
   // useQuery replaces manual fetch + dedup logic
   const { data: sessions = initialSessions, isLoading } = useQuery({
@@ -43,24 +40,6 @@ export function SessionProvider({
     queryFn: getChatSessions,
     initialData: initialSessions,
   });
-
-  // Refetch sessions on auth state changes
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-      } else if (event === 'SIGNED_OUT') {
-        queryClient.setQueryData(queryKeys.sessions.all, []);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase & queryClient are stable
-  }, []);
 
   // Create session mutation with optimistic update
   const createMutation = useMutation({

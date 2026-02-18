@@ -108,8 +108,8 @@ cp .env.example .env.local
 | Variable                        | Required | Description                              |
 | :------------------------------ | :------: | :--------------------------------------- |
 | `GEMINI_API_KEY`                | **Yes**  | Your Google Gemini API Key               |
-| `NEXT_PUBLIC_SUPABASE_URL`      | **Yes**  | Supabase Project URL                     |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Yes**  | Supabase Anon (Public) Key               |
+| `SUPABASE_URL`                  | **Yes**  | Supabase Project URL                     |
+| `SUPABASE_ANON_KEY`             | **Yes**  | Supabase Anon Key (server-only)          |
 | `SUPABASE_SERVICE_ROLE_KEY`     | **Yes**  | Supabase Service Role Key (for indexing) |
 
 </details>

@@ -11,8 +11,8 @@ export const createClient = cache(async (): Promise<SupabaseClient<Database>> =>
   const env = getEnv();
 
   return createServerClient<Database>(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    env.SUPABASE_URL,
+    env.SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {

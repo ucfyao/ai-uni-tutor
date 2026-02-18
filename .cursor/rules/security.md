@@ -200,9 +200,9 @@ if (!process.env.GEMINI_API_KEY) {
 STRIPE_SECRET_KEY = xxx;
 STRIPE_WEBHOOK_SECRET = xxx;
 
-// Client-safe - with prefix
-NEXT_PUBLIC_SUPABASE_URL = xxx;
-NEXT_PUBLIC_SUPABASE_ANON_KEY = xxx;
+// Server-only Supabase keys (no NEXT_PUBLIC_ prefix)
+SUPABASE_URL = xxx;
+SUPABASE_ANON_KEY = xxx;
 ```
 
 ## Row Level Security (RLS)
