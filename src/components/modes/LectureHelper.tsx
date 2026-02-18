@@ -457,7 +457,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           />
 
           <Box
-            px={0}
             className="chat-input-fade chat-scroll-content-offset"
             style={{
               flexShrink: 0,
