@@ -425,9 +425,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   return (
     <Stack
       gap={0}
-      h="100dvh"
+      h="100%"
       w="100%"
-      style={{ minHeight: 0, overflow: 'hidden', maxHeight: '100%' }}
+      style={{ minHeight: 0, overflow: 'hidden' }}
     >
       <Box flex={1} pos="relative" style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}>
         {/* Chat area – full width so ScrollArea scrollbar sits at far-right edge */}
