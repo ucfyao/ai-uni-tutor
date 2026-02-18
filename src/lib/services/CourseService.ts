@@ -21,10 +21,6 @@ export class CourseService {
     return this.uniRepo.findAll();
   }
 
-  async getUniversityById(id: string): Promise<UniversityEntity | null> {
-    return this.uniRepo.findById(id);
-  }
-
   async createUniversity(dto: CreateUniversityDTO): Promise<UniversityEntity> {
     return this.uniRepo.create(dto);
   }

@@ -166,17 +166,6 @@ export class DocumentRepository implements IDocumentRepository {
     return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
-  async findAll(): Promise<DocumentEntity[]> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw new DatabaseError(`Failed to fetch all documents: ${error.message}`, error);
-    return (data ?? []).map((row) => this.mapToEntity(row));
-  }
-
   async deleteById(id: string): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('documents').delete().eq('id', id);

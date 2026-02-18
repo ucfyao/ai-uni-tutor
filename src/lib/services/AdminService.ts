@@ -4,7 +4,6 @@
  * Business logic for admin role management and course permission assignment.
  */
 
-import type { CourseEntity } from '@/lib/domain/models/Course';
 import type { ProfileEntity } from '@/lib/domain/models/Profile';
 import { ForbiddenError } from '@/lib/errors';
 import { getProfileRepository } from '@/lib/repositories';
@@ -45,34 +44,6 @@ export class AdminService {
     await this.profileRepo.updateRole(adminId, 'user');
   }
 
-  async assignCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
-    const profile = await this.profileRepo.findById(adminId);
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
-      throw new ForbiddenError('Target user is not an admin');
-    }
-    for (const courseId of courseIds) {
-      await this.adminRepo.assignCourse(adminId, courseId, assignedBy);
-    }
-  }
-
-  async removeCourses(adminId: string, courseIds: string[]): Promise<void> {
-    const profile = await this.profileRepo.findById(adminId);
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
-      throw new ForbiddenError('Target user is not an admin');
-    }
-    const assignedIds = await this.adminRepo.getAssignedCourseIds(adminId);
-    const assignedSet = new Set(assignedIds);
-    const unassigned = courseIds.filter((id) => !assignedSet.has(id));
-    if (unassigned.length > 0) {
-      throw new ForbiddenError(
-        `Courses not assigned to this admin: ${unassigned.join(', ')}`,
-      );
-    }
-    for (const courseId of courseIds) {
-      await this.adminRepo.removeCourse(adminId, courseId);
-    }
-  }
-
   /** Atomically replace admin's course assignments (all-or-nothing via DB RPC). */
   async setCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
     const profile = await this.profileRepo.findById(adminId);
@@ -81,10 +52,6 @@ export class AdminService {
     }
     const uniqueIds = [...new Set(courseIds)];
     await this.adminRepo.setCourses(adminId, uniqueIds, assignedBy);
-  }
-
-  async getAssignedCourses(adminId: string): Promise<CourseEntity[]> {
-    return this.adminRepo.getAssignedCourses(adminId);
   }
 
   async getAssignedCourseIds(adminId: string): Promise<string[]> {
@@ -101,15 +68,6 @@ export class AdminService {
 
   async searchUsers(search?: string): Promise<ProfileEntity[]> {
     return this.profileRepo.searchUsers(search);
-  }
-
-  async getAdminWithCourses(
-    adminId: string,
-  ): Promise<{ profile: ProfileEntity; courses: CourseEntity[] } | null> {
-    const profile = await this.profileRepo.findById(adminId);
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) return null;
-    const courses = await this.adminRepo.getAssignedCourses(adminId);
-    return { profile, courses };
   }
 }
 

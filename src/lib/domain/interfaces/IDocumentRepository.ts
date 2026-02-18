@@ -23,6 +23,5 @@ export interface IDocumentRepository {
   ): Promise<void>;
   delete(id: string, userId: string): Promise<void>;
   verifyOwnership(id: string, userId: string): Promise<boolean>;
-  findAll(): Promise<DocumentEntity[]>;
   deleteById(id: string): Promise<void>;
 }

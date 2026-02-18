@@ -155,29 +155,6 @@ describe('MessageRepository', () => {
     });
   });
 
-  // ── deleteBySessionId ──
-
-  describe('deleteBySessionId', () => {
-    it('should delete all messages for a session', async () => {
-      mockSupabase.setResponse(null);
-
-      await repo.deleteBySessionId('session-001');
-
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('chat_messages');
-      expect(mockSupabase.client._chain.delete).toHaveBeenCalled();
-      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('session_id', 'session-001');
-    });
-
-    it('should throw DatabaseError on delete failure', async () => {
-      mockSupabase.setErrorResponse(dbError('Delete failed'));
-
-      await expect(repo.deleteBySessionId('session-001')).rejects.toThrow(DatabaseError);
-      await expect(repo.deleteBySessionId('session-001')).rejects.toThrow(
-        'Failed to delete messages',
-      );
-    });
-  });
-
   // ── Entity mapping ──
 
   describe('entity mapping', () => {

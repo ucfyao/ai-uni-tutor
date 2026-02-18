@@ -61,7 +61,6 @@ function makeMessageEntity(overrides: Partial<MessageEntity> = {}): MessageEntit
 
 function createMockSessionRepo(): Record<keyof SessionRepository, ReturnType<typeof vi.fn>> {
   return {
-    findById: vi.fn(),
     findByIdAndUserId: vi.fn(),
     findAllByUserId: vi.fn(),
     findSharedById: vi.fn(),
@@ -76,7 +75,6 @@ function createMockMessageRepo(): Record<keyof MessageRepository, ReturnType<typ
   return {
     findBySessionId: vi.fn(),
     create: vi.fn(),
-    deleteBySessionId: vi.fn(),
   };
 }
 

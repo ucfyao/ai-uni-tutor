@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CourseEntity } from '@/lib/domain/models/Course';
 import type { ProfileEntity } from '@/lib/domain/models/Profile';
 import { ForbiddenError } from '@/lib/errors';
 import type { AdminRepository } from '@/lib/repositories/AdminRepository';
@@ -66,24 +65,6 @@ const USER_PROFILE: ProfileEntity = {
   role: 'user',
   createdAt: new Date('2025-03-01'),
   updatedAt: new Date('2025-06-01'),
-};
-
-const COURSE_A: CourseEntity = {
-  id: 'course-a',
-  universityId: 'uni-1',
-  code: 'CS101',
-  name: 'Intro to CS',
-  createdAt: new Date('2025-01-01'),
-  updatedAt: new Date('2025-01-01'),
-};
-
-const COURSE_B: CourseEntity = {
-  id: 'course-b',
-  universityId: 'uni-1',
-  code: 'CS201',
-  name: 'Data Structures',
-  createdAt: new Date('2025-01-01'),
-  updatedAt: new Date('2025-01-01'),
 };
 
 // ---------- Tests ----------
@@ -192,92 +173,6 @@ describe('AdminService', () => {
     });
   });
 
-  // ==================== assignCourses ====================
-
-  describe('assignCourses', () => {
-    it('should assign each course', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.assignCourse.mockResolvedValue(undefined);
-
-      await service.assignCourses(ADMIN_ID, ['course-a', 'course-b'], SUPER_ADMIN_ID);
-
-      expect(adminRepo.assignCourse).toHaveBeenCalledTimes(2);
-      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a', SUPER_ADMIN_ID);
-      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-b', SUPER_ADMIN_ID);
-    });
-
-    it('should handle empty array', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-
-      await service.assignCourses(ADMIN_ID, [], SUPER_ADMIN_ID);
-
-      expect(adminRepo.assignCourse).not.toHaveBeenCalled();
-    });
-
-    it('should throw if target is not admin', async () => {
-      profileRepo.findById.mockResolvedValue(USER_PROFILE);
-
-      await expect(service.assignCourses(USER_ID, ['course-a'], SUPER_ADMIN_ID)).rejects.toThrow(
-        'Target user is not an admin',
-      );
-    });
-  });
-
-  // ==================== removeCourses ====================
-
-  describe('removeCourses', () => {
-    it('should remove each course when all are assigned', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a', 'course-b']);
-      adminRepo.removeCourse.mockResolvedValue(undefined);
-
-      await service.removeCourses(ADMIN_ID, ['course-a', 'course-b']);
-
-      expect(profileRepo.findById).toHaveBeenCalledWith(ADMIN_ID);
-      expect(adminRepo.getAssignedCourseIds).toHaveBeenCalledWith(ADMIN_ID);
-      expect(adminRepo.removeCourse).toHaveBeenCalledTimes(2);
-      expect(adminRepo.removeCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a');
-      expect(adminRepo.removeCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-b');
-    });
-
-    it('should throw if target is not admin', async () => {
-      profileRepo.findById.mockResolvedValue(USER_PROFILE);
-
-      await expect(service.removeCourses(USER_ID, ['course-a'])).rejects.toThrow(
-        'Target user is not an admin',
-      );
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
-    });
-
-    it('should throw if target user not found', async () => {
-      profileRepo.findById.mockResolvedValue(null);
-
-      await expect(service.removeCourses('nonexistent', ['course-a'])).rejects.toThrow(
-        'Target user is not an admin',
-      );
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
-    });
-
-    it('should throw if any course is not assigned to the admin', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
-
-      await expect(
-        service.removeCourses(ADMIN_ID, ['course-a', 'course-x']),
-      ).rejects.toThrow('Courses not assigned to this admin: course-x');
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
-    });
-
-    it('should handle empty courseIds array', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
-
-      await service.removeCourses(ADMIN_ID, []);
-
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
-    });
-  });
-
   // ==================== setCourses ====================
 
   describe('setCourses', () => {
@@ -327,19 +222,6 @@ describe('AdminService', () => {
         ['course-a', 'course-b'],
         SUPER_ADMIN_ID,
       );
-    });
-  });
-
-  // ==================== getAssignedCourses ====================
-
-  describe('getAssignedCourses', () => {
-    it('should delegate to admin repo', async () => {
-      adminRepo.getAssignedCourses.mockResolvedValue([COURSE_A, COURSE_B]);
-
-      const result = await service.getAssignedCourses(ADMIN_ID);
-
-      expect(adminRepo.getAssignedCourses).toHaveBeenCalledWith(ADMIN_ID);
-      expect(result).toEqual([COURSE_A, COURSE_B]);
     });
   });
 
@@ -399,35 +281,6 @@ describe('AdminService', () => {
       await service.searchUsers(undefined);
 
       expect(profileRepo.searchUsers).toHaveBeenCalledWith(undefined);
-    });
-  });
-
-  // ==================== getAdminWithCourses ====================
-
-  describe('getAdminWithCourses', () => {
-    it('should return profile and courses for admin', async () => {
-      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.getAssignedCourses.mockResolvedValue([COURSE_A]);
-
-      const result = await service.getAdminWithCourses(ADMIN_ID);
-
-      expect(result).toEqual({ profile: ADMIN_PROFILE, courses: [COURSE_A] });
-    });
-
-    it('should return null for non-admin user', async () => {
-      profileRepo.findById.mockResolvedValue(USER_PROFILE);
-
-      const result = await service.getAdminWithCourses(USER_ID);
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null for non-existent user', async () => {
-      profileRepo.findById.mockResolvedValue(null);
-
-      const result = await service.getAdminWithCourses('nonexistent');
-
-      expect(result).toBeNull();
     });
   });
 

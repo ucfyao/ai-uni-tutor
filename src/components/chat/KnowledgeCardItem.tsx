@@ -23,7 +23,7 @@ const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
   loading: () => <Box style={{ minHeight: 20 }} />,
 });
 
-export interface CardItemData {
+interface CardItemData {
   id: string;
   title: string;
   content: string;

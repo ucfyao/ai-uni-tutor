@@ -14,7 +14,7 @@ export const ERROR_MAP = {
   DB_ERROR: 'Database operation failed',
 } as const;
 
-export type ErrorCode = keyof typeof ERROR_MAP;
+type ErrorCode = keyof typeof ERROR_MAP;
 
 export class AppError extends Error {
   constructor(

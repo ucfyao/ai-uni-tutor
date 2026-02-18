@@ -19,7 +19,7 @@ import type { DocumentService } from './DocumentService';
 import { getDocumentService } from './DocumentService';
 import { getKnowledgeCardService } from './KnowledgeCardService';
 
-export interface ProcessingCallbacks {
+interface ProcessingCallbacks {
   onProgress?: (stage: string, message: string) => void;
   onItem?: (index: number, total: number, type: string) => void;
   signal?: AbortSignal;
@@ -160,39 +160,6 @@ export class DocumentProcessingService {
     }
 
     return { chunksCount: chunks.length };
-  }
-
-  /**
-   * Mechanical chunking pipeline (for admin uploads):
-   * parse PDF → text split → embed → save chunks.
-   */
-  async processWithChunking(params: {
-    documentId: string;
-    buffer: Buffer;
-    batchSize?: number;
-  }): Promise<{ chunksCount: number }> {
-    const { documentId, buffer, batchSize = 5 } = params;
-
-    const pdfData = await this.parsePDFBuffer(buffer);
-
-    const { chunkPages } = await import('@/lib/rag/chunking');
-    const textChunks = await chunkPages(pdfData.pages);
-
-    const contents = textChunks.map((chunk) => chunk.content);
-    const embeddings = await generateEmbeddingBatch(contents, batchSize);
-
-    const chunksData: CreateDocumentChunkDTO[] = textChunks.map((chunk, i) => ({
-      documentId,
-      content: chunk.content,
-      embedding: embeddings[i],
-      metadata: chunk.metadata,
-    }));
-
-    if (chunksData.length > 0) {
-      await this.documentService.saveChunks(chunksData);
-    }
-
-    return { chunksCount: chunksData.length };
   }
 }
 

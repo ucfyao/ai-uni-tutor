@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { QuotaExceededError } from '@/lib/errors';
 import type { ChatMessage, ChatSession, Course, TutoringMode } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -9,14 +8,6 @@ import type { ChatMessage, ChatSession, Course, TutoringMode } from '@/types';
 const mockGetCurrentUser = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
   getCurrentUser: () => mockGetCurrentUser(),
-}));
-
-const mockChatService = {
-  generateResponse: vi.fn(),
-  explainConcept: vi.fn(),
-};
-vi.mock('@/lib/services/ChatService', () => ({
-  getChatService: () => mockChatService,
 }));
 
 const mockSessionService = {
@@ -36,27 +27,11 @@ vi.mock('@/lib/services/SessionService', () => ({
   getSessionService: () => mockSessionService,
 }));
 
-const mockQuotaService = {
-  enforce: vi.fn(),
-};
-vi.mock('@/lib/services/QuotaService', () => ({
-  getQuotaService: () => mockQuotaService,
-}));
-
-const mockCourseService = {
-  getCourseById: vi.fn(),
-};
-vi.mock('@/lib/services/CourseService', () => ({
-  getCourseService: () => mockCourseService,
-}));
-
 // ---------------------------------------------------------------------------
 // Import actions (after mocks are registered)
 // ---------------------------------------------------------------------------
 
 const {
-  generateChatResponse,
-  explainConcept,
   getChatSession,
   getChatMessages,
   getChatSessions,
@@ -84,12 +59,6 @@ const COURSE: Course = {
 
 const MOCK_USER = { id: 'user-1', email: 'test@example.com' };
 
-const VALID_HISTORY: ChatMessage[] = [
-  { id: 'msg-1', role: 'user', content: 'Hello', timestamp: 1000 },
-];
-
-const VALID_MODE: TutoringMode = 'Lecture Helper';
-
 function makeSession(overrides: Partial<ChatSession> = {}): ChatSession {
   return {
     id: 'sess-1',
@@ -112,219 +81,6 @@ describe('Chat Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(MOCK_USER);
-    mockQuotaService.enforce.mockResolvedValue(undefined);
-    mockCourseService.getCourseById.mockResolvedValue(COURSE);
-  });
-
-  // =========================================================================
-  // generateChatResponse
-  // =========================================================================
-  describe('generateChatResponse', () => {
-    it('should return success with AI response for valid input', async () => {
-      mockChatService.generateResponse.mockResolvedValue('Recursion is...');
-
-      const result = await generateChatResponse(
-        COURSE_ID,
-        VALID_MODE,
-        VALID_HISTORY,
-        'Explain recursion',
-      );
-
-      expect(result).toEqual({ success: true, data: 'Recursion is...' });
-      expect(mockChatService.generateResponse).toHaveBeenCalledWith({
-        course: COURSE,
-        mode: VALID_MODE,
-        history: VALID_HISTORY,
-        userInput: 'Explain recursion',
-      });
-    });
-
-    it('should return error when mode is null', async () => {
-      const result = await generateChatResponse(COURSE_ID, null, VALID_HISTORY, 'input');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Tutoring Mode must be selected');
-      }
-      expect(mockChatService.generateResponse).not.toHaveBeenCalled();
-    });
-
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Unauthorized');
-      }
-    });
-
-    it('should return isLimitError when quota is exceeded', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
-
-      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.isLimitError).toBe(true);
-      }
-    });
-
-    it('should return validation error for empty userInput', async () => {
-      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, '');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('Validation Failed');
-      }
-    });
-
-    it('should return validation error for invalid courseId (not a UUID)', async () => {
-      const result = await generateChatResponse('bad-id', VALID_MODE, VALID_HISTORY, 'input');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('Validation Failed');
-      }
-    });
-
-    it('should return validation error for invalid mode value', async () => {
-      const result = await generateChatResponse(
-        COURSE_ID,
-        'Invalid Mode' as TutoringMode,
-        VALID_HISTORY,
-        'input',
-      );
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Tutoring Mode must be selected');
-      }
-    });
-
-    it('should mask unexpected errors from the AI service', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockChatService.generateResponse.mockRejectedValue(new Error('Gemini API timeout'));
-
-      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('unexpected error');
-        expect(result.isLimitError).toBeUndefined();
-      }
-    });
-
-    it('should check quota before calling chat service', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
-
-      await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
-
-      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
-      expect(mockChatService.generateResponse).not.toHaveBeenCalled();
-    });
-
-    it('should return error when course is not found', async () => {
-      mockCourseService.getCourseById.mockResolvedValue(null);
-
-      const result = await generateChatResponse(COURSE_ID, VALID_MODE, VALID_HISTORY, 'input');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('Invalid Course Context');
-      }
-    });
-  });
-
-  // =========================================================================
-  // explainConcept
-  // =========================================================================
-  describe('explainConcept', () => {
-    it('should return success with explanation', async () => {
-      mockChatService.explainConcept.mockResolvedValue('A stack is...');
-
-      const result = await explainConcept('Stack', 'Data structures lecture');
-
-      expect(result).toEqual({ success: true, data: 'A stack is...' });
-      expect(mockChatService.explainConcept).toHaveBeenCalledWith(
-        'Stack',
-        'Data structures lecture',
-        undefined,
-      );
-    });
-
-    it('should pass courseId when provided', async () => {
-      mockChatService.explainConcept.mockResolvedValue('Explanation');
-
-      await explainConcept('Stack', 'context', COURSE_ID);
-
-      expect(mockChatService.explainConcept).toHaveBeenCalledWith('Stack', 'context', COURSE_ID);
-    });
-
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await explainConcept('Stack', 'context');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Unauthorized');
-      }
-    });
-
-    it('should return error when quota is exceeded', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
-
-      const result = await explainConcept('Stack', 'context');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('exceeded');
-      }
-    });
-
-    it('should return validation error for empty concept', async () => {
-      const result = await explainConcept('', 'context');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('Invalid');
-      }
-    });
-
-    it('should return validation error for empty context', async () => {
-      const result = await explainConcept('Stack', '');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('Invalid');
-      }
-    });
-
-    it('should handle generic errors from chat service', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockChatService.explainConcept.mockRejectedValue(new Error('Service failure'));
-
-      const result = await explainConcept('Stack', 'context');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Service failure');
-      }
-    });
-
-    it('should return generic message for non-Error thrown objects', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockChatService.explainConcept.mockRejectedValue('string error');
-
-      const result = await explainConcept('Stack', 'context');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Failed to explain concept');
-      }
-    });
   });
 
   // =========================================================================

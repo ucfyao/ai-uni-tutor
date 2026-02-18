@@ -48,45 +48,6 @@ describe('SessionRepository', () => {
     vi.restoreAllMocks();
   });
 
-  // ── findById ──
-
-  describe('findById', () => {
-    it('should return a session entity when found', async () => {
-      mockSupabase.setSingleResponse(sessionRow);
-
-      const result = await repo.findById('session-001');
-
-      expect(result).toEqual(sessionEntity);
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('chat_sessions');
-      expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('*');
-      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'session-001');
-      expect(mockSupabase.client._chain.single).toHaveBeenCalled();
-    });
-
-    it('should return null when session is not found (PGRST116)', async () => {
-      mockSupabase.setErrorResponse(PGRST116);
-
-      const result = await repo.findById('nonexistent');
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null when data is null', async () => {
-      mockSupabase.setSingleResponse(null);
-
-      const result = await repo.findById('session-001');
-
-      expect(result).toBeNull();
-    });
-
-    it('should throw DatabaseError on other errors', async () => {
-      mockSupabase.setErrorResponse(dbError('Connection timeout'));
-
-      await expect(repo.findById('session-001')).rejects.toThrow(DatabaseError);
-      await expect(repo.findById('session-001')).rejects.toThrow('Failed to fetch session');
-    });
-  });
-
   // ── findByIdAndUserId ──
 
   describe('findByIdAndUserId', () => {
@@ -420,7 +381,7 @@ describe('SessionRepository', () => {
     it('should convert snake_case row to camelCase entity', async () => {
       mockSupabase.setSingleResponse(sessionRow);
 
-      const result = await repo.findById('session-001');
+      const result = await repo.findByIdAndUserId('session-001', 'user-free-001');
 
       expect(result).not.toBeNull();
       expect(result!.userId).toBe(sessionRow.user_id);
@@ -434,7 +395,7 @@ describe('SessionRepository', () => {
     it('should convert shareExpiresAt string to Date', async () => {
       mockSupabase.setSingleResponse(sharedSessionRow);
 
-      const result = await repo.findById('session-003');
+      const result = await repo.findByIdAndUserId('session-003', 'user-free-001');
 
       expect(result!.shareExpiresAt).toEqual(new Date('2026-12-31T23:59:59Z'));
     });

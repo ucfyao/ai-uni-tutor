@@ -90,20 +90,6 @@ export class AssignmentRepository implements IAssignmentRepository {
     return mapAssignmentRow(data as Record<string, unknown>);
   }
 
-  async findByUserId(userId: string): Promise<AssignmentEntity[]> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('assignments')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new DatabaseError(`Failed to fetch assignments: ${error.message}`, error);
-    }
-    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
-  }
-
   async findAllForAdmin(): Promise<AssignmentEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -115,20 +101,6 @@ export class AssignmentRepository implements IAssignmentRepository {
       throw new DatabaseError(`Failed to fetch assignments: ${error.message}`, error);
     }
     return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
-  }
-
-  async findOwner(id: string): Promise<string | null> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('assignments')
-      .select('user_id')
-      .eq('id', id)
-      .single();
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new DatabaseError(`Failed to fetch assignment owner: ${error.message}`, error);
-    }
-    return (data?.user_id as string) ?? null;
   }
 
   async findCourseId(id: string): Promise<string | null> {

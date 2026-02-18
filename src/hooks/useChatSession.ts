@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatMessage, ChatSession } from '@/types';
 
-export interface SessionUpdateOptions {
+interface SessionUpdateOptions {
   /** When set, parent should not persist this message yet (streaming). Use null on stream complete to persist. */
   streamingMessageId?: string | null;
 }

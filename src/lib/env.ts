@@ -23,7 +23,7 @@ const coreSchema = z.object({
   ENABLE_RATELIMIT: z.string().optional(),
 });
 
-export type Env = z.infer<typeof coreSchema>;
+type Env = z.infer<typeof coreSchema>;
 
 let _cached: Env | undefined;
 
@@ -57,7 +57,7 @@ export function isRateLimitEnabled(): boolean {
 
 // ── Rate limit & quota config (shared by redis.ts and QuotaService) ──
 
-export interface RateLimitConfig {
+interface RateLimitConfig {
   /** DDoS proxy: anonymous requests per window */
   publicRequests: number;
   publicWindow: string;
