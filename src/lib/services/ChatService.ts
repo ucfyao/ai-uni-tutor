@@ -59,12 +59,7 @@ export class ChatService {
     }
 
     // RAG Integration
-    systemInstruction = await this.addRAGContext(
-      systemInstruction,
-      processedInput,
-      course.code,
-      config.ragMatchCount,
-    );
+    systemInstruction = await this.addRAGContext(systemInstruction, processedInput, course, config);
 
     // Prepare contents for Gemini
     const contents = this.prepareContents(history, processedInput, images, document);
@@ -102,12 +97,7 @@ export class ChatService {
     }
 
     // RAG Integration
-    systemInstruction = await this.addRAGContext(
-      systemInstruction,
-      processedInput,
-      course.code,
-      config.ragMatchCount,
-    );
+    systemInstruction = await this.addRAGContext(systemInstruction, processedInput, course, config);
 
     // Prepare contents
     const contents = this.prepareContents(history, processedInput, images, document);
@@ -150,7 +140,15 @@ Guidelines:
 
     // Add RAG context if course code provided
     if (courseCode) {
-      systemInstruction = await this.addRAGContext(systemInstruction, concept, courseCode, 3);
+      systemInstruction = await this.addRAGContext(
+        systemInstruction,
+        concept,
+        { code: courseCode },
+        {
+          ragMatchCount: 3,
+          assignmentRag: false,
+        } as ModeConfig,
+      );
     }
 
     const response = await ai.models.generateContent({
@@ -247,15 +245,27 @@ Guidelines:
   private async addRAGContext(
     systemInstruction: string,
     query: string,
-    courseCode: string,
-    matchCount: number,
+    course: { id?: string; code: string },
+    config: ModeConfig,
   ): Promise<string> {
     try {
+      // Existing lecture RAG
       const { retrieveContext } = await import('@/lib/rag/retrieval');
-      const context = await retrieveContext(query, { course: courseCode }, matchCount);
+      const context = await retrieveContext(query, { course: course.code }, config.ragMatchCount);
 
       if (context) {
-        return appendRagContext(systemInstruction, context);
+        systemInstruction = appendRagContext(systemInstruction, context);
+      }
+
+      // Assignment RAG (only for Assignment Coach mode)
+      if (config.assignmentRag && course.id) {
+        const { retrieveAssignmentContext } = await import('@/lib/rag/retrieval');
+        const { appendAssignmentContext } = await import('@/lib/prompts');
+        const items = await retrieveAssignmentContext(query, course.id, config.ragMatchCount);
+
+        if (items.length > 0) {
+          systemInstruction = appendAssignmentContext(systemInstruction, items);
+        }
       }
     } catch (e) {
       console.error('RAG Retrieval Failed:', e);
