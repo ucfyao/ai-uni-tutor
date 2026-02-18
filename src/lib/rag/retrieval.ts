@@ -1,3 +1,4 @@
+import type { MatchedAssignmentItem } from '@/lib/repositories/AssignmentRepository';
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 import { RAG_CONFIG } from './config';
@@ -41,4 +42,16 @@ export async function retrieveContext(
       return `${chunk.content}${sourceInfo}`;
     })
     .join('\n\n---\n\n');
+}
+
+export async function retrieveAssignmentContext(
+  query: string,
+  courseId: string,
+  matchCount: number = 3,
+): Promise<MatchedAssignmentItem[]> {
+  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+
+  const embedding = await generateEmbedding(query);
+  const repo = getAssignmentRepository();
+  return repo.searchItemsByEmbedding(embedding, matchCount, courseId);
 }
