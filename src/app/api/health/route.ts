@@ -17,5 +17,13 @@ export async function GET() {
 
   const status = supabaseOk ? 'healthy' : 'degraded';
 
-  return Response.json({ status }, { status: supabaseOk ? 200 : 503 });
+  return Response.json(
+    { status },
+    {
+      status: supabaseOk ? 200 : 503,
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    },
+  );
 }

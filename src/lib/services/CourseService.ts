@@ -1,3 +1,4 @@
+import { CACHE_KEYS, CACHE_TTL, cachedGet, invalidateCache } from '@/lib/cache';
 import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/lib/domain/models/Course';
 import type {
   CreateUniversityDTO,
@@ -18,23 +19,30 @@ export class CourseService {
   }
 
   async getAllUniversities(): Promise<UniversityEntity[]> {
-    return this.uniRepo.findAll();
+    return cachedGet(CACHE_KEYS.universitiesList, CACHE_TTL.universities, () =>
+      this.uniRepo.findAll(),
+    );
   }
 
   async createUniversity(dto: CreateUniversityDTO): Promise<UniversityEntity> {
-    return this.uniRepo.create(dto);
+    const result = await this.uniRepo.create(dto);
+    await invalidateCache(CACHE_KEYS.universitiesList);
+    return result;
   }
 
   async updateUniversity(id: string, dto: UpdateUniversityDTO): Promise<UniversityEntity> {
-    return this.uniRepo.update(id, dto);
+    const result = await this.uniRepo.update(id, dto);
+    await invalidateCache(CACHE_KEYS.universitiesList);
+    return result;
   }
 
   async deleteUniversity(id: string): Promise<void> {
-    return this.uniRepo.delete(id);
+    await this.uniRepo.delete(id);
+    await invalidateCache(CACHE_KEYS.universitiesList);
   }
 
   async getAllCourses(): Promise<CourseEntity[]> {
-    return this.courseRepo.findAll();
+    return cachedGet(CACHE_KEYS.coursesList, CACHE_TTL.courses, () => this.courseRepo.findAll());
   }
 
   async getCoursesByUniversity(universityId: string): Promise<CourseEntity[]> {
@@ -46,15 +54,20 @@ export class CourseService {
   }
 
   async createCourse(dto: CreateCourseDTO): Promise<CourseEntity> {
-    return this.courseRepo.create(dto);
+    const result = await this.courseRepo.create(dto);
+    await invalidateCache(CACHE_KEYS.coursesList);
+    return result;
   }
 
   async updateCourse(id: string, dto: UpdateCourseDTO): Promise<CourseEntity> {
-    return this.courseRepo.update(id, dto);
+    const result = await this.courseRepo.update(id, dto);
+    await invalidateCache(CACHE_KEYS.coursesList);
+    return result;
   }
 
   async deleteCourse(id: string): Promise<void> {
-    return this.courseRepo.delete(id);
+    await this.courseRepo.delete(id);
+    await invalidateCache(CACHE_KEYS.coursesList);
   }
 }
 

@@ -69,13 +69,15 @@ export class SessionRepository implements ISessionRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('chat_sessions')
-      .select('*')
+      .select('id, user_id, course_id, mode, title, is_pinned, is_shared, created_at, updated_at')
       .eq('user_id', userId)
       .order('is_pinned', { ascending: false })
       .order('updated_at', { ascending: false });
 
     if (error) throw new DatabaseError(`Failed to fetch sessions: ${error.message}`, error);
-    return (data ?? []).map((row) => this.mapToEntity(row as SessionRow));
+    return (data ?? []).map((row) =>
+      this.mapToEntity({ ...row, share_expires_at: null } as SessionRow),
+    );
   }
 
   async findSharedById(id: string): Promise<SessionEntity | null> {

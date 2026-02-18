@@ -49,11 +49,7 @@ async function requireLectureAccess(
 
 /** Enforce course-level or ownership permission for an exam paper.
  *  Admin users must go through course assignment — no owner fallback. */
-async function requireExamAccess(
-  paperId: string,
-  _userId: string,
-  role: string,
-): Promise<void> {
+async function requireExamAccess(paperId: string, _userId: string, role: string): Promise<void> {
   if (role === 'super_admin') return;
   const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
   const examRepo = getExamPaperRepository();
@@ -98,7 +94,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
       const { getAdminService } = await import('@/lib/services/AdminService');
       courseIds = await getAdminService().getAssignedCourseIds(user.id);
     }
-    const entities = await service.getDocumentsForAdmin('lecture', courseIds);
+    const { data: entities } = await service.getDocumentsForAdmin('lecture', courseIds);
     return entities.map((doc) => ({
       id: doc.id,
       name: doc.name,
@@ -119,11 +115,13 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
     // super_admin sees all; admin sees only papers in assigned courses
     let papers;
     if (role === 'super_admin') {
-      papers = await examRepo.findAllForAdmin();
+      const result = await examRepo.findAllForAdmin();
+      papers = result.data;
     } else {
       const { getAdminService } = await import('@/lib/services/AdminService');
       const courseIds = await getAdminService().getAssignedCourseIds(user.id);
-      papers = await examRepo.findByCourseIds(courseIds);
+      const result = await examRepo.findByCourseIds(courseIds);
+      papers = result.data;
     }
     return papers.map((paper) => ({
       id: paper.id,

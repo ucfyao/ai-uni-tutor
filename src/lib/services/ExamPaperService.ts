@@ -7,6 +7,7 @@
  */
 
 import { parseAIResponse } from '@/lib/ai-utils';
+import type { PaginatedResult } from '@/lib/domain/models/Pagination';
 import { AppError, ForbiddenError } from '@/lib/errors';
 import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { parsePDF } from '@/lib/pdf';
@@ -161,7 +162,7 @@ export class ExamPaperService {
   /**
    * Get exam papers with optional filters. RLS handles visibility.
    */
-  async getPapers(filters?: PaperFilters): Promise<ExamPaper[]> {
+  async getPapers(filters?: PaperFilters): Promise<PaginatedResult<ExamPaper>> {
     return this.repo.findWithFilters(filters);
   }
 

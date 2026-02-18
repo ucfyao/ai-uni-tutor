@@ -216,7 +216,7 @@ describe('Exam Paper Actions', () => {
   describe('getExamPaperList', () => {
     it('should return papers for authenticated user', async () => {
       const papers = [makeExamPaper({ id: 'paper-1' }), makeExamPaper({ id: 'paper-2' })];
-      mockExamPaperService.getPapers.mockResolvedValue(papers);
+      mockExamPaperService.getPapers.mockResolvedValue({ data: papers, total: 2 });
 
       const result = await getExamPaperList();
 
@@ -225,7 +225,7 @@ describe('Exam Paper Actions', () => {
     });
 
     it('should pass filters to service', async () => {
-      mockExamPaperService.getPapers.mockResolvedValue([]);
+      mockExamPaperService.getPapers.mockResolvedValue({ data: [], total: 0 });
 
       const filters = { school: 'MIT', course: 'CS101' };
       await getExamPaperList(filters);

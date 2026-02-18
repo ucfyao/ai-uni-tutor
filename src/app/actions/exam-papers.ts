@@ -73,7 +73,8 @@ export async function getExamPaperList(filters?: PaperFilters): Promise<ExamPape
   if (!user) return [];
 
   const service = getExamPaperService();
-  return service.getPapers(filters);
+  const { data } = await service.getPapers(filters);
+  return data;
 }
 
 export async function deleteExamPaper(paperId: string) {

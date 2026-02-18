@@ -174,10 +174,13 @@ describe('ExamPaperRepository', () => {
 
       const result = await repo.findWithFilters();
 
-      expect(result).toHaveLength(1);
-      expect(result[0].questionCount).toBe(10);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].questionCount).toBe(10);
+      expect(result.total).toBe(0); // mock doesn't provide count
       expect(mockSupabase.client.from).toHaveBeenCalledWith('exam_papers');
-      expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('*, exam_questions(count)');
+      expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('*, exam_questions(count)', {
+        count: 'exact',
+      });
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('status', 'ready');
       expect(mockSupabase.client._chain.order).toHaveBeenCalledWith('created_at', {
         ascending: false,
@@ -222,20 +225,21 @@ describe('ExamPaperRepository', () => {
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('year', '2025');
     });
 
-    it('should return empty array when no papers match', async () => {
+    it('should return empty data when no papers match', async () => {
       mockSupabase.setQueryResponse([]);
 
       const result = await repo.findWithFilters({ school: 'Unknown' });
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
 
-    it('should return empty array when data is null', async () => {
+    it('should return empty data when data is null', async () => {
       mockSupabase.setResponse(null);
 
       const result = await repo.findWithFilters();
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it('should default questionCount to 0 when exam_questions is missing', async () => {
@@ -243,7 +247,7 @@ describe('ExamPaperRepository', () => {
 
       const result = await repo.findWithFilters();
 
-      expect(result[0].questionCount).toBe(0);
+      expect(result.data[0].questionCount).toBe(0);
     });
 
     it('should throw DatabaseError on fetch failure', async () => {

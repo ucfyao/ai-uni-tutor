@@ -14,7 +14,7 @@ export function useCourseData(universityId?: string | null) {
       if (!result.success) throw new Error(result.error);
       return result.data;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes — university/course data rarely changes
   });
 
   const { data: allCourses = [], isLoading: isLoadingCourses } = useQuery<CourseListItem[]>({
@@ -24,7 +24,7 @@ export function useCourseData(universityId?: string | null) {
       if (!result.success) throw new Error(result.error);
       return result.data;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes — university/course data rarely changes
   });
 
   const courses = useMemo(() => {

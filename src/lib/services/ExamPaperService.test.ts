@@ -378,21 +378,21 @@ describe('ExamPaperService', () => {
 
   describe('getPapers', () => {
     it('should delegate to repo.findWithFilters', async () => {
-      repo.findWithFilters.mockResolvedValue([PAPER]);
+      repo.findWithFilters.mockResolvedValue({ data: [PAPER], total: 1 });
 
       const result = await service.getPapers({ school: 'MIT' });
 
       expect(repo.findWithFilters).toHaveBeenCalledWith({ school: 'MIT' });
-      expect(result).toEqual([PAPER]);
+      expect(result).toEqual({ data: [PAPER], total: 1 });
     });
 
     it('should pass undefined filters', async () => {
-      repo.findWithFilters.mockResolvedValue([]);
+      repo.findWithFilters.mockResolvedValue({ data: [], total: 0 });
 
       const result = await service.getPapers();
 
       expect(repo.findWithFilters).toHaveBeenCalledWith(undefined);
-      expect(result).toEqual([]);
+      expect(result).toEqual({ data: [], total: 0 });
     });
   });
 
