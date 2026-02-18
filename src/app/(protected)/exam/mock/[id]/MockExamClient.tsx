@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconCheck,
-  IconSend,
-  IconTargetArrow,
-  IconTrophy,
-  IconX,
-} from '@tabler/icons-react';
+import { ArrowLeft, ArrowRight, Check, Send, Target, Trophy, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import {
@@ -299,7 +291,7 @@ export function MockExamClient({ initialMock }: Props) {
 
         {isCompleted && mock.score !== null && (
           <Group gap="xs">
-            <IconTrophy size={18} color="gold" />
+            <Trophy size={18} color="gold" />
             <Text fw={700}>
               {mock.score}/{mock.totalPoints}
             </Text>
@@ -363,7 +355,7 @@ export function MockExamClient({ initialMock }: Props) {
                           color={statusColor}
                         >
                           {status === 'submitted' || status === 'correct' ? (
-                            <IconCheck size={12} />
+                            <Check size={12} />
                           ) : (
                             i + 1
                           )}
@@ -416,7 +408,7 @@ export function MockExamClient({ initialMock }: Props) {
                       }}
                     >
                       <Stack align="center" gap="md">
-                        <IconTrophy size={48} color="gold" />
+                        <Trophy size={48} color="gold" />
                         <Title order={2}>Exam Completed!</Title>
 
                         <RingProgress
@@ -438,7 +430,7 @@ export function MockExamClient({ initialMock }: Props) {
                         <SimpleGrid cols={3} spacing="sm" w="100%">
                           <Paper withBorder radius="md" p="sm" ta="center">
                             <Group gap={4} justify="center" mb={4}>
-                              <IconTargetArrow size={14} color="var(--mantine-color-dimmed)" />
+                              <Target size={14} color="var(--mantine-color-dimmed)" />
                               <Text fz="xs" c="dimmed">
                                 Total
                               </Text>
@@ -447,7 +439,7 @@ export function MockExamClient({ initialMock }: Props) {
                           </Paper>
                           <Paper withBorder radius="md" p="sm" ta="center">
                             <Group gap={4} justify="center" mb={4}>
-                              <IconCheck size={14} color="var(--mantine-color-green-6)" />
+                              <Check size={14} color="var(--mantine-color-green-6)" />
                               <Text fz="xs" c="dimmed">
                                 Correct
                               </Text>
@@ -458,7 +450,7 @@ export function MockExamClient({ initialMock }: Props) {
                           </Paper>
                           <Paper withBorder radius="md" p="sm" ta="center">
                             <Group gap={4} justify="center" mb={4}>
-                              <IconX size={14} color="var(--mantine-color-red-6)" />
+                              <X size={14} color="var(--mantine-color-red-6)" />
                               <Text fz="xs" c="dimmed">
                                 Incorrect
                               </Text>
@@ -508,7 +500,7 @@ export function MockExamClient({ initialMock }: Props) {
               <Group justify="space-between">
                 <Button
                   variant="subtle"
-                  leftSection={<IconArrowLeft size={16} />}
+                  leftSection={<ArrowLeft size={16} />}
                   disabled={currentQuestionIndex <= 0}
                   onClick={() => goToQuestion(currentQuestionIndex - 1)}
                 >
@@ -520,7 +512,7 @@ export function MockExamClient({ initialMock }: Props) {
                   !practiceFeedback &&
                   !isPracticeAnswered && (
                     <Button
-                      leftSection={<IconCheck size={16} />}
+                      leftSection={<Check size={16} />}
                       loading={isPending}
                       disabled={!practiceUserAnswer.trim()}
                       onClick={handlePracticeSubmit}
@@ -532,17 +524,14 @@ export function MockExamClient({ initialMock }: Props) {
                 {!isCompleted &&
                   mode === 'practice' &&
                   (practiceFeedback || isPracticeAnswered) && (
-                    <Button
-                      rightSection={<IconArrowRight size={16} />}
-                      onClick={handlePracticeNext}
-                    >
+                    <Button rightSection={<ArrowRight size={16} />} onClick={handlePracticeNext}>
                       {currentQuestionIndex >= totalQuestions - 1 ? 'Finish Exam' : 'Next Question'}
                     </Button>
                   )}
 
                 {!isCompleted && mode === 'exam' && (
                   <Button
-                    leftSection={<IconSend size={16} />}
+                    leftSection={<Send size={16} />}
                     loading={isPending}
                     disabled={answeredCount === 0}
                     onClick={handleBatchSubmit}
@@ -560,7 +549,7 @@ export function MockExamClient({ initialMock }: Props) {
 
                 <Button
                   variant="subtle"
-                  rightSection={<IconArrowRight size={16} />}
+                  rightSection={<ArrowRight size={16} />}
                   disabled={currentQuestionIndex >= totalQuestions - 1}
                   onClick={() => goToQuestion(currentQuestionIndex + 1)}
                 >

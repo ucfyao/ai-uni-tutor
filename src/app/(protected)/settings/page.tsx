@@ -1,7 +1,6 @@
 'use client';
 
-import { IconCheck } from '@tabler/icons-react';
-import { BarChart3, CreditCard, Crown, Settings2, ShieldCheck } from 'lucide-react';
+import { BarChart3, Check, CreditCard, Crown, Settings2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -149,7 +148,7 @@ export default function SettingsPage() {
                   showNotification({
                     message: t.toast.preferencesSaved,
                     color: 'green',
-                    icon: <IconCheck size={16} />,
+                    icon: <Check size={16} />,
                     autoClose: 3000,
                   });
                 }}
@@ -174,7 +173,7 @@ export default function SettingsPage() {
                     showNotification({
                       message: t.toast.preferencesSaved,
                       color: 'green',
-                      icon: <IconCheck size={16} />,
+                      icon: <Check size={16} />,
                       autoClose: 3000,
                     });
                   }

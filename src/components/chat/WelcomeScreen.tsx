@@ -1,5 +1,4 @@
-import { IconMessageCircle } from '@tabler/icons-react';
-import { Sparkles } from 'lucide-react';
+import { MessageCircle, Sparkles } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -120,7 +119,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                       color="gray"
                       radius="xl"
                       size="sm"
-                      leftSection={<IconMessageCircle size={14} />}
+                      leftSection={<MessageCircle size={14} />}
                       onClick={() => onPromptSelect(prompt)}
                       styles={{
                         root: {

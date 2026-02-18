@@ -1,6 +1,6 @@
 'use client';
 
-import { IconCircleCheck } from '@tabler/icons-react';
+import { CircleCheck } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Badge, Box, Card, Group, Paper, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -81,9 +81,7 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
                     <Text size="sm" style={{ flex: 1 }}>
                       {text}
                     </Text>
-                    {isSelected && (
-                      <IconCircleCheck size={20} color="var(--mantine-color-violet-5)" />
-                    )}
+                    {isSelected && <CircleCheck size={20} color="var(--mantine-color-violet-5)" />}
                   </Group>
                 </Paper>
               );

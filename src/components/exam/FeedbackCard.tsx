@@ -1,6 +1,6 @@
 'use client';
 
-import { IconCircleCheck, IconCircleX } from '@tabler/icons-react';
+import { CircleCheck, CircleX } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Box, Card, Group, Paper, Stack, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -36,9 +36,9 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
       <Stack gap="sm">
         <Group gap={8}>
           {feedback.isCorrect ? (
-            <IconCircleCheck size={24} color="var(--mantine-color-green-6)" />
+            <CircleCheck size={24} color="var(--mantine-color-green-6)" />
           ) : (
-            <IconCircleX size={24} color="var(--mantine-color-red-6)" />
+            <CircleX size={24} color="var(--mantine-color-red-6)" />
           )}
           <Text fw={600} c={feedback.isCorrect ? 'green' : 'red'}>
             {feedback.isCorrect ? t.exam.correct : t.exam.incorrect} ({feedback.score}{' '}

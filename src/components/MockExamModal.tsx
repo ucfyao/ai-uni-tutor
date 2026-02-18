@@ -1,7 +1,6 @@
 'use client';
 
-import { IconArrowsShuffle, IconFileText, IconSparkles } from '@tabler/icons-react';
-import { X } from 'lucide-react';
+import { FileText, Shuffle, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import {
@@ -175,7 +174,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       value: 'real',
       label: (
         <Group gap={6} wrap="nowrap" justify="center">
-          <IconFileText size={14} />
+          <FileText size={14} />
           <span>{t.exam.realExam}</span>
         </Group>
       ),
@@ -184,7 +183,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       value: 'random',
       label: (
         <Group gap={6} wrap="nowrap" justify="center">
-          <IconArrowsShuffle size={14} />
+          <Shuffle size={14} />
           <span>{t.exam.randomMix}</span>
         </Group>
       ),
@@ -193,7 +192,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       value: 'ai',
       label: (
         <Group gap={6} wrap="nowrap" justify="center">
-          <IconSparkles size={14} />
+          <Sparkles size={14} />
           <span>{t.exam.aiMock}</span>
         </Group>
       ),

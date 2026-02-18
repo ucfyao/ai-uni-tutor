@@ -1,4 +1,3 @@
-import { IconCheck } from '@tabler/icons-react';
 import { Check, Copy, Quote, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -90,7 +89,7 @@ const MessageActionBar: React.FC<{
         showNotification({
           message: t.toast.copiedToClipboard,
           color: 'green',
-          icon: <IconCheck size={16} />,
+          icon: <Check size={16} />,
           autoClose: 3000,
         });
       })

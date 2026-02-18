@@ -1,6 +1,6 @@
 'use client';
 
-import { IconFileText, IconUpload, IconX } from '@tabler/icons-react';
+import { FileText, Upload, X } from 'lucide-react';
 import { useActionState, useRef, useState } from 'react';
 import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core';
 import { Dropzone, MIME_TYPES } from '@mantine/dropzone';
@@ -45,13 +45,13 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
           >
             <Group justify="center" gap="xl" mih={120} style={{ pointerEvents: 'none' }}>
               <Dropzone.Accept>
-                <IconUpload size={40} stroke={1.5} color="var(--mantine-color-violet-6)" />
+                <Upload size={40} strokeWidth={1.5} color="var(--mantine-color-violet-6)" />
               </Dropzone.Accept>
               <Dropzone.Reject>
-                <IconX size={40} stroke={1.5} color="var(--mantine-color-red-6)" />
+                <X size={40} strokeWidth={1.5} color="var(--mantine-color-red-6)" />
               </Dropzone.Reject>
               <Dropzone.Idle>
-                <IconFileText size={40} stroke={1.5} style={{ opacity: 0.4 }} />
+                <FileText size={40} strokeWidth={1.5} style={{ opacity: 0.4 }} />
               </Dropzone.Idle>
               <div>
                 <Text size="sm" inline>
@@ -66,7 +66,7 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
 
           {file && (
             <Group gap="xs" p="xs" className="bg-surface-subtle" style={{ borderRadius: 8 }}>
-              <IconFileText size={16} style={{ opacity: 0.6 }} />
+              <FileText size={16} style={{ opacity: 0.6 }} />
               <Text size="sm" fw={500} style={{ flex: 1 }} lineClamp={1}>
                 {file.name}
               </Text>

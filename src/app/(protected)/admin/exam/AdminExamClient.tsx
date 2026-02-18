@@ -1,6 +1,6 @@
 'use client';
 
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ActionIcon, Badge, Button, Card, Group, Stack, Table, Text, Title } from '@mantine/core';
@@ -40,7 +40,7 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
     <Stack p="xl">
       <Group justify="space-between">
         <Title order={2}>Admin: Exam Paper Management</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setUploadOpen(true)}>
+        <Button leftSection={<Plus size={16} />} onClick={() => setUploadOpen(true)}>
           Upload Paper (Public)
         </Button>
       </Group>
@@ -90,7 +90,7 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
                       onClick={() => handleDelete(paper.id, paper.title)}
                       aria-label={`Delete ${paper.title}`}
                     >
-                      <IconTrash size={16} />
+                      <Trash2 size={16} />
                     </ActionIcon>
                   </Table.Td>
                 </Table.Tr>

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  IconArrowsShuffle,
-  IconCheck,
-  IconFileText,
-  IconFilterQuestion,
-  IconSparkles,
-} from '@tabler/icons-react';
+import { Check, FileText, Filter, Shuffle, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
@@ -198,21 +192,21 @@ export function ExamEntryClient() {
                 active={source === 'real'}
                 title={t.exam.realExam}
                 description={t.exam.realExamDesc}
-                icon={<IconFileText size={18} />}
+                icon={<FileText size={18} />}
                 onClick={() => setSource('real')}
               />
               <SourceCard
                 active={source === 'random'}
                 title={t.exam.randomMix}
                 description={t.exam.randomMixDesc}
-                icon={<IconArrowsShuffle size={18} />}
+                icon={<Shuffle size={18} />}
                 onClick={() => setSource('random')}
               />
               <SourceCard
                 active={source === 'ai'}
                 title={t.exam.aiMock}
                 description={t.exam.aiMockDesc}
-                icon={<IconSparkles size={18} />}
+                icon={<Sparkles size={18} />}
                 onClick={() => setSource('ai')}
               />
             </Group>
@@ -223,7 +217,7 @@ export function ExamEntryClient() {
             <Paper p="lg" radius="md" withBorder>
               <Group>
                 <ThemeIcon size={40} radius="md" variant="light" color="indigo">
-                  <IconFilterQuestion size={20} />
+                  <Filter size={20} />
                 </ThemeIcon>
                 <Box flex={1}>
                   <Text fw={500}>{t.exam.noPapersTitle}</Text>
@@ -253,7 +247,7 @@ export function ExamEntryClient() {
             <Paper p="lg" radius="md" withBorder>
               <Group>
                 <ThemeIcon size={40} radius="md" variant="light" color="indigo">
-                  <IconFilterQuestion size={20} />
+                  <Filter size={20} />
                 </ThemeIcon>
                 <Box flex={1}>
                   <Text fw={500}>{t.exam.noPapersTitle}</Text>
@@ -342,7 +336,7 @@ export function ExamEntryClient() {
             radius="md"
             variant="gradient"
             gradient={{ from: 'indigo.7', to: 'indigo.3' }}
-            leftSection={<IconSparkles size={20} />}
+            leftSection={<Sparkles size={20} />}
             loading={isPending}
             disabled={isStartDisabled}
             onClick={handleStart}
@@ -390,7 +384,7 @@ function SourceCard({
             color="indigo"
             style={{ position: 'absolute', top: 8, right: 8 }}
           >
-            <IconCheck size={12} />
+            <Check size={12} />
           </ThemeIcon>
         )}
         <Group gap="xs" mb={4}>
@@ -439,7 +433,7 @@ function ModeCard({
             color="indigo"
             style={{ position: 'absolute', top: 8, right: 8 }}
           >
-            <IconCheck size={12} />
+            <Check size={12} />
           </ThemeIcon>
         )}
         <Text fw={600} size="sm">
