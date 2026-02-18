@@ -166,20 +166,6 @@ export class ExamPaperService {
   }
 
   /**
-   * Get a single paper with all its questions.
-   */
-  async getPaperWithQuestions(
-    paperId: string,
-  ): Promise<{ paper: ExamPaper; questions: ExamQuestion[] } | null> {
-    const paper = await this.repo.findById(paperId);
-    if (!paper) return null;
-
-    const questions = await this.repo.findQuestionsByPaperId(paperId);
-
-    return { paper, questions };
-  }
-
-  /**
    * Get a paper with questions, enforcing visibility rules.
    * Returns null if the paper doesn't exist or the user lacks access.
    */
@@ -214,15 +200,6 @@ export class ExamPaperService {
       throw new ForbiddenError('You do not own this paper');
     }
 
-    await this.repo.delete(paperId);
-  }
-
-  /**
-   * Delete a paper as admin (skips ownership check).
-   */
-  async deleteByAdmin(paperId: string): Promise<void> {
-    const exists = await this.repo.findOwner(paperId);
-    if (!exists) throw new AppError('NOT_FOUND', 'Paper not found');
     await this.repo.delete(paperId);
   }
 
