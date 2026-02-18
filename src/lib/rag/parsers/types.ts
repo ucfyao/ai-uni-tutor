@@ -16,3 +16,77 @@ export interface ParsedQuestion {
   sourcePage: number;
 }
 
+// --- Multi-Pass Pipeline Types ---
+
+export type ContentType =
+  | 'definitions'
+  | 'theorems'
+  | 'examples'
+  | 'exercises'
+  | 'overview'
+  | 'mixed';
+
+export interface SectionInfo {
+  title: string;
+  startPage: number;
+  endPage: number;
+  contentType: ContentType;
+  parentSection?: string;
+}
+
+export interface DocumentStructure {
+  subject: string;
+  documentType: string;
+  sections: SectionInfo[];
+}
+
+export interface QualityReview {
+  isRelevant: boolean;
+  qualityScore: number;
+  issues: string[];
+  suggestedDefinition?: string;
+}
+
+export interface ReviewedKnowledgePoint extends KnowledgePoint {
+  review: QualityReview;
+}
+
+export interface OutlineSection {
+  title: string;
+  knowledgePoints: string[];
+  briefDescription: string;
+}
+
+export interface DocumentOutline {
+  documentId: string;
+  title: string;
+  subject: string;
+  totalKnowledgePoints: number;
+  sections: OutlineSection[];
+  summary: string;
+}
+
+export interface CourseTopic {
+  topic: string;
+  subtopics: string[];
+  relatedDocuments: string[];
+  knowledgePointCount: number;
+}
+
+export interface CourseOutline {
+  courseId: string;
+  topics: CourseTopic[];
+  lastUpdated: string; // ISO 8601 string
+}
+
+export interface PipelineProgress {
+  phase: 'structure_analysis' | 'extraction' | 'quality_gate' | 'outline_generation';
+  phaseProgress: number;
+  totalProgress: number;
+  detail: string;
+}
+
+export interface ParseLectureResult {
+  knowledgePoints: KnowledgePoint[];
+  outline?: DocumentOutline;
+}
