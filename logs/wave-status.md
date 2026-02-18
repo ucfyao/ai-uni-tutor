@@ -52,4 +52,31 @@
 
 ## Wave 3: Observability + Prefetch (Tasks 11-15)
 
-**Status:** PENDING
+**Status:** COMPLETE
+**Date:** 2026-02-19
+**Verification:** All green (lint 0 errors, tsc pass, 759 tests pass, build success)
+
+### Completed Tasks
+
+| # | Task | Commit | Notes |
+|---|------|--------|-------|
+| 11 | Wire Redis Cache into CourseService | `6378f47` | `getAllUniversities` cached 30min, `getAllCourses` cached 10min. All 6 mutation methods invalidate cache on write. |
+| 12 | Add Cache Headers to API Routes | `27fccb0` | Health: `no-cache`. Quota: `private, max-age=30, stale-while-revalidate=60`. |
+| 13 | Add Server-Timing Header to Middleware | `19a1d08` | `auth;dur=` and `total;dur=` on both normal and redirect response paths. Visible in DevTools Network > Timing. |
+| 14 | Prefetch Course Data on Study Page | `59e9614` | TanStack Query `HydrationBoundary` with `prefetchQuery` for universities + courses. Graceful degradation via try/catch. |
+| 15 | Wave 3 Verification | — | lint, tsc, vitest (759/759), build — all pass. |
+
+### Key Metrics
+
+- **Lint:** 0 errors, 8 pre-existing warnings
+- **TypeScript:** Clean (0 errors)
+- **Tests:** 759/759 passing (42 test files)
+- **Build:** Success
+
+---
+
+## All Waves Complete
+
+**Total commits:** 12 (across 3 waves)
+**Test regression:** None (759/759 throughout)
+**Build status:** Green throughout
