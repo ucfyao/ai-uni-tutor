@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { getCurrentUser } from '@/lib/supabase/server';
-import type { ActionResult, FormActionState } from '@/types/actions';
+import type { ActionResult } from '@/types/actions';
 
 export type ProfileData = {
   id: string;
@@ -83,19 +83,6 @@ export async function updateProfileFields(input: {
       role: profile.role ?? null,
     },
   };
-}
-
-export async function updateProfile(
-  prevState: FormActionState,
-  formData: FormData,
-): Promise<FormActionState> {
-  void prevState;
-  const entries = Object.fromEntries(formData);
-  const fullName = typeof entries.fullName === 'string' ? entries.fullName : undefined;
-  const result = await updateProfileFields({ fullName });
-
-  if (!result.success) return { message: result.error, status: 'error' };
-  return { message: 'Profile updated successfully', status: 'success' };
 }
 
 export async function getProfile(): Promise<ProfileData | null> {

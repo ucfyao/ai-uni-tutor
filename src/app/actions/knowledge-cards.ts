@@ -48,15 +48,6 @@ const fetchCardConversationsSchema = z.object({
   cardType: z.enum(['knowledge', 'user']),
 });
 
-const saveCardConversationSchema = z.object({
-  cardId: z.string().min(1),
-  cardType: z.enum(['knowledge', 'user']),
-  sessionId: z.string().min(1).optional(),
-  courseCode: z.string().min(1).optional(),
-  role: z.enum(['user', 'assistant']),
-  content: z.string().min(1).max(10000),
-});
-
 const askCardQuestionSchema = z.object({
   cardId: z.string().min(1),
   cardType: z.enum(['knowledge', 'user']),
@@ -207,39 +198,6 @@ export async function fetchCardConversations(
   } catch (error) {
     console.error('fetchCardConversations error:', error);
     const message = error instanceof Error ? error.message : 'Failed to fetch conversations';
-    return { success: false, error: message };
-  }
-}
-
-/**
- * Save a single card conversation message (user or assistant).
- */
-export async function saveCardConversation(data: {
-  cardId: string;
-  cardType: 'knowledge' | 'user';
-  sessionId?: string;
-  courseCode?: string;
-  role: 'user' | 'assistant';
-  content: string;
-}): Promise<ActionResult<CardConversationEntity>> {
-  try {
-    const parsed = saveCardConversationSchema.safeParse(data);
-    if (!parsed.success) {
-      return { success: false, error: 'Invalid conversation data.' };
-    }
-
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-
-    const service = getKnowledgeCardService();
-    const conversation = await service.addCardConversation({
-      ...parsed.data,
-      userId: user.id,
-    });
-    return { success: true, data: conversation };
-  } catch (error) {
-    console.error('saveCardConversation error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to save conversation';
     return { success: false, error: message };
   }
 }

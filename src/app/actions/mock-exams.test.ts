@@ -43,14 +43,11 @@ vi.mock('@/lib/services/QuotaService', () => ({
 // ---------------------------------------------------------------------------
 
 const {
-  startMockExamSession,
   generateMockFromTopic,
-  generateMockExam,
   submitMockAnswer,
   batchSubmitMockAnswers,
   getMockExamIdBySessionId,
   getMockExamDetail,
-  getMockExamList,
 } = await import('./mock-exams');
 
 // ---------------------------------------------------------------------------
@@ -106,74 +103,6 @@ describe('Mock Exam Actions', () => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(MOCK_USER);
     mockQuotaService.enforce.mockResolvedValue(undefined);
-  });
-
-  // =========================================================================
-  // startMockExamSession
-  // =========================================================================
-  describe('startMockExamSession', () => {
-    it('should start a mock exam session successfully', async () => {
-      mockMockExamService.startFromCourse.mockResolvedValue({ mockId: 'mock-1' });
-
-      const result = await startMockExamSession('sess-1', 'CS101', 'practice');
-
-      expect(result).toEqual({ success: true, mockId: 'mock-1' });
-      expect(mockMockExamService.startFromCourse).toHaveBeenCalledWith(
-        'user-1',
-        'sess-1',
-        'CS101',
-        'practice',
-      );
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/exam');
-    });
-
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await startMockExamSession('sess-1', 'CS101');
-
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
-      expect(mockMockExamService.startFromCourse).not.toHaveBeenCalled();
-    });
-
-    it('should return error when quota is exceeded', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
-
-      const result = await startMockExamSession('sess-1', 'CS101');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('exceeded');
-      }
-      expect(mockMockExamService.startFromCourse).not.toHaveBeenCalled();
-    });
-
-    it('should enforce quota before starting session', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(5, 5));
-
-      await startMockExamSession('sess-1', 'CS101');
-
-      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
-      expect(mockMockExamService.startFromCourse).not.toHaveBeenCalled();
-    });
-
-    it('should handle service errors with Error message', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockMockExamService.startFromCourse.mockRejectedValue(new Error('No exam paper found'));
-
-      const result = await startMockExamSession('sess-1', 'CS101');
-
-      expect(result).toEqual({ success: false, error: 'No exam paper found' });
-    });
-
-    it('should handle non-Error thrown objects with fallback message', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockMockExamService.startFromCourse.mockRejectedValue('string error');
-
-      const result = await startMockExamSession('sess-1', 'CS101');
-
-      expect(result).toEqual({ success: false, error: 'Failed to start mock exam' });
-    });
   });
 
   // =========================================================================
@@ -309,98 +238,6 @@ describe('Mock Exam Actions', () => {
         success: false,
         error: 'Failed to generate mock exam from topic',
       });
-    });
-  });
-
-  // =========================================================================
-  // generateMockExam
-  // =========================================================================
-  describe('generateMockExam', () => {
-    it('should generate mock exam from course successfully', async () => {
-      mockMockExamService.findPaperByCourse.mockResolvedValue('paper-1');
-      mockMockExamService.generateMock.mockResolvedValue({ mockId: 'mock-5' });
-
-      const result = await generateMockExam('COMP9417', 'practice');
-
-      expect(result).toEqual({ success: true, mockId: 'mock-5' });
-      expect(mockMockExamService.findPaperByCourse).toHaveBeenCalledWith('COMP9417');
-      expect(mockMockExamService.generateMock).toHaveBeenCalledWith(
-        'user-1',
-        'paper-1',
-        'practice',
-      );
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/exam');
-    });
-
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await generateMockExam('COMP9417', 'practice');
-
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
-    });
-
-    it('should return error for empty course code', async () => {
-      const result = await generateMockExam('', 'practice');
-
-      expect(result).toEqual({ success: false, error: 'Course is required' });
-    });
-
-    it('should return error for invalid mode', async () => {
-      const result = await generateMockExam('COMP9417', 'invalid' as 'practice' | 'exam');
-
-      expect(result).toEqual({ success: false, error: 'Invalid mode' });
-    });
-
-    it('should return error when no papers available for course', async () => {
-      mockMockExamService.findPaperByCourse.mockResolvedValue(null);
-
-      const result = await generateMockExam('COMP9999', 'exam');
-
-      expect(result).toEqual({
-        success: false,
-        error: 'No exam papers available for this course',
-      });
-    });
-
-    it('should return error when quota is exceeded', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
-
-      const result = await generateMockExam('COMP9417', 'practice');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('exceeded');
-      }
-    });
-
-    it('should enforce quota before generating mock', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(5, 5));
-
-      await generateMockExam('COMP9417', 'practice');
-
-      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
-      expect(mockMockExamService.generateMock).not.toHaveBeenCalled();
-    });
-
-    it('should handle service errors with Error message', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockMockExamService.findPaperByCourse.mockResolvedValue('paper-1');
-      mockMockExamService.generateMock.mockRejectedValue(new Error('Paper not found'));
-
-      const result = await generateMockExam('COMP9417', 'practice');
-
-      expect(result).toEqual({ success: false, error: 'Paper not found' });
-    });
-
-    it('should handle non-Error thrown objects', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockMockExamService.findPaperByCourse.mockResolvedValue('paper-1');
-      mockMockExamService.generateMock.mockRejectedValue('string error');
-
-      const result = await generateMockExam('COMP9417', 'exam');
-
-      expect(result).toEqual({ success: false, error: 'Failed to generate mock exam' });
     });
   });
 
@@ -560,35 +397,4 @@ describe('Mock Exam Actions', () => {
     });
   });
 
-  // =========================================================================
-  // getMockExamList
-  // =========================================================================
-  describe('getMockExamList', () => {
-    it('should return list of mock exams for authenticated user', async () => {
-      const exams = [makeMockExam({ id: 'mock-1' }), makeMockExam({ id: 'mock-2' })];
-      mockMockExamService.getHistory.mockResolvedValue(exams);
-
-      const result = await getMockExamList();
-
-      expect(result).toEqual(exams);
-      expect(mockMockExamService.getHistory).toHaveBeenCalledWith('user-1');
-    });
-
-    it('should return empty array when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await getMockExamList();
-
-      expect(result).toEqual([]);
-      expect(mockMockExamService.getHistory).not.toHaveBeenCalled();
-    });
-
-    it('should return empty array when no mock exams exist', async () => {
-      mockMockExamService.getHistory.mockResolvedValue([]);
-
-      const result = await getMockExamList();
-
-      expect(result).toEqual([]);
-    });
-  });
 });

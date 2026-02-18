@@ -9,7 +9,7 @@ import type { Json } from '@/types/database';
 
 export type DocumentStatus = 'processing' | 'ready' | 'error';
 
-export type DocumentType = 'lecture' | 'exam' | 'assignment';
+type DocumentType = 'lecture' | 'exam' | 'assignment';
 
 export interface DocumentEntity {
   id: string;

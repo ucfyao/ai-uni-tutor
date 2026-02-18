@@ -1,26 +1,12 @@
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { RAG_CONFIG } from './config';
 
-export async function chunkText(
-  text: string,
-  chunkSize: number = RAG_CONFIG.chunkSize,
-  chunkOverlap: number = RAG_CONFIG.chunkOverlap,
-): Promise<string[]> {
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize,
-    chunkOverlap,
-  });
-
-  const output = await splitter.createDocuments([text]);
-  return output.map((doc) => doc.pageContent);
-}
-
-export type PageContent = {
+type PageContent = {
   text: string;
   page: number;
 };
 
-export type ChunkWithMetadata = {
+type ChunkWithMetadata = {
   content: string;
   metadata: {
     page: number;

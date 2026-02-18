@@ -1,69 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { chunkPages, chunkText } from './chunking';
+import { chunkPages } from './chunking';
 
 describe('chunking', () => {
-  // ── chunkText ──
-
-  describe('chunkText', () => {
-    it('should return a single chunk for short text', async () => {
-      const text = 'Hello, world!';
-      const result = await chunkText(text);
-      expect(result).toHaveLength(1);
-      expect(result[0]).toBe(text);
-    });
-
-    it('should return multiple chunks for long text', async () => {
-      // Build a string well over the default 1000 char chunk size
-      const sentence = 'This is a sample sentence for testing text chunking. ';
-      const text = sentence.repeat(100); // ~5400 chars
-      const result = await chunkText(text);
-      expect(result.length).toBeGreaterThan(1);
-      // Every chunk should be a non-empty substring of the original
-      for (const chunk of result) {
-        expect(chunk.length).toBeGreaterThan(0);
-      }
-    });
-
-    it('should respect custom chunk size', async () => {
-      const sentence = 'Word. ';
-      const text = sentence.repeat(200); // ~1200 chars
-      const smallChunkSize = 100;
-      const result = await chunkText(text, smallChunkSize, 0);
-      // With a 100-char chunk size and no overlap, we should get many chunks
-      expect(result.length).toBeGreaterThan(5);
-      for (const chunk of result) {
-        // Each chunk should not exceed the chunk size (may be slightly less due to splitting)
-        expect(chunk.length).toBeLessThanOrEqual(smallChunkSize);
-      }
-    });
-
-    it('should produce overlapping content between chunks', async () => {
-      // Use a large text with a known overlap
-      const words = Array.from({ length: 500 }, (_, i) => `word${i}`).join(' ');
-      const chunkSize = 200;
-      const chunkOverlap = 50;
-      const result = await chunkText(words, chunkSize, chunkOverlap);
-
-      expect(result.length).toBeGreaterThan(1);
-
-      // Check that consecutive chunks share some overlapping content
-      for (let i = 0; i < result.length - 1; i++) {
-        const currentEnd = result[i].slice(-chunkOverlap);
-        const nextStart = result[i + 1].slice(0, chunkOverlap + 10);
-        // The end of current chunk should appear at the start of next chunk
-        // (overlap means repeated content)
-        const overlapFound = nextStart.includes(currentEnd.trim().slice(0, 20));
-        // At minimum, the chunks together should cover all the text
-        expect(result[i].length).toBeGreaterThan(0);
-      }
-    });
-
-    it('should return empty array for empty string', async () => {
-      const result = await chunkText('');
-      expect(result).toEqual([]);
-    });
-  });
-
   // ── chunkPages ──
 
   describe('chunkPages', () => {

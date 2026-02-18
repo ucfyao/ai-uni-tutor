@@ -9,7 +9,6 @@ import type { CreateSessionDTO, SessionEntity, UpdateSessionDTO } from '../model
 
 export interface ISessionRepository {
   // Read operations
-  findById(id: string): Promise<SessionEntity | null>;
   findByIdAndUserId(id: string, userId: string): Promise<SessionEntity | null>;
   findAllByUserId(userId: string): Promise<SessionEntity[]>;
   findSharedById(id: string): Promise<SessionEntity | null>;

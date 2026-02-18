@@ -2,33 +2,33 @@ import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 
 // ─── SSE Event Payloads ───
 
-export interface SSEStatusEvent {
+interface SSEStatusEvent {
   stage: 'parsing_pdf' | 'extracting' | 'embedding' | 'complete' | 'error';
   message: string;
 }
 
-export interface SSEItemEvent {
+interface SSEItemEvent {
   index: number;
   type: 'knowledge_point' | 'question';
   data: KnowledgePoint | ParsedQuestion;
 }
 
-export interface SSEBatchSavedEvent {
+interface SSEBatchSavedEvent {
   chunkIds: string[];
   batchIndex: number;
 }
 
-export interface SSEProgressEvent {
+interface SSEProgressEvent {
   current: number;
   total: number;
 }
 
-export interface SSEErrorEvent {
+interface SSEErrorEvent {
   message: string;
   code: string;
 }
 
-export interface SSEDocumentCreatedEvent {
+interface SSEDocumentCreatedEvent {
   documentId: string;
 }
 
@@ -43,7 +43,7 @@ export type SSEEventMap = {
 
 // ─── SSE Formatting ───
 
-export function sseEvent<K extends keyof SSEEventMap>(event: K, data: SSEEventMap[K]): string {
+function sseEvent<K extends keyof SSEEventMap>(event: K, data: SSEEventMap[K]): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 

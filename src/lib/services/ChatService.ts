@@ -21,12 +21,6 @@ export interface ChatGenerationOptions {
   document?: { data: string; mimeType: string };
 }
 
-export interface StreamCallbacks {
-  onChunk: (text: string) => void;
-  onError: (error: string, isLimitError: boolean) => void;
-  onComplete: () => void;
-}
-
 export class ChatService {
   private readonly MAX_RETRIES = 3;
   private readonly BASE_DELAY = 2000;

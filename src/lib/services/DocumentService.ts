@@ -25,10 +25,6 @@ export class DocumentService {
     this.chunkRepo = chunkRepo ?? getDocumentChunkRepository();
   }
 
-  async getDocumentsByType(userId: string, docType: string): Promise<DocumentEntity[]> {
-    return this.docRepo.findByUserId(userId, docType);
-  }
-
   async getDocumentsForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
     return this.docRepo.findByDocTypeForAdmin(docType, courseIds);
   }
@@ -115,10 +111,6 @@ export class DocumentService {
 
   async verifyChunksBelongToDocument(chunkIds: string[], documentId: string): Promise<boolean> {
     return this.chunkRepo.verifyChunksBelongToDocument(chunkIds, documentId);
-  }
-
-  async getAdminDocuments(): Promise<DocumentEntity[]> {
-    return this.docRepo.findAll();
   }
 
   async deleteByAdmin(docId: string): Promise<void> {
