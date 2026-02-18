@@ -29,7 +29,7 @@ export class ProfileRepository implements IProfileRepository {
       stripePriceId: row.stripe_price_id,
       subscriptionStatus: row.subscription_status,
       currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
-      role: row.role as UserRole,
+      role: row.role,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
