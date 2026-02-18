@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
-import React, { useCallback, useEffect, useState, useTransition } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -56,6 +56,8 @@ export function AdminUsersClient({ currentUserId }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchTerm, 300);
   const [roleFilter, setRoleFilter] = useState('all');
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState('');
@@ -222,6 +224,18 @@ export function AdminUsersClient({ currentUserId }: Props) {
     [invalidateUsers],
   );
 
+  // --- Search expand/collapse ---
+  const handleSearchExpand = useCallback(() => {
+    setSearchExpanded(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }, []);
+
+  const handleSearchBlur = useCallback(() => {
+    if (!searchTerm) {
+      setSearchExpanded(false);
+    }
+  }, [searchTerm]);
+
   // --- Render helpers ---
   const renderRoleBadge = (role: string) => {
     const Icon = ROLE_ICONS[role] || User;
@@ -373,26 +387,57 @@ export function AdminUsersClient({ currentUserId }: Props) {
   return (
     <Stack p={isMobile ? 'md' : 'xl'} gap="lg">
       <Card withBorder p="md" radius="md">
-        {/* Search + Filter bar */}
-        <Group mb="md" gap="sm" grow={isMobile}>
-          <TextInput
-            placeholder="Search by name or email..."
-            leftSection={<Search size={16} />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.currentTarget.value)}
-            style={{ flex: 1 }}
-          />
-          <SegmentedControl
-            size="xs"
-            value={roleFilter}
-            onChange={setRoleFilter}
-            data={[
-              { value: 'all', label: 'All' },
-              { value: 'user', label: 'User' },
-              { value: 'admin', label: 'Admin' },
-              { value: 'super_admin', label: 'Super' },
-            ]}
-          />
+        {/* Header: Search icon (left) + SegmentedControl tabs (center/right) */}
+        <Group mb="md" gap="sm" justify="space-between">
+          <Group gap="sm" style={{ flex: searchExpanded ? 1 : undefined }}>
+            {searchExpanded ? (
+              <TextInput
+                ref={searchInputRef}
+                placeholder="Search by name or email..."
+                leftSection={<Search size={16} />}
+                rightSection={
+                  searchTerm ? (
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="xs"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setSearchExpanded(false);
+                      }}
+                    >
+                      <X size={14} />
+                    </ActionIcon>
+                  ) : undefined
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                onBlur={handleSearchBlur}
+                size="xs"
+                style={{ width: isMobile ? '100%' : 260 }}
+              />
+            ) : (
+              <Tooltip label="Search">
+                <ActionIcon variant="subtle" color="gray" size="md" onClick={handleSearchExpand}>
+                  <Search size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
+
+          {!(isMobile && searchExpanded) && (
+            <SegmentedControl
+              size="xs"
+              value={roleFilter}
+              onChange={setRoleFilter}
+              data={[
+                { value: 'all', label: 'All' },
+                { value: 'user', label: 'User' },
+                { value: 'admin', label: 'Admin' },
+                { value: 'super_admin', label: 'Super' },
+              ]}
+            />
+          )}
         </Group>
 
         {/* User table */}
