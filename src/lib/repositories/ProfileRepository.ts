@@ -32,6 +32,7 @@ export class ProfileRepository implements IProfileRepository {
       role: row.role,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
+      isActive: row.is_active,
     };
   }
 
@@ -149,6 +150,7 @@ export class ProfileRepository implements IProfileRepository {
       .from('profiles')
       .select('*')
       .eq('role', role)
+      .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -162,6 +164,7 @@ export class ProfileRepository implements IProfileRepository {
     let query = supabase
       .from('profiles')
       .select('*')
+      .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -191,6 +194,36 @@ export class ProfileRepository implements IProfileRepository {
       .eq('id', userId);
 
     if (error) throw new DatabaseError(`Failed to update user role: ${error.message}`, error);
+  }
+
+  async updateName(userId: string, fullName: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw new DatabaseError(`Failed to update user name: ${error.message}`, error);
+  }
+
+  async softDelete(userId: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw new DatabaseError(`Failed to disable user: ${error.message}`, error);
+  }
+
+  async restore(userId: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw new DatabaseError(`Failed to restore user: ${error.message}`, error);
   }
 
   async updateSubscriptionBySubscriptionId(

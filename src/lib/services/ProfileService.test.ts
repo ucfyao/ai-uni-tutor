@@ -23,6 +23,9 @@ function createMockProfileRepo(): {
     findByRole: vi.fn(),
     searchUsers: vi.fn(),
     updateRole: vi.fn(),
+    updateName: vi.fn(),
+    softDelete: vi.fn(),
+    restore: vi.fn(),
   };
 }
 
@@ -42,6 +45,7 @@ const PROFILE: ProfileEntity = {
   role: 'user',
   createdAt: new Date('2025-01-01'),
   updatedAt: new Date('2025-06-01'),
+  isActive: true,
 };
 
 const SUBSCRIPTION_INFO: SubscriptionInfo = {

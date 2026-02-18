@@ -21,6 +21,7 @@ export const freeUser: ProfileEntity = {
   role: 'user',
   createdAt: new Date('2025-01-01T00:00:00Z'),
   updatedAt: new Date('2025-01-01T00:00:00Z'),
+  isActive: true,
 };
 
 export const proUser: ProfileEntity = {
@@ -35,6 +36,7 @@ export const proUser: ProfileEntity = {
   role: 'user',
   createdAt: new Date('2025-01-01T00:00:00Z'),
   updatedAt: new Date('2025-06-15T12:00:00Z'),
+  isActive: true,
 };
 
 export const adminUser: ProfileEntity = {
@@ -49,6 +51,7 @@ export const adminUser: ProfileEntity = {
   role: 'admin',
   createdAt: new Date('2024-06-01T00:00:00Z'),
   updatedAt: new Date('2024-06-01T00:00:00Z'),
+  isActive: true,
 };
 
 /* ---------- Database rows (snake_case) ---------- */
@@ -65,6 +68,7 @@ export const freeUserRow = {
   role: freeUser.role,
   created_at: '2025-01-01T00:00:00Z',
   updated_at: '2025-01-01T00:00:00Z',
+  is_active: true,
 };
 
 export const proUserRow = {
@@ -79,6 +83,7 @@ export const proUserRow = {
   role: proUser.role,
   created_at: '2025-01-01T00:00:00Z',
   updated_at: '2025-06-15T12:00:00Z',
+  is_active: true,
 };
 
 export const adminUserRow = {
@@ -93,4 +98,5 @@ export const adminUserRow = {
   role: adminUser.role,
   created_at: '2024-06-01T00:00:00Z',
   updated_at: '2024-06-01T00:00:00Z',
+  is_active: true,
 };
