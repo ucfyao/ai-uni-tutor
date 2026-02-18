@@ -63,6 +63,10 @@ describe('sanitizeRedirectPath', () => {
     expect(sanitizeRedirectPath('/zh')).toBe('/zh');
   });
 
+  it('allows /reset-password path', () => {
+    expect(sanitizeRedirectPath('/reset-password')).toBe('/reset-password');
+  });
+
   it('rejects protocol-relative URLs (//evil.com)', () => {
     expect(sanitizeRedirectPath('//evil.com')).toBe('/');
     expect(sanitizeRedirectPath('//evil.com/study')).toBe('/');
