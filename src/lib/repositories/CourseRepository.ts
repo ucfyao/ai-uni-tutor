@@ -13,6 +13,7 @@ export class CourseRepository implements ICourseRepository {
       universityId: row.university_id,
       code: row.code,
       name: row.name,
+      knowledgeOutline: row.knowledge_outline ?? null,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };

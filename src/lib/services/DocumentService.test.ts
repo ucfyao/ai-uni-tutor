@@ -25,6 +25,7 @@ function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity 
     metadata: {},
     docType: 'lecture',
     courseId: 'course-1',
+    outline: null,
     createdAt: now,
     ...overrides,
   };

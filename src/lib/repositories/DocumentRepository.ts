@@ -28,6 +28,7 @@ export class DocumentRepository implements IDocumentRepository {
       metadata: row.metadata,
       docType: row.doc_type ?? null,
       courseId: row.course_id ?? null,
+      outline: row.outline ?? null,
       createdAt: new Date(row.created_at),
     };
   }

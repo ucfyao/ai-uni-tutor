@@ -75,6 +75,7 @@ const COURSE_A: CourseEntity = {
   universityId: 'uni-1',
   code: 'CS101',
   name: 'Intro to CS',
+  knowledgeOutline: null,
   createdAt: new Date('2025-01-01'),
   updatedAt: new Date('2025-01-01'),
 };
@@ -84,6 +85,7 @@ const COURSE_B: CourseEntity = {
   universityId: 'uni-1',
   code: 'CS201',
   name: 'Data Structures',
+  knowledgeOutline: null,
   createdAt: new Date('2025-01-01'),
   updatedAt: new Date('2025-01-01'),
 };
