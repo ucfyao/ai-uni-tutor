@@ -10,6 +10,8 @@ import { getEnv } from '@/lib/env';
 export async function handleRequest(
   request: NextRequest,
 ): Promise<{ response: NextResponse; userId: string | null }> {
+  const totalStart = performance.now();
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -17,34 +19,32 @@ export async function handleRequest(
   });
 
   const env = getEnv();
-  const supabase = createServerClient(
-    env.SUPABASE_URL,
-    env.SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
+  const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        response = NextResponse.next({
+          request: {
+            headers: request.headers,
+          },
+        });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        );
       },
     },
-  );
+  });
 
+  const authStart = performance.now();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const authMs = performance.now() - authStart;
   const userId = user?.id ?? null;
 
   // If user is NOT logged in, and tries to visit a protected route, redirect to login.
@@ -60,9 +60,20 @@ export async function handleRequest(
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    return { response: NextResponse.redirect(url), userId };
+    const totalMs = performance.now() - totalStart;
+    const redirectResponse = NextResponse.redirect(url);
+    redirectResponse.headers.set(
+      'Server-Timing',
+      `auth;dur=${authMs.toFixed(1)}, total;dur=${totalMs.toFixed(1)}`,
+    );
+    return { response: redirectResponse, userId };
   }
 
+  const totalMs = performance.now() - totalStart;
+  response.headers.set(
+    'Server-Timing',
+    `auth;dur=${authMs.toFixed(1)}, total;dur=${totalMs.toFixed(1)}`,
+  );
   return { response, userId };
 }
 
@@ -73,20 +84,16 @@ export async function handleRequest(
  */
 export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   const env = getEnv();
-  const supabase = createServerClient(
-    env.SUPABASE_URL,
-    env.SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll() {
-          // No-op: we only need to read the session for rate limit key
-        },
+  const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll() {
+        // No-op: we only need to read the session for rate limit key
       },
     },
-  );
+  });
   const {
     data: { user },
   } = await supabase.auth.getUser();
