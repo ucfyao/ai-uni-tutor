@@ -78,7 +78,7 @@ const toggleShareSchema = z.object({
 const explainConceptSchema = z.object({
   concept: z.string().min(1),
   context: z.string().min(1),
-  courseCode: z.string().min(1).optional(),
+  courseId: z.string().uuid().optional(),
 });
 
 // ============================================================================
@@ -156,10 +156,10 @@ export async function generateChatResponse(
 export async function explainConcept(
   concept: string,
   context: string,
-  courseCode?: string,
+  courseId?: string,
 ): Promise<ExplainConceptResponse> {
   try {
-    const parsed = explainConceptSchema.safeParse({ concept, context, courseCode });
+    const parsed = explainConceptSchema.safeParse({ concept, context, courseId });
     if (!parsed.success) {
       return { success: false, error: 'Invalid explain concept payload.' };
     }
@@ -173,7 +173,7 @@ export async function explainConcept(
 
     // Delegate to ChatService
     const chatService = getChatService();
-    const explanation = await chatService.explainConcept(concept, context, courseCode);
+    const explanation = await chatService.explainConcept(concept, context, parsed.data.courseId);
 
     return { success: true, data: explanation };
   } catch (error: unknown) {
