@@ -226,14 +226,55 @@ describe('AdminService', () => {
   // ==================== removeCourses ====================
 
   describe('removeCourses', () => {
-    it('should remove each course', async () => {
+    it('should remove each course when all are assigned', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a', 'course-b']);
       adminRepo.removeCourse.mockResolvedValue(undefined);
 
       await service.removeCourses(ADMIN_ID, ['course-a', 'course-b']);
 
+      expect(profileRepo.findById).toHaveBeenCalledWith(ADMIN_ID);
+      expect(adminRepo.getAssignedCourseIds).toHaveBeenCalledWith(ADMIN_ID);
       expect(adminRepo.removeCourse).toHaveBeenCalledTimes(2);
       expect(adminRepo.removeCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a');
       expect(adminRepo.removeCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-b');
+    });
+
+    it('should throw if target is not admin', async () => {
+      profileRepo.findById.mockResolvedValue(USER_PROFILE);
+
+      await expect(service.removeCourses(USER_ID, ['course-a'])).rejects.toThrow(
+        'Target user is not an admin',
+      );
+      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
+    });
+
+    it('should throw if target user not found', async () => {
+      profileRepo.findById.mockResolvedValue(null);
+
+      await expect(service.removeCourses('nonexistent', ['course-a'])).rejects.toThrow(
+        'Target user is not an admin',
+      );
+      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
+    });
+
+    it('should throw if any course is not assigned to the admin', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
+
+      await expect(
+        service.removeCourses(ADMIN_ID, ['course-a', 'course-x']),
+      ).rejects.toThrow('Courses not assigned to this admin: course-x');
+      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty courseIds array', async () => {
+      profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+      adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
+
+      await service.removeCourses(ADMIN_ID, []);
+
+      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
     });
   });
 
