@@ -137,8 +137,8 @@ Key tables:
 
 Required environment variables (see `.env.example`):
 
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
+- `SUPABASE_URL` - Supabase project URL
+- `SUPABASE_ANON_KEY` - Supabase anon key (server-only)
 - `GEMINI_API_KEY` - Google Gemini API key
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `UPSTASH_REDIS_REST_URL` - Redis URL for rate limiting

@@ -31,7 +31,7 @@ paths:
 
 Required env vars (see `.env.example`):
 
-- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — client
+- `SUPABASE_URL` / `SUPABASE_ANON_KEY` — server-only
 - `SUPABASE_SERVICE_ROLE_KEY` — server only, never expose
 - `GEMINI_API_KEY`, `STRIPE_*`, `UPSTASH_REDIS_*`
 
