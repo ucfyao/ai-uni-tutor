@@ -254,12 +254,12 @@ describe('Chat Actions', () => {
       );
     });
 
-    it('should pass courseCode when provided', async () => {
+    it('should pass courseId when provided', async () => {
       mockChatService.explainConcept.mockResolvedValue('Explanation');
 
-      await explainConcept('Stack', 'context', 'CS101');
+      await explainConcept('Stack', 'context', COURSE_ID);
 
-      expect(mockChatService.explainConcept).toHaveBeenCalledWith('Stack', 'context', 'CS101');
+      expect(mockChatService.explainConcept).toHaveBeenCalledWith('Stack', 'context', COURSE_ID);
     });
 
     it('should return error when user is not authenticated', async () => {

@@ -62,7 +62,7 @@ export class ChatService {
     systemInstruction = await this.addRAGContext(
       systemInstruction,
       processedInput,
-      course.code,
+      course.id,
       config.ragMatchCount,
     );
 
@@ -105,7 +105,7 @@ export class ChatService {
     systemInstruction = await this.addRAGContext(
       systemInstruction,
       processedInput,
-      course.code,
+      course.id,
       config.ragMatchCount,
     );
 
@@ -136,7 +136,7 @@ export class ChatService {
   /**
    * Explain a concept (for knowledge cards)
    */
-  async explainConcept(concept: string, context: string, courseCode?: string): Promise<string> {
+  async explainConcept(concept: string, context: string, courseId?: string): Promise<string> {
     const ai = getGenAI();
 
     let systemInstruction = `You are a concise academic tutor. Explain the concept "${concept}" in a clear, educational manner.
@@ -148,9 +148,9 @@ Guidelines:
 - Use LaTeX for math: $inline$ or $$block$$
 - Focus on helping students understand quickly`;
 
-    // Add RAG context if course code provided
-    if (courseCode) {
-      systemInstruction = await this.addRAGContext(systemInstruction, concept, courseCode, 3);
+    // Add RAG context if course ID provided
+    if (courseId) {
+      systemInstruction = await this.addRAGContext(systemInstruction, concept, courseId, 3);
     }
 
     const response = await ai.models.generateContent({
@@ -247,12 +247,12 @@ Guidelines:
   private async addRAGContext(
     systemInstruction: string,
     query: string,
-    courseCode: string,
+    courseId: string,
     matchCount: number,
   ): Promise<string> {
     try {
       const { retrieveContext } = await import('@/lib/rag/retrieval');
-      const context = await retrieveContext(query, { course: courseCode }, matchCount);
+      const context = await retrieveContext(query, courseId, {}, matchCount);
 
       if (context) {
         return appendRagContext(systemInstruction, context);

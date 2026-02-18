@@ -261,7 +261,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     setLoadingCardId(card.id);
 
     try {
-      const result = await askCardQuestion(card.id, cardType, question, session.course?.code ?? '');
+      const result = await askCardQuestion(card.id, cardType, question, session.course?.code, session.course?.id);
 
       if (!result.success) {
         showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
