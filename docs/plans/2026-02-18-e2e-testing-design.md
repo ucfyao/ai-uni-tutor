@@ -30,18 +30,18 @@ Comprehensive Playwright E2E test suite for AI UniTutor, covering all 18 page ro
 ## Project Structure
 
 ```
+playwright.config.ts                # Playwright configuration (project root)
 e2e/
-├── playwright.config.ts          # Playwright configuration
 ├── fixtures/
-│   ├── test-data.fixture.ts      # Test data setup/teardown
+│   ├── test-data.fixture.ts      # Test data setup/teardown (Supabase cleanup)
 │   └── base.fixture.ts           # Combined fixture base class (userPage/adminPage/superAdminPage)
 ├── pages/
 │   ├── LoginPage.ts
 │   ├── StudyPage.ts
 │   ├── ExamListPage.ts
 │   ├── MockExamPage.ts
-│   ├── AssignmentPage.ts
-│   ├── LecturePage.ts
+│   ├── AssignmentPage.ts         # Composes ChatPanel (chat interface)
+│   ├── LecturePage.ts            # Composes ChatPanel (chat interface)
 │   ├── SettingsPage.ts
 │   ├── PersonalizationPage.ts
 │   ├── PricingPage.ts
@@ -61,8 +61,7 @@ e2e/
 │   ├── mock-stripe.ts            # Stripe Checkout/Portal mock
 │   ├── mock-document-parse.ts    # Document parse SSE mock (named events)
 │   ├── mock-quota.ts             # Quota API mock
-│   ├── test-accounts.ts          # Test account constants
-│   └── selectors.ts              # Shared selector constants
+│   └── test-accounts.ts          # Test account constants
 ├── tests/
 │   ├── auth.setup.ts             # Auth setup project (login 3 roles, save storageState)
 │   ├── auth/
@@ -343,7 +342,7 @@ export async function mockQuota(page: Page, usage = 5, dailyLimit = 50) {
 ## Playwright Configuration
 
 ```typescript
-// playwright.config.ts key settings
+// playwright.config.ts (project root — Playwright looks for config in CWD)
 {
   testDir: './e2e/tests',
   outputDir: 'test-results',

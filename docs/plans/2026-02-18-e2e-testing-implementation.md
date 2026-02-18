@@ -17,7 +17,7 @@
 **Files:**
 
 - Modify: `package.json` (add devDependency + scripts)
-- Create: `e2e/playwright.config.ts`
+- Create: `playwright.config.ts` (project root — Playwright looks for config in CWD)
 - Modify: `.gitignore` (add E2E entries)
 - Create: `e2e/.env.e2e.example`
 
@@ -39,17 +39,15 @@ Add these to the `"scripts"` section:
 "e2e:report": "npx playwright show-report"
 ```
 
-**Step 3: Create `e2e/playwright.config.ts`**
+**Step 3: Create `playwright.config.ts` (project root)**
+
+Playwright looks for config in CWD by default. Placing it at project root avoids needing `--config` flag.
 
 ```typescript
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { defineConfig, devices } from '@playwright/test';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 export default defineConfig({
-  testDir: path.join(__dirname, 'tests'),
+  testDir: './e2e/tests',
   outputDir: 'test-results',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -123,7 +121,7 @@ Expected: Version number printed (e.g., `1.40.x`)
 **Step 7: Commit**
 
 ```bash
-git add package.json package-lock.json e2e/playwright.config.ts .gitignore e2e/.env.e2e.example
+git add package.json package-lock.json playwright.config.ts .gitignore e2e/.env.e2e.example
 git commit -m "chore(config): install Playwright and add E2E config"
 ```
 
@@ -240,6 +238,7 @@ git commit -m "feat(config): add auth setup and test account helpers"
 **Files:**
 
 - Create: `e2e/fixtures/base.fixture.ts`
+- Create: `e2e/fixtures/test-data.fixture.ts`
 - Create: `e2e/helpers/mock-gemini.ts`
 - Create: `e2e/helpers/mock-stripe.ts`
 - Create: `e2e/helpers/mock-document-parse.ts`
@@ -286,7 +285,41 @@ export const test = base.extend<{
 export { expect } from '@playwright/test';
 ```
 
-**Step 2: Create `e2e/helpers/mock-gemini.ts`**
+**Step 2: Create `e2e/fixtures/test-data.fixture.ts`**
+
+Provides test data setup/teardown. Test-created entities use `[E2E]` prefix for identification and cleanup.
+
+```typescript
+import { getSupabaseClient } from '../helpers/test-accounts';
+
+const E2E_PREFIX = '[E2E]';
+
+/**
+ * Clean up test data created during E2E runs.
+ * Only deletes entities with the [E2E] prefix.
+ */
+export async function cleanupTestData() {
+  const supabase = getSupabaseClient();
+
+  // Delete test sessions (cascades to messages)
+  await supabase.from('sessions').delete().like('title', `${E2E_PREFIX}%`);
+
+  // Delete test documents (cascades to chunks)
+  await supabase.from('documents').delete().like('name', `${E2E_PREFIX}%`);
+
+  // Delete test mock exams
+  await supabase.from('mock_exams').delete().like('title', `${E2E_PREFIX}%`);
+}
+
+/**
+ * Generate a test entity name with E2E prefix for easy cleanup.
+ */
+export function testName(name: string): string {
+  return `${E2E_PREFIX} ${name}`;
+}
+```
+
+**Step 3: Create `e2e/helpers/mock-gemini.ts`**
 
 ```typescript
 import type { Page } from '@playwright/test';
@@ -369,18 +402,8 @@ export async function mockStripePortal(page: Page) {
   });
 }
 
-/**
- * Mock Stripe Webhook — acknowledge event.
- */
-export async function mockStripeWebhook(page: Page) {
-  await page.route('**/api/stripe/webhook', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ received: true }),
-    });
-  });
-}
+// Note: /api/stripe/webhook is NOT mocked — it's a server-to-server endpoint
+// called by Stripe servers, not the browser. page.route() cannot intercept it.
 ```
 
 **Step 4: Create `e2e/helpers/mock-document-parse.ts`**
@@ -456,15 +479,24 @@ import type { Page } from '@playwright/test';
 
 /**
  * Mock /api/quota endpoint with usage data for settings page.
+ * Matches actual response format from QuotaService.checkStatus() + getSystemLimits().
  */
-export async function mockQuota(page: Page, usage = 5, dailyLimit = 50) {
+export async function mockQuota(page: Page, usage = 5, limit = 50, isPro = false) {
   await page.route('**/api/quota', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        status: { usage, dailyLimit, remaining: dailyLimit - usage },
-        limits: { dailyLimit, maxFileSizeMB: 5 },
+        status: { canSend: true, usage, limit, remaining: limit - usage, isPro },
+        limits: {
+          dailyLimitFree: 20,
+          dailyLimitPro: 200,
+          rateLimitLlmFreeRequests: 5,
+          rateLimitLlmFreeWindow: '1m',
+          rateLimitLlmProRequests: 20,
+          rateLimitLlmProWindow: '1m',
+          maxFileSizeMB: isPro ? 20 : 5,
+        },
       }),
     });
   });
@@ -474,8 +506,8 @@ export async function mockQuota(page: Page, usage = 5, dailyLimit = 50) {
 **Step 6: Commit**
 
 ```bash
-git add e2e/fixtures/base.fixture.ts e2e/helpers/mock-gemini.ts e2e/helpers/mock-stripe.ts e2e/helpers/mock-document-parse.ts e2e/helpers/mock-quota.ts
-git commit -m "feat(config): add base fixture and API mock helpers"
+git add e2e/fixtures/base.fixture.ts e2e/fixtures/test-data.fixture.ts e2e/helpers/mock-gemini.ts e2e/helpers/mock-stripe.ts e2e/helpers/mock-document-parse.ts e2e/helpers/mock-quota.ts
+git commit -m "feat(config): add fixtures, test data cleanup, and API mock helpers"
 ```
 
 ---
@@ -514,7 +546,8 @@ export class LoginPage {
     this.successAlert = page
       .locator('[data-variant="light"][data-color="teal"]')
       .or(page.getByRole('alert').filter({ hasText: /check.*email/i }));
-    this.toggleSignupLink = page.getByRole('button', { name: /create account|sign in/i }).last();
+    // Mantine <Anchor<'a'>> renders as <a> tag, not <button>
+    this.toggleSignupLink = page.getByRole('link', { name: /create account|sign in/i });
   }
 
   async goto() {
@@ -653,10 +686,10 @@ export class StudyPage {
 
   constructor(page: Page) {
     this.page = page;
-    // The 3 feature cards on the study page
-    this.lectureHelperCard = page.getByText(/lecture helper/i).first();
-    this.assignmentCoachCard = page.getByText(/assignment coach/i).first();
-    this.mockExamCard = page.getByText(/mock exam/i).first();
+    // Mode cards have role="button" + aria-label in the actual DOM
+    this.lectureHelperCard = page.getByRole('button', { name: /lecture helper/i }).first();
+    this.assignmentCoachCard = page.getByRole('button', { name: /assignment coach/i }).first();
+    this.mockExamCard = page.getByRole('button', { name: /mock exam/i }).first();
   }
 
   async goto() {
@@ -1080,10 +1113,11 @@ export class PersonalizationPage {
   constructor(page: Page) {
     this.page = page;
     this.displayName = page.locator('[class*="name"]').or(page.getByText(/display name/i));
+    // Edit button is next to the display name — locate via proximity
     this.editNameButton = page
-      .getByRole('button')
-      .filter({ has: page.locator('svg') })
-      .first();
+      .getByRole('button', { name: /edit/i })
+      .first()
+      .or(this.displayName.locator('..').getByRole('button').first());
     this.nameInput = page.getByRole('textbox');
     this.saveNameButton = page
       .getByRole('button', { name: /save|confirm/i })
@@ -1212,18 +1246,28 @@ export class HelpPage {
 
 **Step 6: Create `e2e/pages/AssignmentPage.ts`**
 
+Both /assignment/[id] and /lecture/[id] render full chat interfaces (ChatPageLayout + ChatInput).
+POMs compose ChatPanel for message interaction.
+
 ```typescript
 import type { Locator, Page } from '@playwright/test';
+import { ChatPanel } from './components/ChatPanel';
 
 export class AssignmentPage {
   readonly page: Page;
-  readonly assignmentTitle: Locator;
-  readonly content: Locator;
+  readonly chat: ChatPanel;
+  readonly courseCode: Locator;
+  readonly modeLabel: Locator;
+  readonly shareButton: Locator;
+  readonly moreOptionsButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.assignmentTitle = page.locator('h1, h2').first();
-    this.content = page.locator('[class*="content"], [class*="assignment"]').first();
+    this.chat = new ChatPanel(page);
+    this.courseCode = page.locator('text=/[A-Z]{4}\\d{4}/').first();
+    this.modeLabel = page.getByText(/assignment coach/i);
+    this.shareButton = page.getByRole('button', { name: /share conversation/i });
+    this.moreOptionsButton = page.getByRole('button', { name: /more options/i });
   }
 
   async goto(id: string) {
@@ -1236,16 +1280,23 @@ export class AssignmentPage {
 
 ```typescript
 import type { Locator, Page } from '@playwright/test';
+import { ChatPanel } from './components/ChatPanel';
 
 export class LecturePage {
   readonly page: Page;
-  readonly lectureTitle: Locator;
-  readonly content: Locator;
+  readonly chat: ChatPanel;
+  readonly courseCode: Locator;
+  readonly modeLabel: Locator;
+  readonly shareButton: Locator;
+  readonly moreOptionsButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.lectureTitle = page.locator('h1, h2').first();
-    this.content = page.locator('[class*="content"], [class*="lecture"]').first();
+    this.chat = new ChatPanel(page);
+    this.courseCode = page.locator('text=/[A-Z]{4}\\d{4}/').first();
+    this.modeLabel = page.getByText(/lecture helper/i);
+    this.shareButton = page.getByRole('button', { name: /share conversation/i });
+    this.moreOptionsButton = page.getByRole('button', { name: /more options/i });
   }
 
   async goto(id: string) {
@@ -2131,12 +2182,17 @@ test.describe('Help', () => {
     await expect(userPage).toHaveURL(/\/help/);
   });
 
-  test('should have FAQ accordion sections', async ({ userPage }) => {
+  test('should have FAQ categories and items', async ({ userPage }) => {
     await userPage.goto('/help');
 
-    // 4 FAQ categories: Getting Started, Tutoring Modes, Account & Billing, Technical
+    // 4 FAQ categories, each containing its own Accordion with 3 items = 12 total items
+    const categoryPanels = userPage.locator('.mantine-Paper-root').filter({
+      has: userPage.locator('.mantine-Accordion-root'),
+    });
+    await expect(categoryPanels).toHaveCount(4, { timeout: 10_000 });
+
     const accordionItems = userPage.locator('.mantine-Accordion-item');
-    await expect(accordionItems).toHaveCount(4, { timeout: 10_000 });
+    await expect(accordionItems).toHaveCount(12);
   });
 
   test('should expand and collapse FAQ accordion', async ({ userPage }) => {
