@@ -62,6 +62,7 @@ const askCardQuestionSchema = z.object({
   cardType: z.enum(['knowledge', 'user']),
   question: z.string().min(1).max(2000),
   courseCode: z.string().min(1).optional(),
+  courseId: z.string().uuid().optional(),
 });
 
 // ============================================================================
@@ -253,9 +254,10 @@ export async function askCardQuestion(
   cardType: 'knowledge' | 'user',
   question: string,
   courseCode?: string,
+  courseId?: string,
 ): Promise<ActionResult<string>> {
   try {
-    const parsed = askCardQuestionSchema.safeParse({ cardId, cardType, question, courseCode });
+    const parsed = askCardQuestionSchema.safeParse({ cardId, cardType, question, courseCode, courseId });
     if (!parsed.success) {
       return { success: false, error: 'Invalid question parameters.' };
     }
@@ -283,7 +285,7 @@ export async function askCardQuestion(
     const answer = await chatService.explainConcept(
       parsed.data.question,
       `Follow-up question about a ${parsed.data.cardType} card`,
-      parsed.data.courseCode,
+      parsed.data.courseId,
     );
 
     // Save the assistant's answer

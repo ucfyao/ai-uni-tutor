@@ -74,7 +74,8 @@ describe('retrieval', () => {
       mockGemini.setEmbeddingResponse(fakeEmbedding);
       mockSupabase.setResponse([]);
 
-      await retrieveContext('query text', { knowledge_id: 'abc' }, 10);
+      const courseId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+      await retrieveContext('query text', courseId, { knowledge_id: 'abc' }, 10);
 
       expect(mockSupabase.client.rpc).toHaveBeenCalledWith('hybrid_search', {
         query_text: 'query text',
@@ -82,6 +83,7 @@ describe('retrieval', () => {
         match_threshold: 0.5, // RAG_CONFIG.matchThreshold
         match_count: 10,
         rrf_k: 60, // RAG_CONFIG.rrfK
+        search_course_id: courseId,
         filter: { knowledge_id: 'abc' },
       });
     });
@@ -140,7 +142,7 @@ describe('retrieval', () => {
       );
     });
 
-    it('should use default filter and matchCount when not specified', async () => {
+    it('should use defaults when courseId and filter not specified', async () => {
       mockGemini.setEmbeddingResponse([0.1]);
       mockSupabase.setResponse([]);
 
@@ -152,6 +154,7 @@ describe('retrieval', () => {
         match_threshold: 0.5,
         match_count: 5, // RAG_CONFIG.matchCount default
         rrf_k: 60,
+        search_course_id: null,
         filter: {},
       });
     });

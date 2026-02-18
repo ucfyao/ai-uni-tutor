@@ -651,6 +651,7 @@ export interface Database {
           match_threshold: number;
           match_count: number;
           rrf_k?: number;
+          search_course_id?: string | null;
           filter?: Json;
         };
         Returns: {

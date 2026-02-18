@@ -325,7 +325,7 @@ describe('ChatService', () => {
 
       // Lecture Helper has ragMatchCount = 5
       await service.generateResponse(baseOptions({ mode: 'Lecture Helper' as TutoringMode }));
-      expect(mockRetrieveContext).toHaveBeenCalledWith('Explain recursion', { course: 'CS101' }, 5);
+      expect(mockRetrieveContext).toHaveBeenCalledWith('Explain recursion', 'course-1', {}, 5);
 
       mockRetrieveContext.mockClear();
       mockGenerateContent.mockResolvedValue({ text: 'Ok' });
@@ -335,7 +335,8 @@ describe('ChatService', () => {
       // Input is preprocessed, so the query passed to RAG should contain the INTERNAL tag
       expect(mockRetrieveContext).toHaveBeenCalledWith(
         expect.stringContaining('Explain recursion'),
-        { course: 'CS101' },
+        'course-1',
+        {},
         3,
       );
     });
@@ -411,18 +412,18 @@ describe('ChatService', () => {
       );
     });
 
-    it('should include RAG context when courseCode is provided', async () => {
+    it('should include RAG context when courseId is provided', async () => {
       mockRetrieveContext.mockResolvedValue('Stack: LIFO data structure');
       mockGenerateContent.mockResolvedValue({ text: 'Stack explained with context' });
 
-      await service.explainConcept('Stack', 'context text', 'CS101');
+      await service.explainConcept('Stack', 'context text', 'course-1');
 
-      expect(mockRetrieveContext).toHaveBeenCalledWith('Stack', { course: 'CS101' }, 3);
+      expect(mockRetrieveContext).toHaveBeenCalledWith('Stack', 'course-1', {}, 3);
       const callArgs = mockGenerateContent.mock.calls[0][0];
       expect(callArgs.config.systemInstruction).toContain('Context from User Documents');
     });
 
-    it('should not call RAG when courseCode is not provided', async () => {
+    it('should not call RAG when courseId is not provided', async () => {
       mockGenerateContent.mockResolvedValue({ text: 'Explanation' });
 
       await service.explainConcept('Stack', 'context text');

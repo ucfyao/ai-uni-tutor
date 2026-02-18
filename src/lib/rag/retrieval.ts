@@ -6,6 +6,7 @@ import { generateEmbedding } from './embedding';
 
 export async function retrieveContext(
   query: string,
+  courseId?: string,
   filter: Json = {},
   matchCount: number = RAG_CONFIG.matchCount,
 ) {
@@ -13,12 +14,14 @@ export async function retrieveContext(
   const supabase = await createClient();
 
   // Hybrid Search: combines vector similarity + keyword rank (RRF)
+  // course_id filters via documents table join; filter does JSONB containment on chunk metadata
   const { data, error } = await supabase.rpc('hybrid_search', {
     query_text: query,
     query_embedding: embedding,
     match_threshold: RAG_CONFIG.matchThreshold,
     match_count: matchCount,
     rrf_k: RAG_CONFIG.rrfK,
+    search_course_id: courseId ?? null,
     filter: filter,
   });
 
