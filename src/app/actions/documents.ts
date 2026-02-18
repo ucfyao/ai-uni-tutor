@@ -115,11 +115,13 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
     // super_admin sees all; admin sees only papers in assigned courses
     let papers;
     if (role === 'super_admin') {
-      papers = await examRepo.findAllForAdmin();
+      const result = await examRepo.findAllForAdmin();
+      papers = result.data;
     } else {
       const { getAdminService } = await import('@/lib/services/AdminService');
       const courseIds = await getAdminService().getAssignedCourseIds(user.id);
-      papers = await examRepo.findByCourseIds(courseIds);
+      const result = await examRepo.findByCourseIds(courseIds);
+      papers = result.data;
     }
     return papers.map((paper) => ({
       id: paper.id,

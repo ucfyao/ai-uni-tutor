@@ -4,6 +4,7 @@
  * Defines the contract for exam paper and question data access operations.
  */
 
+import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import type { ExamPaper, ExamQuestion, PaperFilters } from '@/types/exam';
 
 export interface IExamPaperRepository {
@@ -20,10 +21,17 @@ export interface IExamPaperRepository {
   }): Promise<string>; // returns paperId
 
   findById(id: string): Promise<ExamPaper | null>;
-  findWithFilters(filters?: PaperFilters): Promise<ExamPaper[]>;
+  findWithFilters(
+    filters?: PaperFilters,
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<ExamPaper>>;
   findOwner(id: string): Promise<string | null>; // returns user_id
   findCourseId(id: string): Promise<string | null>; // returns course_id
-  findAllForAdmin(courseIds?: string[]): Promise<ExamPaper[]>;
+  findAllForAdmin(pagination?: PaginationOptions): Promise<PaginatedResult<ExamPaper>>;
+  findByCourseIds(
+    courseIds: string[],
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<ExamPaper>>;
   updateStatus(
     id: string,
     status: 'parsing' | 'ready' | 'error',

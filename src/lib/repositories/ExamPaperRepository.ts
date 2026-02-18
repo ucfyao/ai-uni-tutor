@@ -6,6 +6,7 @@
  */
 
 import type { IExamPaperRepository } from '@/lib/domain/interfaces/IExamPaperRepository';
+import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
@@ -99,14 +100,19 @@ export class ExamPaperRepository implements IExamPaperRepository {
     return mapPaperRow(data as Record<string, unknown>);
   }
 
-  async findWithFilters(filters?: PaperFilters): Promise<ExamPaper[]> {
+  async findWithFilters(
+    filters?: PaperFilters,
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<ExamPaper>> {
+    const { limit = 50, offset = 0 } = pagination ?? {};
     const supabase = await createClient();
 
     let query = supabase
       .from('exam_papers')
-      .select('*, exam_questions(count)')
+      .select('*, exam_questions(count)', { count: 'exact' })
       .eq('status', 'ready')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (filters?.school) {
       query = query.eq('school', filters.school);
@@ -118,17 +124,20 @@ export class ExamPaperRepository implements IExamPaperRepository {
       query = query.eq('year', filters.year);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       throw new DatabaseError(`Failed to fetch papers: ${error.message}`, error);
     }
 
-    return (data ?? []).map((row: Record<string, unknown>) => {
-      const countArr = row.exam_questions as Array<{ count: number }> | undefined;
-      const questionCount = countArr?.[0]?.count ?? 0;
-      return mapPaperRow(row, questionCount);
-    });
+    return {
+      data: (data ?? []).map((row: Record<string, unknown>) => {
+        const countArr = row.exam_questions as Array<{ count: number }> | undefined;
+        const questionCount = countArr?.[0]?.count ?? 0;
+        return mapPaperRow(row, questionCount);
+      }),
+      total: count ?? 0,
+    };
   }
 
   async findOwner(id: string): Promise<string | null> {
@@ -164,20 +173,28 @@ export class ExamPaperRepository implements IExamPaperRepository {
     return (data?.course_id as string) ?? null;
   }
 
-  async findByCourseIds(courseIds: string[]): Promise<ExamPaper[]> {
-    if (courseIds.length === 0) return [];
+  async findByCourseIds(
+    courseIds: string[],
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<ExamPaper>> {
+    if (courseIds.length === 0) return { data: [], total: 0 };
+    const { limit = 50, offset = 0 } = pagination ?? {};
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('exam_papers')
-      .select('*')
+      .select('*', { count: 'exact' })
       .in('course_id', courseIds)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw new DatabaseError(`Failed to fetch exam papers by course: ${error.message}`, error);
     }
-    return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
+    return {
+      data: (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row)),
+      total: count ?? 0,
+    };
   }
 
   async updateStatus(
@@ -305,18 +322,23 @@ export class ExamPaperRepository implements IExamPaperRepository {
     }
   }
 
-  async findAllForAdmin(): Promise<ExamPaper[]> {
+  async findAllForAdmin(pagination?: PaginationOptions): Promise<PaginatedResult<ExamPaper>> {
+    const { limit = 50, offset = 0 } = pagination ?? {};
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('exam_papers')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw new DatabaseError(`Failed to fetch exam papers: ${error.message}`, error);
     }
-    return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
+    return {
+      data: (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row)),
+      total: count ?? 0,
+    };
   }
 
   async deleteQuestion(questionId: string): Promise<void> {
