@@ -79,6 +79,7 @@ const mockExamRepo = {
   findAllForAdmin: vi.fn(),
   findCourseId: vi.fn(),
   findOwner: vi.fn(),
+  findQuestionsByPaperId: vi.fn(),
   delete: vi.fn(),
   deleteQuestion: vi.fn(),
   updateQuestion: vi.fn(),
@@ -91,6 +92,7 @@ const mockAssignmentRepo = {
   findAllForAdmin: vi.fn(),
   findCourseId: vi.fn(),
   findOwner: vi.fn(),
+  findItemsByAssignmentId: vi.fn(),
   delete: vi.fn(),
   deleteItem: vi.fn(),
   updateItem: vi.fn(),
@@ -671,6 +673,7 @@ describe('Document Actions', () => {
   describe('updateExamQuestions', () => {
     it('should update exam questions with course access check', async () => {
       mockExamRepo.findCourseId.mockResolvedValue('course-1');
+      mockExamRepo.findQuestionsByPaperId.mockResolvedValue([{ id: 'q-1' }, { id: 'q-2' }]);
       mockExamRepo.deleteQuestion.mockResolvedValue(undefined);
       mockExamRepo.updateQuestion.mockResolvedValue(undefined);
 
@@ -705,6 +708,10 @@ describe('Document Actions', () => {
   describe('updateAssignmentItems', () => {
     it('should update assignment items with course access check', async () => {
       mockAssignmentRepo.findCourseId.mockResolvedValue('course-1');
+      mockAssignmentRepo.findItemsByAssignmentId.mockResolvedValue([
+        { id: 'item-1' },
+        { id: 'item-2' },
+      ]);
       mockAssignmentRepo.deleteItem.mockResolvedValue(undefined);
       mockAssignmentRepo.updateItem.mockResolvedValue(undefined);
 

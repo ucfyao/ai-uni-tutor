@@ -12,6 +12,7 @@
 
 import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
 import { parsePDF } from '@/lib/pdf';
+import { buildChunkContent } from '@/lib/rag/build-chunk-content';
 import { generateEmbeddingBatch } from '@/lib/rag/embedding';
 import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import type { DocumentService } from './DocumentService';
@@ -59,36 +60,6 @@ export class DocumentProcessingService {
   }
 
   /**
-   * Build chunk content string from an extracted item.
-   */
-  buildChunkContent(
-    item: KnowledgePoint | ParsedQuestion,
-    type: 'knowledge_point' | 'question',
-  ): string {
-    if (type === 'knowledge_point') {
-      const kp = item as KnowledgePoint;
-      return [
-        kp.title,
-        kp.definition,
-        kp.keyFormulas?.length ? `Formulas: ${kp.keyFormulas.join('; ')}` : '',
-        kp.keyConcepts?.length ? `Concepts: ${kp.keyConcepts.join(', ')}` : '',
-        kp.examples?.length ? `Examples: ${kp.examples.join('; ')}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
-    } else {
-      const q = item as ParsedQuestion;
-      return [
-        `Q${q.questionNumber}: ${q.content}`,
-        q.options?.length ? `Options: ${q.options.join(' | ')}` : '',
-        q.referenceAnswer ? `Answer: ${q.referenceAnswer}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
-    }
-  }
-
-  /**
    * Generate embeddings and build chunk DTOs for a list of extracted items.
    */
   async buildChunks(
@@ -101,7 +72,7 @@ export class DocumentProcessingService {
       throw new Error('Processing aborted');
     }
 
-    const contents = items.map((item) => this.buildChunkContent(item, type));
+    const contents = items.map((item) => buildChunkContent(type, item));
     const embeddings = await generateEmbeddingBatch(contents);
 
     const chunks: CreateDocumentChunkDTO[] = items.map((item, i) => ({

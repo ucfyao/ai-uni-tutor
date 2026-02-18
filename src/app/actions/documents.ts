@@ -6,6 +6,7 @@ import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
 import { getDocumentService } from '@/lib/services/DocumentService';
+import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { requireAdmin, requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
@@ -26,11 +27,7 @@ export interface DocumentListItem {
 const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
 
 /** Check course-level access for an exam paper. */
-async function requireExamAccess(
-  paperId: string,
-  userId: string,
-  role: string,
-): Promise<void> {
+async function requireExamAccess(paperId: string, userId: string, role: string): Promise<void> {
   const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
   const examRepo = getExamPaperRepository();
   const courseId = await examRepo.findCourseId(paperId);
@@ -225,6 +222,7 @@ export async function uploadDocument(
       console.error('Error during document processing:', e);
       try {
         await documentService.deleteChunksByDocumentId(doc.id);
+        await getKnowledgeCardService().deleteByDocumentId(doc.id);
       } catch {
         /* ignore cleanup errors */
       }
@@ -251,6 +249,7 @@ export async function uploadDocument(
       try {
         const documentService = getDocumentService();
         await documentService.deleteChunksByDocumentId(docId);
+        await getKnowledgeCardService().deleteByDocumentId(docId);
         await documentService.updateStatus(docId, 'error', 'Upload failed unexpectedly');
         revalidatePath('/admin/knowledge');
       } catch {
@@ -427,6 +426,16 @@ export async function updateExamQuestions(
   const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
   const examRepo = getExamPaperRepository();
 
+  // Verify all question IDs belong to this paper (IDOR protection)
+  const allIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allIds.length > 0) {
+    const paperQuestions = await examRepo.findQuestionsByPaperId(paperId);
+    const validIds = new Set(paperQuestions.map((q) => q.id));
+    if (allIds.some((id) => !validIds.has(id))) {
+      return { status: 'error', message: 'Invalid question IDs' };
+    }
+  }
+
   for (const id of deletedIds) {
     await examRepo.deleteQuestion(id);
   }
@@ -465,6 +474,16 @@ export async function updateAssignmentItems(
 
   const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
   const assignmentRepo = getAssignmentRepository();
+
+  // Verify all item IDs belong to this assignment (IDOR protection)
+  const allIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allIds.length > 0) {
+    const assignmentItems = await assignmentRepo.findItemsByAssignmentId(assignmentId);
+    const validIds = new Set(assignmentItems.map((item) => item.id));
+    if (allIds.some((id) => !validIds.has(id))) {
+      return { status: 'error', message: 'Invalid item IDs' };
+    }
+  }
 
   for (const id of deletedIds) {
     await assignmentRepo.deleteItem(id);

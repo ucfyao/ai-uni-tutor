@@ -144,9 +144,9 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
 
   const handleDelete = (doc: KnowledgeDocument) => setDeleteTarget(doc);
 
-  const handleRetry = async (id: string) => {
+  const handleRetry = async (doc: KnowledgeDocument) => {
     try {
-      const result = await retryDocument(id);
+      const result = await retryDocument(doc.id, doc.doc_type);
       if (result.status === 'success') {
         showNotification({ title: t.knowledge.success, message: result.message, color: 'green' });
       } else {
@@ -202,7 +202,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                 variant="subtle"
                 color="orange"
                 size="sm"
-                onClick={() => handleRetry(doc.id)}
+                onClick={() => handleRetry(doc)}
               >
                 <RefreshCw size={14} />
               </ActionIcon>

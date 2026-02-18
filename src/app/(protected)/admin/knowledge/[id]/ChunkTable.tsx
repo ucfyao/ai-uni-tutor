@@ -69,7 +69,11 @@ export function ChunkTable({
 
   // Label for count badge
   const countLabel =
-    docType === 'lecture' ? t.documentDetail.knowledgePoints : t.documentDetail.questions;
+    docType === 'lecture'
+      ? t.documentDetail.knowledgePoints
+      : docType === 'assignment'
+        ? t.documentDetail.items
+        : t.documentDetail.questions;
 
   // Empty chunks skeleton
   if (chunks.length === 0) {
