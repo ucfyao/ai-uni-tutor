@@ -4,7 +4,7 @@
 
 **Goal:** Optimize AI UniTutor's frontend bundle, data fetching, database queries, caching, and observability across 3 waves.
 
-**Architecture:** Wave 1 slims the JS bundle (icon consolidation + analyzer). Wave 2 improves frontend caching and database query efficiency (pagination, column narrowing). Wave 3 adds Redis application cache, HTTP cache headers, Server-Timing instrumentation, and TanStack Query prefetching.
+**Architecture:** Wave 1 slims the JS bundle (icon consolidation + analyzer). Wave 2 improves frontend caching and database query efficiency (pagination, column narrowing, image preview optimization). Wave 3 adds Redis application cache at the Service layer, HTTP cache headers, Server-Timing instrumentation, and TanStack Query prefetching.
 
 **Tech Stack:** Next.js 16, TanStack Query 5, Upstash Redis, Supabase PostgreSQL, Mantine v8, lucide-react
 
@@ -102,7 +102,7 @@ Run:
 npm run analyze
 ```
 
-Note the output sizes (First Load JS per route). Save this as the baseline. The analyzer will open a browser tab with the treemap visualization.
+Note the output sizes (First Load JS per route). Save this as the baseline.
 
 **Step 5: Verify build still passes**
 
@@ -133,7 +133,7 @@ git commit -m "feat(config): add bundle analyzer for performance measurement"
 - Modify: `src/components/exam/FeedbackCard.tsx:3`
 - Modify: `src/components/exam/QuestionCard.tsx:3`
 - Modify: `src/app/(protected)/exam/ExamEntryClient.tsx:3-9`
-- Modify: `src/app/(protected)/exam/ExamPaperUploadModal.tsx:3`
+- Modify: `src/app/(protected)/exam/ExamPaperUploadModal.tsx:3,48,51,54,69`
 - Modify: `src/app/(protected)/exam/mock/[id]/MockExamClient.tsx:3-10`
 - Modify: `src/app/(protected)/settings/page.tsx:3`
 - Modify: `src/app/(protected)/admin/exam/AdminExamClient.tsx:3`
@@ -167,25 +167,47 @@ For each file listed above:
 
 1. Remove the `@tabler/icons-react` import line
 2. Add the lucide equivalents to the existing `lucide-react` import (or create one)
-3. Update all JSX usages — Tabler icons use `size` prop, lucide-react also uses `size` prop, so the JSX props should be compatible
+3. Replace all `<IconFoo` JSX usage with `<Foo`
 
-**Important:** Tabler icons render at `size={N}` (pixels). Lucide icons also accept `size={N}`. No prop changes needed.
+**IMPORTANT — Prop differences:**
+
+- Tabler uses `stroke={1.5}`, Lucide uses `strokeWidth={1.5}`. You **must** rename this prop.
+- `size={N}` works the same in both libraries — no change needed for `size`.
+- Known files with `stroke=` prop: `src/app/(protected)/exam/ExamPaperUploadModal.tsx` lines 48, 51, 54.
+
+**Example for ExamPaperUploadModal.tsx:**
+
+Before (lines 47-55):
+
+```tsx
+<Dropzone.Accept>
+  <IconUpload size={40} stroke={1.5} color="var(--mantine-color-violet-6)" />
+</Dropzone.Accept>
+<Dropzone.Reject>
+  <IconX size={40} stroke={1.5} color="var(--mantine-color-red-6)" />
+</Dropzone.Reject>
+<Dropzone.Idle>
+  <IconFileText size={40} stroke={1.5} style={{ opacity: 0.4 }} />
+</Dropzone.Idle>
+```
+
+After:
+
+```tsx
+<Dropzone.Accept>
+  <Upload size={40} strokeWidth={1.5} color="var(--mantine-color-violet-6)" />
+</Dropzone.Accept>
+<Dropzone.Reject>
+  <X size={40} strokeWidth={1.5} color="var(--mantine-color-red-6)" />
+</Dropzone.Reject>
+<Dropzone.Idle>
+  <FileText size={40} strokeWidth={1.5} style={{ opacity: 0.4 }} />
+</Dropzone.Idle>
+```
 
 **Example for MessageBubble.tsx:**
 
-Before (line 1):
-
-```typescript
-import { IconCheck } from '@tabler/icons-react';
-```
-
-After — merge into the existing lucide import (line 2):
-
-```typescript
-import { Check, Copy, Quote, RefreshCw } from 'lucide-react';
-```
-
-Then replace all `<IconCheck` with `<Check` in the file. Note: this file already imports `Check` from lucide on line 2, so just remove the tabler import and replace `IconCheck` usages with `Check`.
+This file already imports `Check` from lucide on line 2. Remove the tabler import on line 1 and replace all `IconCheck` usages with `Check`.
 
 **Step 2: Remove @tabler/icons-react from dependencies**
 
@@ -200,7 +222,7 @@ npm uninstall @tabler/icons-react
 Run:
 
 ```bash
-npx grep -r "@tabler/icons-react" src/
+grep -r "@tabler/icons-react" src/
 ```
 
 Expected: No results.
@@ -228,10 +250,11 @@ Expected: Build succeeds.
 **Step 6: Commit**
 
 ```bash
-git add -A
+git add src/components/chat/MessageBubble.tsx src/components/chat/WelcomeScreen.tsx src/components/MockExamModal.tsx src/components/exam/FeedbackCard.tsx src/components/exam/QuestionCard.tsx src/app/(protected)/exam/ExamEntryClient.tsx src/app/(protected)/exam/ExamPaperUploadModal.tsx src/app/(protected)/exam/mock/[id]/MockExamClient.tsx src/app/(protected)/settings/page.tsx src/app/(protected)/admin/exam/AdminExamClient.tsx package.json package-lock.json
 git commit -m "refactor(ui): replace @tabler/icons-react with lucide-react
 
 Consolidate to single icon library to reduce bundle size.
+Renames stroke → strokeWidth where needed (Tabler/Lucide prop diff).
 Removes ~100-200KB of unused icon definitions."
 ```
 
@@ -321,39 +344,71 @@ Reduces unnecessary refetches for stable data."
 
 ---
 
-### Task 5: Add Lazy Loading to Chat Image Display
+### Task 5: Optimize Chat Image Previews with Object URLs
 
 **Files:**
 
-- Modify: `src/components/chat/MessageBubble.tsx` (image rendering section)
+- Modify: `src/components/modes/LectureHelper.tsx:363-367,413-416`
 
-**Step 1: Locate image rendering in MessageBubble.tsx**
+**Context:** Image previews currently use `FileReader.readAsDataURL()` which produces large base64 strings stored in React state. `URL.createObjectURL()` is faster and uses less memory — the browser holds a reference to the file blob instead of duplicating its contents as a string.
 
-Find the section where message images are rendered (around line 335-361). Look for the `<Image>` component rendering with base64 data URLs.
+Note: `loading="lazy"` would be ineffective here since base64 data URLs have no network request to defer. Object URLs are the correct optimization.
 
-**Step 2: Add loading="lazy" to image elements**
+**Step 1: Replace FileReader with URL.createObjectURL for image previews**
 
-For each `<Image>` rendering chat message images, add the `loading="lazy"` prop. Mantine's `Image` component passes through standard HTML attributes, so:
+In `src/components/modes/LectureHelper.tsx`, find the image file handling (around lines 363-367):
 
 Before:
 
-```tsx
-<Image
-  src={`data:${img.mimeType};base64,${img.data}`}
-  alt="..."
-  ...
-/>
+```typescript
+const reader = new FileReader();
+reader.onload = (ev) => {
+  setImagePreviews((prev) => [...prev, ev.target?.result as string]);
+};
+reader.readAsDataURL(file);
 ```
 
 After:
 
-```tsx
-<Image
-  src={`data:${img.mimeType};base64,${img.data}`}
-  alt="..."
-  loading="lazy"
-  ...
-/>
+```typescript
+const objectUrl = URL.createObjectURL(file);
+setImagePreviews((prev) => [...prev, objectUrl]);
+```
+
+Also update the paste handler (around lines 413-416) with the same pattern.
+
+**Step 2: Revoke object URLs on cleanup**
+
+Find the remove-image handler (around line 395) and add URL revocation:
+
+Before:
+
+```typescript
+setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+```
+
+After:
+
+```typescript
+setImagePreviews((prev) => {
+  URL.revokeObjectURL(prev[index]);
+  return prev.filter((_, i) => i !== index);
+});
+```
+
+Also revoke all URLs when previews are cleared (around line 196):
+
+Before:
+
+```typescript
+setImagePreviews([]);
+```
+
+After:
+
+```typescript
+imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+setImagePreviews([]);
 ```
 
 **Step 3: Run type check**
@@ -369,24 +424,28 @@ Expected: No errors.
 **Step 4: Commit**
 
 ```bash
-git add src/components/chat/MessageBubble.tsx
-git commit -m "feat(chat): add lazy loading to chat message images
+git add src/components/modes/LectureHelper.tsx
+git commit -m "feat(chat): use URL.createObjectURL for image previews
 
-Defers off-screen image decoding to improve scroll performance."
+Replaces FileReader.readAsDataURL with object URLs for faster
+preview rendering and lower memory usage. Revokes URLs on cleanup."
 ```
 
 ---
 
-### Task 6: Add Pagination to DocumentRepository
+### Task 6: Add Pagination to DocumentRepository.findByDocTypeForAdmin
 
 **Files:**
 
-- Modify: `src/lib/repositories/DocumentRepository.ts:35-50`
-- Modify: `src/lib/domain/interfaces/IDocumentRepository.ts` (update interface signature)
+- Modify: `src/lib/repositories/DocumentRepository.ts:147-167`
+- Modify: `src/lib/domain/interfaces/IDocumentRepository.ts`
+- Modify: `src/lib/services/DocumentService.ts:28-30`
 
-**Step 1: Define pagination options type**
+**Context:** `findByUserId` has no runtime callers (dead code per grep). The actual unbounded admin query is `findByDocTypeForAdmin` called from `DocumentService.getDocumentsForAdmin()` → `documents.ts` action.
 
-Add at the top of `src/lib/repositories/DocumentRepository.ts` (after existing imports):
+**Step 1: Define shared pagination types**
+
+Create `src/lib/domain/models/Pagination.ts`:
 
 ```typescript
 export interface PaginationOptions {
@@ -400,23 +459,27 @@ export interface PaginatedResult<T> {
 }
 ```
 
-**Step 2: Update findByUserId to support pagination**
+**Step 2: Add pagination to findByDocTypeForAdmin**
 
-Replace the `findByUserId` method (lines 35-50):
+In `src/lib/repositories/DocumentRepository.ts`, update the method (lines 147-167):
 
 Before:
 
 ```typescript
-async findByUserId(userId: string, docType?: string): Promise<DocumentEntity[]> {
+async findByDocTypeForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
+  if (courseIds !== undefined && courseIds.length === 0) {
+    return [];
+  }
+
   const supabase = await createClient();
   let query = supabase
     .from('documents')
     .select('*')
-    .eq('user_id', userId)
+    .eq('doc_type', docType as 'lecture' | 'exam' | 'assignment')
     .order('created_at', { ascending: false });
 
-  if (docType) {
-    query = query.eq('doc_type', docType as 'lecture' | 'exam' | 'assignment');
+  if (courseIds && courseIds.length > 0) {
+    query = query.in('course_id', courseIds);
   }
 
   const { data, error } = await query;
@@ -428,22 +491,26 @@ async findByUserId(userId: string, docType?: string): Promise<DocumentEntity[]> 
 After:
 
 ```typescript
-async findByUserId(
-  userId: string,
-  docType?: string,
+async findByDocTypeForAdmin(
+  docType: string,
+  courseIds?: string[],
   pagination?: PaginationOptions,
 ): Promise<PaginatedResult<DocumentEntity>> {
+  if (courseIds !== undefined && courseIds.length === 0) {
+    return { data: [], total: 0 };
+  }
+
   const { limit = 50, offset = 0 } = pagination ?? {};
   const supabase = await createClient();
   let query = supabase
     .from('documents')
     .select('id, user_id, name, status, status_message, metadata, doc_type, course_id, created_at', { count: 'exact' })
-    .eq('user_id', userId)
+    .eq('doc_type', docType as 'lecture' | 'exam' | 'assignment')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (docType) {
-    query = query.eq('doc_type', docType as 'lecture' | 'exam' | 'assignment');
+  if (courseIds && courseIds.length > 0) {
+    query = query.in('course_id', courseIds);
   }
 
   const { data, error, count } = await query;
@@ -455,41 +522,73 @@ async findByUserId(
 }
 ```
 
-**Step 3: Update the IDocumentRepository interface**
-
-In `src/lib/domain/interfaces/IDocumentRepository.ts`, update the `findByUserId` signature to match:
+Add the import at the top:
 
 ```typescript
-findByUserId(
-  userId: string,
-  docType?: string,
-  pagination?: { limit?: number; offset?: number },
-): Promise<{ data: DocumentEntity[]; total: number }>;
+import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 ```
 
-**Step 4: Update callers**
+**Step 3: Update interface**
 
-Search for all callers of `findByUserId` on DocumentRepository. They currently expect `DocumentEntity[]` — update them to destructure `{ data }` from the result. Common callers are in service files (`DocumentService` or similar).
+In `src/lib/domain/interfaces/IDocumentRepository.ts`, update:
 
-Run:
+```typescript
+findByDocTypeForAdmin(
+  docType: string,
+  courseIds?: string[],
+  pagination?: PaginationOptions,
+): Promise<PaginatedResult<DocumentEntity>>;
+```
+
+**Step 4: Update DocumentService.getDocumentsForAdmin**
+
+In `src/lib/services/DocumentService.ts` (lines 28-30):
+
+Before:
+
+```typescript
+async getDocumentsForAdmin(docType: string, courseIds?: string[]): Promise<DocumentEntity[]> {
+  return this.docRepo.findByDocTypeForAdmin(docType, courseIds);
+}
+```
+
+After:
+
+```typescript
+async getDocumentsForAdmin(
+  docType: string,
+  courseIds?: string[],
+  pagination?: PaginationOptions,
+): Promise<PaginatedResult<DocumentEntity>> {
+  return this.docRepo.findByDocTypeForAdmin(docType, courseIds, pagination);
+}
+```
+
+**Step 5: Update the action caller**
+
+In `src/app/actions/documents.ts` (around line 101), the caller currently does:
+
+```typescript
+const entities = await service.getDocumentsForAdmin('lecture', courseIds);
+```
+
+Update to destructure:
+
+```typescript
+const { data: entities } = await service.getDocumentsForAdmin('lecture', courseIds);
+```
+
+**Step 6: Update test mocks**
+
+Search for test files that mock `findByDocTypeForAdmin` or `getDocumentsForAdmin`:
 
 ```bash
-grep -rn "findByUserId" src/lib/services/ src/app/actions/
+grep -rn "findByDocTypeForAdmin\|getDocumentsForAdmin" src/ --include="*.test.*"
 ```
 
-For each caller, update from:
+Update mock return values from arrays to `{ data: [...], total: N }`.
 
-```typescript
-const docs = await documentRepo.findByUserId(userId, docType);
-```
-
-To:
-
-```typescript
-const { data: docs } = await documentRepo.findByUserId(userId, docType);
-```
-
-**Step 5: Run tests and type check**
+**Step 7: Run tests and type check**
 
 Run:
 
@@ -499,14 +598,15 @@ npx tsc --noEmit && npx vitest run
 
 Expected: All pass.
 
-**Step 6: Commit**
+**Step 8: Commit**
 
 ```bash
-git add src/lib/repositories/DocumentRepository.ts src/lib/domain/interfaces/IDocumentRepository.ts src/lib/services/ src/app/actions/
-git commit -m "feat(db): add pagination to DocumentRepository.findByUserId
+git add src/lib/domain/models/Pagination.ts src/lib/repositories/DocumentRepository.ts src/lib/domain/interfaces/IDocumentRepository.ts src/lib/services/DocumentService.ts src/app/actions/documents.ts
+git commit -m "feat(db): add pagination to DocumentRepository.findByDocTypeForAdmin
 
-Prevents unbounded queries as user document count grows.
-Default limit: 50 rows. Callers updated to destructure result."
+Prevents unbounded admin queries as document count grows.
+Default limit: 50 rows. Narrows SELECT columns to exclude content.
+Updates service layer and action callers."
 ```
 
 ---
@@ -517,13 +617,27 @@ Default limit: 50 rows. Callers updated to destructure result."
 
 - Modify: `src/lib/repositories/ExamPaperRepository.ts:102-132,167-181,308-320`
 - Modify: `src/lib/domain/interfaces/IExamPaperRepository.ts`
+- Modify: `src/lib/services/ExamPaperService.ts:164-166`
+- Modify: `src/app/actions/exam-papers.ts:71-76`
+- Modify: `src/app/actions/documents.ts:117-127`
+- Modify test files: `ExamPaperService.test.ts`, `ExamPaperRepository.test.ts`, `exam-papers.test.ts`, `documents.test.ts`, `MockExamService.test.ts`
 
-**Step 1: Add pagination to findWithFilters**
+**Context — Full call chain that must be updated:**
 
-Update `findWithFilters` (lines 102-132) to accept pagination and use `.range()`:
+1. `ExamPaperRepository.findWithFilters()` → `ExamPaperService.getPapers()` → `exam-papers.ts:getExamPaperList()`
+2. `ExamPaperRepository.findAllForAdmin()` → `documents.ts:fetchDocuments()` (bypasses service layer — calls repo directly)
+3. `ExamPaperRepository.findByCourseIds()` → `documents.ts:fetchDocuments()` (also bypasses service layer)
+4. 5+ test files mock these methods and assert on return types
+
+**Step 1: Update findWithFilters to return paginated result**
+
+In `src/lib/repositories/ExamPaperRepository.ts` (lines 102-132):
 
 ```typescript
-async findWithFilters(filters?: PaperFilters, pagination?: { limit?: number; offset?: number }): Promise<{ data: ExamPaper[]; total: number }> {
+async findWithFilters(
+  filters?: PaperFilters,
+  pagination?: PaginationOptions,
+): Promise<PaginatedResult<ExamPaper>> {
   const { limit = 50, offset = 0 } = pagination ?? {};
   const supabase = await createClient();
 
@@ -552,19 +666,71 @@ async findWithFilters(filters?: PaperFilters, pagination?: { limit?: number; off
 }
 ```
 
-**Step 2: Add pagination to findByCourseIds (line 167)**
+**Step 2: Update findByCourseIds and findAllForAdmin**
 
-Same pattern: add `pagination` param, use `.range()`, return `{ data, total }`.
+Same pattern: add optional `pagination` param, use `.range()`, return `PaginatedResult<ExamPaper>`.
 
-**Step 3: Add pagination to findAllForAdmin (line 308)**
+**Step 3: Update ExamPaperService.getPapers**
 
-Same pattern.
+In `src/lib/services/ExamPaperService.ts` (lines 164-166):
 
-**Step 4: Update interface and callers**
+Before:
 
-Update `IExamPaperRepository` interface signatures. Search for callers in services/actions and destructure `{ data }`.
+```typescript
+async getPapers(filters?: PaperFilters): Promise<ExamPaper[]> {
+  return this.repo.findWithFilters(filters);
+}
+```
 
-**Step 5: Run tests and type check**
+After:
+
+```typescript
+async getPapers(filters?: PaperFilters): Promise<PaginatedResult<ExamPaper>> {
+  return this.repo.findWithFilters(filters);
+}
+```
+
+**Step 4: Update action callers**
+
+In `src/app/actions/exam-papers.ts` (line 76):
+
+```typescript
+// Before
+return service.getPapers(filters);
+// After
+const { data } = await service.getPapers(filters);
+return data;
+```
+
+In `src/app/actions/documents.ts` (lines 122, 126):
+
+```typescript
+// Before
+papers = await examRepo.findAllForAdmin();
+papers = await examRepo.findByCourseIds(courseIds);
+// After
+const result = await examRepo.findAllForAdmin();
+papers = result.data;
+// and
+const result = await examRepo.findByCourseIds(courseIds);
+papers = result.data;
+```
+
+**Step 5: Update interface**
+
+In `src/lib/domain/interfaces/IExamPaperRepository.ts`, update all three method signatures to return `PaginatedResult<ExamPaper>`.
+
+**Step 6: Update ALL test mocks**
+
+Files that need mock updates:
+
+- `src/lib/services/ExamPaperService.test.ts` — `repo.findWithFilters.mockResolvedValue()` must return `{ data: [...], total: N }`
+- `src/lib/repositories/ExamPaperRepository.test.ts` — assertion expectations
+- `src/app/actions/exam-papers.test.ts` — `mockExamPaperService.getPapers.mockResolvedValue()`
+- `src/app/actions/documents.test.ts` — `findAllForAdmin.mockResolvedValue()`, `findByCourseIds.mockResolvedValue()`
+- `src/lib/services/MockExamService.test.ts` — if it mocks findWithFilters
+
+**Step 7: Run tests and type check**
 
 Run:
 
@@ -572,14 +738,17 @@ Run:
 npx tsc --noEmit && npx vitest run
 ```
 
-**Step 6: Commit**
+Expected: All pass.
+
+**Step 8: Commit**
 
 ```bash
-git add src/lib/repositories/ExamPaperRepository.ts src/lib/domain/interfaces/IExamPaperRepository.ts src/lib/services/ src/app/actions/
+git add src/lib/repositories/ExamPaperRepository.ts src/lib/domain/interfaces/IExamPaperRepository.ts src/lib/services/ExamPaperService.ts src/app/actions/exam-papers.ts src/app/actions/documents.ts src/lib/services/ExamPaperService.test.ts src/lib/repositories/ExamPaperRepository.test.ts src/app/actions/exam-papers.test.ts src/app/actions/documents.test.ts src/lib/services/MockExamService.test.ts
 git commit -m "feat(db): add pagination to ExamPaperRepository queries
 
 Prevents unbounded result sets for findWithFilters, findByCourseIds,
-and findAllForAdmin. Default limit: 50 rows."
+and findAllForAdmin. Default limit: 50 rows.
+Updates full call chain: repo → service → action → tests."
 ```
 
 ---
@@ -590,25 +759,51 @@ and findAllForAdmin. Default limit: 50 rows."
 
 - Modify: `src/lib/repositories/SessionRepository.ts:68-79`
 
-**Step 1: Replace select('\*') with explicit columns in findAllByUserId**
+**Step 1: Define a narrow type for list queries**
 
-The SessionRow interface (lines 19-30) tells us exactly which columns exist. Replace `select('*')` on line 71:
+In `SessionRepository.ts`, add a type for list queries that omits `share_expires_at`:
+
+```typescript
+type SessionListRow = Omit<SessionRow, 'share_expires_at'>;
+```
+
+**Step 2: Replace select('\*') with explicit columns in findAllByUserId**
+
+In `src/lib/repositories/SessionRepository.ts`, the `.select('*')` is on **line 72** (not 71). Replace:
 
 Before:
 
 ```typescript
-.select('*')
+const { data, error } = await supabase
+  .from('chat_sessions')
+  .select('*')
+  .eq('user_id', userId)
+  .order('is_pinned', { ascending: false })
+  .order('updated_at', { ascending: false });
 ```
 
 After:
 
 ```typescript
-.select('id, user_id, course_id, mode, title, is_pinned, is_shared, created_at, updated_at')
+const { data, error } = await supabase
+  .from('chat_sessions')
+  .select('id, user_id, course_id, mode, title, is_pinned, is_shared, created_at, updated_at')
+  .eq('user_id', userId)
+  .order('is_pinned', { ascending: false })
+  .order('updated_at', { ascending: false });
 ```
 
-This omits `share_expires_at` from list queries (not needed for sidebar display).
+**Step 3: Update the mapping call**
 
-**Step 2: Run tests and type check**
+The `mapToEntity` currently casts `data as SessionRow` which expects `share_expires_at`. Since we omitted it, update the mapping to handle the missing field:
+
+```typescript
+return (data ?? []).map((row) =>
+  this.mapToEntity({ ...row, share_expires_at: null } as SessionRow),
+);
+```
+
+**Step 4: Run tests and type check**
 
 Run:
 
@@ -616,13 +811,14 @@ Run:
 npx tsc --noEmit && npx vitest run
 ```
 
-**Step 3: Commit**
+**Step 5: Commit**
 
 ```bash
 git add src/lib/repositories/SessionRepository.ts
 git commit -m "refactor(db): narrow SELECT columns in SessionRepository.findAllByUserId
 
-Explicit column list instead of select('*') reduces data transfer."
+Explicit column list instead of select('*') reduces data transfer.
+Omits share_expires_at from list queries (not needed for sidebar)."
 ```
 
 ---
@@ -661,7 +857,25 @@ Expected: Build succeeds.
 
 - Create: `src/lib/cache.ts`
 
-**Step 1: Create the cache-aside helper**
+**Important:** Reuse the existing Redis singleton from `src/lib/redis.ts` — do NOT create a duplicate Redis client. The existing `getRedis()` is not exported, but the lazy `redis` proxy at line 39 is. However, since `redis` is a proxy that throws on missing credentials, import `getRedis` directly by exporting it.
+
+**Step 1: Export getRedis from redis.ts**
+
+In `src/lib/redis.ts`, the `getRedis()` function (line 23) is currently private. Add an export:
+
+Before:
+
+```typescript
+function getRedis(): Redis {
+```
+
+After:
+
+```typescript
+export function getRedis(): Redis {
+```
+
+**Step 2: Create the cache-aside helper**
 
 Create `src/lib/cache.ts`:
 
@@ -669,52 +883,46 @@ Create `src/lib/cache.ts`:
 /**
  * Redis cache-aside helper.
  *
- * Uses the existing Upstash Redis instance to cache frequently-read data.
+ * Reuses the existing Upstash Redis singleton from redis.ts.
  * Call `cachedGet` to read-through cache; call `invalidateCache` on writes.
  */
-import { Redis } from '@upstash/redis';
-
-let _redis: Redis | null = null;
-
-function getRedis(): Redis {
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-    throw new Error('Redis credentials not configured');
-  }
-  if (!_redis) {
-    _redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-  }
-  return _redis;
-}
+import { getRedis } from '@/lib/redis';
 
 /**
  * Read-through cache. Returns cached value if available, otherwise calls fetcher
  * and stores the result with the given TTL.
+ *
+ * Note: Upstash SDK auto-serializes/deserializes JSON — we use get<T>/set directly
+ * without manual JSON.stringify/parse.
  */
 export async function cachedGet<T>(
   key: string,
   ttlSeconds: number,
   fetcher: () => Promise<T>,
 ): Promise<T> {
+  let hit = false;
   try {
     const redis = getRedis();
-    const cached = await redis.get<string>(key);
+    const cached = await redis.get<T>(key);
     if (cached !== null && cached !== undefined) {
-      return JSON.parse(cached as string) as T;
+      hit = true;
+      return cached;
     }
-  } catch {
-    // Redis unavailable — fall through to fetcher
+  } catch (err) {
+    console.warn('[cache] Redis read failed, falling through to fetcher:', (err as Error).message);
   }
 
   const data = await fetcher();
 
   try {
     const redis = getRedis();
-    await redis.set(key, JSON.stringify(data), { ex: ttlSeconds });
-  } catch {
-    // Redis unavailable — data still returned from fetcher
+    await redis.set(key, data, { ex: ttlSeconds });
+  } catch (err) {
+    console.warn('[cache] Redis write failed, data served from DB:', (err as Error).message);
+  }
+
+  if (!hit) {
+    console.debug(`[cache] MISS ${key}`);
   }
 
   return data;
@@ -728,9 +936,10 @@ export async function invalidateCache(...keys: string[]): Promise<void> {
     const redis = getRedis();
     if (keys.length > 0) {
       await redis.del(...keys);
+      console.debug(`[cache] INVALIDATED ${keys.join(', ')}`);
     }
-  } catch {
-    // Redis unavailable — cache will expire naturally via TTL
+  } catch (err) {
+    console.warn('[cache] Redis invalidation failed:', (err as Error).message);
   }
 }
 
@@ -749,7 +958,14 @@ export const CACHE_TTL = {
 } as const;
 ```
 
-**Step 2: Run type check**
+**Key differences from original plan:**
+
+- Reuses `getRedis()` from `redis.ts` — no duplicate Redis client
+- Uses Upstash's native `get<T>` / `set(key, data)` — no manual JSON.stringify/parse (Upstash SDK handles it)
+- Logs cache hits/misses/errors with `console.warn`/`console.debug` for observability
+- Errors are logged, not silently swallowed
+
+**Step 3: Run type check**
 
 Run:
 
@@ -757,58 +973,117 @@ Run:
 npx tsc --noEmit
 ```
 
-**Step 3: Commit**
+**Step 4: Commit**
 
 ```bash
-git add src/lib/cache.ts
+git add src/lib/redis.ts src/lib/cache.ts
 git commit -m "feat(config): add Redis cache-aside utility
 
-Provides cachedGet/invalidateCache helpers with graceful Redis
-fallback. Includes cache key constants and TTL configuration."
+Reuses existing Redis singleton from redis.ts.
+Leverages Upstash native JSON serialization.
+Logs cache hits/misses/errors for observability."
 ```
 
 ---
 
-### Task 11: Wire Redis Cache into Course/University Queries
+### Task 11: Wire Redis Cache into CourseService (Service Layer)
 
 **Files:**
 
-- Modify: `src/app/actions/courses.ts` (or wherever `fetchCourses`/`fetchUniversities` are defined)
+- Modify: `src/lib/services/CourseService.ts:20-22,36-38`
 
-**Step 1: Find the server actions for courses**
+**Context:** Per project architecture (Action → Service → Repository), caching belongs in the **Service layer**, not in Actions. Actions are thin wrappers for auth/validation/delegation only (see `.claude/rules/server-actions.md`).
 
-The `useCourseData.ts` hook calls `fetchCourses()` and `fetchUniversities()` from `@/app/actions/courses`. Read that file to understand the current implementation.
+Also: `fetchCourses(universityId?)` accepts an optional universityId parameter. The cache key must account for this to avoid returning unfiltered data for a filtered request.
 
-**Step 2: Wrap the fetcher with cachedGet**
+**Step 1: Add caching to CourseService.getAllUniversities**
 
-For `fetchUniversities`:
+In `src/lib/services/CourseService.ts`:
+
+Before:
 
 ```typescript
-import { CACHE_KEYS, CACHE_TTL, cachedGet } from '@/lib/cache';
-
-export async function fetchUniversities() {
-  // ... existing auth check ...
-  const data = await cachedGet(CACHE_KEYS.universitiesList, CACHE_TTL.universities, async () => {
-    // existing Supabase query here
-  });
-  return { success: true, data };
+async getAllUniversities(): Promise<UniversityEntity[]> {
+  return this.uniRepo.findAll();
 }
 ```
 
-Same pattern for `fetchCourses`.
-
-**Step 3: Add cache invalidation to write actions**
-
-In the same actions file (or the admin courses actions), add `invalidateCache` calls after create/update/delete operations:
+After:
 
 ```typescript
-import { CACHE_KEYS, invalidateCache } from '@/lib/cache';
+async getAllUniversities(): Promise<UniversityEntity[]> {
+  return cachedGet(CACHE_KEYS.universitiesList, CACHE_TTL.universities, () =>
+    this.uniRepo.findAll(),
+  );
+}
+```
 
-// After creating/updating/deleting a course:
-await invalidateCache(CACHE_KEYS.coursesList);
+**Step 2: Add caching to CourseService.getAllCourses**
 
-// After creating/updating/deleting a university:
-await invalidateCache(CACHE_KEYS.universitiesList);
+Before:
+
+```typescript
+async getAllCourses(): Promise<CourseEntity[]> {
+  return this.courseRepo.findAll();
+}
+```
+
+After:
+
+```typescript
+async getAllCourses(): Promise<CourseEntity[]> {
+  return cachedGet(CACHE_KEYS.coursesList, CACHE_TTL.courses, () =>
+    this.courseRepo.findAll(),
+  );
+}
+```
+
+Note: `getCoursesByUniversity(universityId)` is NOT cached — the client-side already filters `allCourses` by university via `useCourseData.ts:30-33`, so the filtered query is rarely called directly. If needed later, add a per-university cache key.
+
+**Step 3: Add cache invalidation to write methods**
+
+In `CourseService`, update mutation methods:
+
+```typescript
+async createUniversity(dto: CreateUniversityDTO): Promise<UniversityEntity> {
+  const result = await this.uniRepo.create(dto);
+  await invalidateCache(CACHE_KEYS.universitiesList);
+  return result;
+}
+
+async updateUniversity(id: string, dto: UpdateUniversityDTO): Promise<UniversityEntity> {
+  const result = await this.uniRepo.update(id, dto);
+  await invalidateCache(CACHE_KEYS.universitiesList);
+  return result;
+}
+
+async deleteUniversity(id: string): Promise<void> {
+  await this.uniRepo.delete(id);
+  await invalidateCache(CACHE_KEYS.universitiesList);
+}
+
+async createCourse(dto: CreateCourseDTO): Promise<CourseEntity> {
+  const result = await this.courseRepo.create(dto);
+  await invalidateCache(CACHE_KEYS.coursesList);
+  return result;
+}
+
+async updateCourse(id: string, dto: UpdateCourseDTO): Promise<CourseEntity> {
+  const result = await this.courseRepo.update(id, dto);
+  await invalidateCache(CACHE_KEYS.coursesList);
+  return result;
+}
+
+async deleteCourse(id: string): Promise<void> {
+  await this.courseRepo.delete(id);
+  await invalidateCache(CACHE_KEYS.coursesList);
+}
+```
+
+Add imports at the top:
+
+```typescript
+import { CACHE_KEYS, CACHE_TTL, cachedGet, invalidateCache } from '@/lib/cache';
 ```
 
 **Step 4: Run tests**
@@ -819,14 +1094,17 @@ Run:
 npx vitest run
 ```
 
+Note: CourseService tests may need updating if they assert exact call counts on repo methods (cache hits won't call repo).
+
 **Step 5: Commit**
 
 ```bash
-git add src/app/actions/courses.ts src/lib/cache.ts
-git commit -m "feat(api): add Redis caching for course and university queries
+git add src/lib/services/CourseService.ts
+git commit -m "feat(api): add Redis caching to CourseService
 
 Course list cached 10min, university list cached 30min.
-Cache invalidated on create/update/delete operations."
+Cache invalidated on create/update/delete operations.
+Caching at Service layer per project architecture rules."
 ```
 
 ---
@@ -839,6 +1117,8 @@ Cache invalidated on create/update/delete operations."
 - Modify: `src/app/api/quota/route.ts`
 
 **Step 1: Add Cache-Control to health route**
+
+Health endpoint must NOT be publicly cached — a cached "healthy" response masks real-time degradation. Use `no-cache` which allows conditional requests but always revalidates:
 
 In `src/app/api/health/route.ts`, update the return:
 
@@ -856,7 +1136,7 @@ return Response.json(
   {
     status: supabaseOk ? 200 : 503,
     headers: {
-      'Cache-Control': 'public, max-age=60',
+      'Cache-Control': 'no-cache',
     },
   },
 );
@@ -899,7 +1179,8 @@ npx tsc --noEmit
 git add src/app/api/health/route.ts src/app/api/quota/route.ts
 git commit -m "feat(api): add Cache-Control headers to health and quota routes
 
-Health: public, 60s. Quota: private, 30s with stale-while-revalidate."
+Health: no-cache (always revalidate to reflect real-time status).
+Quota: private, 30s with stale-while-revalidate."
 ```
 
 ---
@@ -912,11 +1193,17 @@ Health: public, 60s. Quota: private, 30s with stale-while-revalidate."
 
 **Step 1: Add timing instrumentation to handleRequest**
 
-In `src/lib/supabase/middleware.ts`, wrap the auth call with timing:
+In `src/lib/supabase/middleware.ts`, add a total timer at the start of `handleRequest` and an auth timer around `getUser()`:
 
-Update the `handleRequest` function. After the line that creates the response (line 13), add timing before the `getUser()` call (line 47):
+At the start of the function (after line 12):
 
-Before (around lines 45-48):
+```typescript
+const totalStart = performance.now();
+```
+
+Around the `getUser()` call (lines 45-48):
+
+Before:
 
 ```typescript
 const {
@@ -936,16 +1223,50 @@ const authMs = performance.now() - authStart;
 const userId = user?.id ?? null;
 ```
 
-Then, before each `return { response, userId }` statement, add the Server-Timing header:
+**Step 2: Set header on the CORRECT response object for each return path**
+
+There are two return paths:
+
+**Redirect path (line 62-63):** Creates a NEW `NextResponse.redirect(url)`. The header must be set on the redirect response, not the original `response`:
+
+Before:
 
 ```typescript
-response.headers.set('Server-Timing', `auth;dur=${authMs.toFixed(1)}`);
+return { response: NextResponse.redirect(url), userId };
+```
+
+After:
+
+```typescript
+const totalMs = performance.now() - totalStart;
+const redirectResponse = NextResponse.redirect(url);
+redirectResponse.headers.set(
+  'Server-Timing',
+  `auth;dur=${authMs.toFixed(1)}, total;dur=${totalMs.toFixed(1)}`,
+);
+return { response: redirectResponse, userId };
+```
+
+**Normal path (line 66):** Set header on the existing `response`:
+
+Before:
+
+```typescript
 return { response, userId };
 ```
 
-There are two return points in this function (line 63 for redirect, line 66 for normal). Add the header before both.
+After:
 
-**Step 2: Run type check**
+```typescript
+const totalMs = performance.now() - totalStart;
+response.headers.set(
+  'Server-Timing',
+  `auth;dur=${authMs.toFixed(1)}, total;dur=${totalMs.toFixed(1)}`,
+);
+return { response, userId };
+```
+
+**Step 3: Run type check**
 
 Run:
 
@@ -953,14 +1274,15 @@ Run:
 npx tsc --noEmit
 ```
 
-**Step 3: Commit**
+**Step 4: Commit**
 
 ```bash
 git add src/lib/supabase/middleware.ts
-git commit -m "feat(config): add Server-Timing header for auth duration
+git commit -m "feat(config): add Server-Timing header for auth and total duration
 
-Visible in browser DevTools Network → Timing tab.
-Enables monitoring of middleware auth overhead per request."
+Tracks auth check and total middleware time per request.
+Sets header on correct response object for both normal and redirect paths.
+Visible in browser DevTools Network → Timing tab."
 ```
 
 ---
@@ -984,7 +1306,7 @@ export default async function StudyPage() {
 }
 ```
 
-Update to prefetch courses using TanStack Query hydration:
+Update to prefetch courses using TanStack Query hydration. **Wrap in try/catch** to gracefully degrade if auth expires or DB is unavailable:
 
 ```typescript
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
@@ -996,24 +1318,28 @@ import { StudyPageClient } from './StudyPageClient';
 export default async function StudyPage() {
   const queryClient = new QueryClient();
 
-  await Promise.all([
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.universities.all,
-      queryFn: async () => {
-        const result = await fetchUniversities();
-        if (!result.success) throw new Error(result.error);
-        return result.data;
-      },
-    }),
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.courses.all,
-      queryFn: async () => {
-        const result = await fetchCourses();
-        if (!result.success) throw new Error(result.error);
-        return result.data;
-      },
-    }),
-  ]);
+  try {
+    await Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.universities.all,
+        queryFn: async () => {
+          const result = await fetchUniversities();
+          if (!result.success) throw new Error(result.error);
+          return result.data;
+        },
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.courses.all,
+        queryFn: async () => {
+          const result = await fetchCourses();
+          if (!result.success) throw new Error(result.error);
+          return result.data;
+        },
+      }),
+    ]);
+  } catch {
+    // Prefetch failed — client will fetch on mount (graceful degradation)
+  }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -1023,7 +1349,7 @@ export default async function StudyPage() {
 }
 ```
 
-This makes course/university data available instantly on the client without a loading spinner.
+**Note:** Prefetch for `/exam` and `/admin/knowledge` pages is deferred to a future iteration — those pages have more complex data dependencies.
 
 **Step 2: Run type check and build**
 
@@ -1042,7 +1368,8 @@ git add src/app/(protected)/study/page.tsx
 git commit -m "feat(ui): prefetch course data on study page via server component
 
 Uses TanStack Query HydrationBoundary to pass server-fetched data
-to the client. Eliminates loading spinner for course/university lists."
+to the client. Eliminates loading spinner for course/university lists.
+Gracefully degrades if prefetch fails."
 ```
 
 ---
@@ -1085,6 +1412,17 @@ If there are any remaining fixups, commit them.
 
 ---
 
+## Deferred Items
+
+The following items from the design doc are explicitly deferred to a future iteration:
+
+- **Prefetch for `/exam` and `/admin/knowledge`** — more complex data dependencies, defer until study page prefetch is validated
+- **Markdown renderer next/image** — Mantine `Image` used for markdown; switching to `next/image` requires `remotePatterns` config for unknown external hosts, risk of broken images
+- **react-markdown `optimizePackageImports`** — evaluate after bundle analyzer baseline shows actual impact
+- **Upstash free tier monitoring** — 10,000 commands/day limit; cache adds ~2 commands per read (check + set on miss). Monitor usage via Upstash dashboard; alert setup is out of scope
+
+---
+
 ## Verification Checklist
 
 After all 3 waves:
@@ -1095,8 +1433,13 @@ After all 3 waves:
 - [ ] `npm run build` succeeds
 - [ ] Bundle analyzer shows reduction (target: 10-20%)
 - [ ] No `@tabler/icons-react` imports remain
-- [ ] DocumentRepository and ExamPaperRepository use pagination
-- [ ] Server-Timing header visible in browser DevTools
-- [ ] Cache-Control headers set on health and quota routes
+- [ ] No `stroke=` props on lucide icons (use `strokeWidth=`)
+- [ ] DocumentRepository.findByDocTypeForAdmin uses pagination
+- [ ] ExamPaperRepository uses pagination (all 3 list methods + all test mocks updated)
+- [ ] Server-Timing header visible in browser DevTools (auth + total metrics)
+- [ ] Cache-Control headers set on health (no-cache) and quota routes
 - [ ] TanStack Query staleTime increased for stable data
-- [ ] Study page prefetches course data on server
+- [ ] Study page prefetches course data on server (with try/catch)
+- [ ] Redis cache uses existing singleton from redis.ts
+- [ ] Cache is at Service layer, not Action layer
+- [ ] Cache logs hit/miss/error for observability
