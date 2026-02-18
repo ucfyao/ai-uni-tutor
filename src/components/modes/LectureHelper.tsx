@@ -119,7 +119,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const handleSend = async (retryInput?: string) => {
     const messageToSend = retryInput || input.trim();
 
-    if ((!messageToSend && attachedFiles.length === 0 && !attachedDocument) || isStreaming || isSendingRef.current)
+    if (
+      (!messageToSend && attachedFiles.length === 0 && !attachedDocument) ||
+      isStreaming ||
+      isSendingRef.current
+    )
       return;
     if (!session) return;
 
@@ -193,6 +197,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     if (!retryInput) {
       setInput('');
       setAttachedFiles([]);
+      imagePreviews.forEach((url) => URL.revokeObjectURL(url));
       setImagePreviews([]);
     }
 
@@ -261,7 +266,13 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     setLoadingCardId(card.id);
 
     try {
-      const result = await askCardQuestion(card.id, cardType, question, session.course?.code, session.course?.id);
+      const result = await askCardQuestion(
+        card.id,
+        cardType,
+        question,
+        session.course?.code,
+        session.course?.id,
+      );
 
       if (!result.success) {
         showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
@@ -360,11 +371,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           });
           continue;
         }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setImagePreviews((prev) => [...prev, ev.target?.result as string]);
-        };
-        reader.readAsDataURL(file);
+        const objectUrl = URL.createObjectURL(file);
+        setImagePreviews((prev) => [...prev, objectUrl]);
         setAttachedFiles((prev) => [...prev, file]);
       } else if (isDocumentFile(file.type)) {
         // Document handling — one document per conversation
@@ -392,7 +400,10 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   const handleRemoveFile = (index: number) => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleRemoveDocument = () => {
@@ -410,11 +421,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       const file = item.getAsFile();
       if (!file || attachedFiles.length >= 4) return;
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreviews((prev) => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreviews((prev) => [...prev, objectUrl]);
 
       setAttachedFiles((prev) => [...prev, file]);
     });
@@ -423,12 +431,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   if (!session) return null;
 
   return (
-    <Stack
-      gap={0}
-      h="100%"
-      w="100%"
-      style={{ minHeight: 0, overflow: 'hidden' }}
-    >
+    <Stack gap={0} h="100%" w="100%" style={{ minHeight: 0, overflow: 'hidden' }}>
       <Box flex={1} pos="relative" style={{ overflow: 'hidden', minHeight: 0, maxHeight: '100%' }}>
         {/* Chat area – full width so ScrollArea scrollbar sits at far-right edge */}
         <Stack
