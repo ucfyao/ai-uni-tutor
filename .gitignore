@@ -30,5 +30,11 @@ next-env.d.ts
 # Ignore txt files
 *.txt
 
+# E2E Testing
+e2e/.auth/
+.env.e2e
+test-results/
+playwright-report/
+
 # Git worktrees
 .worktrees/
