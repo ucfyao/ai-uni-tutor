@@ -12,6 +12,7 @@ export interface IExamPaperRepository {
     title: string;
     school?: string | null;
     course?: string | null;
+    courseId?: string | null;
     year?: string | null;
     visibility?: 'public' | 'private';
     status?: 'parsing' | 'ready' | 'error';
@@ -21,6 +22,8 @@ export interface IExamPaperRepository {
   findById(id: string): Promise<ExamPaper | null>;
   findWithFilters(filters?: PaperFilters): Promise<ExamPaper[]>;
   findOwner(id: string): Promise<string | null>; // returns user_id
+  findCourseId(id: string): Promise<string | null>; // returns course_id
+  findAllForAdmin(courseIds?: string[]): Promise<ExamPaper[]>;
   updateStatus(
     id: string,
     status: 'parsing' | 'ready' | 'error',

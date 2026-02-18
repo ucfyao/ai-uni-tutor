@@ -74,6 +74,7 @@ function makeExamPaper(overrides: Partial<ExamPaper> = {}): ExamPaper {
     visibility: 'private',
     school: 'MIT',
     course: 'CS101',
+    courseId: null,
     year: '2024',
     questionTypes: ['choice', 'short_answer'],
     status: 'ready',

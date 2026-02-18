@@ -10,6 +10,7 @@ export interface AssignmentEntity {
   title: string;
   school: string | null;
   course: string | null;
+  courseId: string | null;
   status: AssignmentStatus;
   statusMessage: string | null;
   createdAt: string;

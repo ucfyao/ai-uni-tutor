@@ -10,7 +10,7 @@ import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
-import { requireAdmin } from '@/lib/supabase/server';
+import { requireAnyAdmin } from '@/lib/supabase/server';
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -36,6 +36,10 @@ const uploadSchema = z.object({
   course: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().max(100).optional(),
+  ),
+  courseId: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() !== '' ? value : undefined),
+    z.string().uuid().optional(),
   ),
   has_answers: z.preprocess(
     (value) => value === 'true' || value === true,
@@ -84,8 +88,11 @@ export async function POST(request: Request) {
     try {
       // ── Auth ──
       let user;
+      let authRole: string;
       try {
-        user = await requireAdmin();
+        const result = await requireAnyAdmin();
+        user = result.user;
+        authRole = result.role;
       } catch {
         send('error', { message: 'Admin access required', code: 'FORBIDDEN' });
         return;
@@ -121,13 +128,20 @@ export async function POST(request: Request) {
         doc_type: formData.get('doc_type') || undefined,
         school: formData.get('school'),
         course: formData.get('course'),
+        courseId: formData.get('courseId'),
         has_answers: formData.get('has_answers'),
       });
       if (!parsed.success) {
         send('error', { message: 'Invalid upload data', code: 'VALIDATION_ERROR' });
         return;
       }
-      const { doc_type, school, course, has_answers } = parsed.data;
+      const { doc_type, school, course, courseId, has_answers } = parsed.data;
+
+      // Admin (non-super_admin) must provide courseId for all doc types
+      if (authRole === 'admin' && !courseId) {
+        send('error', { message: 'Course selection is required', code: 'COURSE_REQUIRED' });
+        return;
+      }
 
       // ── Create record in the correct domain table ──
       let effectiveRecordId: string;
@@ -155,6 +169,7 @@ export async function POST(request: Request) {
           title: file.name,
           school: school || null,
           course: course || null,
+          courseId: courseId || null,
           status: 'parsing',
         });
       } else {
@@ -164,6 +179,7 @@ export async function POST(request: Request) {
           title: file.name,
           school: school || null,
           course: course || null,
+          courseId: courseId || null,
           status: 'parsing',
         });
       }

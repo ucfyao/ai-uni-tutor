@@ -22,6 +22,7 @@ function mapPaperRow(row: Record<string, unknown>, questionCount?: number): Exam
     visibility: row.visibility as 'public' | 'private',
     school: (row.school as string) ?? null,
     course: (row.course as string) ?? null,
+    courseId: (row.course_id as string) ?? null,
     year: (row.year as string) ?? null,
     questionTypes: (row.question_types as string[]) ?? [],
     status: row.status as 'parsing' | 'ready' | 'error',
@@ -54,6 +55,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
     title: string;
     school?: string | null;
     course?: string | null;
+    courseId?: string | null;
     year?: string | null;
     visibility?: 'public' | 'private';
     status?: 'parsing' | 'ready' | 'error';
@@ -68,6 +70,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
         title: data.title,
         school: data.school ?? null,
         course: data.course ?? null,
+        course_id: data.courseId ?? null,
         year: data.year ?? null,
         visibility: data.visibility ?? 'private',
         status: data.status ?? 'parsing',
@@ -143,6 +146,45 @@ export class ExamPaperRepository implements IExamPaperRepository {
     }
     if (!data) return null;
     return data.user_id as string;
+  }
+
+  async findCourseId(id: string): Promise<string | null> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('exam_papers')
+      .select('course_id')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch paper course_id: ${error.message}`, error);
+    }
+    if (!data) return null;
+    return (data.course_id as string) ?? null;
+  }
+
+  async findAllForAdmin(courseIds?: string[]): Promise<ExamPaper[]> {
+    const supabase = await createClient();
+
+    if (Array.isArray(courseIds) && courseIds.length === 0) return [];
+
+    let query = supabase
+      .from('exam_papers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (courseIds) {
+      query = query.in('course_id', courseIds);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch exam papers for admin: ${error.message}`, error);
+    }
+    return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
   }
 
   async updateStatus(

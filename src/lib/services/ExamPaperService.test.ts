@@ -45,6 +45,8 @@ function createMockExamPaperRepo(): {
     deleteQuestion: vi.fn(),
     findByCourse: vi.fn(),
     findAllByCourse: vi.fn(),
+    findCourseId: vi.fn(),
+    findAllForAdmin: vi.fn(),
   };
 }
 
@@ -62,6 +64,7 @@ const PAPER: ExamPaper = {
   visibility: 'private',
   school: 'MIT',
   course: 'MATH101',
+  courseId: null,
   year: '2024',
   questionTypes: ['choice', 'short_answer'],
   status: 'ready',

@@ -15,6 +15,7 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentEntity {
     title: row.title as string,
     school: (row.school as string) ?? null,
     course: (row.course as string) ?? null,
+    courseId: (row.course_id as string) ?? null,
     status: row.status as 'parsing' | 'ready' | 'error',
     statusMessage: (row.status_message as string) ?? null,
     createdAt: row.created_at as string,
@@ -43,6 +44,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     title: string;
     school?: string | null;
     course?: string | null;
+    courseId?: string | null;
     status?: string;
   }): Promise<string> {
     const supabase = await createClient();
@@ -53,6 +55,7 @@ export class AssignmentRepository implements IAssignmentRepository {
         title: data.title,
         school: data.school ?? null,
         course: data.course ?? null,
+        course_id: data.courseId ?? null,
         status: data.status ?? 'parsing',
       })
       .select('id')
@@ -101,6 +104,41 @@ export class AssignmentRepository implements IAssignmentRepository {
       throw new DatabaseError(`Failed to fetch assignment owner: ${error.message}`, error);
     }
     return (data?.user_id as string) ?? null;
+  }
+
+  async findCourseId(id: string): Promise<string | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('course_id')
+      .eq('id', id)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch assignment course_id: ${error.message}`, error);
+    }
+    return (data?.course_id as string) ?? null;
+  }
+
+  async findAllForAdmin(courseIds?: string[]): Promise<AssignmentEntity[]> {
+    const supabase = await createClient();
+
+    if (Array.isArray(courseIds) && courseIds.length === 0) return [];
+
+    let query = supabase
+      .from('assignments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (courseIds) {
+      query = query.in('course_id', courseIds);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw new DatabaseError(`Failed to fetch assignments for admin: ${error.message}`, error);
+    }
+    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
   }
 
   async updateStatus(id: string, status: string, statusMessage?: string): Promise<void> {
