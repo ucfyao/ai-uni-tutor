@@ -2,11 +2,10 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Shield, ShieldCheck, User } from 'lucide-react';
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import React, { useCallback, useEffect, useState, useTransition } from 'react';
 import {
   ActionIcon,
   Badge,
-  Box,
   Button,
   Card,
   Group,
@@ -209,7 +208,7 @@ export function AdminUsersClient() {
     const isSuperAdmin = user.role === 'super_admin';
 
     return (
-      <Box key={user.id}>
+      <React.Fragment key={user.id}>
         <Table.Tr>
           <Table.Td>
             <Text size="sm" fw={500}>
@@ -303,7 +302,7 @@ export function AdminUsersClient() {
             </Table.Td>
           </Table.Tr>
         )}
-      </Box>
+      </React.Fragment>
     );
   };
 
