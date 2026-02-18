@@ -52,6 +52,7 @@ const ADMIN_PROFILE: ProfileEntity = {
   role: 'admin',
   createdAt: new Date('2025-01-01'),
   updatedAt: new Date('2025-06-01'),
+  isActive: true,
 };
 
 const USER_PROFILE: ProfileEntity = {
@@ -66,6 +67,7 @@ const USER_PROFILE: ProfileEntity = {
   role: 'user',
   createdAt: new Date('2025-03-01'),
   updatedAt: new Date('2025-06-01'),
+  isActive: true,
 };
 
 const COURSE_A: CourseEntity = {
@@ -262,9 +264,9 @@ describe('AdminService', () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
 
-      await expect(
-        service.removeCourses(ADMIN_ID, ['course-a', 'course-x']),
-      ).rejects.toThrow('Courses not assigned to this admin: course-x');
+      await expect(service.removeCourses(ADMIN_ID, ['course-a', 'course-x'])).rejects.toThrow(
+        'Courses not assigned to this admin: course-x',
+      );
       expect(adminRepo.removeCourse).not.toHaveBeenCalled();
     });
 
@@ -316,11 +318,7 @@ describe('AdminService', () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.setCourses.mockResolvedValue(undefined);
 
-      await service.setCourses(
-        ADMIN_ID,
-        ['course-a', 'course-b', 'course-a'],
-        SUPER_ADMIN_ID,
-      );
+      await service.setCourses(ADMIN_ID, ['course-a', 'course-b', 'course-a'], SUPER_ADMIN_ID);
 
       expect(adminRepo.setCourses).toHaveBeenCalledWith(
         ADMIN_ID,
@@ -430,5 +428,4 @@ describe('AdminService', () => {
       expect(result).toBeNull();
     });
   });
-
 });
