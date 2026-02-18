@@ -56,29 +56,31 @@ export class AdminService {
   }
 
   async removeCourses(adminId: string, courseIds: string[]): Promise<void> {
+    const profile = await this.profileRepo.findById(adminId);
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      throw new ForbiddenError('Target user is not an admin');
+    }
+    const assignedIds = await this.adminRepo.getAssignedCourseIds(adminId);
+    const assignedSet = new Set(assignedIds);
+    const unassigned = courseIds.filter((id) => !assignedSet.has(id));
+    if (unassigned.length > 0) {
+      throw new ForbiddenError(
+        `Courses not assigned to this admin: ${unassigned.join(', ')}`,
+      );
+    }
     for (const courseId of courseIds) {
       await this.adminRepo.removeCourse(adminId, courseId);
     }
   }
 
+  /** Atomically replace admin's course assignments (all-or-nothing via DB RPC). */
   async setCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
     const profile = await this.profileRepo.findById(adminId);
     if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
       throw new ForbiddenError('Target user is not an admin');
     }
     const uniqueIds = [...new Set(courseIds)];
-    const currentIds = await this.adminRepo.getAssignedCourseIds(adminId);
-    const toAdd = uniqueIds.filter((id) => !currentIds.includes(id));
-    const toRemove = currentIds.filter((id) => !uniqueIds.includes(id));
-
-    // Add first, then remove — if interrupted mid-way, admin has extra courses
-    // (safe) rather than missing courses (unsafe)
-    for (const id of toAdd) {
-      await this.adminRepo.assignCourse(adminId, id, assignedBy);
-    }
-    for (const id of toRemove) {
-      await this.adminRepo.removeCourse(adminId, id);
-    }
+    await this.adminRepo.setCourses(adminId, uniqueIds, assignedBy);
   }
 
   async getAssignedCourses(adminId: string): Promise<CourseEntity[]> {
