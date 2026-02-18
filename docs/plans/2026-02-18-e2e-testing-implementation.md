@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a comprehensive Playwright E2E test suite covering all 17+ routes with Page Object Model architecture, real Supabase auth, and mocked AI/payment services.
+**Goal:** Build a comprehensive Playwright E2E test suite covering all 18 page routes with Page Object Model architecture, real Supabase auth, and mocked AI/payment services.
 
-**Architecture:** POM-based test suite with layered fixtures for auth (storageState), test data, and API mocking. Tests organized by feature area (auth, study, exam, admin, settings, billing, navigation, public). Three role-based auth states (user, admin, super_admin) established in setup project.
+**Architecture:** POM-based test suite with layered fixtures for auth (storageState), test data, and API mocking. Tests organized by feature area (auth, study, exam, admin, settings, billing, navigation, public). Three role-based auth states (user, admin, super_admin) established in setup project. Selector strategy: getByRole > getByLabel > getByPlaceholder > getByText > CSS (no data-testid in codebase).
 
-**Tech Stack:** Playwright Test, TypeScript, Supabase (real dev instance), route-intercepted mocks for Gemini/Stripe
+**Tech Stack:** Playwright Test, TypeScript, Supabase (real dev instance), route-intercepted mocks for Gemini/Stripe/Quota
 
 **Design Doc:** `docs/plans/2026-02-18-e2e-testing-design.md`
 
@@ -50,14 +50,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests'),
+  outputDir: 'test-results',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  retries: process.env.CI ? 2 : 0,
+  timeout: 30_000,
+  expect: { timeout: 10_000 },
   workers: undefined,
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   projects: [
@@ -131,7 +134,7 @@ git commit -m "chore(config): install Playwright and add E2E config"
 **Files:**
 
 - Create: `e2e/helpers/test-accounts.ts`
-- Create: `e2e/fixtures/auth.setup.ts`
+- Create: `e2e/tests/auth.setup.ts`
 - Create: `e2e/.auth/.gitkeep`
 
 **Step 1: Create `e2e/helpers/test-accounts.ts`**
@@ -164,9 +167,9 @@ export function getSupabaseClient() {
 }
 ```
 
-**Step 2: Create `e2e/fixtures/auth.setup.ts`**
+**Step 2: Create `e2e/tests/auth.setup.ts`**
 
-This is the Playwright setup project that logs in each role and saves storageState.
+This is the Playwright setup project that logs in each role and saves storageState. Must be in `e2e/tests/` because `testDir` points there.
 
 ```typescript
 import { expect, test as setup } from '@playwright/test';
@@ -226,7 +229,7 @@ setup('authenticate as super admin', async ({ page }) => {
 **Step 4: Commit**
 
 ```bash
-git add e2e/helpers/test-accounts.ts e2e/fixtures/auth.setup.ts e2e/.auth/.gitkeep
+git add e2e/helpers/test-accounts.ts e2e/tests/auth.setup.ts e2e/.auth/.gitkeep
 git commit -m "feat(config): add auth setup and test account helpers"
 ```
 
@@ -240,6 +243,7 @@ git commit -m "feat(config): add auth setup and test account helpers"
 - Create: `e2e/helpers/mock-gemini.ts`
 - Create: `e2e/helpers/mock-stripe.ts`
 - Create: `e2e/helpers/mock-document-parse.ts`
+- Create: `e2e/helpers/mock-quota.ts`
 
 **Step 1: Create `e2e/fixtures/base.fixture.ts`**
 
@@ -312,13 +316,23 @@ export async function mockGeminiStream(
 }
 
 /**
- * Mock the /api/chat/stream to return an error.
+ * Mock the /api/chat/stream to return an SSE error event (not HTTP error).
+ * Matches actual format: data: {"error":"...","isLimitError":true}\n\n
  */
-export async function mockGeminiError(page: Page, status: number = 500) {
+export async function mockGeminiError(
+  page: Page,
+  message = 'Rate limit exceeded',
+  isLimitError = true,
+) {
   await page.route('**/api/chat/stream', async (route) => {
     await route.fulfill({
-      status,
-      body: JSON.stringify({ error: 'Mock Gemini error' }),
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+      body: `data: ${JSON.stringify({ error: message, isLimitError })}\n\n`,
     });
   });
 }
@@ -371,19 +385,37 @@ export async function mockStripeWebhook(page: Page) {
 
 **Step 4: Create `e2e/helpers/mock-document-parse.ts`**
 
+Uses named SSE events (`event: <type>\ndata: <json>\n\n`) matching `src/lib/sse.ts` format.
+
 ```typescript
 import type { Page } from '@playwright/test';
 
 /**
- * Mock the /api/documents/parse SSE endpoint with progress stages.
+ * Helper to build a named SSE event string.
+ * Format: event: <type>\ndata: <json>\n\n
+ */
+function sseEvent(event: string, data: Record<string, unknown>): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+/**
+ * Mock /api/documents/parse with named SSE events matching actual API format.
+ * Event types: document_created, status, progress, item, batch_saved, error
  */
 export async function mockDocumentParse(page: Page, documentId: string = 'test-doc-1') {
   await page.route('**/api/documents/parse', async (route) => {
-    const sseBody = [
-      `data: ${JSON.stringify({ type: 'progress', stage: 'parsing', percent: 30 })}\n\n`,
-      `data: ${JSON.stringify({ type: 'progress', stage: 'extracting', percent: 60 })}\n\n`,
-      `data: ${JSON.stringify({ type: 'progress', stage: 'embedding', percent: 90 })}\n\n`,
-      `data: ${JSON.stringify({ type: 'complete', documentId })}\n\n`,
+    const events = [
+      sseEvent('document_created', { documentId }),
+      sseEvent('status', { stage: 'parsing_pdf', message: 'Parsing PDF...' }),
+      sseEvent('status', { stage: 'extracting', message: 'Extracting content...' }),
+      sseEvent('progress', { current: 1, total: 3 }),
+      sseEvent('item', { index: 0, type: 'knowledge_point', data: { title: 'Test Point' } }),
+      sseEvent('progress', { current: 2, total: 3 }),
+      sseEvent('item', { index: 1, type: 'knowledge_point', data: { title: 'Test Point 2' } }),
+      sseEvent('batch_saved', { chunkIds: ['chunk-1', 'chunk-2'], batchIndex: 0 }),
+      sseEvent('status', { stage: 'embedding', message: 'Generating embeddings...' }),
+      sseEvent('progress', { current: 3, total: 3 }),
+      sseEvent('status', { stage: 'complete', message: 'Processing complete' }),
     ].join('');
 
     await route.fulfill({
@@ -393,34 +425,56 @@ export async function mockDocumentParse(page: Page, documentId: string = 'test-d
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
       },
-      body: sseBody,
+      body: events,
     });
   });
 }
 
 /**
- * Mock document parse failure.
+ * Mock document parse failure with named SSE error event.
  */
 export async function mockDocumentParseError(page: Page) {
   await page.route('**/api/documents/parse', async (route) => {
-    const sseBody = [
-      `data: ${JSON.stringify({ type: 'progress', stage: 'parsing', percent: 30 })}\n\n`,
-      `data: ${JSON.stringify({ type: 'error', message: 'Failed to process document' })}\n\n`,
+    const events = [
+      sseEvent('status', { stage: 'parsing_pdf', message: 'Parsing PDF...' }),
+      sseEvent('error', { message: 'Failed to process document', code: 'VALIDATION_ERROR' }),
     ].join('');
 
     await route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream' },
-      body: sseBody,
+      body: events,
     });
   });
 }
 ```
 
-**Step 5: Commit**
+**Step 5: Create `e2e/helpers/mock-quota.ts`**
+
+```typescript
+import type { Page } from '@playwright/test';
+
+/**
+ * Mock /api/quota endpoint with usage data for settings page.
+ */
+export async function mockQuota(page: Page, usage = 5, dailyLimit = 50) {
+  await page.route('**/api/quota', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: { usage, dailyLimit, remaining: dailyLimit - usage },
+        limits: { dailyLimit, maxFileSizeMB: 5 },
+      }),
+    });
+  });
+}
+```
+
+**Step 6: Commit**
 
 ```bash
-git add e2e/fixtures/base.fixture.ts e2e/helpers/mock-gemini.ts e2e/helpers/mock-stripe.ts e2e/helpers/mock-document-parse.ts
+git add e2e/fixtures/base.fixture.ts e2e/helpers/mock-gemini.ts e2e/helpers/mock-stripe.ts e2e/helpers/mock-document-parse.ts e2e/helpers/mock-quota.ts
 git commit -m "feat(config): add base fixture and API mock helpers"
 ```
 
@@ -1239,9 +1293,12 @@ export class FullScreenModal {
   readonly closeButton: Locator;
   readonly title: Locator;
 
-  constructor(page: Page) {
+  constructor(page: Page, titlePattern?: string | RegExp) {
     this.page = page;
-    this.root = page.locator('.mantine-Modal-root');
+    // Mantine Modal renders role="dialog" with aria-labelledby pointing to title
+    this.root = titlePattern
+      ? page.getByRole('dialog', { name: titlePattern })
+      : page.getByRole('dialog');
     this.closeButton = this.root
       .getByRole('button', { name: /close/i })
       .or(this.root.locator('.mantine-Modal-close'));
@@ -1276,8 +1333,7 @@ git commit -m "feat(config): add remaining page objects (Settings, Pricing, Land
 
 **Files:**
 
-- Create: `e2e/tests/auth/login.spec.ts`
-- Create: `e2e/tests/auth/signup.spec.ts`
+- Create: `e2e/tests/auth/login.spec.ts` (includes signup toggle tests — signup is a mode on /login, not a separate route)
 - Create: `e2e/tests/auth/logout.spec.ts`
 
 **Step 1: Create `e2e/tests/auth/login.spec.ts`**
@@ -1322,32 +1378,22 @@ test.describe('Login', () => {
     // Already authenticated user should be redirected to /study
     await expect(userPage).toHaveURL(/\/study/);
   });
-});
-```
 
-**Step 2: Create `e2e/tests/auth/signup.spec.ts`**
-
-```typescript
-import { expect, test } from '../../fixtures/base.fixture';
-import { LoginPage } from '../../pages/LoginPage';
-
-test.describe('Signup', () => {
-  test('should show password strength indicator', async ({ page }) => {
+  test('should show social login buttons as disabled', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
-    // Switch to signup mode
-    await loginPage.toggleSignupLink.click();
-    await expect(loginPage.confirmPasswordInput).toBeVisible();
-
-    // Type a weak password
-    await loginPage.passwordInput.fill('12345');
-    // Password strength indicator should be visible
-    const strengthIndicator = page.locator('.mantine-Progress-root, [class*="strength"]');
-    await expect(strengthIndicator).toBeVisible();
+    const googleButton = page.getByRole('button', { name: /google/i });
+    const githubButton = page.getByRole('button', { name: /github/i });
+    await expect(googleButton).toBeVisible();
+    await expect(githubButton).toBeVisible();
+    await expect(googleButton).toBeDisabled();
+    await expect(githubButton).toBeDisabled();
   });
+});
 
-  test('should show confirm password field in signup mode', async ({ page }) => {
+test.describe('Signup (toggle mode on /login)', () => {
+  test('should toggle between login and signup mode', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
@@ -1358,6 +1404,20 @@ test.describe('Signup', () => {
     // Switch back to login mode
     await loginPage.toggleSignupLink.click();
     await expect(loginPage.confirmPasswordInput).toBeHidden();
+  });
+
+  test('should show password strength indicator in signup mode', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+
+    // Switch to signup mode
+    await loginPage.toggleSignupLink.click();
+
+    // Type a weak password
+    await loginPage.passwordInput.fill('12345');
+    // Password strength indicator should be visible
+    const strengthIndicator = page.locator('.mantine-Progress-root, [class*="strength"]');
+    await expect(strengthIndicator).toBeVisible();
   });
 
   test('should show error for mismatched passwords', async ({ page }) => {
@@ -1376,7 +1436,7 @@ test.describe('Signup', () => {
 });
 ```
 
-**Step 3: Create `e2e/tests/auth/logout.spec.ts`**
+**Step 2: Create `e2e/tests/auth/logout.spec.ts`**
 
 ```typescript
 import { expect, test } from '../../fixtures/base.fixture';
@@ -1408,7 +1468,7 @@ test.describe('Logout', () => {
 
 ```bash
 git add e2e/tests/auth/
-git commit -m "feat(config): add auth E2E test specs (login, signup, logout)"
+git commit -m "feat(config): add auth E2E test specs (login, logout)"
 ```
 
 ---
@@ -1889,6 +1949,24 @@ test.describe('Admin Knowledge', () => {
 
     await expect(knowledgePage.searchInput).toBeVisible();
   });
+
+  test('should navigate to knowledge detail page /admin/knowledge/[id]', async ({ adminPage }) => {
+    const knowledgePage = new AdminKnowledgePage(adminPage);
+    await knowledgePage.goto();
+
+    // Click on first document row (if test data exists)
+    const firstRow = knowledgePage.documentTable.locator('tr').nth(1); // skip header
+    const isVisible = await firstRow.isVisible().catch(() => false);
+    if (!isVisible) {
+      test.skip(true, 'No test documents available');
+    }
+
+    await firstRow.click();
+    await expect(adminPage).toHaveURL(/\/admin\/knowledge\/.+/);
+
+    // Detail page should show chunks/questions
+    await expect(adminPage.locator('table, [role="table"]')).toBeVisible({ timeout: 10_000 });
+  });
 });
 ```
 
@@ -1930,6 +2008,7 @@ git commit -m "feat(config): add admin E2E test specs (courses, users, knowledge
 
 - Create: `e2e/tests/settings/settings.spec.ts`
 - Create: `e2e/tests/settings/personalization.spec.ts`
+- Create: `e2e/tests/settings/help.spec.ts`
 - Create: `e2e/tests/billing/pricing.spec.ts`
 
 **Step 1: Create `e2e/tests/settings/settings.spec.ts`**
@@ -2038,7 +2117,62 @@ test.describe('Personalization', () => {
 });
 ```
 
-**Step 3: Create `e2e/tests/billing/pricing.spec.ts`**
+**Step 3: Create `e2e/tests/settings/help.spec.ts`**
+
+```typescript
+import { expect, test } from '../../fixtures/base.fixture';
+import { HelpPage } from '../../pages/HelpPage';
+
+test.describe('Help', () => {
+  test('should display help page', async ({ userPage }) => {
+    const helpPage = new HelpPage(userPage);
+    await helpPage.goto();
+
+    await expect(userPage).toHaveURL(/\/help/);
+  });
+
+  test('should have FAQ accordion sections', async ({ userPage }) => {
+    await userPage.goto('/help');
+
+    // 4 FAQ categories: Getting Started, Tutoring Modes, Account & Billing, Technical
+    const accordionItems = userPage.locator('.mantine-Accordion-item');
+    await expect(accordionItems).toHaveCount(4, { timeout: 10_000 });
+  });
+
+  test('should expand and collapse FAQ accordion', async ({ userPage }) => {
+    await userPage.goto('/help');
+
+    const firstAccordion = userPage.locator('.mantine-Accordion-control').first();
+    await firstAccordion.click();
+
+    // Content should be visible after expanding
+    const content = userPage.locator('.mantine-Accordion-panel').first();
+    await expect(content).toBeVisible();
+
+    // Collapse
+    await firstAccordion.click();
+    await expect(content).toBeHidden();
+  });
+
+  test('should have search functionality', async ({ userPage }) => {
+    await userPage.goto('/help');
+
+    const searchInput = userPage.getByPlaceholder(/search/i);
+    await expect(searchInput).toBeVisible();
+  });
+
+  test('should have contact support link', async ({ userPage }) => {
+    await userPage.goto('/help');
+
+    const contactLink = userPage.getByRole('link', { name: /support|contact/i });
+    await expect(contactLink).toBeVisible();
+    const href = await contactLink.getAttribute('href');
+    expect(href).toContain('mailto:');
+  });
+});
+```
+
+**Step 4: Create `e2e/tests/billing/pricing.spec.ts`**
 
 ```typescript
 import { expect, test } from '../../fixtures/base.fixture';
@@ -2100,7 +2234,7 @@ test.describe('Pricing', () => {
 
 ```bash
 git add e2e/tests/settings/ e2e/tests/billing/
-git commit -m "feat(config): add settings, personalization, and billing E2E specs"
+git commit -m "feat(config): add settings, personalization, help, and billing E2E specs"
 ```
 
 ---
@@ -2394,7 +2528,21 @@ git commit -m "chore(config): E2E test suite verification pass"
 | ---- | ----- | --------------------------------------------------------------- |
 | 1    | 1-3   | Foundation: Install, config, auth setup, fixtures, mock helpers |
 | 2    | 4-7   | Page Object Models: All 15 pages + 3 components                 |
-| 3    | 8-13  | Test Specs: All 21 spec files across 8 feature areas            |
+| 3    | 8-13  | Test Specs: All 20 spec files across 8 feature areas            |
 | 4    | 14    | Verification: Run suite, fix issues, generate report            |
 
-**Total: 14 tasks, 21 spec files, 15 page objects, 3 component POMs, 3 mock helpers, 3 fixtures**
+**Total: 14 tasks, 20 spec files, 15 page objects, 3 component POMs, 4 mock helpers (gemini, stripe, document-parse, quota), 2 fixtures**
+
+### Changes from Review (v2)
+
+- Merged `signup.spec.ts` into `login.spec.ts` (signup is a toggle mode on /login, not a separate route)
+- Added `help.spec.ts` for /help page (FAQ accordion, search, contact link)
+- Added `/admin/knowledge/[id]` detail page test in `knowledge.spec.ts`
+- Fixed `auth.setup.ts` location from `e2e/fixtures/` to `e2e/tests/` (testDir resolution)
+- Rewrote `mock-document-parse.ts` to use named SSE events (`event: status\ndata: ...`) matching `src/lib/sse.ts`
+- Fixed `mockGeminiError` to return SSE error event (not HTTP 500) matching actual API format
+- Added `mock-quota.ts` for /api/quota endpoint used in settings page
+- Updated `FullScreenModal` POM to use `getByRole('dialog')` instead of CSS class
+- Updated Playwright config: `retries: process.env.CI ? 2 : 0`, `trace: 'retain-on-failure'`, explicit `timeout`/`outputDir`
+- Added social login button disabled state assertion in login tests
+- Documented: /auth/callback out of scope, i18n strategy, test data cleanup strategy

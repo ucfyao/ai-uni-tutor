@@ -1,22 +1,31 @@
 # Playwright E2E Testing — Design Document
 
 **Date:** 2026-02-18
-**Status:** Approved
+**Status:** Approved (revised after review)
 
 ## Overview
 
-Comprehensive Playwright E2E test suite for AI UniTutor, covering all 17+ routes and key user flows. Uses Page Object Model (POM) architecture with layered fixtures for authentication, test data, and API mocking.
+Comprehensive Playwright E2E test suite for AI UniTutor, covering all 18 page routes and key user flows. Uses Page Object Model (POM) architecture with layered fixtures for authentication, test data, and API mocking.
 
 ## Decisions
 
-| Decision          | Choice                               | Rationale                                   |
-| ----------------- | ------------------------------------ | ------------------------------------------- |
-| Coverage scope    | All pages and flows                  | Full regression protection                  |
-| External services | Real Supabase + Mock Gemini/Stripe   | Verify real auth/DB, avoid AI/payment costs |
-| Supabase instance | Current development instance         | Simplest setup, no Docker required          |
-| CI integration    | Local only                           | Not integrated into GitHub Actions          |
-| Browsers          | Chromium only                        | Fast, stable, covers majority of users      |
-| Architecture      | Page Object Model + layered fixtures | Maintainable at scale for 21+ spec files    |
+| Decision          | Choice                                                      | Rationale                                                  |
+| ----------------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
+| Coverage scope    | All pages and flows (18 routes)                             | Full regression protection                                 |
+| External services | Real Supabase + Mock Gemini/Stripe                          | Verify real auth/DB, avoid AI/payment costs                |
+| Supabase instance | Current development instance                                | Simplest setup, no Docker required                         |
+| CI integration    | Local only                                                  | Not integrated into GitHub Actions                         |
+| Browsers          | Chromium only                                               | Fast, stable, covers majority of users                     |
+| Architecture      | Page Object Model + layered fixtures                        | Maintainable at scale for 20 spec files                    |
+| Selector strategy | getByRole > getByLabel > getByPlaceholder > getByText > CSS | No data-testid in codebase; role-based selectors preferred |
+| i18n              | Tests run in English by default                             | Language switch test verifies Chinese text                 |
+
+## Out of Scope
+
+- `/auth/callback` — OAuth callback requires email verification, not suitable for E2E
+- Visual regression (`toHaveScreenshot()`) — future consideration
+- Mobile viewport testing — future consideration (app has `useIsMobile` at 768px breakpoint)
+- CI/CD integration — local only for now
 
 ## Project Structure
 
@@ -24,9 +33,8 @@ Comprehensive Playwright E2E test suite for AI UniTutor, covering all 17+ routes
 e2e/
 ├── playwright.config.ts          # Playwright configuration
 ├── fixtures/
-│   ├── auth.fixture.ts           # Auth fixture (login state reuse via storageState)
 │   ├── test-data.fixture.ts      # Test data setup/teardown
-│   └── base.fixture.ts           # Combined fixture base class
+│   └── base.fixture.ts           # Combined fixture base class (userPage/adminPage/superAdminPage)
 ├── pages/
 │   ├── LoginPage.ts
 │   ├── StudyPage.ts
@@ -49,15 +57,16 @@ e2e/
 │       ├── Sidebar.ts
 │       └── FullScreenModal.ts
 ├── helpers/
-│   ├── mock-gemini.ts            # Gemini API mock (SSE streaming)
+│   ├── mock-gemini.ts            # Gemini API mock (SSE streaming + error)
 │   ├── mock-stripe.ts            # Stripe Checkout/Portal mock
-│   ├── mock-document-parse.ts    # Document parse SSE mock
+│   ├── mock-document-parse.ts    # Document parse SSE mock (named events)
+│   ├── mock-quota.ts             # Quota API mock
 │   ├── test-accounts.ts          # Test account constants
 │   └── selectors.ts              # Shared selector constants
 ├── tests/
+│   ├── auth.setup.ts             # Auth setup project (login 3 roles, save storageState)
 │   ├── auth/
-│   │   ├── login.spec.ts
-│   │   ├── signup.spec.ts
+│   │   ├── login.spec.ts         # Login + signup toggle + social buttons
 │   │   └── logout.spec.ts
 │   ├── study/
 │   │   ├── chat-session.spec.ts
@@ -72,11 +81,12 @@ e2e/
 │   ├── admin/
 │   │   ├── courses.spec.ts
 │   │   ├── users.spec.ts
-│   │   ├── knowledge.spec.ts
+│   │   ├── knowledge.spec.ts     # Includes /admin/knowledge/[id] detail page
 │   │   └── exam-papers.spec.ts
 │   ├── settings/
 │   │   ├── settings.spec.ts
-│   │   └── personalization.spec.ts
+│   │   ├── personalization.spec.ts
+│   │   └── help.spec.ts
 │   ├── billing/
 │   │   └── pricing.spec.ts
 │   ├── navigation/
@@ -100,10 +110,17 @@ e2e/
 
 ### Auth Flow
 
-1. **Setup project** (`auth.setup.ts`) runs before all tests
-2. Logs in with pre-created test accounts via real Supabase Auth
+1. **Setup project** (`tests/auth.setup.ts`) runs before all tests
+2. Logs in with pre-created test accounts via real Supabase Auth (email/password)
 3. Saves `storageState` to `.auth/` directory for each role
 4. Test specs use the appropriate role's storageState via fixtures
+
+**Important notes:**
+
+- Test accounts must be pre-created and email-verified in the development Supabase instance
+- Signup (registration) is a toggle mode on the `/login` page, not a separate route
+- Signup flow ends with "Check your email" message — does NOT redirect. E2E tests do NOT test signup-then-verify flow
+- Google/GitHub social login buttons are present but disabled — tests should assert disabled state
 
 ### Fixture Design
 
@@ -117,7 +134,7 @@ export const test = base.extend<{
   superAdminPage: Page;
 }>({
   userPage: async ({ browser }, use) => {
-    const ctx = await browser.newContext({ storageState: '.auth/user.json' });
+    const ctx = await browser.newContext({ storageState: 'e2e/.auth/user.json' });
     const page = await ctx.newPage();
     await use(page);
     await ctx.close();
@@ -136,24 +153,38 @@ Three test accounts must be pre-created in the development Supabase instance:
 
 Passwords stored in `.env.e2e`, never hardcoded.
 
+### Test Data Cleanup Strategy
+
+Since we use the development Supabase instance, test data must be cleaned up to avoid pollution:
+
+- **afterAll hooks** in test-data.fixture.ts call Supabase admin API to delete test-created data
+- **Naming convention**: Test-created entities use `[E2E]` prefix for easy identification and cleanup
+- **Scope**: Only data created during test runs is cleaned — pre-existing test accounts are kept
+
 ## API Mock Strategy
 
-| Service        | Strategy                | Implementation                                             |
-| -------------- | ----------------------- | ---------------------------------------------------------- |
-| Supabase Auth  | Real                    | Direct Supabase auth calls                                 |
-| Supabase DB    | Real                    | Direct database queries                                    |
-| Gemini AI      | Mock via `page.route()` | Intercept `/api/chat/stream`, return mock SSE              |
-| Stripe         | Mock via `page.route()` | Intercept `/api/stripe/*`, return mock URLs                |
-| Document Parse | Mock via `page.route()` | Intercept `/api/documents/parse`, return mock SSE progress |
-| Rate Limiting  | Disabled                | `ENABLE_RATELIMIT=false` in `.env.e2e`                     |
+| Service        | Strategy                | Implementation                                                         |
+| -------------- | ----------------------- | ---------------------------------------------------------------------- |
+| Supabase Auth  | Real                    | Direct Supabase auth calls                                             |
+| Supabase DB    | Real                    | Direct database queries                                                |
+| Gemini AI      | Mock via `page.route()` | Intercept `/api/chat/stream`, return mock SSE (plain data format)      |
+| Stripe         | Mock via `page.route()` | Intercept `/api/stripe/*`, return mock URLs                            |
+| Document Parse | Mock via `page.route()` | Intercept `/api/documents/parse`, return mock SSE (named events)       |
+| Quota          | Mock via `page.route()` | Intercept `/api/quota`, return mock usage/limits                       |
+| Rate Limiting  | Disabled                | `ENABLE_RATELIMIT=false` in `.env.e2e` (supported by `src/lib/env.ts`) |
 
-### Gemini Mock (SSE Streaming)
+### Gemini Mock (SSE Streaming — plain `data:` format)
+
+Chat stream uses plain SSE format (NOT named events):
 
 ```typescript
+// Success mock
 export async function mockGeminiStream(page: Page, response: string) {
   await page.route('**/api/chat/stream', async (route) => {
     const chunks = response.split(' ');
-    const body = chunks.map((chunk) => `data: {"text":"${chunk} "}\n\n`).join('');
+    const body = chunks
+      .map((chunk) => `data: ${JSON.stringify({ text: chunk + ' ' })}\n\n`)
+      .join('');
     await route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream' },
@@ -161,7 +192,58 @@ export async function mockGeminiStream(page: Page, response: string) {
     });
   });
 }
+
+// Error mock (SSE error event, not HTTP error)
+export async function mockGeminiError(
+  page: Page,
+  message = 'Rate limit exceeded',
+  isLimitError = true,
+) {
+  await page.route('**/api/chat/stream', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+      body: `data: ${JSON.stringify({ error: message, isLimitError })}\n\n`,
+    });
+  });
+}
 ```
+
+### Document Parse Mock (SSE — named events via `event:` field)
+
+Document parse uses named SSE events (6 event types). Format: `event: <type>\ndata: <json>\n\n`
+
+```typescript
+export async function mockDocumentParse(page: Page, documentId = 'test-doc-1') {
+  await page.route('**/api/documents/parse', async (route) => {
+    const events = [
+      `event: document_created\ndata: ${JSON.stringify({ documentId })}\n\n`,
+      `event: status\ndata: ${JSON.stringify({ stage: 'parsing_pdf', message: 'Parsing PDF...' })}\n\n`,
+      `event: status\ndata: ${JSON.stringify({ stage: 'extracting', message: 'Extracting content...' })}\n\n`,
+      `event: progress\ndata: ${JSON.stringify({ current: 1, total: 3 })}\n\n`,
+      `event: item\ndata: ${JSON.stringify({ index: 0, type: 'knowledge_point', data: { title: 'Test Point' } })}\n\n`,
+      `event: batch_saved\ndata: ${JSON.stringify({ chunkIds: ['chunk-1'], batchIndex: 0 })}\n\n`,
+      `event: status\ndata: ${JSON.stringify({ stage: 'complete', message: 'Done' })}\n\n`,
+    ].join('');
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+      body: events,
+    });
+  });
+}
+```
+
+**Named event types (from `src/lib/sse.ts`):**
+
+| Event              | Data                                                                   |
+| ------------------ | ---------------------------------------------------------------------- |
+| `status`           | `{ stage, message }` — parsing_pdf/extracting/embedding/complete/error |
+| `progress`         | `{ current, total }`                                                   |
+| `item`             | `{ index, type, data }` — knowledge_point or question                  |
+| `batch_saved`      | `{ chunkIds, batchIndex }`                                             |
+| `document_created` | `{ documentId }`                                                       |
+| `error`            | `{ message, code }`                                                    |
 
 ### Stripe Mock
 
@@ -174,20 +256,44 @@ export async function mockStripeCheckout(page: Page) {
     });
   });
 }
+
+export async function mockStripePortal(page: Page) {
+  await page.route('**/api/stripe/portal', async (route) => {
+    await route.fulfill({
+      status: 200,
+      body: JSON.stringify({ url: 'https://billing.stripe.com/test-portal' }),
+    });
+  });
+}
 ```
 
-## Test Case Inventory (21 specs)
+### Quota Mock
 
-### Auth (3 specs)
+```typescript
+export async function mockQuota(page: Page, usage = 5, dailyLimit = 50) {
+  await page.route('**/api/quota', async (route) => {
+    await route.fulfill({
+      status: 200,
+      body: JSON.stringify({
+        status: { usage, dailyLimit, remaining: dailyLimit - usage },
+        limits: { dailyLimit, maxFileSizeMB: 5 },
+      }),
+    });
+  });
+}
+```
 
-- **login.spec.ts**: Valid credentials → redirect to /study; invalid credentials → error; empty form validation
-- **signup.spec.ts**: Full signup flow; password strength indicator; duplicate email error
+## Test Case Inventory (20 specs)
+
+### Auth (2 specs)
+
+- **login.spec.ts**: Valid credentials → redirect to /study; invalid credentials → error; empty form validation; signup toggle → password strength indicator → confirm password field; social login buttons visible but disabled
 - **logout.spec.ts**: Logout → redirect to /login; protected routes inaccessible after logout
 
 ### Study/Chat (4 specs)
 
 - **chat-session.spec.ts**: Create session; list sessions; switch sessions; delete session
-- **chat-streaming.spec.ts**: Send message → SSE streaming reply (mocked); loading state
+- **chat-streaming.spec.ts**: Send message → SSE streaming reply (mocked); loading state; error handling (rate limit)
 - **mode-selection.spec.ts**: Switch between Lecture Helper / Assignment Coach / Mock Exam modes
 - **image-upload.spec.ts**: Upload image in chat; file size limit validation
 
@@ -202,29 +308,37 @@ export async function mockStripeCheckout(page: Page) {
 
 ### Admin (4 specs)
 
-- **courses.spec.ts**: Course list; create course; edit course; document upload (mock parse)
+- **courses.spec.ts**: Course list; create course; edit course; document upload (mock parse with named events)
 - **users.spec.ts**: User list (super_admin only); role management; permission guard (admin can't access)
-- **knowledge.spec.ts**: Knowledge card list; view/edit cards
+- **knowledge.spec.ts**: Knowledge card list; view/edit cards; **navigate to /admin/knowledge/[id] detail page**; view chunks/questions
 - **exam-papers.spec.ts**: Exam paper list; view paper details
 
-### Settings (2 specs)
+### Settings (3 specs)
 
-- **settings.spec.ts**: Theme toggle; language switch (EN↔ZH); settings persistence
-- **personalization.spec.ts**: View/edit profile; account overview
+- **settings.spec.ts**: Theme toggle (verify data-mantine-color-scheme change); language switch (verify Chinese text appears); usage bar display (mocked quota)
+- **personalization.spec.ts**: View/edit profile; account overview; delete account confirmation modal
+- **help.spec.ts**: FAQ accordion expand/collapse; search functionality; contact support link
 
 ### Billing (1 spec)
 
-- **pricing.spec.ts**: Pricing page render; upgrade click → mock Stripe redirect; billing toggle (monthly/semester)
+- **pricing.spec.ts**: Pricing page render; upgrade click → mock Stripe redirect; billing toggle (monthly/semester); save badge visibility
 
 ### Navigation (2 specs)
 
-- **sidebar.spec.ts**: Sidebar navigation; expand/collapse
+- **sidebar.spec.ts**: Sidebar navigation; expand/collapse; navigate to settings/personalization/help
 - **routing-guards.spec.ts**: Unauthenticated → redirect to /login; user → can't access /admin
 
 ### Public (2 specs)
 
-- **landing.spec.ts**: English landing renders; Chinese `/zh` renders; CTA buttons work
+- **landing.spec.ts**: English landing renders; Chinese `/zh` renders; CTA buttons link to /login
 - **share.spec.ts**: Share page content renders; invalid share ID error handling
+
+## i18n Testing Strategy
+
+- **Default language**: All tests run in English (the app default)
+- **Language switch test** (in settings.spec.ts): Switches language to Chinese, verifies UI text changes to Chinese, then switches back
+- **POM selectors**: Use regex patterns that match both English and Chinese text where needed (e.g., `/start.*free|开始.*体验/i`)
+- **Landing page**: Separate tests for `/` (English) and `/zh` (Chinese) routes
 
 ## Playwright Configuration
 
@@ -232,16 +346,22 @@ export async function mockStripeCheckout(page: Page) {
 // playwright.config.ts key settings
 {
   testDir: './e2e/tests',
+  outputDir: 'test-results',
   fullyParallel: true,
-  retries: 0,
+  retries: process.env.CI ? 2 : 0,
+  timeout: 30_000,
+  expect: { timeout: 10_000 },
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
@@ -252,6 +372,7 @@ export async function mockStripeCheckout(page: Page) {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: true,
+    timeout: 120_000,
   },
 }
 ```
@@ -262,10 +383,10 @@ export async function mockStripeCheckout(page: Page) {
 
 ```json
 {
-  "e2e": "playwright test",
-  "e2e:ui": "playwright test --ui",
-  "e2e:headed": "playwright test --headed",
-  "e2e:report": "playwright show-report"
+  "e2e": "npx playwright test",
+  "e2e:ui": "npx playwright test --ui",
+  "e2e:headed": "npx playwright test --headed",
+  "e2e:report": "npx playwright show-report"
 }
 ```
 
@@ -279,7 +400,7 @@ export async function mockStripeCheckout(page: Page) {
 
 ### Environment Setup
 
-1. Create 3 test accounts in development Supabase (user/admin/super_admin)
+1. Create 3 test accounts in development Supabase (user/admin/super_admin) — must be email-verified
 2. Create `.env.e2e` with Supabase credentials and test account passwords
 3. `npx playwright install chromium` to install browser
 4. Ensure `npm run dev` starts successfully
@@ -304,3 +425,4 @@ playwright-report/
 
 - HTML reporter, viewable via `npm run e2e:report`
 - Failed test screenshots saved to `test-results/`
+- Traces saved on failure via `trace: 'retain-on-failure'`
