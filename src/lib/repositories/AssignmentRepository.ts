@@ -44,7 +44,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     title: string;
     school?: string | null;
     course?: string | null;
-    courseId?: string | null;
+    courseId?: string;
     status?: string;
   }): Promise<string> {
     const supabase = await createClient();
@@ -92,6 +92,19 @@ export class AssignmentRepository implements IAssignmentRepository {
     return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
   }
 
+  async findAllForAdmin(): Promise<AssignmentEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch assignments: ${error.message}`, error);
+    }
+    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
+  }
+
   async findOwner(id: string): Promise<string | null> {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -120,23 +133,17 @@ export class AssignmentRepository implements IAssignmentRepository {
     return (data?.course_id as string) ?? null;
   }
 
-  async findAllForAdmin(courseIds?: string[]): Promise<AssignmentEntity[]> {
+  async findByCourseIds(courseIds: string[]): Promise<AssignmentEntity[]> {
+    if (courseIds.length === 0) return [];
     const supabase = await createClient();
-
-    if (Array.isArray(courseIds) && courseIds.length === 0) return [];
-
-    let query = supabase
+    const { data, error } = await supabase
       .from('assignments')
       .select('*')
+      .in('course_id', courseIds)
       .order('created_at', { ascending: false });
 
-    if (courseIds) {
-      query = query.in('course_id', courseIds);
-    }
-
-    const { data, error } = await query;
     if (error) {
-      throw new DatabaseError(`Failed to fetch assignments for admin: ${error.message}`, error);
+      throw new DatabaseError(`Failed to fetch assignments by course: ${error.message}`, error);
     }
     return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
   }

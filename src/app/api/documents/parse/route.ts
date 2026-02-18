@@ -12,7 +12,7 @@ import { getDocumentService } from '@/lib/services/DocumentService';
 import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
-import { requireAnyAdmin } from '@/lib/supabase/server';
+import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -38,10 +38,6 @@ const uploadSchema = z.object({
   course: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().max(100).optional(),
-  ),
-  courseId: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() !== '' ? value : undefined),
-    z.string().uuid().optional(),
   ),
   has_answers: z.preprocess(
     (value) => value === 'true' || value === true,
@@ -74,18 +70,6 @@ export async function POST(request: Request) {
         return;
       }
 
-      // ── Quota ──
-      try {
-        await getQuotaService().enforce(user.id);
-      } catch (error) {
-        if (error instanceof QuotaExceededError) {
-          send('error', { message: error.message, code: 'QUOTA_EXCEEDED' });
-        } else {
-          send('error', { message: 'Quota check failed', code: 'QUOTA_ERROR' });
-        }
-        return;
-      }
-
       // ── Parse FormData ──
       const formData = await request.formData();
       const file = formData.get('file');
@@ -104,18 +88,47 @@ export async function POST(request: Request) {
         doc_type: formData.get('doc_type') || undefined,
         school: formData.get('school'),
         course: formData.get('course'),
-        courseId: formData.get('courseId'),
         has_answers: formData.get('has_answers'),
       });
       if (!parsed.success) {
         send('error', { message: 'Invalid upload data', code: 'VALIDATION_ERROR' });
         return;
       }
-      const { doc_type, school, course, courseId, has_answers } = parsed.data;
+      const { doc_type, school, course, has_answers } = parsed.data;
 
-      // Admin (non-super_admin) must provide courseId for all doc types
+      // ── Course-level permission check ──
+      const rawCourseId = formData.get('courseId') as string | null;
+      if (rawCourseId && !z.string().uuid().safeParse(rawCourseId).success) {
+        send('error', { message: 'Invalid course ID', code: 'VALIDATION_ERROR' });
+        return;
+      }
+      const courseId = rawCourseId ?? null;
+      // Admin (non-super_admin) must provide courseId for all uploads
       if (authRole === 'admin' && !courseId) {
-        send('error', { message: 'Course selection is required', code: 'COURSE_REQUIRED' });
+        send('error', {
+          message: 'Admin must select a course for uploads',
+          code: 'FORBIDDEN',
+        });
+        return;
+      }
+      if (courseId) {
+        try {
+          await requireCourseAdmin(courseId);
+        } catch {
+          send('error', { message: 'No access to this course', code: 'FORBIDDEN' });
+          return;
+        }
+      }
+
+      // ── Quota (after auth + course permission, so unauthorized requests don't consume quota) ──
+      try {
+        await getQuotaService().enforce(user.id);
+      } catch (error) {
+        if (error instanceof QuotaExceededError) {
+          send('error', { message: error.message, code: 'QUOTA_EXCEEDED' });
+        } else {
+          send('error', { message: 'Quota check failed', code: 'QUOTA_ERROR' });
+        }
         return;
       }
 
@@ -135,6 +148,7 @@ export async function POST(request: Request) {
           file.name,
           { school: school || 'Unspecified', course: course || 'General' },
           doc_type,
+          courseId ?? undefined,
         );
         effectiveRecordId = doc.id;
         docId = doc.id;
@@ -145,7 +159,7 @@ export async function POST(request: Request) {
           title: file.name,
           school: school || null,
           course: course || null,
-          courseId: courseId || null,
+          courseId: courseId ?? undefined,
           status: 'parsing',
         });
       } else {
@@ -155,7 +169,7 @@ export async function POST(request: Request) {
           title: file.name,
           school: school || null,
           course: course || null,
-          courseId: courseId || null,
+          courseId: courseId ?? undefined,
           status: 'parsing',
         });
       }

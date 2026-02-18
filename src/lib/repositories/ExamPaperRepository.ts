@@ -55,7 +55,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
     title: string;
     school?: string | null;
     course?: string | null;
-    courseId?: string | null;
+    courseId?: string;
     year?: string | null;
     visibility?: 'public' | 'private';
     status?: 'parsing' | 'ready' | 'error';
@@ -161,28 +161,21 @@ export class ExamPaperRepository implements IExamPaperRepository {
       if (error.code === 'PGRST116') return null;
       throw new DatabaseError(`Failed to fetch paper course_id: ${error.message}`, error);
     }
-    if (!data) return null;
-    return (data.course_id as string) ?? null;
+    return (data?.course_id as string) ?? null;
   }
 
-  async findAllForAdmin(courseIds?: string[]): Promise<ExamPaper[]> {
+  async findByCourseIds(courseIds: string[]): Promise<ExamPaper[]> {
+    if (courseIds.length === 0) return [];
     const supabase = await createClient();
 
-    if (Array.isArray(courseIds) && courseIds.length === 0) return [];
-
-    let query = supabase
+    const { data, error } = await supabase
       .from('exam_papers')
       .select('*')
+      .in('course_id', courseIds)
       .order('created_at', { ascending: false });
 
-    if (courseIds) {
-      query = query.in('course_id', courseIds);
-    }
-
-    const { data, error } = await query;
-
     if (error) {
-      throw new DatabaseError(`Failed to fetch exam papers for admin: ${error.message}`, error);
+      throw new DatabaseError(`Failed to fetch exam papers by course: ${error.message}`, error);
     }
     return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
   }
@@ -319,6 +312,20 @@ export class ExamPaperRepository implements IExamPaperRepository {
       .from('exam_papers')
       .select('*')
       .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch exam papers: ${error.message}`, error);
+    }
+    return (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row));
+  }
+
+  async findAllForAdmin(): Promise<ExamPaper[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('exam_papers')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {

@@ -50,15 +50,28 @@ export async function requireUser() {
   return user;
 }
 
-/** Require admin or super_admin role or throw ForbiddenError. Returns user and role. */
-export async function requireAnyAdmin() {
+/** Require super_admin role or throw ForbiddenError. */
+export async function requireSuperAdmin() {
+  const { ForbiddenError } = await import('@/lib/errors');
+  const user = await requireUser();
+  const { getProfileRepository } = await import('@/lib/repositories');
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'super_admin') throw new ForbiddenError('Super admin access required');
+  return user;
+}
+
+/** Require admin or super_admin role or throw ForbiddenError. */
+export async function requireAnyAdmin(): Promise<{
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+  role: 'admin' | 'super_admin';
+}> {
   const { ForbiddenError } = await import('@/lib/errors');
   const user = await requireUser();
   const { getProfileRepository } = await import('@/lib/repositories');
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin')
     throw new ForbiddenError('Admin access required');
-  return { user, role: profile.role as string };
+  return { user, role: profile.role };
 }
 
 /** Require course-level admin access: super_admin passes directly, admin checked against assignments. */
@@ -66,13 +79,14 @@ export async function requireCourseAdmin(courseId: string) {
   const { ForbiddenError } = await import('@/lib/errors');
   const { user, role } = await requireAnyAdmin();
   if (role === 'super_admin') return user;
+  // admin: check course assignment
   const { getAdminRepository } = await import('@/lib/repositories/AdminRepository');
   const hasAccess = await getAdminRepository().hasCourseAccess(user.id, courseId);
   if (!hasAccess) throw new ForbiddenError('No access to this course');
   return user;
 }
 
-/** @deprecated Use requireAnyAdmin() or requireCourseAdmin() instead. */
+/** @deprecated Use requireSuperAdmin(), requireAnyAdmin(), or requireCourseAdmin() instead. */
 export async function requireAdmin() {
   return (await requireAnyAdmin()).user;
 }

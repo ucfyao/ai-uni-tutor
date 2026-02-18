@@ -51,6 +51,7 @@ function createMockDocRepo(): Record<keyof DocumentRepository, ReturnType<typeof
     delete: vi.fn(),
     verifyOwnership: vi.fn(),
     findByUserId: vi.fn(),
+    findByDocTypeForAdmin: vi.fn(),
     findAll: vi.fn(),
     deleteById: vi.fn(),
   };

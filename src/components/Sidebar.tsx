@@ -20,6 +20,7 @@ import {
   Presentation,
   Settings,
   Share,
+  ShieldCheck,
   Sparkles,
   Trash,
   Wand2,
@@ -78,8 +79,14 @@ const CHAT_MODULES = [
 ];
 
 const JUMP_LINKS = [
-  { labelKey: 'knowledgeBase' as const, icon: GraduationCap, href: '/admin/knowledge' },
-  { labelKey: 'coursesAdmin' as const, icon: BookOpen, href: '/admin/courses' },
+  {
+    labelKey: 'knowledgeBase' as const,
+    icon: GraduationCap,
+    href: '/admin/knowledge',
+    superOnly: false,
+  },
+  { labelKey: 'coursesAdmin' as const, icon: BookOpen, href: '/admin/courses', superOnly: true },
+  { labelKey: 'usersAdmin' as const, icon: ShieldCheck, href: '/admin/users', superOnly: true },
 ];
 
 // ============================================================================
@@ -115,7 +122,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   opened,
 }) => {
   const { profile, loading } = useProfile();
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
+  const isSuperAdmin = profile?.role === 'super_admin';
   const { t } = useLanguage();
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -195,7 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </Box>
 
         {/* Jump links */}
-        {JUMP_LINKS.filter(() => isAdmin).map((link) => {
+        {JUMP_LINKS.filter((link) => isAdmin && (!link.superOnly || isSuperAdmin)).map((link) => {
           const Icon = link.icon;
           return (
             <Tooltip key={link.href} label={t.sidebar[link.labelKey]} position="right">
@@ -333,7 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <ScrollArea flex={1} scrollbarSize={4} scrollbars="y">
         <Stack gap={2} mt={12}>
           {/* Jump links — Knowledge Base at top */}
-          {JUMP_LINKS.filter(() => isAdmin).map((link) => {
+          {JUMP_LINKS.filter((link) => isAdmin && (!link.superOnly || isSuperAdmin)).map((link) => {
             const Icon = link.icon;
             return (
               <UnstyledButton
