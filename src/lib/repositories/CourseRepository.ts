@@ -2,7 +2,7 @@ import type { ICourseRepository } from '@/lib/domain/interfaces/ICourseRepositor
 import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/lib/domain/models/Course';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
-import type { Database } from '@/types/database';
+import type { Database, Json } from '@/types/database';
 
 type CourseRow = Database['public']['Tables']['courses']['Row'];
 
@@ -93,6 +93,23 @@ export class CourseRepository implements ICourseRepository {
     const supabase = await createClient();
     const { error } = await supabase.from('courses').delete().eq('id', id);
     if (error) throw new DatabaseError(`Failed to delete course: ${error.message}`, error);
+  }
+
+  async saveKnowledgeOutline(
+    id: string,
+    outline: Json,
+    outlineEmbedding?: number[],
+  ): Promise<void> {
+    const supabase = await createClient();
+    const updates: Database['public']['Tables']['courses']['Update'] = {
+      knowledge_outline: outline,
+      updated_at: new Date().toISOString(),
+    };
+    if (outlineEmbedding) {
+      updates.knowledge_outline_embedding = outlineEmbedding as unknown as string;
+    }
+    const { error } = await supabase.from('courses').update(updates).eq('id', id);
+    if (error) throw new DatabaseError(`Failed to save course outline: ${error.message}`, error);
   }
 }
 

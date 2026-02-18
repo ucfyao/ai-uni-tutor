@@ -172,6 +172,19 @@ export class DocumentRepository implements IDocumentRepository {
     const { error } = await supabase.from('documents').delete().eq('id', id);
     if (error) throw new DatabaseError(`Failed to delete document: ${error.message}`, error);
   }
+
+  async saveOutline(id: string, outline: Json, outlineEmbedding?: number[]): Promise<void> {
+    const supabase = await createClient();
+    const updateData: Database['public']['Tables']['documents']['Update'] = {
+      outline,
+    };
+    if (outlineEmbedding) {
+      // [M8] Pass number[] directly — consistent with existing embedding handling
+      updateData.outline_embedding = outlineEmbedding as unknown as string;
+    }
+    const { error } = await supabase.from('documents').update(updateData).eq('id', id);
+    if (error) throw new DatabaseError(`Failed to save document outline: ${error.message}`, error);
+  }
 }
 
 let _documentRepository: DocumentRepository | null = null;
