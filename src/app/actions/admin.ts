@@ -85,11 +85,16 @@ export async function listAdmins(): Promise<ActionResult<AdminUserItem[]>> {
   }
 }
 
+const getAdminCourseIdsSchema = z.object({
+  adminId: z.string().uuid(),
+});
+
 export async function getAdminCourseIds(adminId: string): Promise<ActionResult<string[]>> {
   try {
     await requireSuperAdmin();
+    const parsed = getAdminCourseIdsSchema.parse({ adminId });
     const service = getAdminService();
-    const courseIds = await service.getAssignedCourseIds(adminId);
+    const courseIds = await service.getAssignedCourseIds(parsed.adminId);
     return { success: true, data: courseIds };
   } catch (error) {
     return mapError(error);

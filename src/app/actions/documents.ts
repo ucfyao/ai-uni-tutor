@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { UserRole } from '@/lib/domain/models/Profile';
 import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
 import { getDocumentService } from '@/lib/services/DocumentService';
+import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
@@ -41,7 +41,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   if (parsed.data === 'lecture') {
     const { getAdminService } = await import('@/lib/services/AdminService');
     const adminService = getAdminService();
-    const courseIds = await adminService.getAvailableCourseIds(user.id, role as UserRole);
+    const courseIds = await adminService.getAvailableCourseIds(user.id, role);
     const service = getDocumentService();
     const entities = await service.getDocumentsForAdmin('lecture', courseIds);
     return entities.map((doc) => ({
@@ -61,7 +61,11 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   if (parsed.data === 'exam') {
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
     const examRepo = getExamPaperRepository();
-    const papers = await examRepo.findAllForAdmin();
+    // super_admin sees all; admin sees only own uploads (no course_id FK for course-level filtering)
+    const papers =
+      role === 'super_admin'
+        ? await examRepo.findAllForAdmin()
+        : await examRepo.findByUserId(user.id);
     return papers.map((paper) => ({
       id: paper.id,
       name: paper.title,
@@ -79,7 +83,11 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   // assignment
   const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
   const assignmentRepo = getAssignmentRepository();
-  const assignments = await assignmentRepo.findAllForAdmin();
+  // super_admin sees all; admin sees only own uploads (no course_id FK for course-level filtering)
+  const assignments =
+    role === 'super_admin'
+      ? await assignmentRepo.findAllForAdmin()
+      : await assignmentRepo.findByUserId(user.id);
   return assignments.map((a) => ({
     id: a.id,
     name: a.title,
@@ -197,6 +205,7 @@ export async function uploadDocument(
       console.error('Error during document processing:', e);
       try {
         await documentService.deleteChunksByDocumentId(doc.id);
+        await getKnowledgeCardService().deleteByDocumentId(doc.id);
       } catch {
         /* ignore cleanup errors */
       }
@@ -223,6 +232,7 @@ export async function uploadDocument(
       try {
         const documentService = getDocumentService();
         await documentService.deleteChunksByDocumentId(docId);
+        await getKnowledgeCardService().deleteByDocumentId(docId);
         await documentService.updateStatus(docId, 'error', 'Upload failed unexpectedly');
         revalidatePath('/admin/knowledge');
       } catch {
@@ -334,6 +344,7 @@ export async function regenerateEmbeddings(
 
 export async function retryDocument(
   documentId: string,
+  docType?: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
   await requireAnyAdmin();
 
@@ -343,12 +354,19 @@ export async function retryDocument(
     await requireCourseAdmin(courseId);
   }
 
-  const documentService = getDocumentService();
-  const doc = await documentService.findById(documentId);
-  if (!doc) return { status: 'error', message: 'Document not found' };
-
-  await documentService.deleteChunksByDocumentId(documentId);
-  await documentService.deleteByAdmin(documentId);
+  if (docType === 'exam') {
+    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+    await getExamPaperRepository().delete(documentId);
+  } else if (docType === 'assignment') {
+    const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+    await getAssignmentRepository().delete(documentId);
+  } else {
+    const documentService = getDocumentService();
+    const doc = await documentService.findById(documentId);
+    if (!doc) return { status: 'error', message: 'Document not found' };
+    await documentService.deleteChunksByDocumentId(documentId);
+    await documentService.deleteByAdmin(documentId);
+  }
 
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Document removed. Please re-upload.' };
@@ -411,6 +429,16 @@ export async function updateExamQuestions(
   const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
   const examRepo = getExamPaperRepository();
 
+  // Verify all question IDs belong to this paper (IDOR protection)
+  const allIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allIds.length > 0) {
+    const paperQuestions = await examRepo.findQuestionsByPaperId(paperId);
+    const validIds = new Set(paperQuestions.map((q) => q.id));
+    if (allIds.some((id) => !validIds.has(id))) {
+      return { status: 'error', message: 'Invalid question IDs' };
+    }
+  }
+
   for (const id of deletedIds) {
     await examRepo.deleteQuestion(id);
   }
@@ -449,6 +477,16 @@ export async function updateAssignmentItems(
 
   const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
   const assignmentRepo = getAssignmentRepository();
+
+  // Verify all item IDs belong to this assignment (IDOR protection)
+  const allIds = [...deletedIds, ...updates.map((u) => u.id)];
+  if (allIds.length > 0) {
+    const assignmentItems = await assignmentRepo.findItemsByAssignmentId(assignmentId);
+    const validIds = new Set(assignmentItems.map((item) => item.id));
+    if (allIds.some((id) => !validIds.has(id))) {
+      return { status: 'error', message: 'Invalid item IDs' };
+    }
+  }
 
   for (const id of deletedIds) {
     await assignmentRepo.deleteItem(id);

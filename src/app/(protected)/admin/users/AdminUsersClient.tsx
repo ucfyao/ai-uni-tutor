@@ -176,9 +176,6 @@ export function AdminUsersClient() {
     [selectedCourseIds],
   );
 
-  // Merge admins into user list for display
-  const displayUsers = debouncedSearch ? users : users;
-
   const renderRoleBadge = (role: string) => {
     const Icon = ROLE_ICONS[role] || User;
     return (
@@ -329,7 +326,7 @@ export function AdminUsersClient() {
           <Group justify="center" py="xl">
             <Loader size="sm" />
           </Group>
-        ) : displayUsers.length === 0 ? (
+        ) : users.length === 0 ? (
           <Text c="dimmed" ta="center" py="xl" size="sm">
             {debouncedSearch ? 'No users found.' : 'Type to search for users.'}
           </Text>
@@ -343,7 +340,7 @@ export function AdminUsersClient() {
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
-            <Table.Tbody>{displayUsers.map(renderUserRow)}</Table.Tbody>
+            <Table.Tbody>{users.map(renderUserRow)}</Table.Tbody>
           </Table>
         )}
       </Card>

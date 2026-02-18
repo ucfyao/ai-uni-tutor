@@ -68,7 +68,8 @@ CREATE POLICY "documents_select" ON documents
 CREATE POLICY "documents_insert" ON documents
   FOR INSERT TO authenticated
   WITH CHECK (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
     OR EXISTS (
       SELECT 1 FROM admin_course_assignments
       WHERE admin_id = auth.uid() AND course_id = documents.course_id

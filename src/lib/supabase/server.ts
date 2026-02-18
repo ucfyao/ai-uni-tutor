@@ -68,7 +68,7 @@ export async function requireAnyAdmin() {
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin')
     throw new ForbiddenError('Admin access required');
-  return { user, role: profile.role as string };
+  return { user, role: profile.role };
 }
 
 /** Require course-level admin access: super_admin passes directly, admin checked against assignments. */

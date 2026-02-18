@@ -20,6 +20,7 @@ import {
   Presentation,
   Settings,
   Share,
+  ShieldCheck,
   Sparkles,
   Trash,
   Wand2,
@@ -85,6 +86,7 @@ const JUMP_LINKS = [
     superOnly: false,
   },
   { labelKey: 'coursesAdmin' as const, icon: BookOpen, href: '/admin/courses', superOnly: true },
+  { labelKey: 'usersAdmin' as const, icon: ShieldCheck, href: '/admin/users', superOnly: true },
 ];
 
 // ============================================================================
