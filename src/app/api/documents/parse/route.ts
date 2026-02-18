@@ -381,8 +381,8 @@ export async function POST(request: Request) {
 
         await examRepo.updateStatus(effectiveRecordId, 'ready');
       } else {
-        // ── ASSIGNMENT: Save to assignment_items (no embedding) ──
-        send('status', { stage: 'embedding', message: 'Saving items...' });
+        // ── ASSIGNMENT: Save to assignment_items with embeddings ──
+        send('status', { stage: 'embedding', message: 'Generating embeddings...' });
         const assignmentRepo = getAssignmentRepository();
 
         for (let i = 0; i < items.length; i++) {
@@ -405,7 +405,27 @@ export async function POST(request: Request) {
           };
         });
 
-        await assignmentRepo.insertItems(assignmentItems);
+        // Generate embeddings for assignment items
+        const embeddingTexts = assignmentItems.map(
+          (item) => `Question ${item.orderNum}: ${item.content}`,
+        );
+
+        let embeddings: number[][] = [];
+        try {
+          const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+          embeddings = await generateEmbeddingBatch(embeddingTexts);
+          send('status', { stage: 'embedding', message: 'Embeddings generated' });
+        } catch (e) {
+          console.error('Assignment embedding generation failed:', e);
+          // Continue without embeddings — items still save, just no RAG
+        }
+
+        const itemsWithEmbeddings = assignmentItems.map((item, idx) => ({
+          ...item,
+          embedding: embeddings[idx] ?? null,
+        }));
+
+        await assignmentRepo.insertItems(itemsWithEmbeddings);
         send('batch_saved', { chunkIds: assignmentItems.map((_, i) => `a-${i}`), batchIndex: 0 });
 
         await assignmentRepo.updateStatus(effectiveRecordId, 'ready');

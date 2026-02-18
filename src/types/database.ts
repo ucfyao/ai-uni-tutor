@@ -549,6 +549,7 @@ export interface Database {
           points: number;
           difficulty: string;
           metadata: Json;
+          embedding: number[] | null;
           created_at: string;
         };
         Insert: {
@@ -562,6 +563,7 @@ export interface Database {
           points?: number;
           difficulty?: string;
           metadata?: Json;
+          embedding?: number[] | null;
           created_at?: string;
         };
         Update: {
@@ -575,6 +577,7 @@ export interface Database {
           points?: number;
           difficulty?: string;
           metadata?: Json;
+          embedding?: number[] | null;
           created_at?: string;
         };
         Relationships: [];
@@ -612,6 +615,24 @@ export interface Database {
           document_id: string | null;
           created_at: string;
           updated_at: string;
+          similarity: number;
+        }[];
+      };
+      match_assignment_items: {
+        Args: {
+          query_embedding: number[];
+          match_count?: number;
+          filter_course_id?: string | null;
+        };
+        Returns: {
+          id: string;
+          assignment_id: string;
+          order_num: number;
+          content: string;
+          reference_answer: string;
+          explanation: string;
+          points: number;
+          difficulty: string;
           similarity: number;
         }[];
       };

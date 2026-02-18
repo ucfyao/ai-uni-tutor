@@ -6,7 +6,19 @@ import type { IAssignmentRepository } from '@/lib/domain/interfaces/IAssignmentR
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
-import type { Json } from '@/types/database';
+import type { Database, Json } from '@/types/database';
+
+export interface MatchedAssignmentItem {
+  id: string;
+  assignmentId: string;
+  orderNum: number;
+  content: string;
+  referenceAnswer: string;
+  explanation: string;
+  points: number;
+  difficulty: string;
+  similarity: number;
+}
 
 function mapAssignmentRow(row: Record<string, unknown>): AssignmentEntity {
   return {
@@ -178,6 +190,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       points?: number;
       difficulty?: string;
       metadata?: Record<string, unknown>;
+      embedding?: number[] | null;
     }>,
   ): Promise<void> {
     const supabase = await createClient();
@@ -191,6 +204,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       points: item.points ?? 0,
       difficulty: item.difficulty ?? '',
       metadata: (item.metadata ?? {}) as Json,
+      embedding: item.embedding ?? null,
     }));
 
     const { error } = await supabase.from('assignment_items').insert(rows);
@@ -211,6 +225,36 @@ export class AssignmentRepository implements IAssignmentRepository {
       throw new DatabaseError(`Failed to fetch assignment items: ${error.message}`, error);
     }
     return (data ?? []).map((r: Record<string, unknown>) => mapItemRow(r));
+  }
+
+  async searchItemsByEmbedding(
+    embedding: number[],
+    matchCount: number,
+    courseId?: string | null,
+  ): Promise<MatchedAssignmentItem[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('match_assignment_items', {
+      query_embedding: embedding,
+      match_count: matchCount,
+      filter_course_id: courseId ?? null,
+    });
+
+    if (error)
+      throw new DatabaseError(`Failed to search assignment items: ${error.message}`, error);
+
+    return (data ?? []).map(
+      (row: Database['public']['Functions']['match_assignment_items']['Returns'][number]) => ({
+        id: row.id,
+        assignmentId: row.assignment_id,
+        orderNum: row.order_num,
+        content: row.content,
+        referenceAnswer: row.reference_answer,
+        explanation: row.explanation,
+        points: row.points,
+        difficulty: row.difficulty,
+        similarity: row.similarity,
+      }),
+    );
   }
 
   async updateItem(
