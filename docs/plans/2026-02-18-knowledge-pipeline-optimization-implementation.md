@@ -10,6 +10,33 @@
 
 **Design doc:** `docs/plans/2026-02-18-knowledge-pipeline-optimization-design.md`
 
+**Review notes applied:** C1-C4 (all critical), M1-M8/M10-M11 (major), m1-m5/m7-m13 (minor). See review section at end.
+
+---
+
+## Conventions (read before implementing)
+
+These conventions apply to ALL tasks in this plan:
+
+**Testing:**
+
+- Test files are **co-located** next to source: `foo.ts` → `foo.test.ts` (not `__tests__/foo.test.ts`)
+- Every test file must start with `vi.mock('server-only', () => ({}));`
+- Use `createMockGemini()` from `@/__tests__/helpers/mockGemini` — NOT raw `vi.fn()`
+- Use top-level `await import()` after `vi.mock()` — NOT dynamic imports inside `it()` blocks
+- Include `afterEach(() => { vi.restoreAllMocks(); });`
+- Follow the exact pattern from `src/lib/rag/parsers/lecture-parser.test.ts`
+
+**Config:**
+
+- All `parseInt()` / `parseFloat()` on env vars must have NaN guards: `parseInt(x || '10') || 10`
+
+**Backward compatibility:**
+
+- `parseLecture()` function signature is preserved as `(pages, onBatchProgress?) → KnowledgePoint[]`
+- New multi-pass API exposed as separate `parseLectureMultiPass()` function
+- Callers migrated atomically in the same task as the parser rewrite
+
 ---
 
 ## Task 1: Extend Type Definitions
@@ -83,7 +110,7 @@ export interface CourseTopic {
 export interface CourseOutline {
   courseId: string;
   topics: CourseTopic[];
-  lastUpdated: string;
+  lastUpdated: string; // ISO 8601 string
 }
 
 export interface PipelineProgress {
@@ -92,12 +119,16 @@ export interface PipelineProgress {
   totalProgress: number;
   detail: string;
 }
+
+export interface ParseLectureResult {
+  knowledgePoints: KnowledgePoint[];
+  outline?: DocumentOutline;
+}
 ```
 
 **Step 2: Verify types compile**
 
 Run: `npx tsc --noEmit`
-Expected: No errors related to `src/lib/rag/parsers/types.ts`
 
 **Step 3: Commit**
 
@@ -114,36 +145,58 @@ git commit -m "feat(rag): add multi-pass pipeline type definitions"
 
 - Modify: `src/lib/rag/config.ts`
 
-**Step 1: Add pipeline config**
+**Step 1: Add pipeline config with NaN guards**
 
-Add to the `RAG_CONFIG` object in `src/lib/rag/config.ts`:
+Replace entire file content of `src/lib/rag/config.ts`:
 
 ```typescript
+/**
+ * RAG Pipeline Configuration
+ *
+ * Centralizes hardcoded parameters into environment-overridable defaults.
+ * All parseInt/parseFloat have NaN fallback guards.
+ */
+
+function safeInt(value: string | undefined, fallback: number): number {
+  const parsed = parseInt(value || String(fallback));
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function safeFloat(value: string | undefined, fallback: number): number {
+  const parsed = parseFloat(value || String(fallback));
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
 export const RAG_CONFIG = {
-  // ...existing...
+  chunkSize: safeInt(process.env.RAG_CHUNK_SIZE, 1000),
+  chunkOverlap: safeInt(process.env.RAG_CHUNK_OVERLAP, 200),
+  embeddingDimension: safeInt(process.env.RAG_EMBEDDING_DIM, 768),
+  matchThreshold: safeFloat(process.env.RAG_MATCH_THRESHOLD, 0.5),
+  matchCount: safeInt(process.env.RAG_MATCH_COUNT, 5),
+  rrfK: safeInt(process.env.RAG_RRF_K, 60),
 
   // Multi-pass pipeline config
-  structurePageSummaryLength: parseInt(process.env.RAG_STRUCTURE_SUMMARY_LENGTH || '500'),
-  sectionMaxPages: parseInt(process.env.RAG_SECTION_MAX_PAGES || '15'),
-  sectionBatchPages: parseInt(process.env.RAG_SECTION_BATCH_PAGES || '12'),
-  sectionOverlapPages: parseInt(process.env.RAG_SECTION_OVERLAP_PAGES || '2'),
-  sectionConcurrency: parseInt(process.env.RAG_SECTION_CONCURRENCY || '3'),
-  qualityScoreThreshold: parseInt(process.env.RAG_QUALITY_THRESHOLD || '5'),
-  semanticDedupThreshold: parseFloat(process.env.RAG_SEMANTIC_DEDUP_THRESHOLD || '0.9'),
-  qualityReviewBatchSize: parseInt(process.env.RAG_QUALITY_REVIEW_BATCH || '20'),
-  shortDocumentThreshold: parseInt(process.env.RAG_SHORT_DOC_THRESHOLD || '5'),
+  structurePageSummaryLength: safeInt(process.env.RAG_STRUCTURE_SUMMARY_LENGTH, 500),
+  sectionMaxPages: safeInt(process.env.RAG_SECTION_MAX_PAGES, 15),
+  sectionBatchPages: safeInt(process.env.RAG_SECTION_BATCH_PAGES, 12),
+  sectionOverlapPages: safeInt(process.env.RAG_SECTION_OVERLAP_PAGES, 2),
+  sectionConcurrency: safeInt(process.env.RAG_SECTION_CONCURRENCY, 3),
+  qualityScoreThreshold: safeInt(process.env.RAG_QUALITY_THRESHOLD, 5),
+  semanticDedupThreshold: safeFloat(process.env.RAG_SEMANTIC_DEDUP_THRESHOLD, 0.9),
+  qualityReviewBatchSize: safeInt(process.env.RAG_QUALITY_REVIEW_BATCH, 20),
+  shortDocumentThreshold: safeInt(process.env.RAG_SHORT_DOC_THRESHOLD, 5),
 } as const;
 ```
 
-**Step 2: Verify build**
+**Step 2: Run existing tests to verify no regressions**
 
-Run: `npx tsc --noEmit`
+Run: `npx vitest run src/lib/rag/`
 
 **Step 3: Commit**
 
 ```bash
 git add src/lib/rag/config.ts
-git commit -m "feat(rag): add multi-pass pipeline configuration parameters"
+git commit -m "feat(rag): add multi-pass pipeline config with NaN-safe parsing"
 ```
 
 ---
@@ -153,34 +206,39 @@ git commit -m "feat(rag): add multi-pass pipeline configuration parameters"
 **Files:**
 
 - Create: `src/lib/rag/parsers/structure-analyzer.ts`
-- Create: `src/lib/rag/parsers/__tests__/structure-analyzer.test.ts`
+- Create: `src/lib/rag/parsers/structure-analyzer.test.ts`
 
 **Step 1: Write the failing test**
 
-Create `src/lib/rag/parsers/__tests__/structure-analyzer.test.ts`:
+Create `src/lib/rag/parsers/structure-analyzer.test.ts`:
 
 ```typescript
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PDFPage } from '@/lib/pdf';
-import type { DocumentStructure } from '../types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
+import type { DocumentStructure } from './types';
 
-// Mock Gemini
-const mockGenerateContent = vi.fn();
-vi.mock('@/lib/gemini', () => ({
-  GEMINI_MODELS: { parse: 'test-model' },
-  getGenAI: () => ({
-    models: { generateContent: mockGenerateContent },
-  }),
-}));
+vi.mock('server-only', () => ({}));
 
-describe('analyzeStructure', () => {
+let mockGemini: MockGeminiResult;
+
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
+  mockGemini = createMockGemini();
+  return { ...actual, getGenAI: () => mockGemini.client };
+});
+
+const { analyzeStructure } = await import('./structure-analyzer');
+
+describe('structure-analyzer', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGemini.reset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('returns sections from LLM response', async () => {
-    const { analyzeStructure } = await import('../structure-analyzer');
-
     const mockStructure: DocumentStructure = {
       subject: 'Computer Science',
       documentType: 'lecture slides',
@@ -191,11 +249,9 @@ describe('analyzeStructure', () => {
       ],
     };
 
-    mockGenerateContent.mockResolvedValueOnce({
-      text: JSON.stringify(mockStructure),
-    });
+    mockGemini.setGenerateJSON(mockStructure);
 
-    const pages: PDFPage[] = Array.from({ length: 15 }, (_, i) => ({
+    const pages = Array.from({ length: 15 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1} content here with enough text to simulate real content.`,
     }));
@@ -207,10 +263,8 @@ describe('analyzeStructure', () => {
     expect(result.sections[0].contentType).toBe('overview');
   });
 
-  it('falls back to auto-segmentation for short documents', async () => {
-    const { analyzeStructure } = await import('../structure-analyzer');
-
-    const pages: PDFPage[] = Array.from({ length: 3 }, (_, i) => ({
+  it('skips LLM for short documents', async () => {
+    const pages = Array.from({ length: 3 }, (_, i) => ({
       page: i + 1,
       text: `Short doc page ${i + 1}`,
     }));
@@ -221,23 +275,19 @@ describe('analyzeStructure', () => {
     expect(result.sections[0].title).toBe('Full Document');
     expect(result.sections[0].startPage).toBe(1);
     expect(result.sections[0].endPage).toBe(3);
-    // Should NOT call LLM for short docs
-    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
   });
 
   it('falls back to fixed segmentation on LLM failure', async () => {
-    const { analyzeStructure } = await import('../structure-analyzer');
+    mockGemini.setGenerateError(new Error('API error'));
 
-    mockGenerateContent.mockRejectedValueOnce(new Error('API error'));
-
-    const pages: PDFPage[] = Array.from({ length: 30 }, (_, i) => ({
+    const pages = Array.from({ length: 30 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1} content`,
     }));
 
     const result = await analyzeStructure(pages);
 
-    // Should return fixed-size segments as fallback
     expect(result.sections.length).toBeGreaterThan(0);
     expect(result.subject).toBe('Unknown');
   });
@@ -246,7 +296,7 @@ describe('analyzeStructure', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/structure-analyzer.test.ts`
+Run: `npx vitest run src/lib/rag/parsers/structure-analyzer.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Implement structure-analyzer.ts**
@@ -281,11 +331,10 @@ function createFallbackStructure(pages: PDFPage[]): DocumentStructure {
   const sections: SectionInfo[] = [];
 
   for (let i = 0; i < pageCount; i += segmentSize) {
-    const endPage = Math.min(i + segmentSize, pageCount);
     sections.push({
       title: `Section ${sections.length + 1}`,
       startPage: i + 1,
-      endPage,
+      endPage: Math.min(i + segmentSize, pageCount),
       contentType: 'mixed' as ContentType,
     });
   }
@@ -294,7 +343,6 @@ function createFallbackStructure(pages: PDFPage[]): DocumentStructure {
 }
 
 export async function analyzeStructure(pages: PDFPage[]): Promise<DocumentStructure> {
-  // Short documents: skip LLM, treat as single section
   if (pages.length <= RAG_CONFIG.shortDocumentThreshold) {
     return {
       subject: 'Unknown',
@@ -310,7 +358,6 @@ export async function analyzeStructure(pages: PDFPage[]): Promise<DocumentStruct
     };
   }
 
-  // Build condensed page summaries
   const pageSummaries = pages.map((p) => {
     const trimmed = p.text.slice(0, RAG_CONFIG.structurePageSummaryLength);
     return `[Page ${p.page}]\n${trimmed}`;
@@ -339,12 +386,7 @@ Rules:
 - Mark table of contents, cover pages, and reference sections as "overview"
 - Sections must cover all pages with no gaps
 
-Return ONLY valid JSON matching this schema:
-{
-  "subject": "string",
-  "documentType": "string",
-  "sections": [{"title": "string", "startPage": number, "endPage": number, "contentType": "string"}]
-}
+Return ONLY valid JSON. No markdown, no explanation.
 
 Document pages (${pages.length} total):
 ${pageSummaries.join('\n\n')}`;
@@ -354,10 +396,7 @@ ${pageSummaries.join('\n\n')}`;
     const response = await genAI.models.generateContent({
       model: GEMINI_MODELS.parse,
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0,
-      },
+      config: { responseMimeType: 'application/json', temperature: 0 },
     });
 
     const text = response.text ?? '';
@@ -368,7 +407,6 @@ ${pageSummaries.join('\n\n')}`;
       console.warn('Structure analysis validation failed, using fallback:', result.error.message);
       return createFallbackStructure(pages);
     }
-
     return result.data;
   } catch (error) {
     console.warn('Structure analysis failed, using fallback segmentation:', error);
@@ -379,13 +417,13 @@ ${pageSummaries.join('\n\n')}`;
 
 **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/structure-analyzer.test.ts`
+Run: `npx vitest run src/lib/rag/parsers/structure-analyzer.test.ts`
 Expected: 3 tests PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/lib/rag/parsers/structure-analyzer.ts src/lib/rag/parsers/__tests__/structure-analyzer.test.ts
+git add src/lib/rag/parsers/structure-analyzer.ts src/lib/rag/parsers/structure-analyzer.test.ts
 git commit -m "feat(rag): add Pass 1 document structure analyzer"
 ```
 
@@ -396,33 +434,39 @@ git commit -m "feat(rag): add Pass 1 document structure analyzer"
 **Files:**
 
 - Create: `src/lib/rag/parsers/section-extractor.ts`
-- Create: `src/lib/rag/parsers/__tests__/section-extractor.test.ts`
+- Create: `src/lib/rag/parsers/section-extractor.test.ts`
 
 **Step 1: Write the failing test**
 
-Create `src/lib/rag/parsers/__tests__/section-extractor.test.ts`:
+Create `src/lib/rag/parsers/section-extractor.test.ts`:
 
 ```typescript
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PDFPage } from '@/lib/pdf';
-import type { DocumentStructure, KnowledgePoint } from '../types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
+import type { DocumentStructure, KnowledgePoint } from './types';
 
-const mockGenerateContent = vi.fn();
-vi.mock('@/lib/gemini', () => ({
-  GEMINI_MODELS: { parse: 'test-model' },
-  getGenAI: () => ({
-    models: { generateContent: mockGenerateContent },
-  }),
-}));
+vi.mock('server-only', () => ({}));
 
-describe('extractSections', () => {
+let mockGemini: MockGeminiResult;
+
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
+  mockGemini = createMockGemini();
+  return { ...actual, getGenAI: () => mockGemini.client };
+});
+
+const { extractSections } = await import('./section-extractor');
+
+describe('section-extractor', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGemini.reset();
   });
 
-  it('extracts knowledge points per section with overlap', async () => {
-    const { extractSections } = await import('../section-extractor');
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
+  it('extracts knowledge points per section, skipping overview', async () => {
     const mockKPs: KnowledgePoint[] = [
       {
         title: 'Binary Search Tree',
@@ -432,11 +476,9 @@ describe('extractSections', () => {
       },
     ];
 
-    mockGenerateContent.mockResolvedValue({
-      text: JSON.stringify(mockKPs),
-    });
+    mockGemini.setGenerateJSON(mockKPs);
 
-    const pages: PDFPage[] = Array.from({ length: 15 }, (_, i) => ({
+    const pages = Array.from({ length: 15 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1} content about data structures`,
     }));
@@ -452,16 +494,13 @@ describe('extractSections', () => {
 
     const result = await extractSections(pages, structure);
 
-    // Should skip 'overview' sections
     expect(result.length).toBeGreaterThan(0);
     expect(result[0].title).toBe('Binary Search Tree');
     // LLM should only be called for non-overview sections
-    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    expect(mockGemini.client.models.generateContent).toHaveBeenCalledTimes(1);
   });
 
-  it('skips overview sections', async () => {
-    const { extractSections } = await import('../section-extractor');
-
+  it('returns empty array when all sections are overview', async () => {
     const structure: DocumentStructure = {
       subject: 'Math',
       documentType: 'textbook',
@@ -471,7 +510,7 @@ describe('extractSections', () => {
       ],
     };
 
-    const pages: PDFPage[] = Array.from({ length: 4 }, (_, i) => ({
+    const pages = Array.from({ length: 4 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1}`,
     }));
@@ -479,17 +518,18 @@ describe('extractSections', () => {
     const result = await extractSections(pages, structure);
 
     expect(result).toEqual([]);
-    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
   });
 
   it('handles LLM failure for one section gracefully', async () => {
-    const { extractSections } = await import('../section-extractor');
+    // First call fails, second succeeds
+    mockGemini.client.models.generateContent
+      .mockRejectedValueOnce(new Error('API error'))
+      .mockResolvedValueOnce({
+        text: JSON.stringify([{ title: 'Concept B', definition: 'Def B', sourcePages: [15] }]),
+      });
 
-    mockGenerateContent.mockRejectedValueOnce(new Error('API error')).mockResolvedValueOnce({
-      text: JSON.stringify([{ title: 'Concept B', definition: 'Def B', sourcePages: [10] }]),
-    });
-
-    const pages: PDFPage[] = Array.from({ length: 20 }, (_, i) => ({
+    const pages = Array.from({ length: 20 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1} content`,
     }));
@@ -503,9 +543,9 @@ describe('extractSections', () => {
       ],
     };
 
+    // With concurrency=3, both sections process in same batch
     const result = await extractSections(pages, structure);
 
-    // Should still return results from the successful section
     expect(result.length).toBe(1);
     expect(result[0].title).toBe('Concept B');
   });
@@ -514,7 +554,7 @@ describe('extractSections', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/section-extractor.test.ts`
+Run: `npx vitest run src/lib/rag/parsers/section-extractor.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Implement section-extractor.ts**
@@ -538,11 +578,7 @@ const knowledgePointSchema = z.object({
   sourcePages: z.array(z.number()).default([]),
 });
 
-function getSectionPages(
-  pages: PDFPage[],
-  section: SectionInfo,
-  allSections: SectionInfo[],
-): PDFPage[] {
+function getSectionPages(pages: PDFPage[], section: SectionInfo): PDFPage[] {
   const overlap = RAG_CONFIG.sectionOverlapPages;
   const startPage = Math.max(1, section.startPage - overlap);
   const endPage = Math.min(pages.length, section.endPage + overlap);
@@ -604,7 +640,7 @@ async function extractFromSection(
   const prevSection = sectionIndex > 0 ? allSections[sectionIndex - 1] : undefined;
   const nextSection =
     sectionIndex < allSections.length - 1 ? allSections[sectionIndex + 1] : undefined;
-  const sectionPages = getSectionPages(pages, section, allSections);
+  const sectionPages = getSectionPages(pages, section);
 
   if (sectionPages.length === 0) return [];
 
@@ -619,10 +655,7 @@ async function extractFromSection(
   const response = await genAI.models.generateContent({
     model: GEMINI_MODELS.parse,
     contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      temperature: 0,
-    },
+    config: { responseMimeType: 'application/json', temperature: 0 },
   });
 
   const text = response.text ?? '';
@@ -632,9 +665,7 @@ async function extractFromSection(
   const validated: KnowledgePoint[] = [];
   for (const item of arr) {
     const result = knowledgePointSchema.safeParse(item);
-    if (result.success) {
-      validated.push(result.data);
-    }
+    if (result.success) validated.push(result.data);
   }
   return validated;
 }
@@ -647,7 +678,7 @@ async function extractLargeSectionInBatches(
   nextSection?: SectionInfo,
 ): Promise<KnowledgePoint[]> {
   const batchSize = RAG_CONFIG.sectionBatchPages;
-  const overlap = 3; // overlap within large section batches
+  const overlap = RAG_CONFIG.sectionOverlapPages; // [M6] use config, not hardcoded
   const results: KnowledgePoint[] = [];
 
   for (let i = 0; i < sectionPages.length; i += batchSize - overlap) {
@@ -655,15 +686,13 @@ async function extractLargeSectionInBatches(
     if (batch.length === 0) break;
 
     const prompt = buildExtractionPrompt(batch, section, structure, prevSection, nextSection);
+
     try {
       const genAI = getGenAI();
       const response = await genAI.models.generateContent({
         model: GEMINI_MODELS.parse,
         contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0,
-        },
+        config: { responseMimeType: 'application/json', temperature: 0 },
       });
 
       const text = response.text ?? '';
@@ -675,7 +704,7 @@ async function extractLargeSectionInBatches(
       }
     } catch (error) {
       console.warn(
-        `Batch extraction failed for section "${section.title}" batch at page ${batch[0]?.page}:`,
+        `Batch extraction failed for "${section.title}" at page ${batch[0]?.page}:`,
         error,
       );
     }
@@ -688,8 +717,8 @@ export async function extractSections(
   pages: PDFPage[],
   structure: DocumentStructure,
   onProgress?: (sectionIndex: number, totalSections: number) => void,
+  signal?: AbortSignal, // [m5] AbortSignal propagation
 ): Promise<KnowledgePoint[]> {
-  // Filter out overview sections
   const extractableSections = structure.sections
     .map((s, i) => ({ section: s, originalIndex: i }))
     .filter(({ section }) => section.contentType !== 'overview');
@@ -699,8 +728,9 @@ export async function extractSections(
   const allResults: KnowledgePoint[] = [];
   const concurrency = RAG_CONFIG.sectionConcurrency;
 
-  // Process sections in concurrent batches
   for (let i = 0; i < extractableSections.length; i += concurrency) {
+    if (signal?.aborted) break; // [m5]
+
     const batch = extractableSections.slice(i, i + concurrency);
     const batchResults = await Promise.allSettled(
       batch.map(({ section, originalIndex }) =>
@@ -716,7 +746,6 @@ export async function extractSections(
       }
     }
 
-    // Report progress
     const completed = Math.min(i + concurrency, extractableSections.length);
     onProgress?.(completed, extractableSections.length);
   }
@@ -727,13 +756,13 @@ export async function extractSections(
 
 **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/section-extractor.test.ts`
+Run: `npx vitest run src/lib/rag/parsers/section-extractor.test.ts`
 Expected: 3 tests PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/lib/rag/parsers/section-extractor.ts src/lib/rag/parsers/__tests__/section-extractor.test.ts
+git add src/lib/rag/parsers/section-extractor.ts src/lib/rag/parsers/section-extractor.test.ts
 git commit -m "feat(rag): add Pass 2 per-section knowledge extractor"
 ```
 
@@ -744,67 +773,71 @@ git commit -m "feat(rag): add Pass 2 per-section knowledge extractor"
 **Files:**
 
 - Create: `src/lib/rag/parsers/quality-gate.ts`
-- Create: `src/lib/rag/parsers/__tests__/quality-gate.test.ts`
+- Create: `src/lib/rag/parsers/quality-gate.test.ts`
 
 **Step 1: Write the failing test**
 
-Create `src/lib/rag/parsers/__tests__/quality-gate.test.ts`:
+Create `src/lib/rag/parsers/quality-gate.test.ts`:
 
 ```typescript
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { KnowledgePoint } from '../types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
+import type { KnowledgePoint } from './types';
 
-const mockGenerateContent = vi.fn();
+vi.mock('server-only', () => ({}));
+
+let mockGemini: MockGeminiResult;
+
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
+  mockGemini = createMockGemini();
+  return { ...actual, genAI: mockGemini.client, getGenAI: () => mockGemini.client };
+});
+
+// Mock embedding to return controllable vectors
 const mockGenerateEmbeddingBatch = vi.fn();
-
-vi.mock('@/lib/gemini', () => ({
-  GEMINI_MODELS: { parse: 'test-model' },
-  getGenAI: () => ({
-    models: { generateContent: mockGenerateContent },
-  }),
-}));
-
 vi.mock('@/lib/rag/embedding', () => ({
   generateEmbeddingBatch: (...args: unknown[]) => mockGenerateEmbeddingBatch(...args),
 }));
 
-describe('qualityGate', () => {
+const { qualityGate, mergeBySemanticSimilarity } = await import('./quality-gate');
+
+describe('quality-gate', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGemini.reset();
+    mockGenerateEmbeddingBatch.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('filters out irrelevant knowledge points', async () => {
-    const { qualityGate } = await import('../quality-gate');
-
     const points: KnowledgePoint[] = [
       {
         title: 'Binary Tree',
-        definition: 'A tree data structure where each node has at most two children',
+        definition: 'A tree data structure with at most two children per node',
         sourcePages: [5],
       },
       { title: 'Homework Due', definition: 'Submit by Friday', sourcePages: [1] },
       {
         title: 'Hash Table',
-        definition: 'A data structure that maps keys to values using a hash function',
+        definition: 'Maps keys to values using a hash function',
         sourcePages: [10],
       },
     ];
 
-    // Mock embeddings: make "Binary Tree" and "Hash Table" dissimilar, "Homework Due" distinct
     mockGenerateEmbeddingBatch.mockResolvedValueOnce([
-      [1, 0, 0], // Binary Tree
-      [0, 0, 1], // Homework Due
-      [0, 1, 0], // Hash Table
+      [1, 0, 0],
+      [0, 0, 1],
+      [0, 1, 0],
     ]);
 
-    // Mock quality review response
-    mockGenerateContent.mockResolvedValueOnce({
-      text: JSON.stringify([
-        { index: 0, isRelevant: true, qualityScore: 9, issues: [] },
-        { index: 1, isRelevant: false, qualityScore: 1, issues: ['Not academic content'] },
-        { index: 2, isRelevant: true, qualityScore: 8, issues: [] },
-      ]),
-    });
+    mockGemini.setGenerateJSON([
+      { index: 0, isRelevant: true, qualityScore: 9, issues: [] },
+      { index: 1, isRelevant: false, qualityScore: 1, issues: ['Not academic content'] },
+      { index: 2, isRelevant: true, qualityScore: 8, issues: [] },
+    ]);
 
     const result = await qualityGate(points);
 
@@ -813,8 +846,6 @@ describe('qualityGate', () => {
   });
 
   it('merges semantically duplicate knowledge points', async () => {
-    const { mergeBySemanticSimilarity } = await import('../quality-gate');
-
     const points: KnowledgePoint[] = [
       { title: 'BST', definition: 'Binary search tree - ordered binary tree', sourcePages: [5] },
       {
@@ -825,46 +856,59 @@ describe('qualityGate', () => {
       },
     ];
 
-    // Mock embeddings: very similar vectors (cosine sim > 0.9)
+    // Cosine similarity of these ≈ 0.999 (> 0.9 threshold)
     mockGenerateEmbeddingBatch.mockResolvedValueOnce([
-      [0.95, 0.31, 0], // BST
-      [0.96, 0.28, 0], // Binary Search Tree — very similar
+      [0.95, 0.31, 0],
+      [0.96, 0.28, 0],
     ]);
 
     const result = await mergeBySemanticSimilarity(points);
 
     expect(result).toHaveLength(1);
-    // Should keep the longer definition
     expect(result[0].definition).toContain('subtree');
-    // Should merge sourcePages
     expect(result[0].sourcePages).toContain(5);
     expect(result[0].sourcePages).toContain(8);
   });
 
-  it('returns all points when quality review fails', async () => {
-    const { qualityGate } = await import('../quality-gate');
-
+  it('returns all points when quality review fails (graceful degradation)', async () => {
     const points: KnowledgePoint[] = [
       { title: 'Concept A', definition: 'Definition A', sourcePages: [1] },
     ];
 
-    // Embeddings work fine
     mockGenerateEmbeddingBatch.mockResolvedValueOnce([[1, 0, 0]]);
-    // Quality review fails
-    mockGenerateContent.mockRejectedValueOnce(new Error('API error'));
+    mockGemini.setGenerateError(new Error('API error'));
 
     const result = await qualityGate(points);
 
-    // Should degrade gracefully and return all points
     expect(result).toHaveLength(1);
     expect(result[0].title).toBe('Concept A');
+  });
+
+  it('returns all points when embedding fails (dedup fallback)', async () => {
+    // [M3] mergeBySemanticSimilarity failure should degrade gracefully
+    const points: KnowledgePoint[] = [
+      { title: 'X', definition: 'Def X', sourcePages: [1] },
+      { title: 'Y', definition: 'Def Y', sourcePages: [2] },
+    ];
+
+    mockGenerateEmbeddingBatch.mockRejectedValueOnce(new Error('Embedding API down'));
+    // Quality review still works
+    mockGemini.setGenerateJSON([
+      { index: 0, isRelevant: true, qualityScore: 8, issues: [] },
+      { index: 1, isRelevant: true, qualityScore: 7, issues: [] },
+    ]);
+
+    const result = await qualityGate(points);
+
+    // Should still return both points (dedup skipped, review passed)
+    expect(result).toHaveLength(2);
   });
 });
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/quality-gate.test.ts`
+Run: `npx vitest run src/lib/rag/parsers/quality-gate.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Implement quality-gate.ts**
@@ -888,6 +932,7 @@ const reviewItemSchema = z.object({
 });
 
 function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0; // [m2] length guard
   let dot = 0;
   let normA = 0;
   let normB = 0;
@@ -912,7 +957,7 @@ function mergeKnowledgePoints(a: KnowledgePoint, b: KnowledgePoint): KnowledgePo
     keyConcepts: [...new Set([...(primary.keyConcepts ?? []), ...(secondary.keyConcepts ?? [])])],
     examples: [...new Set([...(primary.examples ?? []), ...(secondary.examples ?? [])])],
     sourcePages: [...new Set([...primary.sourcePages, ...secondary.sourcePages])].sort(
-      (a, b) => a - b,
+      (x, y) => x - y,
     ),
   };
 }
@@ -925,27 +970,23 @@ export async function mergeBySemanticSimilarity(
   const texts = points.map((p) => `${p.title}\n${p.definition}`);
   const embeddings = await generateEmbeddingBatch(texts);
 
-  const merged = new Set<number>(); // indices that have been merged into another
+  const merged = new Set<number>();
   const result: KnowledgePoint[] = [];
 
   for (let i = 0; i < points.length; i++) {
     if (merged.has(i)) continue;
-
     let current = points[i];
 
     for (let j = i + 1; j < points.length; j++) {
       if (merged.has(j)) continue;
-
       const sim = cosineSimilarity(embeddings[i], embeddings[j]);
       if (sim >= RAG_CONFIG.semanticDedupThreshold) {
         current = mergeKnowledgePoints(current, points[j]);
         merged.add(j);
       }
     }
-
     result.push(current);
   }
-
   return result;
 }
 
@@ -970,7 +1011,7 @@ async function reviewBatch(
   const prompt = `You are an academic content quality reviewer. Evaluate these extracted knowledge points.
 
 Scoring rubric:
-- 10: Precise, complete definition with conditions, formulas/examples included
+- 10: Precise, complete definition with conditions, formulas/examples
 - 7-9: Mostly accurate, may lack some detail
 - 4-6: Vague or incomplete, needs improvement
 - 1-3: Invalid (classroom info, TOC entries, overly generic)
@@ -996,10 +1037,7 @@ ${pointsSummary}`;
   const response = await genAI.models.generateContent({
     model: GEMINI_MODELS.parse,
     contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      temperature: 0,
-    },
+    config: { responseMimeType: 'application/json', temperature: 0 },
   });
 
   const text = response.text ?? '';
@@ -1016,61 +1054,66 @@ ${pointsSummary}`;
       });
     }
   }
-
   return reviews;
 }
 
 export async function qualityGate(
   points: KnowledgePoint[],
   onProgress?: (reviewed: number, total: number) => void,
+  signal?: AbortSignal, // [m5] AbortSignal propagation
 ): Promise<KnowledgePoint[]> {
   if (points.length === 0) return [];
 
-  // Step 1: Semantic dedup
-  const deduplicated = await mergeBySemanticSimilarity(points);
+  // Step 1: Semantic dedup — with try/catch [M3]
+  let deduplicated: KnowledgePoint[];
+  try {
+    deduplicated = await mergeBySemanticSimilarity(points);
+  } catch (error) {
+    console.warn('Semantic dedup failed, skipping dedup step:', error);
+    deduplicated = points;
+  }
 
-  // Step 2: LLM quality review (with graceful degradation)
-  let reviews: Map<
+  // Step 2: LLM quality review — incremental tracking [M5]
+  const reviews = new Map<
     number,
     { isRelevant: boolean; qualityScore: number; suggestedDefinition?: string }
-  >;
+  >();
+  const batchSize = RAG_CONFIG.qualityReviewBatchSize;
+  let reviewFailed = false;
 
-  try {
-    reviews = new Map();
-    const batchSize = RAG_CONFIG.qualityReviewBatchSize;
+  for (let i = 0; i < deduplicated.length; i += batchSize) {
+    if (signal?.aborted) break; // [m5]
 
-    for (let i = 0; i < deduplicated.length; i += batchSize) {
-      const batch = deduplicated.slice(i, i + batchSize);
+    const batch = deduplicated.slice(i, i + batchSize);
+    try {
       const batchReviews = await reviewBatch(batch, i);
       for (const [k, v] of batchReviews) {
         reviews.set(k, v);
       }
-      onProgress?.(Math.min(i + batchSize, deduplicated.length), deduplicated.length);
+    } catch (error) {
+      console.warn(`Quality review batch failed at index ${i}:`, error);
+      reviewFailed = true;
+      break; // Stop reviewing, keep already-reviewed results
     }
-  } catch (error) {
-    console.warn('Quality review failed, returning deduplicated results:', error);
-    return deduplicated;
+    onProgress?.(Math.min(i + batchSize, deduplicated.length), deduplicated.length);
   }
 
   // Step 3: Filter and improve
+  // [M5] If review partially failed, unreviewed items pass through unchanged
   const result: KnowledgePoint[] = [];
 
   for (let i = 0; i < deduplicated.length; i++) {
     const review = reviews.get(i);
 
-    // If no review data (LLM didn't return it), keep the point
+    // No review data: pass through (either not reviewed yet, or review failed)
     if (!review) {
       result.push(deduplicated[i]);
       continue;
     }
 
-    // Filter out irrelevant
     if (!review.isRelevant) continue;
-
-    // Filter out low quality
     if (review.qualityScore < RAG_CONFIG.qualityScoreThreshold) continue;
 
-    // Apply suggested improvements for borderline items
     if (review.suggestedDefinition && review.qualityScore < 7) {
       result.push({ ...deduplicated[i], definition: review.suggestedDefinition });
     } else {
@@ -1084,14 +1127,14 @@ export async function qualityGate(
 
 **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/quality-gate.test.ts`
-Expected: 3 tests PASS
+Run: `npx vitest run src/lib/rag/parsers/quality-gate.test.ts`
+Expected: 4 tests PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/lib/rag/parsers/quality-gate.ts src/lib/rag/parsers/__tests__/quality-gate.test.ts
-git commit -m "feat(rag): add Pass 3 quality gate with semantic dedup"
+git add src/lib/rag/parsers/quality-gate.ts src/lib/rag/parsers/quality-gate.test.ts
+git commit -m "feat(rag): add Pass 3 quality gate with semantic dedup and error recovery"
 ```
 
 ---
@@ -1101,526 +1144,206 @@ git commit -m "feat(rag): add Pass 3 quality gate with semantic dedup"
 **Files:**
 
 - Create: `src/lib/rag/parsers/outline-generator.ts`
-- Create: `src/lib/rag/parsers/__tests__/outline-generator.test.ts`
+- Create: `src/lib/rag/parsers/outline-generator.test.ts`
 
 **Step 1: Write the failing test**
 
-Create `src/lib/rag/parsers/__tests__/outline-generator.test.ts`:
+Create `src/lib/rag/parsers/outline-generator.test.ts`:
 
 ```typescript
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DocumentOutline, DocumentStructure, KnowledgePoint } from '../types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
+import type { DocumentOutline, DocumentStructure, KnowledgePoint } from './types';
 
-const mockGenerateContent = vi.fn();
-vi.mock('@/lib/gemini', () => ({
-  GEMINI_MODELS: { parse: 'test-model' },
-  getGenAI: () => ({
-    models: { generateContent: mockGenerateContent },
-  }),
-}));
+vi.mock('server-only', () => ({}));
 
-describe('generateDocumentOutline', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+let mockGemini: MockGeminiResult;
 
-  it('generates outline from structure and knowledge points', async () => {
-    const { generateDocumentOutline } = await import('../outline-generator');
-
-    const mockOutline = {
-      title: 'Data Structures Lecture 5',
-      summary: 'Covers binary trees and hash tables.',
-      sections: [
-        {
-          title: 'Binary Trees',
-          knowledgePoints: ['BST', 'AVL Tree'],
-          briefDescription: 'Tree-based data structures with ordering properties.',
-        },
-      ],
-    };
-
-    mockGenerateContent.mockResolvedValueOnce({
-      text: JSON.stringify(mockOutline),
-    });
-
-    const structure: DocumentStructure = {
-      subject: 'Computer Science',
-      documentType: 'lecture slides',
-      sections: [{ title: 'Binary Trees', startPage: 1, endPage: 10, contentType: 'definitions' }],
-    };
-
-    const points: KnowledgePoint[] = [
-      { title: 'BST', definition: 'Binary search tree', sourcePages: [3] },
-      { title: 'AVL Tree', definition: 'Self-balancing BST', sourcePages: [7] },
-    ];
-
-    const result = await generateDocumentOutline('doc-123', structure, points);
-
-    expect(result.documentId).toBe('doc-123');
-    expect(result.subject).toBe('Computer Science');
-    expect(result.totalKnowledgePoints).toBe(2);
-    expect(result.sections).toHaveLength(1);
-  });
-
-  it('generates outline without LLM for small knowledge point sets', async () => {
-    const { generateDocumentOutline } = await import('../outline-generator');
-
-    const structure: DocumentStructure = {
-      subject: 'Math',
-      documentType: 'notes',
-      sections: [
-        { title: 'Calculus Basics', startPage: 1, endPage: 3, contentType: 'definitions' },
-      ],
-    };
-
-    const points: KnowledgePoint[] = [
-      { title: 'Derivative', definition: 'Rate of change', sourcePages: [1] },
-    ];
-
-    const result = await generateDocumentOutline('doc-456', structure, points);
-
-    expect(result.documentId).toBe('doc-456');
-    expect(result.totalKnowledgePoints).toBe(1);
-    // Should work without LLM call for very small sets
-  });
+vi.mock('@/lib/gemini', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/gemini')>();
+  mockGemini = createMockGemini();
+  return { ...actual, getGenAI: () => mockGemini.client };
 });
 
-describe('generateCourseOutline', () => {
-  it('merges multiple document outlines into course topics', async () => {
-    const { generateCourseOutline } = await import('../outline-generator');
+const { generateDocumentOutline, generateCourseOutline } = await import('./outline-generator');
 
-    const mockCourseOutline = {
-      topics: [
-        {
-          topic: 'Data Structures',
-          subtopics: ['Binary Trees', 'Hash Tables'],
-          relatedDocuments: ['doc-1', 'doc-2'],
-          knowledgePointCount: 5,
-        },
-      ],
-    };
+describe('outline-generator', () => {
+  beforeEach(() => {
+    mockGemini.reset();
+  });
 
-    mockGenerateContent.mockResolvedValueOnce({
-      text: JSON.stringify(mockCourseOutline),
-    });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    const outlines: DocumentOutline[] = [
-      {
-        documentId: 'doc-1',
-        title: 'Lecture 5',
-        subject: 'CS',
-        totalKnowledgePoints: 3,
-        sections: [
-          { title: 'Trees', knowledgePoints: ['BST'], briefDescription: 'Tree structures' },
-        ],
-        summary: 'Binary trees',
-      },
-      {
-        documentId: 'doc-2',
-        title: 'Lecture 6',
-        subject: 'CS',
-        totalKnowledgePoints: 2,
+  describe('generateDocumentOutline', () => {
+    it('generates outline from structure and knowledge points via LLM', async () => {
+      mockGemini.setGenerateJSON({
+        title: 'Data Structures Lecture 5',
+        summary: 'Covers binary trees and hash tables.',
         sections: [
           {
-            title: 'Hashing',
-            knowledgePoints: ['Hash Table'],
-            briefDescription: 'Hash-based structures',
+            title: 'Binary Trees',
+            knowledgePoints: ['BST', 'AVL Tree'],
+            briefDescription: 'Tree-based data structures.',
           },
         ],
-        summary: 'Hash tables',
-      },
-    ];
+      });
 
-    const result = await generateCourseOutline('course-1', outlines);
+      const structure: DocumentStructure = {
+        subject: 'Computer Science',
+        documentType: 'lecture slides',
+        sections: [
+          { title: 'Binary Trees', startPage: 1, endPage: 10, contentType: 'definitions' },
+        ],
+      };
 
-    expect(result.courseId).toBe('course-1');
-    expect(result.topics).toHaveLength(1);
-    expect(result.topics[0].subtopics).toContain('Binary Trees');
+      const points: KnowledgePoint[] = [
+        { title: 'BST', definition: 'Binary search tree', sourcePages: [3] },
+        { title: 'AVL Tree', definition: 'Self-balancing BST', sourcePages: [7] },
+      ];
+
+      const result = await generateDocumentOutline('doc-123', structure, points);
+
+      expect(result.documentId).toBe('doc-123');
+      expect(result.subject).toBe('Computer Science');
+      expect(result.totalKnowledgePoints).toBe(2);
+      expect(result.sections).toHaveLength(1);
+    });
+
+    it('builds outline locally for small KP sets without calling LLM', async () => {
+      // [m13] assert LLM not called
+      const structure: DocumentStructure = {
+        subject: 'Math',
+        documentType: 'notes',
+        sections: [
+          { title: 'Calculus Basics', startPage: 1, endPage: 3, contentType: 'definitions' },
+        ],
+      };
+
+      const points: KnowledgePoint[] = [
+        { title: 'Derivative', definition: 'Rate of change', sourcePages: [1] },
+      ];
+
+      const result = await generateDocumentOutline('doc-456', structure, points);
+
+      expect(result.documentId).toBe('doc-456');
+      expect(result.totalKnowledgePoints).toBe(1);
+      expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('generateCourseOutline', () => {
+    it('merges multiple document outlines into course topics', async () => {
+      mockGemini.setGenerateJSON({
+        topics: [
+          {
+            topic: 'Data Structures',
+            subtopics: ['Binary Trees', 'Hash Tables'],
+            relatedDocuments: ['doc-1', 'doc-2'],
+            knowledgePointCount: 5,
+          },
+        ],
+      });
+
+      const outlines: DocumentOutline[] = [
+        {
+          documentId: 'doc-1',
+          title: 'Lecture 5',
+          subject: 'CS',
+          totalKnowledgePoints: 3,
+          sections: [
+            { title: 'Trees', knowledgePoints: ['BST'], briefDescription: 'Tree structures' },
+          ],
+          summary: 'Binary trees',
+        },
+        {
+          documentId: 'doc-2',
+          title: 'Lecture 6',
+          subject: 'CS',
+          totalKnowledgePoints: 2,
+          sections: [
+            { title: 'Hashing', knowledgePoints: ['Hash Table'], briefDescription: 'Hash-based' },
+          ],
+          summary: 'Hash tables',
+        },
+      ];
+
+      const result = await generateCourseOutline('course-1', outlines);
+
+      expect(result.courseId).toBe('course-1');
+      expect(result.topics).toHaveLength(1);
+      expect(result.topics[0].subtopics).toContain('Binary Trees');
+    });
   });
 });
 ```
 
-**Step 2: Run test to verify it fails**
+**Step 2: Run test, Step 3: Implement**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/outline-generator.test.ts`
-Expected: FAIL — module not found
+> Implementation is identical to original plan but with `buildLocalOutline` fixed to skip overview sections [m3]:
 
-**Step 3: Implement outline-generator.ts**
-
-Create `src/lib/rag/parsers/outline-generator.ts`:
+In `buildLocalOutline()`, the title should skip overview sections:
 
 ```typescript
-import 'server-only';
-import { z } from 'zod';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
-import type {
-  CourseOutline,
-  CourseTopic,
-  DocumentOutline,
-  DocumentStructure,
-  KnowledgePoint,
-  OutlineSection,
-} from './types';
-
-const outlineSectionSchema = z.object({
-  title: z.string().min(1),
-  knowledgePoints: z.array(z.string()),
-  briefDescription: z.string().min(1),
-});
-
-const outlineSchema = z.object({
-  title: z.string().min(1),
-  summary: z.string().min(1),
-  sections: z.array(outlineSectionSchema).min(1),
-});
-
-const courseTopicSchema = z.object({
-  topic: z.string().min(1),
-  subtopics: z.array(z.string()),
-  relatedDocuments: z.array(z.string()),
-  knowledgePointCount: z.number().int().nonnegative(),
-});
-
-const courseOutlineSchema = z.object({
-  topics: z.array(courseTopicSchema).min(1),
-});
-
 function buildLocalOutline(
   documentId: string,
   structure: DocumentStructure,
   points: KnowledgePoint[],
 ): DocumentOutline {
-  const sections: OutlineSection[] = structure.sections
-    .filter((s) => s.contentType !== 'overview')
-    .map((s) => {
-      const sectionPoints = points.filter((p) =>
-        p.sourcePages.some((pg) => pg >= s.startPage && pg <= s.endPage),
-      );
-      return {
-        title: s.title,
-        knowledgePoints: sectionPoints.map((p) => p.title),
-        briefDescription:
-          sectionPoints.length > 0
-            ? `Covers ${sectionPoints.map((p) => p.title).join(', ')}.`
-            : `${s.contentType} content.`,
-      };
-    });
+  // [m3] Skip overview sections for title selection
+  const contentSections = structure.sections.filter((s) => s.contentType !== 'overview');
+
+  const sections: OutlineSection[] = contentSections.map((s) => {
+    const sectionPoints = points.filter((p) =>
+      p.sourcePages.some((pg) => pg >= s.startPage && pg <= s.endPage),
+    );
+    return {
+      title: s.title,
+      knowledgePoints: sectionPoints.map((p) => p.title),
+      briefDescription:
+        sectionPoints.length > 0
+          ? `Covers ${sectionPoints.map((p) => p.title).join(', ')}.`
+          : `${s.contentType} content.`,
+    };
+  });
 
   return {
     documentId,
-    title: structure.sections[0]?.title ?? 'Untitled Document',
+    title: contentSections[0]?.title ?? 'Untitled Document', // [m3] skip overview
     subject: structure.subject,
     totalKnowledgePoints: points.length,
     sections,
     summary: `Document covering ${points.length} knowledge points across ${sections.length} sections.`,
   };
 }
-
-export async function generateDocumentOutline(
-  documentId: string,
-  structure: DocumentStructure,
-  points: KnowledgePoint[],
-): Promise<DocumentOutline> {
-  // For very small sets, build locally without LLM
-  if (points.length <= 3) {
-    return buildLocalOutline(documentId, structure, points);
-  }
-
-  const structureSummary = structure.sections
-    .map((s) => `- ${s.title} (pages ${s.startPage}-${s.endPage}, ${s.contentType})`)
-    .join('\n');
-
-  const pointsSummary = points
-    .map((p) => `- "${p.title}": ${p.definition.slice(0, 100)}`)
-    .join('\n');
-
-  const prompt = `Generate a structured outline for this ${structure.subject} document.
-
-Document structure:
-${structureSummary}
-
-Knowledge points extracted (${points.length} total):
-${pointsSummary}
-
-Return JSON with:
-- title: A descriptive document title
-- summary: 1-2 sentence summary of what this document covers
-- sections: Array of {title, knowledgePoints: [point titles in this section], briefDescription}
-
-Only include sections that have knowledge points. Return valid JSON only.`;
-
-  try {
-    const genAI = getGenAI();
-    const response = await genAI.models.generateContent({
-      model: GEMINI_MODELS.parse,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0,
-      },
-    });
-
-    const text = response.text ?? '';
-    const raw = JSON.parse(text);
-    const result = outlineSchema.safeParse(raw);
-
-    if (result.success) {
-      return {
-        documentId,
-        title: result.data.title,
-        subject: structure.subject,
-        totalKnowledgePoints: points.length,
-        sections: result.data.sections,
-        summary: result.data.summary,
-      };
-    }
-  } catch (error) {
-    console.warn('Outline generation via LLM failed, building locally:', error);
-  }
-
-  return buildLocalOutline(documentId, structure, points);
-}
-
-export async function generateCourseOutline(
-  courseId: string,
-  documentOutlines: DocumentOutline[],
-): Promise<CourseOutline> {
-  if (documentOutlines.length === 0) {
-    return { courseId, topics: [], lastUpdated: new Date().toISOString() };
-  }
-
-  // For a single document, derive topics directly
-  if (documentOutlines.length === 1) {
-    const outline = documentOutlines[0];
-    const topics: CourseTopic[] = outline.sections.map((s) => ({
-      topic: s.title,
-      subtopics: s.knowledgePoints,
-      relatedDocuments: [outline.documentId],
-      knowledgePointCount: s.knowledgePoints.length,
-    }));
-    return { courseId, topics, lastUpdated: new Date().toISOString() };
-  }
-
-  const outlinesSummary = documentOutlines
-    .map(
-      (o) =>
-        `Document "${o.title}" (ID: ${o.documentId}, ${o.totalKnowledgePoints} points):\n` +
-        o.sections.map((s) => `  - ${s.title}: ${s.knowledgePoints.join(', ')}`).join('\n'),
-    )
-    .join('\n\n');
-
-  const prompt = `Merge these document outlines into a unified course knowledge structure.
-Group related content by topic (not by document).
-
-Document outlines:
-${outlinesSummary}
-
-Return JSON with:
-- topics: Array of {topic, subtopics: [string], relatedDocuments: [document IDs], knowledgePointCount}
-
-Organize by academic topic, not by document order. Combine overlapping topics. Return valid JSON only.`;
-
-  try {
-    const genAI = getGenAI();
-    const response = await genAI.models.generateContent({
-      model: GEMINI_MODELS.parse,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0,
-      },
-    });
-
-    const text = response.text ?? '';
-    const raw = JSON.parse(text);
-    const result = courseOutlineSchema.safeParse(raw);
-
-    if (result.success) {
-      return { courseId, topics: result.data.topics, lastUpdated: new Date().toISOString() };
-    }
-  } catch (error) {
-    console.warn('Course outline generation failed:', error);
-  }
-
-  // Fallback: one topic per section across all documents
-  const topics: CourseTopic[] = documentOutlines.flatMap((o) =>
-    o.sections.map((s) => ({
-      topic: s.title,
-      subtopics: s.knowledgePoints,
-      relatedDocuments: [o.documentId],
-      knowledgePointCount: s.knowledgePoints.length,
-    })),
-  );
-
-  return { courseId, topics, lastUpdated: new Date().toISOString() };
-}
 ```
 
-**Step 4: Run test to verify it passes**
+> **Note [M1]:** `generateCourseOutline()` is implemented but not wired into any trigger in this PR. Course outline regeneration on document add/delete is deferred to a follow-up PR. The function is exported and tested so it's ready to integrate.
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/outline-generator.test.ts`
-Expected: 3 tests PASS
-
-**Step 5: Commit**
+**Step 4: Run tests, Step 5: Commit**
 
 ```bash
-git add src/lib/rag/parsers/outline-generator.ts src/lib/rag/parsers/__tests__/outline-generator.test.ts
+git add src/lib/rag/parsers/outline-generator.ts src/lib/rag/parsers/outline-generator.test.ts
 git commit -m "feat(rag): add Pass 4 outline generator for documents and courses"
 ```
 
 ---
 
-## Task 7: Rewrite Lecture Parser as Multi-Pass Orchestrator
+## Task 7: Rewrite Lecture Parser + Atomically Update All Callers
+
+> **[C1+C2+M2] Critical:** This task rewrites the parser AND updates both calling paths (SSE route + DocumentProcessingService) in a single atomic commit. No intermediate broken state.
 
 **Files:**
 
 - Modify: `src/lib/rag/parsers/lecture-parser.ts` (full rewrite)
-- Create: `src/lib/rag/parsers/__tests__/lecture-parser.test.ts`
+- Modify: `src/lib/rag/parsers/lecture-parser.test.ts` (rewrite)
+- Modify: `src/app/api/documents/parse/route.ts` (update caller)
+- Modify: `src/lib/services/DocumentProcessingService.ts` (update caller)
 
-**Step 1: Write the failing test**
+**Step 1: Rewrite lecture-parser.ts**
 
-Create `src/lib/rag/parsers/__tests__/lecture-parser.test.ts`:
-
-```typescript
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PDFPage } from '@/lib/pdf';
-import type { DocumentStructure, KnowledgePoint, PipelineProgress } from '../types';
-
-const mockAnalyzeStructure = vi.fn();
-const mockExtractSections = vi.fn();
-const mockQualityGate = vi.fn();
-const mockGenerateDocumentOutline = vi.fn();
-
-vi.mock('../structure-analyzer', () => ({
-  analyzeStructure: (...args: unknown[]) => mockAnalyzeStructure(...args),
-}));
-
-vi.mock('../section-extractor', () => ({
-  extractSections: (...args: unknown[]) => mockExtractSections(...args),
-}));
-
-vi.mock('../quality-gate', () => ({
-  qualityGate: (...args: unknown[]) => mockQualityGate(...args),
-}));
-
-vi.mock('../outline-generator', () => ({
-  generateDocumentOutline: (...args: unknown[]) => mockGenerateDocumentOutline(...args),
-}));
-
-describe('parseLecture (multi-pass)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('chains all four passes and returns knowledge points + outline', async () => {
-    const { parseLecture } = await import('../lecture-parser');
-
-    const mockStructure: DocumentStructure = {
-      subject: 'CS',
-      documentType: 'lecture',
-      sections: [{ title: 'Trees', startPage: 1, endPage: 10, contentType: 'definitions' }],
-    };
-
-    const mockPoints: KnowledgePoint[] = [
-      { title: 'BST', definition: 'Binary search tree', sourcePages: [5] },
-    ];
-
-    const mockOutline = {
-      documentId: 'doc-1',
-      title: 'Trees Lecture',
-      subject: 'CS',
-      totalKnowledgePoints: 1,
-      sections: [],
-      summary: 'Trees',
-    };
-
-    mockAnalyzeStructure.mockResolvedValueOnce(mockStructure);
-    mockExtractSections.mockResolvedValueOnce(mockPoints);
-    mockQualityGate.mockResolvedValueOnce(mockPoints);
-    mockGenerateDocumentOutline.mockResolvedValueOnce(mockOutline);
-
-    const pages: PDFPage[] = Array.from({ length: 10 }, (_, i) => ({
-      page: i + 1,
-      text: `Page ${i + 1}`,
-    }));
-
-    const result = await parseLecture(pages, { documentId: 'doc-1' });
-
-    expect(result.knowledgePoints).toHaveLength(1);
-    expect(result.outline).toBeDefined();
-    expect(result.outline?.documentId).toBe('doc-1');
-    expect(mockAnalyzeStructure).toHaveBeenCalledWith(pages);
-    expect(mockExtractSections).toHaveBeenCalled();
-    expect(mockQualityGate).toHaveBeenCalled();
-  });
-
-  it('reports progress through all phases', async () => {
-    const { parseLecture } = await import('../lecture-parser');
-
-    mockAnalyzeStructure.mockResolvedValueOnce({
-      subject: 'CS',
-      documentType: 'lecture',
-      sections: [{ title: 'A', startPage: 1, endPage: 5, contentType: 'mixed' }],
-    });
-    mockExtractSections.mockResolvedValueOnce([{ title: 'X', definition: 'Y', sourcePages: [1] }]);
-    mockQualityGate.mockResolvedValueOnce([{ title: 'X', definition: 'Y', sourcePages: [1] }]);
-    mockGenerateDocumentOutline.mockResolvedValueOnce({
-      documentId: 'doc-2',
-      title: 'Test',
-      subject: 'CS',
-      totalKnowledgePoints: 1,
-      sections: [],
-      summary: 'Test',
-    });
-
-    const pages: PDFPage[] = Array.from({ length: 5 }, (_, i) => ({
-      page: i + 1,
-      text: `Page ${i + 1}`,
-    }));
-
-    const progressEvents: PipelineProgress[] = [];
-
-    await parseLecture(pages, {
-      documentId: 'doc-2',
-      onProgress: (progress) => progressEvents.push({ ...progress }),
-    });
-
-    const phases = progressEvents.map((e) => e.phase);
-    expect(phases).toContain('structure_analysis');
-    expect(phases).toContain('extraction');
-    expect(phases).toContain('quality_gate');
-    expect(phases).toContain('outline_generation');
-  });
-
-  it('maintains backward compatibility with simple callback', async () => {
-    const { parseLecture } = await import('../lecture-parser');
-
-    mockAnalyzeStructure.mockResolvedValueOnce({
-      subject: 'CS',
-      documentType: 'lecture',
-      sections: [{ title: 'A', startPage: 1, endPage: 5, contentType: 'mixed' }],
-    });
-    mockExtractSections.mockResolvedValueOnce([]);
-    mockQualityGate.mockResolvedValueOnce([]);
-
-    const pages: PDFPage[] = [{ page: 1, text: 'Page 1' }];
-
-    // Old-style call with just (pages, batchProgressCallback) still works
-    const result = await parseLecture(pages);
-
-    expect(result.knowledgePoints).toEqual([]);
-  });
-});
-```
-
-**Step 2: Run test to verify it fails**
-
-Run: `npx vitest run src/lib/rag/parsers/__tests__/lecture-parser.test.ts`
-Expected: FAIL — current module has different API
-
-**Step 3: Rewrite lecture-parser.ts**
-
-Replace the entire content of `src/lib/rag/parsers/lecture-parser.ts`:
+The new parser exposes both old-compatible and new APIs:
 
 ```typescript
 import 'server-only';
@@ -1629,18 +1352,18 @@ import { generateDocumentOutline } from './outline-generator';
 import { qualityGate } from './quality-gate';
 import { extractSections } from './section-extractor';
 import { analyzeStructure } from './structure-analyzer';
-import type { DocumentOutline, KnowledgePoint, PipelineProgress } from './types';
+import type {
+  DocumentOutline,
+  KnowledgePoint,
+  ParseLectureResult,
+  PipelineProgress,
+} from './types';
 
 export interface ParseLectureOptions {
   documentId?: string;
   onProgress?: (progress: PipelineProgress) => void;
-  /** @deprecated Use onProgress instead. Kept for backward compatibility. */
   onBatchProgress?: (current: number, total: number) => void;
-}
-
-export interface ParseLectureResult {
-  knowledgePoints: KnowledgePoint[];
-  outline?: DocumentOutline;
+  signal?: AbortSignal; // [m5]
 }
 
 function reportProgress(
@@ -1660,11 +1383,14 @@ function reportProgress(
 
   const { start, weight } = phaseWeights[phase];
   const totalProgress = Math.round(start + (phaseProgress / 100) * weight);
-
   options.onProgress({ phase, phaseProgress, totalProgress, detail });
 }
 
-export async function parseLecture(
+/**
+ * Multi-pass lecture parsing pipeline.
+ * Returns both knowledge points and optional document outline.
+ */
+export async function parseLectureMultiPass(
   pages: PDFPage[],
   options?: ParseLectureOptions,
 ): Promise<ParseLectureResult> {
@@ -1677,69 +1403,349 @@ export async function parseLecture(
     100,
     `Identified ${structure.sections.length} sections`,
   );
-
-  // Backward compat: report batch progress
   options?.onBatchProgress?.(0, 4);
 
   // === Pass 2: Knowledge Extraction ===
   reportProgress(options, 'extraction', 0, 'Extracting knowledge points...');
-
-  const rawPoints = await extractSections(pages, structure, (completed, total) => {
-    const pct = Math.round((completed / total) * 100);
-    reportProgress(options, 'extraction', pct, `Processing section ${completed}/${total}...`);
-  });
-
+  const rawPoints = await extractSections(
+    pages,
+    structure,
+    (completed, total) => {
+      const pct = Math.round((completed / total) * 100);
+      reportProgress(options, 'extraction', pct, `Processing section ${completed}/${total}...`);
+    },
+    options?.signal, // [m5]
+  );
   options?.onBatchProgress?.(1, 4);
 
   if (rawPoints.length === 0) {
     reportProgress(options, 'extraction', 100, 'No knowledge points found');
     return { knowledgePoints: [] };
   }
-
   reportProgress(options, 'extraction', 100, `Extracted ${rawPoints.length} raw knowledge points`);
 
   // === Pass 3: Quality Gate ===
   reportProgress(options, 'quality_gate', 0, 'Reviewing extraction quality...');
-
-  const qualityPoints = await qualityGate(rawPoints, (reviewed, total) => {
-    const pct = Math.round((reviewed / total) * 100);
-    reportProgress(options, 'quality_gate', pct, `Reviewed ${reviewed}/${total} points...`);
-  });
-
+  const qualityPoints = await qualityGate(
+    rawPoints,
+    (reviewed, total) => {
+      const pct = Math.round((reviewed / total) * 100);
+      reportProgress(options, 'quality_gate', pct, `Reviewed ${reviewed}/${total} points...`);
+    },
+    options?.signal, // [m5]
+  );
   reportProgress(
     options,
     'quality_gate',
     100,
-    `${qualityPoints.length}/${rawPoints.length} points passed quality gate`,
+    `${qualityPoints.length}/${rawPoints.length} passed`,
   );
-
   options?.onBatchProgress?.(2, 4);
 
   // === Pass 4: Outline Generation ===
   let outline: DocumentOutline | undefined;
-
   if (options?.documentId) {
     reportProgress(options, 'outline_generation', 0, 'Generating document outline...');
     outline = await generateDocumentOutline(options.documentId, structure, qualityPoints);
     reportProgress(options, 'outline_generation', 100, 'Outline generated');
   }
-
   options?.onBatchProgress?.(3, 4);
 
   return { knowledgePoints: qualityPoints, outline };
 }
+
+/**
+ * Backward-compatible wrapper.
+ * Returns KnowledgePoint[] directly (same signature as the old parser).
+ *
+ * [C2] Handles case where second arg is a function (old SSE route pattern)
+ * or a ParseLectureOptions object (new pattern).
+ */
+export async function parseLecture(
+  pages: PDFPage[],
+  optionsOrCallback?: ParseLectureOptions | ((current: number, total: number) => void),
+): Promise<KnowledgePoint[]> {
+  // [C2] Runtime detection: if second arg is a function, wrap it
+  let options: ParseLectureOptions | undefined;
+  if (typeof optionsOrCallback === 'function') {
+    options = { onBatchProgress: optionsOrCallback };
+  } else {
+    options = optionsOrCallback;
+  }
+
+  const result = await parseLectureMultiPass(pages, options);
+  return result.knowledgePoints;
+}
 ```
 
-**Step 4: Run test to verify it passes**
+**Step 2: Rewrite lecture-parser.test.ts**
 
-Run: `npx vitest run src/lib/rag/parsers/__tests__/lecture-parser.test.ts`
-Expected: 3 tests PASS
+```typescript
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
+import type { DocumentStructure, KnowledgePoint, PipelineProgress } from './types';
 
-**Step 5: Commit**
+vi.mock('server-only', () => ({}));
+
+// Mock all 4 pass modules
+const mockAnalyzeStructure = vi.fn();
+const mockExtractSections = vi.fn();
+const mockQualityGate = vi.fn();
+const mockGenerateDocumentOutline = vi.fn();
+
+vi.mock('./structure-analyzer', () => ({
+  analyzeStructure: (...args: unknown[]) => mockAnalyzeStructure(...args),
+}));
+vi.mock('./section-extractor', () => ({
+  extractSections: (...args: unknown[]) => mockExtractSections(...args),
+}));
+vi.mock('./quality-gate', () => ({
+  qualityGate: (...args: unknown[]) => mockQualityGate(...args),
+}));
+vi.mock('./outline-generator', () => ({
+  generateDocumentOutline: (...args: unknown[]) => mockGenerateDocumentOutline(...args),
+}));
+
+const { parseLecture, parseLectureMultiPass } = await import('./lecture-parser');
+
+function setupDefaultMocks(points: KnowledgePoint[] = []) {
+  mockAnalyzeStructure.mockResolvedValue({
+    subject: 'CS',
+    documentType: 'lecture',
+    sections: [{ title: 'A', startPage: 1, endPage: 5, contentType: 'mixed' }],
+  });
+  mockExtractSections.mockResolvedValue(points);
+  mockQualityGate.mockResolvedValue(points);
+  mockGenerateDocumentOutline.mockResolvedValue({
+    documentId: 'doc-1',
+    title: 'Test',
+    subject: 'CS',
+    totalKnowledgePoints: points.length,
+    sections: [],
+    summary: 'Test',
+  });
+}
+
+describe('lecture-parser (multi-pass)', () => {
+  beforeEach(() => {
+    mockAnalyzeStructure.mockReset();
+    mockExtractSections.mockReset();
+    mockQualityGate.mockReset();
+    mockGenerateDocumentOutline.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('parseLectureMultiPass', () => {
+    it('chains all four passes and returns knowledge points + outline', async () => {
+      const kp: KnowledgePoint[] = [
+        { title: 'BST', definition: 'Binary search tree', sourcePages: [5] },
+      ];
+      setupDefaultMocks(kp);
+
+      const pages = Array.from({ length: 10 }, (_, i) => ({ page: i + 1, text: `P${i + 1}` }));
+      const result = await parseLectureMultiPass(pages, { documentId: 'doc-1' });
+
+      expect(result.knowledgePoints).toHaveLength(1);
+      expect(result.outline).toBeDefined();
+      expect(result.outline?.documentId).toBe('doc-1');
+      expect(mockAnalyzeStructure).toHaveBeenCalledWith(pages);
+      expect(mockExtractSections).toHaveBeenCalled();
+      expect(mockQualityGate).toHaveBeenCalled();
+    });
+
+    it('reports progress through all phases', async () => {
+      const kp = [{ title: 'X', definition: 'Y', sourcePages: [1] }];
+      setupDefaultMocks(kp);
+
+      const pages = [{ page: 1, text: 'Page 1' }];
+      const progressEvents: PipelineProgress[] = [];
+
+      await parseLectureMultiPass(pages, {
+        documentId: 'doc-2',
+        onProgress: (p) => progressEvents.push({ ...p }),
+      });
+
+      const phases = progressEvents.map((e) => e.phase);
+      expect(phases).toContain('structure_analysis');
+      expect(phases).toContain('extraction');
+      expect(phases).toContain('quality_gate');
+      expect(phases).toContain('outline_generation');
+    });
+  });
+
+  describe('parseLecture (backward compat)', () => {
+    it('returns KnowledgePoint[] directly', async () => {
+      setupDefaultMocks([]);
+
+      const result = await parseLecture([{ page: 1, text: 'P1' }]);
+
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it('[C2] accepts a function as second argument (old SSE route pattern)', async () => {
+      setupDefaultMocks([]);
+
+      const batchCb = vi.fn();
+      await parseLecture([{ page: 1, text: 'P1' }], batchCb);
+
+      expect(batchCb).toHaveBeenCalled();
+    });
+
+    it('accepts ParseLectureOptions as second argument', async () => {
+      setupDefaultMocks([]);
+
+      const batchCb = vi.fn();
+      await parseLecture([{ page: 1, text: 'P1' }], { onBatchProgress: batchCb });
+
+      expect(batchCb).toHaveBeenCalled();
+    });
+  });
+});
+```
+
+**Step 3: Update SSE route caller (route.ts:252-255)**
+
+In `src/app/api/documents/parse/route.ts`, replace the lecture branch:
+
+```typescript
+// BEFORE (lines 252-255):
+const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
+const knowledgePoints = await parseLecture(pdfData.pages, onBatchProgress);
+items = knowledgePoints.map((kp) => ({ type: 'knowledge_point' as const, data: kp }));
+
+// AFTER:
+const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
+const parseResult = await parseLectureMultiPass(pdfData.pages, {
+  documentId: effectiveRecordId,
+  onBatchProgress,
+  onProgress: (progress) => send('pipeline_progress', progress),
+  signal,
+});
+const knowledgePoints = parseResult.knowledgePoints;
+items = knowledgePoints.map((kp) => ({ type: 'knowledge_point' as const, data: kp }));
+// Store outline for saving after knowledge cards
+const documentOutline = parseResult.outline;
+```
+
+After the knowledge card save block (after line 306), add outline save:
+
+```typescript
+// Save document outline if generated
+if (documentOutline) {
+  try {
+    const { getDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
+    const { generateEmbedding } = await import('@/lib/rag/embedding');
+    const outlineText = JSON.stringify(documentOutline);
+    const embedding = await generateEmbedding(outlineText.slice(0, 2000));
+    await getDocumentRepository().saveOutline(
+      effectiveRecordId,
+      documentOutline as unknown as Json,
+      embedding, // [M8] pass number[] directly, no JSON.stringify
+    );
+  } catch (outlineError) {
+    console.warn('Failed to save document outline (non-fatal):', outlineError);
+  }
+}
+```
+
+**Step 4: Update DocumentProcessingService caller**
+
+In `src/lib/services/DocumentProcessingService.ts`, update the lecture branch in `extractWithLLM` (lines 51-54):
+
+```typescript
+// [C3] No mutable instance state — use return value directly
+if (docType === 'lecture') {
+  const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
+  const result = await parseLectureMultiPass(pages, {
+    documentId: params?.documentId,
+    onProgress: params?.onPipelineProgress,
+  });
+  // Outline is returned via result, saved by caller (not stored on singleton)
+  return {
+    items: result.knowledgePoints,
+    type: 'knowledge_point' as const,
+    outline: result.outline,
+  };
+}
+```
+
+Update the `extractWithLLM` return type and `processWithLLM` to handle the outline:
+
+```typescript
+// Return type of extractWithLLM — add optional outline
+async extractWithLLM(
+  pages: { text: string; page: number }[],
+  docType: 'lecture' | 'exam' | 'assignment',
+  hasAnswers = false,
+  params?: { documentId?: string; onPipelineProgress?: (p: PipelineProgress) => void },
+): Promise<{
+  items: (KnowledgePoint | ParsedQuestion)[];
+  type: 'knowledge_point' | 'question';
+  outline?: DocumentOutline;
+}> {
+```
+
+In `processWithLLM`, after the extraction call, save outline from the result (NOT from singleton state):
+
+```typescript
+const { items, type, outline } = await this.extractWithLLM(pdfData.pages, docType, hasAnswers, {
+  documentId,
+  onPipelineProgress: callbacks?.onPipelineProgress,
+});
+
+// Save knowledge cards
+if (type === 'knowledge_point') {
+  await getKnowledgeCardService().saveFromKnowledgePoints(items as KnowledgePoint[], documentId);
+}
+
+// [C3] Save outline from return value — no singleton mutable state
+if (outline) {
+  try {
+    const { generateEmbedding } = await import('@/lib/rag/embedding');
+    const outlineText = JSON.stringify(outline);
+    const embedding = await generateEmbedding(outlineText.slice(0, 2000));
+    await getDocumentRepository().saveOutline(documentId, outline as unknown as Json, embedding);
+  } catch (error) {
+    console.warn('Failed to save document outline (non-fatal):', error);
+  }
+}
+```
+
+Add imports for new types:
+
+```typescript
+import type { DocumentOutline, PipelineProgress } from '@/lib/rag/parsers/types';
+```
+
+Update `ProcessingCallbacks`:
+
+```typescript
+interface ProcessingCallbacks {
+  onProgress?: (stage: string, message: string) => void;
+  onPipelineProgress?: (progress: PipelineProgress) => void;
+  onItem?: (index: number, total: number, type: string) => void;
+  signal?: AbortSignal;
+}
+```
+
+**Step 5: Verify everything compiles**
+
+Run: `npx tsc --noEmit && npx vitest run src/lib/rag/parsers/`
+
+**Step 6: Commit (atomic — parser + all callers)**
 
 ```bash
-git add src/lib/rag/parsers/lecture-parser.ts src/lib/rag/parsers/__tests__/lecture-parser.test.ts
-git commit -m "feat(rag): rewrite lecture parser as multi-pass pipeline orchestrator"
+git add src/lib/rag/parsers/lecture-parser.ts src/lib/rag/parsers/lecture-parser.test.ts \
+  src/app/api/documents/parse/route.ts src/lib/services/DocumentProcessingService.ts
+git commit -m "feat(rag): rewrite lecture parser as multi-pass pipeline with atomic caller updates
+
+[C1] parseLecture returns KnowledgePoint[] for backward compat
+[C2] Runtime detection of function vs options as second arg
+[C3] No mutable state on singleton — outline via return value
+[M2] Both SSE route and Service path updated atomically"
 ```
 
 ---
@@ -1751,8 +1757,6 @@ git commit -m "feat(rag): rewrite lecture parser as multi-pass pipeline orchestr
 - Create: `supabase/migrations/20260218_document_outlines.sql`
 
 **Step 1: Write the migration**
-
-Create `supabase/migrations/20260218_document_outlines.sql`:
 
 ```sql
 -- Add outline columns for document-level and course-level knowledge outlines.
@@ -1768,14 +1772,14 @@ ALTER TABLE courses
   ADD COLUMN IF NOT EXISTS knowledge_outline jsonb,
   ADD COLUMN IF NOT EXISTS knowledge_outline_embedding vector(768);
 
--- Index for outline embedding similarity search
-CREATE INDEX IF NOT EXISTS idx_documents_outline_embedding
-  ON documents USING ivfflat (outline_embedding vector_cosine_ops)
-  WITH (lists = 50);
-
-CREATE INDEX IF NOT EXISTS idx_courses_knowledge_outline_embedding
-  ON courses USING ivfflat (knowledge_outline_embedding vector_cosine_ops)
-  WITH (lists = 10);
+-- [M7] Vector indexes deferred until sufficient data exists.
+-- IVFFlat requires ~500+ rows for lists=50 to be effective.
+-- HNSW has no minimum but adds write overhead.
+-- Recommended: Create HNSW indexes when documents table exceeds ~100 rows:
+--   CREATE INDEX idx_documents_outline_embedding
+--     ON documents USING hnsw (outline_embedding vector_cosine_ops);
+--   CREATE INDEX idx_courses_knowledge_outline_embedding
+--     ON courses USING hnsw (knowledge_outline_embedding vector_cosine_ops);
 ```
 
 **Step 2: Commit**
@@ -1787,47 +1791,87 @@ git commit -m "feat(db): add outline columns to documents and courses tables"
 
 ---
 
-## Task 9: Update Domain Models
+## Task 9: Update Domain Models + Database Types
 
 **Files:**
 
-- Modify: `src/lib/domain/models/Document.ts` (add outline fields)
-- Modify: `src/lib/domain/models/Course.ts` (add outline fields)
-- Modify: `src/types/database.ts` (add columns to table types)
+- Modify: `src/lib/domain/models/Document.ts`
+- Modify: `src/lib/domain/models/Course.ts`
+- Modify: `src/types/database.ts`
 
-**Step 1: Update DocumentEntity**
-
-In `src/lib/domain/models/Document.ts`, add to `DocumentEntity` (after line 23, before closing `}`):
+**Step 1: Update DocumentEntity** (line 23, before closing `}`)
 
 ```typescript
 outline: Json | null;
 ```
 
-**Step 2: Update CourseEntity**
+**Step 2: Update CourseEntity** — add import and field
 
-In `src/lib/domain/models/Course.ts`, add to `CourseEntity` (after line 7, before closing `}`):
-
-```typescript
-knowledgeOutline: Json | null;
-```
-
-Add to `UpdateCourseDTO` (after line 18, before closing `}`):
-
-```typescript
-  knowledgeOutline?: Json;
-```
-
-You'll need to import `Json` at the top of Course.ts:
+At top of `src/lib/domain/models/Course.ts`:
 
 ```typescript
 import type { Json } from '@/types/database';
 ```
 
-**Step 3: Update database.ts**
+Add to `CourseEntity` (after line 7):
 
-In `src/types/database.ts`, add `outline` and `outline_embedding` to the `documents` table Row/Insert/Update types. Add `knowledge_outline` and `knowledge_outline_embedding` to the `courses` table types.
+```typescript
+knowledgeOutline: Json | null;
+```
 
-> **Note for implementer:** Run `npx supabase gen types typescript --local > src/types/database.ts` if local Supabase is set up, otherwise add columns manually to the existing type definitions.
+Add to `UpdateCourseDTO` (after line 18):
+
+```typescript
+  knowledgeOutline?: Json;
+```
+
+**Step 3: Update database.ts** — [m7] explicit field listing
+
+In `src/types/database.ts`, add to the `documents` table types:
+
+Row type — add:
+
+```typescript
+outline: Json | null;
+outline_embedding: string | null;
+```
+
+Insert type — add:
+
+```typescript
+outline?: Json | null
+outline_embedding?: string | null
+```
+
+Update type — add:
+
+```typescript
+outline?: Json | null
+outline_embedding?: string | null
+```
+
+In `courses` table types:
+
+Row type — add:
+
+```typescript
+knowledge_outline: Json | null;
+knowledge_outline_embedding: string | null;
+```
+
+Insert type — add:
+
+```typescript
+knowledge_outline?: Json | null
+knowledge_outline_embedding?: string | null
+```
+
+Update type — add:
+
+```typescript
+knowledge_outline?: Json | null
+knowledge_outline_embedding?: string | null
+```
 
 **Step 4: Verify types compile**
 
@@ -1837,7 +1881,7 @@ Run: `npx tsc --noEmit`
 
 ```bash
 git add src/lib/domain/models/Document.ts src/lib/domain/models/Course.ts src/types/database.ts
-git commit -m "feat(rag): update domain models with outline fields"
+git commit -m "feat(rag): update domain models and DB types with outline fields"
 ```
 
 ---
@@ -1849,17 +1893,13 @@ git commit -m "feat(rag): update domain models with outline fields"
 - Modify: `src/lib/repositories/DocumentRepository.ts`
 - Modify: `src/lib/repositories/CourseRepository.ts`
 
-**Step 1: Update DocumentRepository.mapToEntity**
-
-In `src/lib/repositories/DocumentRepository.ts`, add to `mapToEntity` (line 31, before closing `}`):
+**Step 1: Update DocumentRepository.mapToEntity** (add after line 31)
 
 ```typescript
       outline: row.outline ?? null,
 ```
 
-**Step 2: Add saveOutline method to DocumentRepository**
-
-Add after the `deleteById` method (after line 173):
+**Step 2: Add saveOutline method** (after line 173, before singleton)
 
 ```typescript
   async saveOutline(
@@ -1872,24 +1912,29 @@ Add after the `deleteById` method (after line 173):
       outline,
     };
     if (outlineEmbedding) {
-      updateData.outline_embedding = JSON.stringify(outlineEmbedding) as unknown as string;
+      // [M8] Pass number[] directly — consistent with existing embedding handling
+      updateData.outline_embedding = outlineEmbedding as unknown as string;
     }
     const { error } = await supabase.from('documents').update(updateData).eq('id', id);
     if (error) throw new DatabaseError(`Failed to save document outline: ${error.message}`, error);
   }
 ```
 
-**Step 3: Update CourseRepository.mapToEntity**
+**Step 3: Update CourseRepository** — add import, mapToEntity field, saveKnowledgeOutline
 
-In `src/lib/repositories/CourseRepository.ts`, add to `mapToEntity` (line 17, before closing `}`):
+Top of file:
+
+```typescript
+import type { Database, Json } from '@/types/database';
+```
+
+Add to `mapToEntity` (after line 17):
 
 ```typescript
       knowledgeOutline: row.knowledge_outline ?? null,
 ```
 
-**Step 4: Add saveKnowledgeOutline method to CourseRepository**
-
-Add after the `delete` method (after line 95):
+Add method (after line 95):
 
 ```typescript
   async saveKnowledgeOutline(
@@ -1903,24 +1948,14 @@ Add after the `delete` method (after line 95):
       updated_at: new Date().toISOString(),
     };
     if (outlineEmbedding) {
-      updates.knowledge_outline_embedding = JSON.stringify(outlineEmbedding) as unknown as string;
+      updates.knowledge_outline_embedding = outlineEmbedding as unknown as string;
     }
     const { error } = await supabase.from('courses').update(updates).eq('id', id);
     if (error) throw new DatabaseError(`Failed to save course outline: ${error.message}`, error);
   }
 ```
 
-You'll need to import `Json` at the top of `CourseRepository.ts`:
-
-```typescript
-import type { Database, Json } from '@/types/database';
-```
-
-**Step 5: Verify types compile**
-
-Run: `npx tsc --noEmit`
-
-**Step 6: Commit**
+**Step 4: Verify, Step 5: Commit**
 
 ```bash
 git add src/lib/repositories/DocumentRepository.ts src/lib/repositories/CourseRepository.ts
@@ -1929,177 +1964,95 @@ git commit -m "feat(rag): add outline persistence to document and course reposit
 
 ---
 
-## Task 11: Update Service Layer
-
-**Files:**
-
-- Modify: `src/lib/services/DocumentProcessingService.ts`
-- Modify: `src/lib/services/KnowledgeCardService.ts`
-
-**Step 1: Update DocumentProcessingService.extractWithLLM**
-
-In `src/lib/services/DocumentProcessingService.ts`, update the lecture branch in `extractWithLLM` (lines 51-54).
-
-Replace:
-
-```typescript
-if (docType === 'lecture') {
-  const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
-  const knowledgePoints = await parseLecture(pages);
-  return { items: knowledgePoints, type: 'knowledge_point' };
-}
-```
-
-With:
-
-```typescript
-if (docType === 'lecture') {
-  const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
-  const result = await parseLecture(pages, {
-    documentId: this.currentDocumentId,
-    onProgress: this.currentProgressCallback,
-  });
-  this.lastOutline = result.outline;
-  return { items: result.knowledgePoints, type: 'knowledge_point' };
-}
-```
-
-Add instance properties to the class (after line 29):
-
-```typescript
-  private currentDocumentId?: string;
-  private currentProgressCallback?: (progress: import('@/lib/rag/parsers/types').PipelineProgress) => void;
-  public lastOutline?: import('@/lib/rag/parsers/types').DocumentOutline;
-```
-
-Update `processWithLLM` to set the context before calling `extractWithLLM` (before line 137):
-
-```typescript
-this.currentDocumentId = documentId;
-this.currentProgressCallback = callbacks?.onPipelineProgress;
-this.lastOutline = undefined;
-```
-
-Update `ProcessingCallbacks` interface (line 22-26) to add:
-
-```typescript
-interface ProcessingCallbacks {
-  onProgress?: (stage: string, message: string) => void;
-  onPipelineProgress?: (progress: import('@/lib/rag/parsers/types').PipelineProgress) => void;
-  onItem?: (index: number, total: number, type: string) => void;
-  signal?: AbortSignal;
-}
-```
-
-**Step 2: Add outline saving to processWithLLM**
-
-After knowledge card save (after line 150 in the original), add outline save:
-
-```typescript
-// 3c. Save document outline if generated
-if (type === 'knowledge_point' && this.lastOutline) {
-  try {
-    const { getDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
-    const { generateEmbedding } = await import('@/lib/rag/embedding');
-    const outlineText = JSON.stringify(this.lastOutline);
-    const embedding = await generateEmbedding(outlineText.slice(0, 2000));
-    await getDocumentRepository().saveOutline(
-      documentId,
-      this.lastOutline as unknown as Json,
-      embedding,
-    );
-  } catch (error) {
-    console.warn('Failed to save document outline (non-fatal):', error);
-  }
-}
-```
-
-Add `Json` import at the top:
-
-```typescript
-import type { Json } from '@/types/database';
-```
-
-**Step 3: Verify types compile**
-
-Run: `npx tsc --noEmit`
-
-**Step 4: Commit**
-
-```bash
-git add src/lib/services/DocumentProcessingService.ts
-git commit -m "feat(rag): integrate multi-pass pipeline into DocumentProcessingService"
-```
-
----
-
-## Task 12: Update SSE Route
-
-**Files:**
-
-- Modify: `src/app/api/documents/parse/route.ts`
-
-**Step 1: Update the lecture extraction path**
-
-In the SSE route, find where `parseLecture` is called (around line 252-254). The route directly imports and calls `parseLecture`. Update this call to use the new API.
-
-Replace the `parseLecture` call block with:
-
-```typescript
-const { parseLecture } = await import('@/lib/rag/parsers/lecture-parser');
-const parseResult = await parseLecture(pdfData.pages, {
-  documentId: lectureId, // or the relevant record ID variable
-  onProgress: (progress) => {
-    send('pipeline_progress', progress);
-  },
-  onBatchProgress: (current, total) => {
-    send('progress', { current, total });
-  },
-});
-const knowledgePoints = parseResult.knowledgePoints;
-```
-
-After the knowledge card save block, add outline save:
-
-```typescript
-// Save document outline if generated
-if (parseResult.outline) {
-  try {
-    const { getDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
-    const { generateEmbedding } = await import('@/lib/rag/embedding');
-    const outlineText = JSON.stringify(parseResult.outline);
-    const embedding = await generateEmbedding(outlineText.slice(0, 2000));
-    await getDocumentRepository().saveOutline(lectureId, parseResult.outline, embedding);
-  } catch (outlineError) {
-    console.warn('Failed to save document outline (non-fatal):', outlineError);
-  }
-}
-```
-
-> **Note for implementer:** The exact variable names (`lectureId`, `send`) depend on the local scope in the route. Read the route file carefully and match the existing variable names. The key changes are: (1) use new `parseLecture` API, (2) add `pipeline_progress` SSE event, (3) save outline after extraction.
-
-**Step 2: Verify build**
-
-Run: `npx tsc --noEmit`
-
-**Step 3: Commit**
-
-```bash
-git add src/app/api/documents/parse/route.ts
-git commit -m "feat(rag): update SSE route for multi-pass pipeline progress"
-```
-
----
-
-## Task 13: Integrate Outline Search in Chat Retrieval
+## Task 11: Integrate Outline Search in Chat Retrieval
 
 **Files:**
 
 - Modify: `src/lib/rag/retrieval.ts`
+- Create: `src/lib/rag/retrieval-outline.test.ts`
 
-**Step 1: Add outline retrieval function**
+**Step 1: Write the test** [m11]
 
-Add to `src/lib/rag/retrieval.ts` after the existing `retrieveAssignmentContext` function:
+Create `src/lib/rag/retrieval-outline.test.ts`:
+
+```typescript
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
+// Mock Supabase
+const mockFrom = vi.fn();
+const mockRpc = vi.fn();
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () =>
+    Promise.resolve({
+      from: mockFrom,
+      rpc: mockRpc,
+    }),
+}));
+
+// Mock embedding
+vi.mock('./embedding', () => ({
+  generateEmbedding: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+}));
+
+const { retrieveOutlineContext } = await import('./retrieval');
+
+describe('retrieveOutlineContext', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    mockFrom.mockReset();
+  });
+
+  it('returns document and course outlines', async () => {
+    // Mock documents query
+    const docChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({
+        data: [
+          {
+            outline: {
+              title: 'Lecture 1',
+              summary: 'Covers trees',
+              sections: [{ title: 'BST', briefDescription: 'Binary search trees' }],
+            },
+          },
+        ],
+      }),
+    };
+
+    // Mock courses query
+    const courseChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          knowledge_outline: {
+            topics: [{ topic: 'Data Structures', subtopics: ['BST', 'Hash Table'] }],
+          },
+        },
+      }),
+    };
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'documents') return docChain;
+      if (table === 'courses') return courseChain;
+      return {};
+    });
+
+    const result = await retrieveOutlineContext('what is BST?', 'course-1');
+
+    expect(result.documentOutline).toContain('Lecture 1');
+    expect(result.courseOutline).toContain('Data Structures');
+  });
+});
+```
+
+**Step 2: Add retrieveOutlineContext to retrieval.ts**
+
+Add after the existing `retrieveAssignmentContext` function:
 
 ```typescript
 export async function retrieveOutlineContext(
@@ -2107,8 +2060,6 @@ export async function retrieveOutlineContext(
   courseId: string,
 ): Promise<{ documentOutline?: string; courseOutline?: string }> {
   const supabase = await createClient();
-  const embedding = await generateEmbedding(query);
-
   const result: { documentOutline?: string; courseOutline?: string } = {};
 
   // Search document outlines
@@ -2169,46 +2120,32 @@ export async function retrieveOutlineContext(
 }
 ```
 
-**Step 2: Verify types compile**
-
-Run: `npx tsc --noEmit`
-
-**Step 3: Commit**
+**Step 3: Verify, Step 4: Commit**
 
 ```bash
-git add src/lib/rag/retrieval.ts
+git add src/lib/rag/retrieval.ts src/lib/rag/retrieval-outline.test.ts
 git commit -m "feat(rag): add outline context retrieval for chat integration"
 ```
 
 ---
 
-## Task 14: Run Full Test Suite & Lint
+## Task 12: Run Full Test Suite & Lint
 
 **Step 1: Run all new tests**
 
 ```bash
-npx vitest run src/lib/rag/parsers/__tests__/
+npx vitest run src/lib/rag/
 ```
 
-Expected: All tests PASS
-
-**Step 2: Run linter**
+**Step 2: Run linter and type check**
 
 ```bash
-npm run lint
+npm run lint && npx tsc --noEmit
 ```
 
-Fix any lint issues.
+Fix any issues found.
 
-**Step 3: Type check**
-
-```bash
-npx tsc --noEmit
-```
-
-Fix any type errors.
-
-**Step 4: Run full test suite**
+**Step 3: Run full test suite**
 
 ```bash
 npx vitest run
@@ -2216,44 +2153,91 @@ npx vitest run
 
 Ensure no regressions.
 
-**Step 5: Commit any fixes**
+**Step 4: Commit any fixes**
 
 ```bash
-git add -A
-git commit -m "fix(rag): resolve lint and type-check issues"
+git add -A && git commit -m "fix(rag): resolve lint and type-check issues"
 ```
 
 ---
 
-## Task 15: Create PR
+## Task 13: Create PR
 
-**Step 1: Push branch and create PR**
+**Step 1: Merge latest main and push**
 
 ```bash
 git fetch origin main && git merge origin/main --no-edit
 git push -u origin docs/knowledge-pipeline-optimization
+```
+
+**Step 2: Create PR**
+
+```bash
 gh pr create --title "feat(rag): multi-pass knowledge extraction pipeline" --body "$(cat <<'EOF'
 ## Summary
 - Replaces single-pass lecture extraction with a 4-pass pipeline
-- Pass 1: Document structure analysis (identify sections, content types)
-- Pass 2: Per-section knowledge extraction with context (overlap, concurrency)
-- Pass 3: Quality gate — semantic dedup + LLM quality review + filtering
-- Pass 4: Document & course outline generation
+- Pass 1: Document structure analysis (sections, content types)
+- Pass 2: Per-section knowledge extraction (overlap, concurrency, context)
+- Pass 3: Quality gate — semantic dedup + LLM review + filtering
+- Pass 4: Document outline generation
 - Adds outline columns to documents and courses tables
 - Adds outline retrieval for chat integration
 
-## Motivation
-Current single-pass extraction is unreliable: missing knowledge points, low quality, irrelevant content, inconsistent results across runs. Root causes: generic prompt, fixed page batching, no quality validation.
+## Review fixes applied
+- [C1] parseLecture backward-compatible (returns KnowledgePoint[]), new parseLectureMultiPass
+- [C2] Runtime detection of function vs options second arg
+- [C3] No mutable state on singleton — outline returned via result
+- [C4] All tests include vi.mock('server-only')
+- [M3] mergeBySemanticSimilarity wrapped in try/catch
+- [M5] Incremental review tracking in quality gate
+- [M7] Vector indexes deferred (commented SQL with guidance)
+- [M8] Embeddings passed as number[] (no JSON.stringify)
+
+## Out of scope (follow-up PR)
+- Course outline regeneration trigger (generateCourseOutline is implemented but not wired)
+- Fast/thorough quality mode toggle
+- Vector index creation (deferred until data volume warrants it)
 
 ## Test plan
-- [ ] Run `npx vitest run src/lib/rag/parsers/__tests__/` — all new unit tests pass
-- [ ] Run `npx tsc --noEmit` — no type errors
-- [ ] Upload a 50+ page lecture PDF and verify extraction quality improvement
-- [ ] Verify SSE progress events include `pipeline_progress` events
-- [ ] Verify document outline is saved to `documents.outline` column
+- [ ] `npx vitest run src/lib/rag/` — all tests pass
+- [ ] `npx tsc --noEmit` — no type errors
+- [ ] Upload a 50+ page lecture PDF and verify extraction quality
+- [ ] Verify SSE events include `pipeline_progress`
+- [ ] Verify document outline saved to `documents.outline`
 - [ ] Verify same document re-uploaded produces consistent results
+- [ ] Verify existing exam/assignment upload paths unaffected
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
+
+---
+
+## Appendix: Review Issues Addressed
+
+| ID  | Fix                                                                                        | Location                |
+| --- | ------------------------------------------------------------------------------------------ | ----------------------- |
+| C1  | `parseLecture` returns `KnowledgePoint[]`, new `parseLectureMultiPass` returns full result | Task 7                  |
+| C2  | Runtime `typeof` detection for function-as-second-arg backward compat                      | Task 7 `parseLecture()` |
+| C3  | Removed singleton mutable state, outline via return value                                  | Task 7 callers          |
+| C4  | `vi.mock('server-only', () => ({}))` in all test files                                     | Tasks 3-7, 11           |
+| M1  | `generateCourseOutline` marked as phase 2, not wired                                       | Task 6 note             |
+| M2  | Both SSE route + Service updated atomically in Task 7                                      | Task 7                  |
+| M3  | `mergeBySemanticSimilarity` wrapped in try/catch with fallback                             | Task 5                  |
+| M5  | Incremental review tracking, partial failure preserves reviewed results                    | Task 5                  |
+| M6  | Large section overlap uses `RAG_CONFIG.sectionOverlapPages`                                | Task 4                  |
+| M7  | IVFFlat replaced with deferred HNSW (commented SQL)                                        | Task 8                  |
+| M8  | Embeddings passed as `number[]` directly                                                   | Tasks 7, 10             |
+| M10 | All tests use `createMockGemini()` from project helper                                     | Tasks 3-7, 11           |
+| M11 | Top-level `await import()` pattern in all tests                                            | Tasks 3-7, 11           |
+| m1  | `getSectionPages` dead param removed                                                       | Task 4                  |
+| m2  | `cosineSimilarity` vector length guard                                                     | Task 5                  |
+| m3  | `buildLocalOutline` skips overview sections                                                | Task 6                  |
+| m5  | `AbortSignal` propagation through passes                                                   | Tasks 4, 5, 7           |
+| m7  | database.ts explicit Row/Insert/Update field listing                                       | Task 9                  |
+| m8  | `afterEach(() => vi.restoreAllMocks())` in all tests                                       | Tasks 3-7, 11           |
+| m9  | Config NaN-safe parsing with `safeInt`/`safeFloat`                                         | Task 2                  |
+| m10 | Tests co-located (not in `__tests__/` subdirectory)                                        | Tasks 3-7, 11           |
+| m11 | `retrieveOutlineContext` test added                                                        | Task 11                 |
+| m13 | Small KP set test asserts LLM not called                                                   | Task 6                  |
