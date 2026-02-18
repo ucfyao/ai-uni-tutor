@@ -1,12 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/env';
 import { loginSchema, requestResetSchema, signupSchema } from '@/lib/schemas';
 import { createClient } from '@/lib/supabase/server';
+import type { ActionResult } from '@/types/actions';
 
-export async function login(formData: FormData) {
+export async function login(formData: FormData): Promise<ActionResult<void>> {
   const supabase = await createClient();
 
   const rawData = {
@@ -16,7 +16,7 @@ export async function login(formData: FormData) {
 
   const validation = loginSchema.safeParse(rawData);
   if (!validation.success) {
-    return { error: validation.error.issues[0].message };
+    return { success: false, error: validation.error.issues[0].message };
   }
 
   const { email, password } = validation.data;
@@ -27,11 +27,11 @@ export async function login(formData: FormData) {
   });
 
   if (error) {
-    return { error: error.message };
+    return { success: false, error: error.message };
   }
 
   revalidatePath('/', 'layout');
-  redirect('/study');
+  return { success: true, data: undefined };
 }
 
 export async function signup(formData: FormData) {

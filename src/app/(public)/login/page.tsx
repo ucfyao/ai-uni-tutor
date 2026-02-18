@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, Check, Lock, Mail } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -36,6 +37,7 @@ function LoginForm() {
   const [shake, setShake] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const router = useRouter();
   const { t } = useLanguage();
 
   const validateEmail = (value: string) => {
@@ -101,7 +103,9 @@ function LoginForm() {
         }
       } else {
         const res = await login(formData);
-        if (res?.error) {
+        if (res.success) {
+          router.push('/study');
+        } else {
           setError(res.error);
           setShake(true);
           setTimeout(() => setShake(false), 600);
