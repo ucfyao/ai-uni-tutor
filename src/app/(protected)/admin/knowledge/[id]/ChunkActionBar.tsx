@@ -1,8 +1,8 @@
 'use client';
 
-import { Check, RefreshCw, Save } from 'lucide-react';
+import { Check, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Card, Group, Text } from '@mantine/core';
+import { Box, Button, Card, Group, Modal, Stack, Text, Tooltip } from '@mantine/core';
 import {
   regenerateEmbeddings,
   updateAssignmentItems,
@@ -20,6 +20,13 @@ interface ChunkActionBarProps {
   editedChunks: Map<string, { content: string; metadata: Record<string, unknown> }>;
   deletedChunkIds: Set<string>;
   onSaved: () => void;
+  // Optional props for publish/delete controls
+  status?: 'draft' | 'ready';
+  itemCount?: number;
+  onPublish?: () => void;
+  onUnpublish?: () => void;
+  onDelete?: () => void;
+  isPublishing?: boolean;
 }
 
 export function ChunkActionBar({
@@ -29,10 +36,17 @@ export function ChunkActionBar({
   editedChunks,
   deletedChunkIds,
   onSaved,
+  status,
+  itemCount,
+  onPublish,
+  onUnpublish,
+  onDelete,
+  isPublishing,
 }: ChunkActionBarProps) {
   const { t } = useLanguage();
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -100,45 +114,135 @@ export function ChunkActionBar({
   };
 
   return (
-    <Card
-      withBorder
-      radius="lg"
-      p="md"
-      style={{ position: 'sticky', bottom: 0, zIndex: 10 }}
-      bg="var(--mantine-color-body)"
-    >
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          {pendingChanges > 0
-            ? `${pendingChanges} ${t.documentDetail.pendingChanges}`
-            : t.documentDetail.noChanges}
-        </Text>
-        <Group gap="sm">
-          {docType === 'lecture' && (
+    <>
+      <Card
+        withBorder
+        radius="lg"
+        p="md"
+        style={{ position: 'sticky', bottom: 0, zIndex: 10 }}
+        bg="var(--mantine-color-body)"
+      >
+        <Group justify="space-between">
+          <Group gap="sm">
+            {status === 'draft' && onPublish && (
+              <Tooltip
+                label={itemCount === 0 ? 'Upload and parse a PDF first' : undefined}
+                disabled={itemCount !== 0}
+              >
+                <Button
+                  variant="light"
+                  color="green"
+                  size="compact-sm"
+                  leftSection={<Send size={14} />}
+                  loading={isPublishing}
+                  disabled={itemCount === 0}
+                  onClick={onPublish}
+                  radius="md"
+                >
+                  Publish
+                </Button>
+              </Tooltip>
+            )}
+            {status === 'ready' && onUnpublish && (
+              <Button
+                variant="light"
+                color="yellow"
+                size="compact-sm"
+                onClick={onUnpublish}
+                radius="md"
+              >
+                Unpublish
+              </Button>
+            )}
+
+            {onDelete && (
+              <Button
+                variant="light"
+                color="red"
+                size="compact-sm"
+                onClick={() => setDeleteModalOpen(true)}
+                radius="md"
+              >
+                <Trash2 size={14} />
+              </Button>
+            )}
+
+            <Text size="sm" c="dimmed">
+              {pendingChanges > 0
+                ? `${pendingChanges} ${t.documentDetail.pendingChanges}`
+                : t.documentDetail.noChanges}
+            </Text>
+          </Group>
+          <Group gap="sm">
+            {docType === 'lecture' && (
+              <Button
+                variant="light"
+                color="gray"
+                leftSection={<RefreshCw size={16} />}
+                loading={regenerating}
+                disabled={regenerating}
+                onClick={handleRegenerate}
+                radius="md"
+              >
+                {t.documentDetail.regenerateEmbeddings}
+              </Button>
+            )}
             <Button
-              variant="light"
-              color="gray"
-              leftSection={<RefreshCw size={16} />}
-              loading={regenerating}
-              disabled={regenerating}
-              onClick={handleRegenerate}
+              color="indigo"
+              leftSection={<Save size={16} />}
+              loading={saving}
+              disabled={pendingChanges === 0 || saving}
+              onClick={handleSave}
               radius="md"
             >
-              {t.documentDetail.regenerateEmbeddings}
+              {t.documentDetail.saveChanges}
             </Button>
-          )}
+          </Group>
+        </Group>
+      </Card>
+
+      <Modal
+        opened={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Document"
+        centered
+        size="sm"
+        radius="lg"
+      >
+        <Stack align="center" gap="md">
+          <Box
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              background: 'var(--mantine-color-red-0)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Trash2 size={22} color="var(--mantine-color-red-5)" />
+          </Box>
+          <Text fz="sm" ta="center">
+            Are you sure you want to delete this document? This action cannot be undone.
+          </Text>
+        </Stack>
+        <Group justify="flex-end" mt="lg" gap="sm">
+          <Button variant="default" onClick={() => setDeleteModalOpen(false)} radius="md">
+            Cancel
+          </Button>
           <Button
-            color="indigo"
-            leftSection={<Save size={16} />}
-            loading={saving}
-            disabled={pendingChanges === 0 || saving}
-            onClick={handleSave}
+            color="red"
+            onClick={() => {
+              setDeleteModalOpen(false);
+              onDelete?.();
+            }}
             radius="md"
           >
-            {t.documentDetail.saveChanges}
+            Delete
           </Button>
         </Group>
-      </Group>
-    </Card>
+      </Modal>
+    </>
   );
 }

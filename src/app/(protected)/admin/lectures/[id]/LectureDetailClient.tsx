@@ -4,8 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
-import { DocumentDetailHeader } from '@/components/rag/DocumentDetailHeader';
+import {
+  deleteDocument,
+  publishDocument,
+  unpublishDocument,
+  updateDocumentMeta,
+} from '@/app/actions/documents';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -14,6 +18,7 @@ import { showNotification } from '@/lib/notifications';
 import type { Json } from '@/types/database';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
+import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
 
 interface SerializedLectureDocument {
   id: string;
@@ -45,6 +50,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const { t } = useLanguage();
 
   const [currentStatus, setCurrentStatus] = useState<DocumentStatus>(doc.status);
+  const [currentName, setCurrentName] = useState(doc.name);
   const [isPublishing, setIsPublishing] = useState(false);
 
   // Chunk editing state (mirrors DocumentDetailClient)
@@ -203,28 +209,22 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const headerNode = useMemo(
     () => (
       <DocumentDetailHeader
-        title={doc.name}
-        metadata={{ school, course }}
-        status={currentStatus}
-        itemCount={visibleChunks.length}
+        docId={doc.id}
+        initialName={currentName}
         docType="lecture"
-        onPublish={handlePublish}
-        onUnpublish={handleUnpublish}
-        onDelete={handleDeleteDoc}
-        isPublishing={isPublishing}
+        school={school}
+        course={course}
+        status={currentStatus}
+        backHref="/admin/knowledge"
+        onSaveName={async (newName) => {
+          const result = await updateDocumentMeta(doc.id, { name: newName });
+          if (result.status === 'success') {
+            setCurrentName(newName);
+          }
+        }}
       />
     ),
-    [
-      doc.name,
-      school,
-      course,
-      currentStatus,
-      visibleChunks.length,
-      handlePublish,
-      handleUnpublish,
-      handleDeleteDoc,
-      isPublishing,
-    ],
+    [doc.id, currentName, school, course, currentStatus],
   );
 
   useEffect(() => {
@@ -241,8 +241,10 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       {!isMobile && (
         <Box
           px="md"
-          py="sm"
+          h={52}
           style={{
+            display: 'flex',
+            alignItems: 'center',
             borderBottom: '1px solid var(--mantine-color-default-border)',
             flexShrink: 0,
           }}
@@ -283,6 +285,12 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             editedChunks={editedChunks}
             deletedChunkIds={deletedChunkIds}
             onSaved={handleSaved}
+            status={currentStatus}
+            itemCount={visibleChunks.length}
+            onPublish={handlePublish}
+            onUnpublish={handleUnpublish}
+            onDelete={handleDeleteDoc}
+            isPublishing={isPublishing}
           />
         </Stack>
       </ScrollArea>

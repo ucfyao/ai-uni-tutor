@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { addAssignmentItem } from '@/app/actions/assignments';
+import { updateDocumentMeta } from '@/app/actions/documents';
 import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -170,10 +171,20 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
         school={school}
         course={course}
         status={doc.status}
-        onNameChanged={setCurrentName}
+        onSaveName={async (newName) => {
+          const result = await updateDocumentMeta(doc.id, { name: newName });
+          if (result.status === 'success') {
+            setCurrentName(newName);
+            showNotification({
+              title: t.documentDetail.updated,
+              message: t.documentDetail.nameUpdated,
+              color: 'green',
+            });
+          }
+        }}
       />
     ),
-    [doc.id, currentName, docType, school, course, doc.status],
+    [doc.id, currentName, docType, school, course, doc.status, t],
   );
 
   useEffect(() => {
