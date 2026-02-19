@@ -61,7 +61,7 @@ describe('ChatService', () => {
     vi.clearAllMocks();
     service = new ChatService();
     // Default: RAG returns no context
-    mockRetrieveContext.mockResolvedValue(null);
+    mockRetrieveContext.mockResolvedValue({ contextText: '', sources: [] });
   });
 
   // =========================================================================
@@ -202,7 +202,10 @@ describe('ChatService', () => {
     });
 
     it('should include RAG context when available', async () => {
-      mockRetrieveContext.mockResolvedValue('Document context: page 5 info');
+      mockRetrieveContext.mockResolvedValue({
+        contextText: 'Document context: page 5 info',
+        sources: [],
+      });
       mockGenerateContent.mockResolvedValue({ text: 'Answer with context' });
 
       await service.generateResponse(baseOptions());
@@ -212,8 +215,8 @@ describe('ChatService', () => {
       expect(callArgs.config.systemInstruction).toContain('Document context: page 5 info');
     });
 
-    it('should work without RAG context if retrieval returns null', async () => {
-      mockRetrieveContext.mockResolvedValue(null);
+    it('should work without RAG context if retrieval returns empty', async () => {
+      mockRetrieveContext.mockResolvedValue({ contextText: '', sources: [] });
       mockGenerateContent.mockResolvedValue({ text: 'Answer without context' });
 
       const result = await service.generateResponse(baseOptions());
@@ -413,7 +416,10 @@ describe('ChatService', () => {
     });
 
     it('should include RAG context when courseId is provided', async () => {
-      mockRetrieveContext.mockResolvedValue('Stack: LIFO data structure');
+      mockRetrieveContext.mockResolvedValue({
+        contextText: 'Stack: LIFO data structure',
+        sources: [],
+      });
       mockGenerateContent.mockResolvedValue({ text: 'Stack explained with context' });
 
       await service.explainConcept('Stack', 'context text', 'course-1');

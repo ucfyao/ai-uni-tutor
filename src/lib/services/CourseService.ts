@@ -69,6 +69,55 @@ export class CourseService {
     await this.courseRepo.delete(id);
     await invalidateCache(CACHE_KEYS.coursesList);
   }
+
+  /**
+   * Regenerate the course-level knowledge outline from all lecture document outlines.
+   * Called after lecture upload completes or after lecture deletion.
+   */
+  async regenerateCourseOutline(courseId: string): Promise<void> {
+    const { getLectureDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
+    const { generateCourseOutline } = await import('@/lib/rag/parsers/outline-generator');
+    const { generateEmbedding } = await import('@/lib/rag/embedding');
+
+    const docRepo = getLectureDocumentRepository();
+    const docs = await docRepo.findOutlinesByCourseId(courseId);
+
+    if (docs.length === 0) {
+      await this.courseRepo.saveKnowledgeOutline(courseId, null);
+      return;
+    }
+
+    const documentOutlines = docs.map((doc) => {
+      const outline = doc.outline as Record<string, unknown>;
+      return {
+        documentId: doc.id,
+        title: (outline.title as string) || 'Untitled',
+        subject: (outline.subject as string) || '',
+        totalKnowledgePoints: (outline.totalKnowledgePoints as number) || 0,
+        sections:
+          (outline.sections as Array<{
+            title: string;
+            knowledgePoints: string[];
+            briefDescription: string;
+          }>) || [],
+        summary: (outline.summary as string) || '',
+      };
+    });
+
+    const courseOutline = await generateCourseOutline(courseId, documentOutlines);
+
+    const outlineText = courseOutline.topics
+      .map((t) => `${t.topic}: ${t.subtopics.join(', ')}`)
+      .join('\n')
+      .slice(0, 2000);
+
+    const embedding = await generateEmbedding(outlineText);
+    await this.courseRepo.saveKnowledgeOutline(
+      courseId,
+      courseOutline as unknown as import('@/types/database').Json,
+      embedding,
+    );
+  }
 }
 
 let _courseService: CourseService | null = null;

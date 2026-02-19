@@ -184,6 +184,18 @@ export class LectureDocumentRepository implements ILectureDocumentRepository {
     if (error) throw new DatabaseError(`Failed to delete document: ${error.message}`, error);
   }
 
+  async findOutlinesByCourseId(courseId: string): Promise<Array<{ id: string; outline: Json }>> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('lecture_documents')
+      .select('id, outline')
+      .eq('course_id', courseId)
+      .not('outline', 'is', null);
+
+    if (error) throw new DatabaseError(`Failed to fetch outlines: ${error.message}`, error);
+    return (data ?? []).map((row) => ({ id: row.id, outline: row.outline as Json }));
+  }
+
   async saveOutline(id: string, outline: Json, outlineEmbedding?: number[]): Promise<void> {
     const supabase = await createClient();
     const updateData: Database['public']['Tables']['lecture_documents']['Update'] = {

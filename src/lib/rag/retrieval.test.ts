@@ -51,7 +51,7 @@ describe('retrieval', () => {
 
       const result = await retrieveContext('What is machine learning?');
 
-      expect(result).toBe(
+      expect(result.contextText).toBe(
         'First chunk of content. (Page 1)\n\n---\n\nSecond chunk of content. (Page 3)',
       );
     });
@@ -81,7 +81,7 @@ describe('retrieval', () => {
         query_text: 'query text',
         query_embedding: fakeEmbedding,
         match_threshold: 0.5, // RAG_CONFIG.matchThreshold
-        match_count: 10,
+        match_count: 20, // 10 * rerankCandidateMultiplier (2)
         rrf_k: 60, // RAG_CONFIG.rrfK
         search_course_id: courseId,
         filter: { knowledge_id: 'abc' },
@@ -93,7 +93,7 @@ describe('retrieval', () => {
       mockSupabase.setResponse([]);
 
       const result = await retrieveContext('empty query');
-      expect(result).toBe('');
+      expect(result.contextText).toBe('');
     });
 
     it('should return empty string on RPC error', async () => {
@@ -106,7 +106,7 @@ describe('retrieval', () => {
       });
 
       const result = await retrieveContext('failing query');
-      expect(result).toBe('');
+      expect(result.contextText).toBe('');
     });
 
     it('should handle chunks without page metadata', async () => {
@@ -117,7 +117,7 @@ describe('retrieval', () => {
       ]);
 
       const result = await retrieveContext('query');
-      expect(result).toBe('No page info here.\n\n---\n\nAlso no page.');
+      expect(result.contextText).toBe('No page info here.\n\n---\n\nAlso no page.');
     });
 
     it('should handle chunk with null metadata gracefully', async () => {
@@ -125,7 +125,7 @@ describe('retrieval', () => {
       mockSupabase.setResponse([{ content: 'Content only.', metadata: null }]);
 
       const result = await retrieveContext('query');
-      expect(result).toBe('Content only.');
+      expect(result.contextText).toBe('Content only.');
     });
 
     it('should handle mixed chunks with and without page numbers', async () => {
@@ -137,7 +137,7 @@ describe('retrieval', () => {
       ]);
 
       const result = await retrieveContext('query');
-      expect(result).toBe(
+      expect(result.contextText).toBe(
         'Has page. (Page 5)\n\n---\n\nNo page.\n\n---\n\nHas page too. (Page 12)',
       );
     });
@@ -152,7 +152,7 @@ describe('retrieval', () => {
         query_text: 'query',
         query_embedding: [0.1],
         match_threshold: 0.5,
-        match_count: 5, // RAG_CONFIG.matchCount default
+        match_count: 10, // RAG_CONFIG.matchCount (5) * rerankCandidateMultiplier (2)
         rrf_k: 60,
         search_course_id: null,
         filter: {},
@@ -165,7 +165,7 @@ describe('retrieval', () => {
       mockSupabase.setResponse('not an array');
 
       const result = await retrieveContext('query');
-      expect(result).toBe('');
+      expect(result.contextText).toBe('');
     });
   });
 });

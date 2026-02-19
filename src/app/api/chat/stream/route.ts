@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
   try {
     const chatService = getChatService();
 
+    // Capture sources from RAG retrieval via callback
+    let ragSources: import('@/types').ChatSource[] = [];
     const streamGenerator = chatService.generateStream({
       course: course as Course,
       mode: mode as TutoringMode,
@@ -133,6 +135,9 @@ export async function POST(req: NextRequest) {
       userInput,
       images,
       document,
+      onSources: (sources) => {
+        ragSources = sources;
+      },
     });
 
     // Create SSE stream
@@ -141,8 +146,16 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           let fullResponse = '';
+          let sourcesSent = false;
 
           for await (const text of streamGenerator) {
+            // Send sources on first chunk (RAG completes before first yield)
+            if (!sourcesSent && ragSources.length > 0) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ sources: ragSources })}\n\n`),
+              );
+              sourcesSent = true;
+            }
             fullResponse += text;
             // Send as SSE data event
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));

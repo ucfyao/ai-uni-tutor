@@ -1,10 +1,12 @@
-import { Check, Copy, Quote, RefreshCw } from 'lucide-react';
+import { BookOpen, Check, ChevronDown, ChevronUp, Copy, Quote, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActionIcon,
+  Badge,
   Box,
   Button,
+  Collapse,
   Group,
   Image,
   Portal,
@@ -12,8 +14,10 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
+import type { ChatSource } from '@/types';
 import { ChatMessage, TutoringMode } from '@/types/index';
 
 const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
@@ -54,6 +58,50 @@ function generateSmartTitle(text: string): string {
   if (words.length <= 5) return cleaned;
   return words.slice(0, 5).join(' ') + '...';
 }
+
+const SourcesSection: React.FC<{ sources: ChatSource[] }> = ({ sources }) => {
+  const { t } = useLanguage();
+  const [opened, { toggle }] = useDisclosure(false);
+
+  if (sources.length === 0) return null;
+
+  return (
+    <Box mt={8}>
+      <Group gap={4} style={{ cursor: 'pointer', userSelect: 'none' }} onClick={toggle}>
+        <BookOpen size={13} color="var(--mantine-color-dimmed)" />
+        <Text size="xs" c="dimmed" fw={500}>
+          {t.chat.sources} ({sources.length})
+        </Text>
+        {opened ? (
+          <ChevronUp size={12} color="var(--mantine-color-dimmed)" />
+        ) : (
+          <ChevronDown size={12} color="var(--mantine-color-dimmed)" />
+        )}
+      </Group>
+      <Collapse in={opened}>
+        <Group gap={6} mt={6} wrap="wrap">
+          {sources.map((source, i) => (
+            <Badge
+              key={i}
+              variant="light"
+              color="gray"
+              size="sm"
+              radius="sm"
+              style={{ textTransform: 'none', maxWidth: '100%' }}
+            >
+              {source.documentName}
+              {source.pages.length > 0 && (
+                <Text component="span" size="xs" c="dimmed" ml={4}>
+                  {t.chat.page} {source.pages.join(', ')}
+                </Text>
+              )}
+            </Badge>
+          ))}
+        </Group>
+      </Collapse>
+    </Box>
+  );
+};
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -386,6 +434,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </>
           )}
         </Box>
+
+        {/* Sources */}
+        {!isUser && !isStreaming && message.sources && message.sources.length > 0 && (
+          <SourcesSection sources={message.sources} />
+        )}
 
         {/* Selection Toolbar */}
         {selection && !isUser && onAddCard && (

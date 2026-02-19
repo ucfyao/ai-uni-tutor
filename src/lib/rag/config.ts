@@ -34,4 +34,8 @@ export const RAG_CONFIG = {
   semanticDedupThreshold: safeFloat(process.env.RAG_SEMANTIC_DEDUP_THRESHOLD, 0.9),
   qualityReviewBatchSize: safeInt(process.env.RAG_QUALITY_REVIEW_BATCH, 20),
   shortDocumentThreshold: safeInt(process.env.RAG_SHORT_DOC_THRESHOLD, 5),
+
+  // Reranking config
+  rerankEnabled: process.env.RAG_RERANK_ENABLED !== 'false',
+  rerankCandidateMultiplier: safeInt(process.env.RAG_RERANK_MULTIPLIER, 2),
 } as const;

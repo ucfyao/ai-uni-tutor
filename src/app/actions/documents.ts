@@ -154,10 +154,18 @@ export async function deleteDocument(documentId: string, docType: string) {
     await getAssignmentRepository().delete(documentId);
   } else {
     // Lecture (documents table) — enforce course-level or ownership permission
-    await requireLectureAccess(documentId, user.id, role);
+    const doc = await requireLectureAccess(documentId, user.id, role);
     const documentService = getLectureDocumentService();
     await documentService.deleteChunksByLectureDocumentId(documentId);
     await documentService.deleteByAdmin(documentId);
+
+    // Regenerate course outline after lecture deletion
+    if (doc.courseId) {
+      const { getCourseService } = await import('@/lib/services/CourseService');
+      await getCourseService()
+        .regenerateCourseOutline(doc.courseId)
+        .catch((e) => console.warn('Course outline regeneration failed (non-fatal):', e));
+    }
   }
 
   revalidatePath('/admin/knowledge');
