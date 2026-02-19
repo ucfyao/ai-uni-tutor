@@ -329,11 +329,23 @@ export function ChunkTable({
               </Table.Th>
               {docType === 'lecture' && (
                 <>
-                  <Table.Th w="25%" style={thStyle}>
+                  <Table.Th w="15%" style={thStyle}>
                     {t.documentDetail.title}
                   </Table.Th>
-                  <Table.Th w="50%" style={thStyle}>
+                  <Table.Th w="25%" style={thStyle}>
                     {t.documentDetail.definition}
+                  </Table.Th>
+                  <Table.Th w="15%" style={thStyle}>
+                    {t.documentDetail.keyConcepts}
+                  </Table.Th>
+                  <Table.Th w="15%" style={thStyle}>
+                    {t.documentDetail.keyFormulas}
+                  </Table.Th>
+                  <Table.Th w="10%" style={thStyle}>
+                    {t.documentDetail.examples}
+                  </Table.Th>
+                  <Table.Th w="7%" style={thStyle}>
+                    {t.documentDetail.sourcePages}
                   </Table.Th>
                 </>
               )}
@@ -372,7 +384,7 @@ export function ChunkTable({
               const content = getEffectiveContent(chunk);
               const isEditing = editingChunkId === chunk.id;
               // +1 for checkbox column
-              const colCount = (docType === 'lecture' ? 4 : docType === 'exam' ? 5 : 5) + 1;
+              const colCount = (docType === 'lecture' ? 8 : docType === 'exam' ? 5 : 5) + 1;
 
               return (
                 <DesktopChunkRows
@@ -467,6 +479,28 @@ function DesktopChunkRows({
             <Table.Td>
               <Text size="sm" c="dimmed" lineClamp={2}>
                 {(meta.definition as string) || content}
+              </Text>
+            </Table.Td>
+            <Table.Td>
+              <Text size="sm" c="dimmed" lineClamp={1}>
+                {Array.isArray(meta.keyConcepts) ? (meta.keyConcepts as string[]).join(', ') : ''}
+              </Text>
+            </Table.Td>
+            <Table.Td>
+              <Text size="sm" c="dimmed" lineClamp={1}>
+                {Array.isArray(meta.keyFormulas) ? (meta.keyFormulas as string[]).join(', ') : ''}
+              </Text>
+            </Table.Td>
+            <Table.Td>
+              {Array.isArray(meta.examples) && (meta.examples as string[]).length > 0 && (
+                <Badge variant="light" color="teal" size="sm">
+                  {(meta.examples as string[]).length}
+                </Badge>
+              )}
+            </Table.Td>
+            <Table.Td>
+              <Text size="sm" c="dimmed">
+                {Array.isArray(meta.sourcePages) ? (meta.sourcePages as number[]).join(', ') : ''}
               </Text>
             </Table.Td>
           </>
@@ -664,6 +698,20 @@ function MobileChunkRow({
         <Text size="xs" c="dimmed" lineClamp={2}>
           {preview}
         </Text>
+        {docType === 'lecture' && (
+          <Group gap={4} wrap="wrap">
+            {Array.isArray(meta.keyConcepts) && (meta.keyConcepts as string[]).length > 0 && (
+              <Badge variant="light" color="blue" size="xs">
+                {(meta.keyConcepts as string[]).length} concepts
+              </Badge>
+            )}
+            {Array.isArray(meta.sourcePages) && (meta.sourcePages as number[]).length > 0 && (
+              <Badge variant="light" color="gray" size="xs">
+                p. {(meta.sourcePages as number[]).join(', ')}
+              </Badge>
+            )}
+          </Group>
+        )}
         {docType === 'exam' && meta.score != null && (
           <Badge variant="light" color="orange" size="xs">
             {String(meta.score)} pts
