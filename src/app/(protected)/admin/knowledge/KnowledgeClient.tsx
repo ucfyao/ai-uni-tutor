@@ -23,6 +23,7 @@ import {
 } from '@mantine/core';
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
+import { createEmptyAssignment } from '@/app/actions/assignments';
 import { deleteDocument, fetchDocuments } from '@/app/actions/documents';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
@@ -97,6 +98,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   // Upload modal state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
+  // Assignment creation modal state
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [assignmentTitle, setAssignmentTitle] = useState('');
+  const [assignmentUniId, setAssignmentUniId] = useState<string | null>(null);
+  const [assignmentCourseId, setAssignmentCourseId] = useState<string | null>(null);
+  const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
+
   // Fetch documents by type via server action
   const queryClient = useQueryClient();
   const { data: documents = [], isLoading } = useQuery<KnowledgeDocument[]>({
@@ -124,6 +132,12 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const parseState = useStreamingParse();
   const parseDocTypeRef = useRef<string>(activeTab);
   const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
+
+  // Courses filtered for assignment modal
+  const assignmentFilteredCourses = useMemo(
+    () => (assignmentUniId ? allCourses.filter((c) => c.universityId === assignmentUniId) : []),
+    [allCourses, assignmentUniId],
+  );
 
   const isFormValid = selectedFile && selectedUniId && selectedCourseId;
 
@@ -195,6 +209,34 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     handleDismissParse();
     setUploadModalOpen(false);
   }, [isParsing, parseState.status, handleDismissParse]);
+
+  const handleCreateAssignment = async () => {
+    if (!assignmentTitle.trim() || !assignmentUniId || !assignmentCourseId) return;
+    setIsCreatingAssignment(true);
+    try {
+      const result = await createEmptyAssignment({
+        title: assignmentTitle.trim(),
+        universityId: assignmentUniId,
+        courseId: assignmentCourseId,
+      });
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.documents.byType('assignment') });
+        setAssignmentModalOpen(false);
+        setAssignmentTitle('');
+        router.push(`/admin/knowledge/${result.data.id}?type=assignment`);
+      } else {
+        showNotification({ title: t.knowledge.error, message: result.error, color: 'red' });
+      }
+    } catch {
+      showNotification({
+        title: t.knowledge.error,
+        message: 'Failed to create assignment',
+        color: 'red',
+      });
+    } finally {
+      setIsCreatingAssignment(false);
+    }
+  };
 
   const handleDocumentDeleted = useCallback(
     (id: string) => {
@@ -385,15 +427,29 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 />
               </Box>
 
-              {/* Upload button */}
-              <Tooltip label={t.knowledge.uploadDocument}>
+              {/* Upload / Create button */}
+              <Tooltip
+                label={
+                  activeTab === 'assignment'
+                    ? t.knowledge.createAssignment
+                    : t.knowledge.uploadDocument
+                }
+              >
                 <ActionIcon
                   variant="filled"
                   color="indigo"
                   size="lg"
                   radius="xl"
-                  onClick={() => setUploadModalOpen(true)}
-                  aria-label={t.knowledge.uploadDocument}
+                  onClick={() =>
+                    activeTab === 'assignment'
+                      ? setAssignmentModalOpen(true)
+                      : setUploadModalOpen(true)
+                  }
+                  aria-label={
+                    activeTab === 'assignment'
+                      ? t.knowledge.createAssignment
+                      : t.knowledge.uploadDocument
+                  }
                 >
                   <Plus size={18} />
                 </ActionIcon>
@@ -667,6 +723,81 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             )}
           </Stack>
         )}
+      </FullScreenModal>
+
+      {/* ── Assignment Creation Modal ── */}
+      <FullScreenModal
+        opened={assignmentModalOpen}
+        onClose={() => {
+          if (!isCreatingAssignment) {
+            setAssignmentModalOpen(false);
+            setAssignmentTitle('');
+          }
+        }}
+        title={t.knowledge.createAssignment}
+        centered
+        size="md"
+        radius="lg"
+        overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
+        styles={{
+          content: {
+            border: '1px solid var(--mantine-color-default-border)',
+            background: 'var(--mantine-color-body)',
+          },
+        }}
+      >
+        <Stack gap="md">
+          <TextInput
+            label={t.knowledge.assignmentTitle}
+            placeholder={t.knowledge.assignmentTitlePlaceholder}
+            value={assignmentTitle}
+            onChange={(e) => setAssignmentTitle(e.currentTarget.value)}
+            required
+            size="sm"
+            radius="md"
+          />
+          <Select
+            label={t.knowledge.university}
+            placeholder={t.knowledge.university}
+            data={universities.map((u) => ({ value: u.id, label: u.name }))}
+            value={assignmentUniId}
+            onChange={(val) => {
+              setAssignmentUniId(val);
+              setAssignmentCourseId(null);
+            }}
+            searchable
+            required
+            size="sm"
+            radius="md"
+          />
+          <Select
+            label={t.knowledge.course}
+            placeholder={t.knowledge.course}
+            data={assignmentFilteredCourses.map((c) => ({
+              value: c.id,
+              label: `${c.code}: ${c.name}`,
+            }))}
+            value={assignmentCourseId}
+            onChange={setAssignmentCourseId}
+            disabled={!assignmentUniId}
+            searchable
+            required
+            size="sm"
+            radius="md"
+          />
+          <Button
+            leftSection={<Plus size={14} />}
+            disabled={!assignmentTitle.trim() || !assignmentUniId || !assignmentCourseId}
+            loading={isCreatingAssignment}
+            onClick={handleCreateAssignment}
+            color="indigo"
+            size="md"
+            radius="md"
+            fullWidth
+          >
+            {t.knowledge.createAndEdit}
+          </Button>
+        </Stack>
       </FullScreenModal>
     </Box>
   );

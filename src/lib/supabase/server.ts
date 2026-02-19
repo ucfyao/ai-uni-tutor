@@ -10,27 +10,21 @@ export const createClient = cache(async (): Promise<SupabaseClient<Database>> =>
   const cookieStore = await cookies();
   const env = getEnv();
 
-  return createServerClient<Database>(
-    env.SUPABASE_URL,
-    env.SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // Session refresh happens in proxy.
-          }
-        },
+  return createServerClient<Database>(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+        } catch {
+          // The `setAll` method was called from a Server Component.
+          // Session refresh happens in proxy.
+        }
       },
     },
-  );
+  });
 });
 
 /** Per-request cached user; deduplicates getUser() when multiple actions/components need it in the same request. */
@@ -84,6 +78,26 @@ export async function requireCourseAdmin(courseId: string) {
   const hasAccess = await getAdminRepository().hasCourseAccess(user.id, courseId);
   if (!hasAccess) throw new ForbiddenError('No access to this course');
   return user;
+}
+
+/** Enforce course-level or ownership permission for an assignment.
+ *  Admin users must go through course assignment — no owner fallback. */
+export async function requireAssignmentAccess(
+  assignmentId: string,
+  _userId: string,
+  role: string,
+): Promise<void> {
+  if (role === 'super_admin') return;
+  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+  const assignmentRepo = getAssignmentRepository();
+  const courseId = await assignmentRepo.findCourseId(assignmentId);
+  if (courseId) {
+    await requireCourseAdmin(courseId);
+  } else {
+    const { ForbiddenError } = await import('@/lib/errors');
+    // No course_id: only super_admin can access legacy/unlinked assignments (handled above)
+    throw new ForbiddenError('No access to this assignment');
+  }
 }
 
 /** @deprecated Use requireSuperAdmin(), requireAnyAdmin(), or requireCourseAdmin() instead. */

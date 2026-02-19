@@ -275,6 +275,24 @@ export const translations = {
       stageExtracting: '提取中...',
       stageEmbedding: '嵌入中...',
       stageComplete: '完成',
+      // Assignment creation
+      createAssignment: '创建作业',
+      assignmentTitle: '作业标题',
+      assignmentTitlePlaceholder: '例：第三章课后习题',
+      createAndEdit: '创建并编辑',
+      // Add Item
+      addItem: '添加题目',
+      questionType: '题目类型',
+      questionTypes: {
+        multiple_choice: '选择题',
+        short_answer: '简答题',
+        fill_in_blank: '填空题',
+        true_false: '判断题',
+        essay: '论述题',
+      },
+      // Upload area
+      uploadAreaToggle: '上传 PDF 添加更多题目',
+      emptyAssignment: '此作业暂无题目。通过上传 PDF 或手动添加题目开始。',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -975,6 +993,25 @@ export const translations = {
       stageExtracting: 'Extracting...',
       stageEmbedding: 'Embedding...',
       stageComplete: 'Complete',
+      // Assignment creation
+      createAssignment: 'Create Assignment',
+      assignmentTitle: 'Assignment Title',
+      assignmentTitlePlaceholder: 'e.g. Chapter 3 Homework',
+      createAndEdit: 'Create & Edit',
+      // Add Item
+      addItem: 'Add Item',
+      questionType: 'Question Type',
+      questionTypes: {
+        multiple_choice: 'Multiple Choice',
+        short_answer: 'Short Answer',
+        fill_in_blank: 'Fill in the Blank',
+        true_false: 'True / False',
+        essay: 'Essay',
+      },
+      // Upload area
+      uploadAreaToggle: 'Upload PDF to add more items',
+      emptyAssignment:
+        'This assignment has no items yet. Upload a PDF or add items manually to get started.',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',

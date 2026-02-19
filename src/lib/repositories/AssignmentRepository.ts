@@ -28,7 +28,7 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentEntity {
     school: (row.school as string) ?? null,
     course: (row.course as string) ?? null,
     courseId: (row.course_id as string) ?? null,
-    status: row.status as 'parsing' | 'ready' | 'error',
+    status: row.status as 'draft' | 'parsing' | 'ready' | 'error',
     statusMessage: (row.status_message as string) ?? null,
     createdAt: row.created_at as string,
   };
@@ -183,6 +183,60 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (error) {
       throw new DatabaseError(`Failed to insert assignment items: ${error.message}`, error);
     }
+  }
+
+  async getMaxOrderNum(assignmentId: string): Promise<number> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignment_items')
+      .select('order_num')
+      .eq('assignment_id', assignmentId)
+      .order('order_num', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new DatabaseError(`Failed to get max order_num: ${error.message}`, error);
+    }
+    return (data?.order_num as number) ?? 0;
+  }
+
+  async insertSingleItem(
+    assignmentId: string,
+    data: {
+      orderNum: number;
+      type?: string;
+      content: string;
+      referenceAnswer?: string;
+      explanation?: string;
+      points?: number;
+      difficulty?: string;
+      metadata?: Record<string, unknown>;
+      embedding?: number[] | null;
+    },
+  ): Promise<AssignmentItemEntity> {
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from('assignment_items')
+      .insert({
+        assignment_id: assignmentId,
+        order_num: data.orderNum,
+        type: data.type ?? '',
+        content: data.content,
+        reference_answer: data.referenceAnswer ?? '',
+        explanation: data.explanation ?? '',
+        points: data.points ?? 0,
+        difficulty: data.difficulty ?? '',
+        metadata: (data.metadata ?? {}) as Json,
+        embedding: data.embedding ?? null,
+      })
+      .select('*')
+      .single();
+
+    if (error || !row) {
+      throw new DatabaseError(`Failed to insert assignment item: ${error?.message}`, error);
+    }
+    return mapItemRow(row as Record<string, unknown>);
   }
 
   async findItemsByAssignmentId(assignmentId: string): Promise<AssignmentItemEntity[]> {

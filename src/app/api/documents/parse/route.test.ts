@@ -9,6 +9,7 @@ const mockRequireCourseAdmin = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
   requireAnyAdmin: () => mockRequireAnyAdmin(),
   requireCourseAdmin: (courseId: string) => mockRequireCourseAdmin(courseId),
+  requireAssignmentAccess: vi.fn(),
 }));
 
 const mockQuotaService = {

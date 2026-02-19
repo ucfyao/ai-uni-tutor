@@ -83,7 +83,12 @@ export default async function DocumentDetailPage({
       name: assignment.title,
       status: assignment.status === 'parsing' ? 'processing' : assignment.status,
       statusMessage: assignment.statusMessage,
-      metadata: { school: assignment.school, course: assignment.course, doc_type: 'assignment' },
+      metadata: {
+        school: assignment.school,
+        course: assignment.course,
+        doc_type: 'assignment',
+        courseId: assignment.courseId,
+      },
       docType: 'assignment',
       createdAt: assignment.createdAt,
     };
