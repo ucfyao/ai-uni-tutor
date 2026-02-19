@@ -393,6 +393,14 @@ export function AdminUsersClient({ currentUserId }: Props) {
     );
   };
 
+  const thStyle: React.CSSProperties = {
+    color: 'var(--mantine-color-gray-5)',
+    fontWeight: 500,
+    fontSize: 'var(--mantine-font-size-xs)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  };
+
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Desktop Header */}
@@ -414,90 +422,137 @@ export function AdminUsersClient({ currentUserId }: Props) {
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="lg" p="lg" maw={900} mx="auto">
-          <Card withBorder p="md" radius="md">
-            {/* Header: Search icon (left) + SegmentedControl tabs (center/right) */}
-            <Group mb="md" gap="sm" justify="space-between">
-              <Group gap="sm" style={{ flex: searchExpanded ? 1 : undefined }}>
-                {searchExpanded ? (
-                  <TextInput
-                    ref={searchInputRef}
-                    placeholder="Search by name or email..."
-                    leftSection={<Search size={16} />}
-                    rightSection={
-                      searchTerm ? (
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          size="xs"
-                          onClick={() => {
-                            setSearchTerm('');
-                            setSearchExpanded(false);
-                          }}
-                        >
-                          <X size={14} />
-                        </ActionIcon>
-                      ) : undefined
-                    }
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                    onBlur={handleSearchBlur}
-                    size="xs"
-                    style={{ width: isMobile ? '100%' : 260 }}
-                  />
-                ) : (
-                  <Tooltip label="Search">
+          {/* ── Toolbar: SegmentedControl (left) + Search (right) ── */}
+          <Group gap="sm" justify="space-between" wrap="nowrap">
+            <SegmentedControl
+              size="sm"
+              value={roleFilter}
+              onChange={setRoleFilter}
+              data={[
+                { value: 'all', label: 'All' },
+                { value: 'user', label: 'User' },
+                { value: 'admin', label: 'Admin' },
+                { value: 'super_admin', label: 'Super' },
+              ]}
+              radius="xl"
+              withItemsBorders={false}
+              styles={{
+                root: {
+                  backgroundColor: 'var(--mantine-color-default-hover)',
+                  border: '1px solid var(--mantine-color-default-border)',
+                },
+                indicator: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                },
+              }}
+            />
+
+            {/* Search: animated expand/collapse */}
+            <Box
+              style={{
+                width: searchExpanded ? 220 : 36,
+                height: 36,
+                transition: searchExpanded
+                  ? 'width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                overflow: 'hidden',
+                flexShrink: 0,
+                position: 'relative',
+              }}
+            >
+              <ActionIcon
+                variant="default"
+                size="lg"
+                radius="xl"
+                onClick={handleSearchExpand}
+                aria-label="Search"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: searchExpanded ? 0 : 1,
+                  transform: searchExpanded ? 'scale(0.5) rotate(90deg)' : 'scale(1) rotate(0deg)',
+                  pointerEvents: searchExpanded ? 'none' : 'auto',
+                  transition: searchExpanded
+                    ? 'opacity 0.15s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    : 'opacity 0.2s ease 0.15s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s',
+                }}
+              >
+                <Search size={16} />
+              </ActionIcon>
+
+              <TextInput
+                ref={searchInputRef}
+                placeholder="Search by name or email..."
+                leftSection={<Search size={14} />}
+                rightSection={
+                  searchExpanded ? (
                     <ActionIcon
                       variant="subtle"
                       color="gray"
-                      size="md"
-                      onClick={handleSearchExpand}
+                      size="xs"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setSearchExpanded(false);
+                      }}
                     >
-                      <Search size={16} />
+                      <X size={12} />
                     </ActionIcon>
-                  </Tooltip>
-                )}
-              </Group>
+                  ) : undefined
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                onBlur={handleSearchBlur}
+                size="sm"
+                radius="xl"
+                style={{
+                  width: 220,
+                  opacity: searchExpanded ? 1 : 0,
+                  transform: searchExpanded ? 'translateX(0)' : 'translateX(12px)',
+                  pointerEvents: searchExpanded ? 'auto' : 'none',
+                  transition: searchExpanded
+                    ? 'opacity 0.25s ease 0.12s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s'
+                    : 'opacity 0.15s ease, transform 0.2s ease',
+                }}
+              />
+            </Box>
+          </Group>
 
-              {!(isMobile && searchExpanded) && (
-                <SegmentedControl
-                  size="xs"
-                  value={roleFilter}
-                  onChange={setRoleFilter}
-                  data={[
-                    { value: 'all', label: 'All' },
-                    { value: 'user', label: 'User' },
-                    { value: 'admin', label: 'Admin' },
-                    { value: 'super_admin', label: 'Super' },
-                  ]}
-                />
-              )}
+          {/* ── User Table ── */}
+          {usersLoading ? (
+            <Group justify="center" py="xl">
+              <Loader size="sm" />
             </Group>
-
-            {/* User table */}
-            {usersLoading ? (
-              <Group justify="center" py="xl">
-                <Loader size="sm" />
-              </Group>
-            ) : users.length === 0 ? (
-              <Text c="dimmed" ta="center" py="xl" size="sm">
-                No users found.
-              </Text>
-            ) : (
-              <Table striped highlightOnHover>
+          ) : users.length === 0 ? (
+            <Text c="dimmed" ta="center" py="xl" size="sm">
+              No users found.
+            </Text>
+          ) : (
+            <Card
+              withBorder
+              radius="lg"
+              p={0}
+              style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}
+            >
+              <Table
+                verticalSpacing="sm"
+                highlightOnHover
+                highlightOnHoverColor="var(--mantine-color-gray-0)"
+              >
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>Name</Table.Th>
-                    <Table.Th>Email</Table.Th>
-                    <Table.Th>Role</Table.Th>
-                    {!isMobile && <Table.Th>Courses</Table.Th>}
-                    {!isMobile && <Table.Th>Joined</Table.Th>}
-                    <Table.Th>Actions</Table.Th>
+                    <Table.Th style={thStyle}>Name</Table.Th>
+                    <Table.Th style={thStyle}>Email</Table.Th>
+                    <Table.Th style={thStyle}>Role</Table.Th>
+                    {!isMobile && <Table.Th style={thStyle}>Courses</Table.Th>}
+                    {!isMobile && <Table.Th style={thStyle}>Joined</Table.Th>}
+                    <Table.Th style={thStyle} />
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>{users.map(renderRow)}</Table.Tbody>
               </Table>
-            )}
-          </Card>
+            </Card>
+          )}
         </Stack>
       </ScrollArea>
     </Box>
