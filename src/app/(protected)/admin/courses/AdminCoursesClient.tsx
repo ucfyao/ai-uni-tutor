@@ -367,6 +367,21 @@ export function AdminCoursesClient({
               </Tabs.List>
 
               <Group gap={8} wrap="nowrap" mb={6}>
+                {/* University filter — only visible on Courses tab */}
+                {activeTab === 'courses' && (
+                  <Select
+                    placeholder={t.coursesAdmin.university}
+                    data={universitySelectData}
+                    value={filterUniversityId}
+                    onChange={setFilterUniversityId}
+                    clearable
+                    searchable
+                    size="sm"
+                    radius="xl"
+                    w={180}
+                  />
+                )}
+
                 {/* Search: animated expand/collapse */}
                 <Box
                   style={{
@@ -573,120 +588,107 @@ export function AdminCoursesClient({
 
             {/* ── Courses Tab ── */}
             <Tabs.Panel value="courses" pt="md">
-              <Stack gap="md">
-                <Select
-                  placeholder={t.coursesAdmin.university}
-                  data={universitySelectData}
-                  value={filterUniversityId}
-                  onChange={setFilterUniversityId}
-                  clearable
-                  searchable
-                  size="sm"
-                  w={260}
-                />
-
-                {filteredCourses.length === 0 ? (
-                  <Alert variant="light" color="gray">
-                    {t.coursesAdmin.noCourses}
-                  </Alert>
-                ) : (
-                  <Card
-                    withBorder
-                    radius="lg"
-                    p={0}
-                    style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}
+              {filteredCourses.length === 0 ? (
+                <Alert variant="light" color="gray">
+                  {t.coursesAdmin.noCourses}
+                </Alert>
+              ) : (
+                <Card
+                  withBorder
+                  radius="lg"
+                  p={0}
+                  style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}
+                >
+                  <Table
+                    verticalSpacing="sm"
+                    layout="fixed"
+                    highlightOnHover
+                    highlightOnHoverColor="var(--mantine-color-gray-0)"
                   >
-                    <Table
-                      verticalSpacing="sm"
-                      layout="fixed"
-                      highlightOnHover
-                      highlightOnHoverColor="var(--mantine-color-gray-0)"
-                    >
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th w="12%" style={thStyle}>
-                            ID
-                          </Table.Th>
-                          <Table.Th w="18%" style={thStyle}>
-                            {t.coursesAdmin.code}
-                          </Table.Th>
-                          <Table.Th w="28%" style={thStyle}>
-                            {t.coursesAdmin.courseName}
-                          </Table.Th>
-                          <Table.Th w="28%" style={thStyle}>
-                            {t.coursesAdmin.university}
-                          </Table.Th>
-                          <Table.Th w="14%" style={thStyle} />
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {filteredCourses.map((course) => (
-                          <Table.Tr key={course.id} style={{ transition: 'background 0.12s ease' }}>
-                            <Table.Td>
-                              <CopyButton value={course.id}>
-                                {({ copied, copy }) => (
-                                  <Tooltip
-                                    label={copied ? 'Copied!' : course.id}
-                                    withArrow
-                                    position="right"
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th w="12%" style={thStyle}>
+                          ID
+                        </Table.Th>
+                        <Table.Th w="18%" style={thStyle}>
+                          {t.coursesAdmin.code}
+                        </Table.Th>
+                        <Table.Th w="28%" style={thStyle}>
+                          {t.coursesAdmin.courseName}
+                        </Table.Th>
+                        <Table.Th w="28%" style={thStyle}>
+                          {t.coursesAdmin.university}
+                        </Table.Th>
+                        <Table.Th w="14%" style={thStyle} />
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {filteredCourses.map((course) => (
+                        <Table.Tr key={course.id} style={{ transition: 'background 0.12s ease' }}>
+                          <Table.Td>
+                            <CopyButton value={course.id}>
+                              {({ copied, copy }) => (
+                                <Tooltip
+                                  label={copied ? 'Copied!' : course.id}
+                                  withArrow
+                                  position="right"
+                                >
+                                  <Text
+                                    size="xs"
+                                    c={copied ? 'teal' : 'dimmed'}
+                                    ff="monospace"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={copy}
                                   >
-                                    <Text
-                                      size="xs"
-                                      c={copied ? 'teal' : 'dimmed'}
-                                      ff="monospace"
-                                      style={{ cursor: 'pointer' }}
-                                      onClick={copy}
-                                    >
-                                      {course.id.slice(0, 8)}
-                                    </Text>
-                                  </Tooltip>
-                                )}
-                              </CopyButton>
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge variant="light" color="indigo" size="sm">
-                                {course.code}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" fw={500}>
-                                {course.name}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm">
-                                {universityMap.get(course.universityId)?.name ?? '—'}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Group gap={4}>
-                                <ActionIcon
-                                  variant="subtle"
-                                  color="blue"
-                                  size="sm"
-                                  onClick={() => openEditCourse(course)}
-                                  aria-label={t.coursesAdmin.editCourse}
-                                >
-                                  <Pencil size={14} />
-                                </ActionIcon>
-                                <ActionIcon
-                                  variant="subtle"
-                                  color="red"
-                                  size="sm"
-                                  onClick={() => setModal({ kind: 'deleteCourse', course })}
-                                  aria-label={t.coursesAdmin.deleteCourse}
-                                >
-                                  <Trash2 size={14} />
-                                </ActionIcon>
-                              </Group>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </Card>
-                )}
-              </Stack>
+                                    {course.id.slice(0, 8)}
+                                  </Text>
+                                </Tooltip>
+                              )}
+                            </CopyButton>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge variant="light" color="indigo" size="sm">
+                              {course.code}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" fw={500}>
+                              {course.name}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">
+                              {universityMap.get(course.universityId)?.name ?? '—'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap={4}>
+                              <ActionIcon
+                                variant="subtle"
+                                color="blue"
+                                size="sm"
+                                onClick={() => openEditCourse(course)}
+                                aria-label={t.coursesAdmin.editCourse}
+                              >
+                                <Pencil size={14} />
+                              </ActionIcon>
+                              <ActionIcon
+                                variant="subtle"
+                                color="red"
+                                size="sm"
+                                onClick={() => setModal({ kind: 'deleteCourse', course })}
+                                aria-label={t.coursesAdmin.deleteCourse}
+                              >
+                                <Trash2 size={14} />
+                              </ActionIcon>
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Card>
+              )}
             </Tabs.Panel>
           </Tabs>
         </Stack>
