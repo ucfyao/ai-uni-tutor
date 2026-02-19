@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
@@ -15,6 +16,7 @@ import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentStatus } from '@/lib/domain/models/Document';
 import { showNotification } from '@/lib/notifications';
+import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
@@ -47,6 +49,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { t } = useLanguage();
 
   const [currentStatus, setCurrentStatus] = useState<DocumentStatus>(doc.status);
@@ -195,6 +198,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const handleDeleteDoc = useCallback(async () => {
     try {
       await deleteDocument(doc.id, 'lecture');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       router.push('/admin/knowledge');
     } catch (e) {
       showNotification({
@@ -203,7 +207,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         color: 'red',
       });
     }
-  }, [doc.id, router, t]);
+  }, [doc.id, queryClient, router, t]);
 
   // Header node
   const headerNode = useMemo(

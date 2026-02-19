@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
@@ -9,6 +10,7 @@ import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
+import { queryKeys } from '@/lib/query-keys';
 import type { ExamPaper, ExamQuestion } from '@/types/exam';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
@@ -24,6 +26,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { t } = useLanguage();
 
   const docType: DocType = 'exam';
@@ -181,12 +184,13 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
   const handleDeleteDoc = useCallback(async () => {
     try {
       await deleteDocument(paper.id, 'exam');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       showNotification({ message: t.toast.changesSaved, color: 'green' });
-      router.push('/admin/exams');
+      router.push('/admin/knowledge');
     } catch {
       showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
     }
-  }, [paper.id, router, t]);
+  }, [paper.id, queryClient, router, t]);
 
   const headerNode = useMemo(
     () => (
