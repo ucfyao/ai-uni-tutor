@@ -4,9 +4,7 @@ import { ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ActionIcon, Badge, Button, Group, Text, TextInput } from '@mantine/core';
-import { updateDocumentMeta } from '@/app/actions/documents';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { showNotification } from '@/lib/notifications';
 import { statusColor } from './types';
 
 interface DocumentDetailHeaderProps {
@@ -16,8 +14,8 @@ interface DocumentDetailHeaderProps {
   school: string;
   course: string;
   status: string;
-  /** Called after name is successfully saved server-side */
-  onNameChanged: (newName: string) => void;
+  backHref?: string;
+  onSaveName: (newName: string) => Promise<void>;
 }
 
 export function DocumentDetailHeader({
@@ -27,7 +25,8 @@ export function DocumentDetailHeader({
   school,
   course,
   status,
-  onNameChanged,
+  backHref,
+  onSaveName,
 }: DocumentDetailHeaderProps) {
   const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
@@ -36,15 +35,7 @@ export function DocumentDetailHeader({
   const handleSave = async () => {
     const trimmed = value.trim();
     if (trimmed && trimmed !== initialName) {
-      const result = await updateDocumentMeta(docId, { name: trimmed });
-      if (result.status === 'success') {
-        onNameChanged(trimmed);
-        showNotification({
-          title: t.documentDetail.updated,
-          message: t.documentDetail.nameUpdated,
-          color: 'green',
-        });
-      }
+      await onSaveName(trimmed);
     }
     setEditing(false);
   };
@@ -55,12 +46,11 @@ export function DocumentDetailHeader({
       <Group gap="sm" wrap="nowrap" style={{ flex: 1, overflow: 'hidden' }}>
         <Button
           component={Link}
-          href="/admin/knowledge"
+          href={backHref ?? '/admin/knowledge'}
           variant="subtle"
           color="gray"
           size="compact-sm"
           px={4}
-          aria-label={t.documentDetail.backToKnowledge}
         >
           <ArrowLeft size={16} />
         </Button>

@@ -7,13 +7,13 @@ import { useMediaQuery } from '@mantine/hooks';
 import { addAssignmentItem } from '@/app/actions/assignments';
 import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
 import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
-import { DocumentDetailHeader } from '@/components/rag/DocumentDetailHeader';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { showNotification } from '@/lib/notifications';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
+import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
 import type { Chunk, DocType } from '../../knowledge/[id]/types';
 
 interface AssignmentDetailClientProps {
@@ -213,32 +213,19 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
   const headerNode = useMemo(
     () => (
       <DocumentDetailHeader
-        title={assignment.title}
-        metadata={{
-          school: assignment.school || undefined,
-          course: assignment.course || undefined,
-        }}
+        docId={assignment.id}
+        initialName={assignment.title}
+        docType="assignment"
+        school={school}
+        course={course}
         status={assignment.status}
-        itemCount={visibleChunks.length}
-        docType={docType}
-        onPublish={handlePublish}
-        onUnpublish={handleUnpublish}
-        onDelete={handleDeleteDoc}
-        isPublishing={isPublishing}
+        backHref="/admin/knowledge"
+        onSaveName={async () => {
+          // Assignment title rename not yet supported
+        }}
       />
     ),
-    [
-      assignment.title,
-      assignment.school,
-      assignment.course,
-      assignment.status,
-      visibleChunks.length,
-      docType,
-      handlePublish,
-      handleUnpublish,
-      handleDeleteDoc,
-      isPublishing,
-    ],
+    [assignment.id, assignment.title, school, course, assignment.status],
   );
 
   useEffect(() => {
@@ -255,8 +242,10 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
       {!isMobile && (
         <Box
           px="md"
-          py="sm"
+          h={52}
           style={{
+            display: 'flex',
+            alignItems: 'center',
             borderBottom: '1px solid var(--mantine-color-default-border)',
             flexShrink: 0,
           }}
@@ -303,6 +292,12 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
             editedChunks={editedChunks}
             deletedChunkIds={deletedChunkIds}
             onSaved={handleSaved}
+            status={assignment.status}
+            itemCount={visibleChunks.length}
+            onPublish={handlePublish}
+            onUnpublish={handleUnpublish}
+            onDelete={handleDeleteDoc}
+            isPublishing={isPublishing}
           />
         </Stack>
       </ScrollArea>

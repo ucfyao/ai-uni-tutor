@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
-import { DocumentDetailHeader } from '@/components/rag/DocumentDetailHeader';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -13,6 +12,7 @@ import { showNotification } from '@/lib/notifications';
 import type { ExamPaper, ExamQuestion } from '@/types/exam';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
+import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
 import type { Chunk, DocType } from '../../knowledge/[id]/types';
 
 interface ExamDetailClientProps {
@@ -191,29 +191,19 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
   const headerNode = useMemo(
     () => (
       <DocumentDetailHeader
-        title={paper.title}
-        metadata={{ school: school || undefined, course: course || undefined }}
+        docId={paper.id}
+        initialName={paper.title}
+        docType="exam"
+        school={school}
+        course={course}
         status={paper.status}
-        itemCount={visibleChunks.length}
-        docType={docType}
-        onPublish={handlePublish}
-        onUnpublish={handleUnpublish}
-        onDelete={handleDeleteDoc}
-        isPublishing={isPublishing}
+        backHref="/admin/knowledge"
+        onSaveName={async () => {
+          // Exam title rename not yet supported
+        }}
       />
     ),
-    [
-      paper.title,
-      paper.status,
-      school,
-      course,
-      visibleChunks.length,
-      docType,
-      handlePublish,
-      handleUnpublish,
-      handleDeleteDoc,
-      isPublishing,
-    ],
+    [paper.id, paper.title, school, course, paper.status],
   );
 
   useEffect(() => {
@@ -230,8 +220,10 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
       {!isMobile && (
         <Box
           px="md"
-          py="sm"
+          h={52}
           style={{
+            display: 'flex',
+            alignItems: 'center',
             borderBottom: '1px solid var(--mantine-color-default-border)',
             flexShrink: 0,
           }}
@@ -274,6 +266,12 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
             editedChunks={editedChunks}
             deletedChunkIds={deletedChunkIds}
             onSaved={handleSaved}
+            status={paper.status}
+            itemCount={visibleChunks.length}
+            onPublish={handlePublish}
+            onUnpublish={handleUnpublish}
+            onDelete={handleDeleteDoc}
+            isPublishing={isPublishing}
           />
         </Stack>
       </ScrollArea>
