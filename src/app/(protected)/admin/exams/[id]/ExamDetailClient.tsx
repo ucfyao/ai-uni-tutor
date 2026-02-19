@@ -5,8 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
+import {
+  addExamQuestion,
+  deleteDocument,
+  publishDocument,
+  unpublishDocument,
+} from '@/app/actions/documents';
+import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
+import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -184,13 +191,41 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
   const handleDeleteDoc = useCallback(async () => {
     try {
       await deleteDocument(paper.id, 'exam');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+      for (const dt of DOC_TYPES) {
+        queryClient.setQueryData<KnowledgeDocument[]>(
+          queryKeys.documents.byType(dt.value),
+          (prev) => prev?.filter((d) => d.id !== paper.id),
+        );
+      }
       showNotification({ message: t.toast.changesSaved, color: 'green' });
       router.push('/admin/knowledge');
     } catch {
       showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
     }
   }, [paper.id, queryClient, router, t]);
+
+  // Add exam question
+  const handleAddItem = useCallback(
+    async (data: Record<string, unknown>): Promise<boolean> => {
+      const result = await addExamQuestion({
+        paperId: paper.id,
+        content: (data.content as string) || '',
+        answer: (data.referenceAnswer as string) || '',
+        explanation: (data.explanation as string) || '',
+        points: (data.points as number) || 0,
+        type: (data.type as string) || 'short_answer',
+      });
+      if (result.success) {
+        showNotification({ message: t.toast.changesSaved, color: 'green' });
+        router.refresh();
+        return true;
+      } else {
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
+        return false;
+      }
+    },
+    [paper.id, router, t],
+  );
 
   const headerNode = useMemo(
     () => (
@@ -244,7 +279,6 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
             courseId={courseId || undefined}
             onParseComplete={() => router.refresh()}
           />
-
           <ChunkTable
             chunks={visibleChunks}
             docType={docType}
@@ -261,8 +295,8 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}
             onBulkDelete={handleBulkDelete}
+            onAddItem={handleAddItem}
           />
-
           <ChunkActionBar
             docId={paper.id}
             docType={docType}

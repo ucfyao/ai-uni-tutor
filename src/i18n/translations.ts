@@ -270,9 +270,12 @@ export const translations = {
       viewDetailsLink: '查看详情',
       emptyTitle: '你的知识库是空的',
       emptyDescription: '上传课程笔记、考卷或作业来构建你的个人知识库。',
-      emptyUploadTitle: '开始上传你的第一份文档',
-      emptyUploadDescription:
-        '创建讲义、试卷或作业，然后上传 PDF 进行解析，AI 将自动提取知识点和题目。',
+      emptyLectureTitle: '还没有讲义',
+      emptyLectureCTA: '添加第一份讲义',
+      emptyExamTitle: '还没有试卷',
+      emptyExamCTA: '添加第一份试卷',
+      emptyAssignmentTitle: '还没有作业',
+      emptyAssignmentCTA: '添加第一份作业',
       items: '条目',
       uploadCTA: '上传文档',
       processingDocument: '正在处理文档...',
@@ -287,8 +290,9 @@ export const translations = {
       assignmentTitlePlaceholder: '例：第三章课后习题',
       createAndEdit: '创建并编辑',
       // Add Item
-      addItem: '添加题目',
       addKnowledgePoint: '添加知识点',
+      addQuestion: '添加题目',
+      addItem: '添加题目',
       questionType: '题目类型',
       questionTypes: {
         multiple_choice: '选择题',
@@ -1011,9 +1015,12 @@ export const translations = {
       emptyTitle: 'Your knowledge base is empty',
       emptyDescription:
         'Upload lecture notes, exam papers, or assignments to build your personal knowledge base.',
-      emptyUploadTitle: 'Upload your first document',
-      emptyUploadDescription:
-        'Create a lecture, exam, or assignment, then upload a PDF to parse. AI will automatically extract knowledge points and questions.',
+      emptyLectureTitle: 'No lectures yet',
+      emptyLectureCTA: 'Add your first lecture',
+      emptyExamTitle: 'No exams yet',
+      emptyExamCTA: 'Add your first exam',
+      emptyAssignmentTitle: 'No assignments yet',
+      emptyAssignmentCTA: 'Add your first assignment',
       items: 'Items',
       uploadCTA: 'Upload Document',
       processingDocument: 'Processing document...',
@@ -1028,8 +1035,9 @@ export const translations = {
       assignmentTitlePlaceholder: 'e.g. Chapter 3 Homework',
       createAndEdit: 'Create & Edit',
       // Add Item
-      addItem: 'Add Item',
       addKnowledgePoint: 'Add Knowledge Point',
+      addQuestion: 'Add Question',
+      addItem: 'Add Item',
       questionType: 'Question Type',
       questionTypes: {
         multiple_choice: 'Multiple Choice',

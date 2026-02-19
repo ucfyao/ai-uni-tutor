@@ -414,42 +414,6 @@ export async function updateAssignmentItems(
   return { status: 'success', message: 'Changes saved' };
 }
 
-// --- Add single lecture chunk ---
-
-const addLectureChunkSchema = z.object({
-  documentId: z.string().uuid(),
-  title: z.string().min(1).max(500),
-  definition: z.string().min(1).max(5000),
-});
-
-export async function addLectureChunk(
-  input: z.infer<typeof addLectureChunkSchema>,
-): Promise<{ success: true; data: { id: string } } | { success: false; error: string }> {
-  try {
-    const parsed = addLectureChunkSchema.parse(input);
-    const { user, role } = await requireAnyAdmin();
-    await requireLectureAccess(parsed.documentId, user.id, role);
-
-    const service = getLectureDocumentService();
-    const content = `${parsed.title}\n${parsed.definition}`;
-    const ids = await service.saveChunksAndReturn([
-      {
-        lectureDocumentId: parsed.documentId,
-        content,
-        metadata: { title: parsed.title, definition: parsed.definition } as Json,
-        embedding: null,
-      },
-    ]);
-
-    revalidatePath(`/admin/lectures/${parsed.documentId}`);
-    revalidatePath('/admin/knowledge');
-    return { success: true, data: { id: ids[0].id } };
-  } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'Admin access required' };
-    return { success: false, error: 'Failed to add knowledge point' };
-  }
-}
-
 // --- New actions ---
 
 const createLectureSchema = z.object({
@@ -584,5 +548,98 @@ export async function unpublishDocument(
       success: false,
       error: error instanceof Error ? error.message : 'Failed to unpublish',
     };
+  }
+}
+
+// ── Add individual items ──
+
+const addChunkSchema = z.object({
+  documentId: z.string().uuid(),
+  title: z.string().min(1),
+  definition: z.string().min(1),
+  keyFormulas: z.array(z.string()).optional(),
+  keyConcepts: z.array(z.string()).optional(),
+  examples: z.array(z.string()).optional(),
+});
+
+export async function addDocumentChunk(
+  input: z.infer<typeof addChunkSchema>,
+): Promise<{ success: true; data: { id: string } } | { success: false; error: string }> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = addChunkSchema.parse(input);
+
+    await requireLectureAccess(parsed.documentId, user.id, role);
+
+    const service = getLectureDocumentService();
+    const metadata: Record<string, unknown> = {
+      title: parsed.title,
+      definition: parsed.definition,
+    };
+    if (parsed.keyFormulas?.length) metadata.keyFormulas = parsed.keyFormulas;
+    if (parsed.keyConcepts?.length) metadata.keyConcepts = parsed.keyConcepts;
+    if (parsed.examples?.length) metadata.examples = parsed.examples;
+
+    const content = `${parsed.title}\n\n${parsed.definition}`;
+    const ids = await service.saveChunksAndReturn([
+      { lectureDocumentId: parsed.documentId, content, metadata: metadata as Json },
+    ]);
+
+    revalidatePath(`/admin/lectures/${parsed.documentId}`);
+    return { success: true, data: { id: ids[0].id } };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    console.error('addDocumentChunk error:', error);
+    return { success: false, error: 'Failed to add knowledge point' };
+  }
+}
+
+const addExamQuestionSchema = z.object({
+  paperId: z.string().uuid(),
+  content: z.string().min(1),
+  answer: z.string().optional().default(''),
+  explanation: z.string().optional().default(''),
+  points: z.number().min(0).optional().default(0),
+  type: z.string().optional().default('short_answer'),
+});
+
+export async function addExamQuestion(
+  input: z.infer<typeof addExamQuestionSchema>,
+): Promise<{ success: true; data: { id: string } } | { success: false; error: string }> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = addExamQuestionSchema.parse(input);
+
+    await requireExamAccess(parsed.paperId, user.id, role);
+
+    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+    const examRepo = getExamPaperRepository();
+
+    // Determine next order number
+    const existing = await examRepo.findQuestionsByPaperId(parsed.paperId);
+    const nextOrder = existing.length > 0 ? Math.max(...existing.map((q) => q.orderNum)) + 1 : 1;
+
+    await examRepo.insertQuestions([
+      {
+        paperId: parsed.paperId,
+        orderNum: nextOrder,
+        type: parsed.type,
+        content: parsed.content,
+        options: null,
+        answer: parsed.answer,
+        explanation: parsed.explanation,
+        points: parsed.points,
+        metadata: {},
+      },
+    ]);
+
+    revalidatePath(`/admin/exams/${parsed.paperId}`);
+    return { success: true, data: { id: 'created' } };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    console.error('addExamQuestion error:', error);
+    return { success: false, error: 'Failed to add question' };
   }
 }
