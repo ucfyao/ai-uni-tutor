@@ -9,6 +9,7 @@ import {
   Badge,
   Box,
   Button,
+  CopyButton,
   Group,
   Modal,
   ScrollArea,
@@ -18,6 +19,7 @@ import {
   Tabs,
   Text,
   TextInput,
+  Tooltip,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
@@ -340,6 +342,7 @@ export function AdminCoursesClient({
                   <Table striped highlightOnHover withTableBorder withColumnBorders>
                     <Table.Thead>
                       <Table.Tr>
+                        <Table.Th w={100}>ID</Table.Th>
                         <Table.Th>{t.coursesAdmin.name}</Table.Th>
                         <Table.Th>{t.coursesAdmin.shortName}</Table.Th>
                         <Table.Th>{t.coursesAdmin.courseCount}</Table.Th>
@@ -349,6 +352,27 @@ export function AdminCoursesClient({
                     <Table.Tbody>
                       {universities.map((uni) => (
                         <Table.Tr key={uni.id}>
+                          <Table.Td>
+                            <CopyButton value={uni.id}>
+                              {({ copied, copy }) => (
+                                <Tooltip
+                                  label={copied ? 'Copied!' : uni.id}
+                                  withArrow
+                                  position="right"
+                                >
+                                  <Text
+                                    size="xs"
+                                    c={copied ? 'teal' : 'dimmed'}
+                                    ff="monospace"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={copy}
+                                  >
+                                    {uni.id.slice(0, 8)}
+                                  </Text>
+                                </Tooltip>
+                              )}
+                            </CopyButton>
+                          </Table.Td>
                           <Table.Td>
                             <Text size="sm" fw={500}>
                               {uni.name}
@@ -421,6 +445,7 @@ export function AdminCoursesClient({
                   <Table striped highlightOnHover withTableBorder withColumnBorders>
                     <Table.Thead>
                       <Table.Tr>
+                        <Table.Th w={100}>ID</Table.Th>
                         <Table.Th>{t.coursesAdmin.code}</Table.Th>
                         <Table.Th>{t.coursesAdmin.courseName}</Table.Th>
                         <Table.Th>{t.coursesAdmin.university}</Table.Th>
@@ -430,6 +455,27 @@ export function AdminCoursesClient({
                     <Table.Tbody>
                       {filteredCourses.map((course) => (
                         <Table.Tr key={course.id}>
+                          <Table.Td>
+                            <CopyButton value={course.id}>
+                              {({ copied, copy }) => (
+                                <Tooltip
+                                  label={copied ? 'Copied!' : course.id}
+                                  withArrow
+                                  position="right"
+                                >
+                                  <Text
+                                    size="xs"
+                                    c={copied ? 'teal' : 'dimmed'}
+                                    ff="monospace"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={copy}
+                                  >
+                                    {course.id.slice(0, 8)}
+                                  </Text>
+                                </Tooltip>
+                              )}
+                            </CopyButton>
+                          </Table.Td>
                           <Table.Td>
                             <Badge variant="light" color="indigo" size="sm">
                               {course.code}
