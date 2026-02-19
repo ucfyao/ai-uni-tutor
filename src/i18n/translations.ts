@@ -270,6 +270,12 @@ export const translations = {
       viewDetailsLink: '查看详情',
       emptyTitle: '你的知识库是空的',
       emptyDescription: '上传课程笔记、考卷或作业来构建你的个人知识库。',
+      emptyLectureTitle: '还没有讲义',
+      emptyLectureCTA: '添加第一份讲义',
+      emptyExamTitle: '还没有试卷',
+      emptyExamCTA: '添加第一份试卷',
+      emptyAssignmentTitle: '还没有作业',
+      emptyAssignmentCTA: '添加第一份作业',
       uploadCTA: '上传文档',
       processingDocument: '正在处理文档...',
       bulkDelete: '批量删除',
@@ -283,6 +289,8 @@ export const translations = {
       assignmentTitlePlaceholder: '例：第三章课后习题',
       createAndEdit: '创建并编辑',
       // Add Item
+      addKnowledgePoint: '添加知识点',
+      addQuestion: '添加题目',
       addItem: '添加题目',
       questionType: '题目类型',
       questionTypes: {
@@ -1003,6 +1011,12 @@ export const translations = {
       emptyTitle: 'Your knowledge base is empty',
       emptyDescription:
         'Upload lecture notes, exam papers, or assignments to build your personal knowledge base.',
+      emptyLectureTitle: 'No lectures yet',
+      emptyLectureCTA: 'Add your first lecture',
+      emptyExamTitle: 'No exams yet',
+      emptyExamCTA: 'Add your first exam',
+      emptyAssignmentTitle: 'No assignments yet',
+      emptyAssignmentCTA: 'Add your first assignment',
       uploadCTA: 'Upload Document',
       processingDocument: 'Processing document...',
       bulkDelete: 'Delete Selected',
@@ -1016,6 +1030,8 @@ export const translations = {
       assignmentTitlePlaceholder: 'e.g. Chapter 3 Homework',
       createAndEdit: 'Create & Edit',
       // Add Item
+      addKnowledgePoint: 'Add Knowledge Point',
+      addQuestion: 'Add Question',
       addItem: 'Add Item',
       questionType: 'Question Type',
       questionTypes: {

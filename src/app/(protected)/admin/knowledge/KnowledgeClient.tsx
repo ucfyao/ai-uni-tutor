@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, Library, Plus, Search, X } from 'lucide-react';
+import { BookOpen, ClipboardCheck, FileText, Plus, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -254,12 +254,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               withItemsBorders={false}
               styles={{
                 root: {
-                  backgroundColor: 'var(--mantine-color-default-hover)',
-                  border: '1px solid var(--mantine-color-default-border)',
+                  backgroundColor: 'transparent',
+                  border: 'none',
                 },
                 indicator: {
                   backgroundColor: 'var(--mantine-color-body)',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  border: '1px solid var(--mantine-color-default-border)',
+                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
                 },
               }}
             />
@@ -392,17 +393,43 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             </Stack>
           ) : (
             <Stack align="center" gap="md" py={60}>
-              <ThemeIcon size={64} radius="xl" variant="light" color="gray">
-                <Library size={32} />
+              <ThemeIcon
+                size={64}
+                radius="xl"
+                variant="light"
+                color={
+                  activeTab === 'exam' ? 'orange' : activeTab === 'assignment' ? 'violet' : 'indigo'
+                }
+              >
+                {activeTab === 'exam' ? (
+                  <FileText size={32} />
+                ) : activeTab === 'assignment' ? (
+                  <ClipboardCheck size={32} />
+                ) : (
+                  <BookOpen size={32} />
+                )}
               </ThemeIcon>
-              <Text fw={500} fz="lg">
-                {t.knowledge.emptyTitle}
+              <Text fw={600} fz="lg" c="dimmed">
+                {activeTab === 'exam'
+                  ? t.knowledge.emptyExamTitle
+                  : activeTab === 'assignment'
+                    ? t.knowledge.emptyAssignmentTitle
+                    : t.knowledge.emptyLectureTitle}
               </Text>
-              <Text c="dimmed" ta="center" maw={400}>
-                {t.knowledge.emptyDescription}
-              </Text>
-              <Button leftSection={<Plus size={16} />} onClick={() => setUploadModalOpen(true)}>
-                {t.knowledge.uploadCTA}
+              <Button
+                leftSection={<Plus size={16} />}
+                onClick={() => setUploadModalOpen(true)}
+                variant="filled"
+                color={
+                  activeTab === 'exam' ? 'orange' : activeTab === 'assignment' ? 'violet' : 'indigo'
+                }
+                radius="md"
+              >
+                {activeTab === 'exam'
+                  ? t.knowledge.emptyExamCTA
+                  : activeTab === 'assignment'
+                    ? t.knowledge.emptyAssignmentCTA
+                    : t.knowledge.emptyLectureCTA}
               </Button>
             </Stack>
           )}

@@ -100,136 +100,113 @@ export function PdfUploadZone({
     });
   }, []);
 
-  const handleUploadAnother = useCallback(() => {
-    parseState.reset();
-  }, [parseState]);
-
   const progressPct = getProgressPercent(
     parseState.status,
     parseState.progress,
     parseState.savedChunkIds.size,
   );
 
-  // ── Idle: dropzone ──
-  if (!isActive) {
-    return (
-      <Stack gap="xs">
-        <Box
-          style={{
-            borderRadius: 'var(--mantine-radius-lg)',
-            border: '1.5px dashed var(--mantine-color-gray-3)',
-            overflow: 'hidden',
-          }}
-        >
-          <Dropzone
-            onDrop={handleDrop}
-            onReject={handleReject}
-            maxSize={MAX_FILE_SIZE}
-            accept={PDF_MIME_TYPE}
-            multiple={false}
-            disabled={disabled}
-            styles={{
-              root: {
-                border: 'none',
-                background: 'transparent',
-              },
-            }}
-          >
-            <Group justify="center" gap="sm" style={{ minHeight: 80, pointerEvents: 'none' }}>
-              <Dropzone.Accept>
-                <Upload size={24} color="var(--mantine-color-indigo-6)" />
-              </Dropzone.Accept>
-              <Dropzone.Reject>
-                <FileText size={24} color="var(--mantine-color-red-6)" />
-              </Dropzone.Reject>
-              <Dropzone.Idle>
-                <Upload size={24} color="var(--mantine-color-indigo-4)" />
-              </Dropzone.Idle>
-              <Stack gap={4} align="center">
-                <Text size="sm" c="dimmed">
-                  {t.knowledge.dropPdfHere}{' '}
-                  <Text span c="indigo" fw={600}>
-                    {t.knowledge.browse}
-                  </Text>
-                </Text>
-                <Text size="xs" c="dimmed">
-                  PDF, max 20MB
-                </Text>
-              </Stack>
-            </Group>
-          </Dropzone>
-        </Box>
+  const isBusy = isActive && parseState.status !== 'complete' && parseState.status !== 'error';
 
-        {existingItemCount > 0 && (
-          <Text size="xs" c="dimmed" ta="center">
-            {existingItemCount} {t.documentDetail[itemLabel]} — new upload will append
-          </Text>
-        )}
-      </Stack>
-    );
-  }
-
-  // ── Parsing / embedding / complete / error: progress view ──
   return (
     <Stack gap="sm">
-      {/* Status text */}
-      <Group gap="xs" justify="space-between" wrap="nowrap">
-        <Text size="sm" fw={500} c={STAGE_COLORS[parseState.status]}>
-          {parseState.status === 'parsing_pdf' && t.knowledge.parsingPdf}
-          {parseState.status === 'extracting' && t.knowledge.extracting}
-          {parseState.status === 'embedding' &&
-            `${t.knowledge.savingToDatabase.replace('...', '')} ${parseState.savedChunkIds.size}/${parseState.progress.total}`}
-          {parseState.status === 'complete' && t.knowledge.complete}
-          {parseState.status === 'error' && (parseState.error || t.knowledge.parsingError)}
+      {/* ── Dropzone (always visible) ── */}
+      <Box
+        style={{
+          borderRadius: 'var(--mantine-radius-lg)',
+          border: '1.5px dashed var(--mantine-color-gray-3)',
+          overflow: 'hidden',
+          opacity: isBusy ? 0.5 : 1,
+          pointerEvents: isBusy ? 'none' : 'auto',
+          transition: 'opacity 0.2s ease',
+        }}
+      >
+        <Dropzone
+          onDrop={handleDrop}
+          onReject={handleReject}
+          maxSize={MAX_FILE_SIZE}
+          accept={PDF_MIME_TYPE}
+          multiple={false}
+          disabled={disabled || isBusy}
+          styles={{
+            root: {
+              border: 'none',
+              background: 'transparent',
+            },
+          }}
+        >
+          <Group justify="center" gap="sm" style={{ minHeight: 80, pointerEvents: 'none' }}>
+            <Dropzone.Accept>
+              <Upload size={24} color="var(--mantine-color-indigo-6)" />
+            </Dropzone.Accept>
+            <Dropzone.Reject>
+              <FileText size={24} color="var(--mantine-color-red-6)" />
+            </Dropzone.Reject>
+            <Dropzone.Idle>
+              <Upload size={24} color="var(--mantine-color-indigo-4)" />
+            </Dropzone.Idle>
+            <Stack gap={4} align="center">
+              <Text size="sm" c="dimmed">
+                {t.knowledge.dropPdfHere}{' '}
+                <Text span c="indigo" fw={600}>
+                  {t.knowledge.browse}
+                </Text>
+              </Text>
+              <Text size="xs" c="dimmed">
+                PDF, max 20MB
+              </Text>
+            </Stack>
+          </Group>
+        </Dropzone>
+      </Box>
+
+      {existingItemCount > 0 && !isActive && (
+        <Text size="xs" c="dimmed" ta="center">
+          {existingItemCount} {t.documentDetail[itemLabel]} — new upload will append
         </Text>
-
-        {/* Item count badge during extraction / embedding */}
-        {(parseState.status === 'extracting' || parseState.status === 'embedding') &&
-          parseState.items.length > 0 && (
-            <Badge variant="light" color={STAGE_COLORS[parseState.status]} size="sm">
-              {parseState.items.length} {t.documentDetail[itemLabel]}
-            </Badge>
-          )}
-      </Group>
-
-      {/* Progress bar */}
-      <Progress
-        value={progressPct}
-        color={STAGE_COLORS[parseState.status] || 'indigo'}
-        size="md"
-        radius="xl"
-        animated={parseState.status !== 'complete' && parseState.status !== 'error'}
-      />
-
-      {/* Complete: success + upload another */}
-      {parseState.status === 'complete' && (
-        <Group justify="space-between" align="center">
-          <Text size="sm" c="green" fw={500}>
-            {parseState.items.length} {t.documentDetail[itemLabel]} added
-          </Text>
-          <Text
-            size="xs"
-            c="indigo"
-            fw={600}
-            style={{ cursor: 'pointer' }}
-            onClick={handleUploadAnother}
-          >
-            Upload another
-          </Text>
-        </Group>
       )}
 
-      {/* Error: message + retry */}
-      {parseState.status === 'error' && (
-        <Text
-          size="xs"
-          c="indigo"
-          fw={600}
-          style={{ cursor: 'pointer' }}
-          onClick={handleUploadAnother}
-        >
-          {t.knowledge.retryProcessing}
-        </Text>
+      {/* ── Progress (below dropzone, only when active) ── */}
+      {isActive && (
+        <Stack gap="xs">
+          <Group gap="xs" justify="space-between" wrap="nowrap">
+            <Text size="sm" fw={500} c={STAGE_COLORS[parseState.status]}>
+              {parseState.status === 'parsing_pdf' && t.knowledge.parsingPdf}
+              {parseState.status === 'extracting' && t.knowledge.extracting}
+              {parseState.status === 'embedding' &&
+                `${t.knowledge.savingToDatabase.replace('...', '')} ${parseState.savedChunkIds.size}/${parseState.progress.total}`}
+              {parseState.status === 'complete' && t.knowledge.complete}
+              {parseState.status === 'error' && (parseState.error || t.knowledge.parsingError)}
+            </Text>
+
+            {(parseState.status === 'extracting' || parseState.status === 'embedding') &&
+              parseState.items.length > 0 && (
+                <Badge variant="light" color={STAGE_COLORS[parseState.status]} size="sm">
+                  {parseState.items.length} {t.documentDetail[itemLabel]}
+                </Badge>
+              )}
+          </Group>
+
+          <Progress
+            value={progressPct}
+            color={STAGE_COLORS[parseState.status] || 'indigo'}
+            size="md"
+            radius="xl"
+            animated={parseState.status !== 'complete' && parseState.status !== 'error'}
+          />
+
+          {parseState.status === 'error' && (
+            <Text
+              size="xs"
+              c="indigo"
+              fw={600}
+              style={{ cursor: 'pointer' }}
+              onClick={() => parseState.reset()}
+            >
+              {t.knowledge.retryProcessing}
+            </Text>
+          )}
+        </Stack>
       )}
     </Stack>
   );

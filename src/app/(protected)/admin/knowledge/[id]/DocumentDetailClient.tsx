@@ -137,17 +137,15 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
 
   /* -- add item handler (assignment only) -- */
   const handleAddItem = useCallback(
-    async (data: {
-      type: string;
-      content: string;
-      referenceAnswer: string;
-      explanation: string;
-      points: number;
-      difficulty: string;
-    }): Promise<boolean> => {
+    async (data: Record<string, unknown>): Promise<boolean> => {
       const result = await addAssignmentItem({
         assignmentId: doc.id,
-        ...data,
+        type: (data.type as string) || '',
+        content: (data.content as string) || '',
+        referenceAnswer: (data.referenceAnswer as string) || '',
+        explanation: (data.explanation as string) || '',
+        points: (data.points as number) || 0,
+        difficulty: (data.difficulty as string) || '',
       });
       if (result.success) {
         showNotification({ message: t.documentDetail.saved, color: 'green' });
