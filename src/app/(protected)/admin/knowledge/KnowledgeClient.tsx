@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, ClipboardCheck, FileText, Plus, Search, X } from 'lucide-react';
+import { BookOpen, ClipboardCheck, FileText, Plus, Search, Upload, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -53,6 +53,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const hasAutoOpened = useRef(false);
 
   // Fetch documents by type via server action
   const queryClient = useQueryClient();
@@ -205,6 +206,14 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     }
   }, [searchExpanded]);
 
+  // Auto-open upload modal when entering page with empty table
+  useEffect(() => {
+    if (!isLoading && documents.length === 0 && !hasAutoOpened.current) {
+      hasAutoOpened.current = true;
+      setUploadModalOpen(true);
+    }
+  }, [isLoading, documents.length]);
+
   // ── Shared Layout ──
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -226,7 +235,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
 
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="lg" p="lg" maw={900} mx="auto">
+        <Stack gap="lg" p="lg" maw={1100} mx="auto">
           {/* ── Toolbar: SegmentedControl + Search + Create ── */}
           <Group gap="sm" justify="space-between" wrap="nowrap">
             <SegmentedControl

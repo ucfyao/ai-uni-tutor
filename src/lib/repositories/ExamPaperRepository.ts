@@ -181,7 +181,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
 
     const { data, error, count } = await supabase
       .from('exam_papers')
-      .select('*', { count: 'exact' })
+      .select('*, exam_questions(count)', { count: 'exact' })
       .in('course_id', courseIds)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -190,7 +190,11 @@ export class ExamPaperRepository implements IExamPaperRepository {
       throw new DatabaseError(`Failed to fetch exam papers by course: ${error.message}`, error);
     }
     return {
-      data: (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row)),
+      data: (data ?? []).map((row: Record<string, unknown>) => {
+        const countArr = row.exam_questions as Array<{ count: number }> | undefined;
+        const questionCount = countArr?.[0]?.count ?? 0;
+        return mapPaperRow(row, questionCount);
+      }),
       total: count ?? 0,
     };
   }
@@ -325,7 +329,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
 
     const { data, error, count } = await supabase
       .from('exam_papers')
-      .select('*', { count: 'exact' })
+      .select('*, exam_questions(count)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -333,7 +337,11 @@ export class ExamPaperRepository implements IExamPaperRepository {
       throw new DatabaseError(`Failed to fetch exam papers: ${error.message}`, error);
     }
     return {
-      data: (data ?? []).map((row: Record<string, unknown>) => mapPaperRow(row)),
+      data: (data ?? []).map((row: Record<string, unknown>) => {
+        const countArr = row.exam_questions as Array<{ count: number }> | undefined;
+        const questionCount = countArr?.[0]?.count ?? 0;
+        return mapPaperRow(row, questionCount);
+      }),
       total: count ?? 0,
     };
   }

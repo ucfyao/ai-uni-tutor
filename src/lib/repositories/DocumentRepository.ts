@@ -158,7 +158,7 @@ export class LectureDocumentRepository implements ILectureDocumentRepository {
     let query = supabase
       .from('lecture_documents')
       .select(
-        'id, user_id, name, status, metadata, course_id, created_at, outline, outline_embedding',
+        'id, user_id, name, status, metadata, course_id, created_at, outline, outline_embedding, document_chunks(count)',
         {
           count: 'exact',
         },
@@ -173,7 +173,14 @@ export class LectureDocumentRepository implements ILectureDocumentRepository {
     const { data, error, count } = await query;
     if (error) throw new DatabaseError(`Failed to fetch documents: ${error.message}`, error);
     return {
-      data: (data ?? []).map((row) => this.mapToEntity(row as DocumentRow)),
+      data: (data ?? []).map((row) => {
+        const countArr = (row as Record<string, unknown>).document_chunks as
+          | Array<{ count: number }>
+          | undefined;
+        const entity = this.mapToEntity(row as DocumentRow);
+        entity.chunkCount = countArr?.[0]?.count ?? 0;
+        return entity;
+      }),
       total: count ?? 0,
     };
   }

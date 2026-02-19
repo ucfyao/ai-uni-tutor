@@ -36,6 +36,7 @@ export interface KnowledgeDocument {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   } | null;
+  item_count?: number;
 }
 
 interface KnowledgeTableProps {
@@ -58,6 +59,9 @@ function TableSkeleton({ rows = 4 }: { rows?: number }) {
           </Table.Td>
           <Table.Td>
             <Skeleton height={16} width="50%" />
+          </Table.Td>
+          <Table.Td>
+            <Skeleton height={16} width={30} />
           </Table.Td>
           <Table.Td>
             <Skeleton height={16} width="60%" />
@@ -287,6 +291,16 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                   <Badge variant="dot" color="gray" size="xs">
                     {doc.metadata?.course || 'General'}
                   </Badge>
+                  {doc.item_count != null && doc.item_count > 0 && (
+                    <>
+                      <Text size="xs" c="dimmed">
+                        &middot;
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {doc.item_count} {t.knowledge.items}
+                      </Text>
+                    </>
+                  )}
                 </Group>
 
                 <Group justify="space-between">
@@ -331,7 +345,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
           <Table.Thead>
             <Table.Tr>
               <Table.Th
-                w="26%"
+                w="24%"
                 style={{ ...thStyle, cursor: 'pointer', userSelect: 'none' }}
                 onClick={() => toggleSort('name')}
               >
@@ -340,11 +354,14 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                   {renderSortIcon('name')}
                 </Group>
               </Table.Th>
-              <Table.Th w="14%" style={thStyle}>
+              <Table.Th w="13%" style={thStyle}>
                 {t.knowledge.university}
               </Table.Th>
-              <Table.Th w="14%" style={thStyle}>
+              <Table.Th w="13%" style={thStyle}>
                 {t.knowledge.course}
+              </Table.Th>
+              <Table.Th w="8%" style={thStyle}>
+                {t.knowledge.items}
               </Table.Th>
               <Table.Th
                 w="12%"
@@ -356,7 +373,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                   {renderSortIcon('date')}
                 </Group>
               </Table.Th>
-              <Table.Th w="24%" style={thStyle}>
+              <Table.Th w="20%" style={thStyle}>
                 {t.knowledge.status}
               </Table.Th>
               {!readOnly && <Table.Th w="10%"></Table.Th>}
@@ -367,7 +384,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
               <TableSkeleton />
             ) : sortedDocuments.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={readOnly ? 5 : 6} align="center">
+                <Table.Td colSpan={readOnly ? 6 : 7} align="center">
                   <Text c="dimmed" size="sm" py="xl">
                     {t.knowledge.noDocuments}
                   </Text>
@@ -403,6 +420,11 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                     <Badge variant="dot" color="gray" size="sm">
                       {doc.metadata?.course || 'General'}
                     </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed" ta="center">
+                      {doc.item_count ?? '—'}
+                    </Text>
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed" suppressHydrationWarning>

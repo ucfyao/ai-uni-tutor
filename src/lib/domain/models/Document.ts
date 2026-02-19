@@ -18,6 +18,7 @@ export interface LectureDocumentEntity {
   courseId: string | null;
   outline: Json | null;
   createdAt: Date;
+  chunkCount?: number;
 }
 
 export interface CreateLectureDocumentDTO {
