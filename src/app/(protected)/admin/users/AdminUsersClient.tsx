@@ -1,7 +1,17 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
+import {
+  BookOpen,
+  Check,
+  Pencil,
+  Search,
+  Shield,
+  ShieldCheck,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   ActionIcon,
@@ -312,7 +322,7 @@ export function AdminUsersClient({ currentUserId }: Props) {
           )}
         </Table.Td>
 
-        {/* Courses (hidden on mobile) */}
+        {/* Courses (hidden on mobile) — display only */}
         {!isMobile && (
           <Table.Td>
             {isAdminRole(user.role) ? (
@@ -322,10 +332,6 @@ export function AdminUsersClient({ currentUserId }: Props) {
                 courseOptions={courseOptions}
                 selectedCourseIds={selectedCourseIds}
                 loadingCourseIds={loadingCourseIds}
-                isPending={isPending}
-                onToggle={() => openCoursePopover(user.id)}
-                onChange={setSelectedCourseIds}
-                onSave={() => saveCourses(user.id)}
               />
             ) : (
               <Text size="xs" c="dimmed">
@@ -372,6 +378,18 @@ export function AdminUsersClient({ currentUserId }: Props) {
                   <Pencil size={14} />
                 </ActionIcon>
               </Tooltip>
+              {!isMobile && isAdminRole(user.role) && (
+                <Tooltip label="Manage Courses">
+                  <ActionIcon
+                    variant="subtle"
+                    color="violet"
+                    size="sm"
+                    onClick={() => openCoursePopover(user.id)}
+                  >
+                    <BookOpen size={14} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
               <Tooltip label="Disable">
                 <ActionIcon
                   variant="subtle"
@@ -387,6 +405,45 @@ export function AdminUsersClient({ currentUserId }: Props) {
             <Text size="xs" c="dimmed">
               —
             </Text>
+          )}
+
+          {/* Course management popover — anchored to actions column */}
+          {!isMobile && isAdminRole(user.role) && coursePopoverId === user.id && (
+            <Popover
+              opened
+              onClose={() => setCoursePopoverId(null)}
+              width={300}
+              position="bottom-end"
+            >
+              <Popover.Target>
+                <span />
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Stack gap="xs">
+                  <Text size="sm" fw={500}>
+                    Assigned Courses
+                  </Text>
+                  <MultiSelect
+                    data={courseOptions}
+                    value={selectedCourseIds}
+                    onChange={setSelectedCourseIds}
+                    placeholder="Select courses..."
+                    searchable
+                    clearable
+                    disabled={loadingCourseIds}
+                    maxDropdownHeight={200}
+                  />
+                  <Button
+                    size="xs"
+                    onClick={() => saveCourses(user.id)}
+                    loading={isPending}
+                    disabled={loadingCourseIds}
+                  >
+                    Save
+                  </Button>
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
           )}
         </Table.Td>
       </Table.Tr>
@@ -567,70 +624,26 @@ interface CourseBadgesProps {
   courseOptions: { value: string; label: string }[];
   selectedCourseIds: string[];
   loadingCourseIds: boolean;
-  isPending: boolean;
-  onToggle: () => void;
-  onChange: (ids: string[]) => void;
-  onSave: () => void;
 }
 
-function CourseBadges({
-  isOpen,
-  courseOptions,
-  selectedCourseIds,
-  loadingCourseIds,
-  isPending,
-  onToggle,
-  onChange,
-  onSave,
-}: CourseBadgesProps) {
-  // Find labels for selected courses to show as badges
+function CourseBadges({ isOpen, courseOptions, selectedCourseIds }: CourseBadgesProps) {
   const selectedLabels = courseOptions
     .filter((c) => selectedCourseIds.includes(c.value))
-    .map((c) => c.label.split(' — ')[0]); // show course code only
+    .map((c) => c.label.split(' — ')[0]);
 
   return (
     <Group gap={4} wrap="wrap">
-      {isOpen &&
-        selectedLabels.length > 0 &&
-        selectedLabels.map((code) => (
-          <Badge key={code} size="xs" variant="light" color="violet">
-            {code}
-          </Badge>
-        ))}
-      {!isOpen && selectedLabels.length === 0 && (
-        <Text size="xs" c="dimmed">
-          None
-        </Text>
-      )}
-      <Popover opened={isOpen} onClose={onToggle} width={300} position="bottom-start">
-        <Popover.Target>
-          <Tooltip label="Manage Courses">
-            <ActionIcon variant="subtle" color="violet" size="xs" onClick={onToggle}>
-              <Plus size={12} />
-            </ActionIcon>
-          </Tooltip>
-        </Popover.Target>
-        <Popover.Dropdown>
-          <Stack gap="xs">
-            <Text size="sm" fw={500}>
-              Assigned Courses
+      {isOpen && selectedLabels.length > 0
+        ? selectedLabels.map((code) => (
+            <Badge key={code} size="xs" variant="light" color="violet">
+              {code}
+            </Badge>
+          ))
+        : !isOpen && (
+            <Text size="xs" c="dimmed">
+              {selectedLabels.length > 0 ? `${selectedLabels.length} courses` : 'None'}
             </Text>
-            <MultiSelect
-              data={courseOptions}
-              value={selectedCourseIds}
-              onChange={onChange}
-              placeholder="Select courses..."
-              searchable
-              clearable
-              disabled={loadingCourseIds}
-              maxDropdownHeight={200}
-            />
-            <Button size="xs" onClick={onSave} loading={isPending} disabled={loadingCourseIds}>
-              Save
-            </Button>
-          </Stack>
-        </Popover.Dropdown>
-      </Popover>
+          )}
     </Group>
   );
 }
