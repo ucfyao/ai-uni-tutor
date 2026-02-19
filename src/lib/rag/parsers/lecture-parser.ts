@@ -11,7 +11,7 @@ import type {
   PipelineProgress,
 } from './types';
 
-export interface ParseLectureOptions {
+interface ParseLectureOptions {
   documentId?: string;
   onProgress?: (progress: PipelineProgress) => void;
   onBatchProgress?: (current: number, total: number) => void;

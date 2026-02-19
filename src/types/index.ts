@@ -36,11 +36,4 @@ export interface ChatSession {
   isShared?: boolean;
 }
 
-export type {
-  ExamPaper,
-  ExamQuestion,
-  MockExam,
-  MockExamQuestion,
-  MockExamResponse,
-  PaperFilters,
-} from './exam';
+export type { ExamPaper, ExamQuestion, MockExam, MockExamQuestion, MockExamResponse } from './exam';
