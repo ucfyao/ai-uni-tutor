@@ -1,12 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
-import { ScrollArea, Stack } from '@mantine/core';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Box, ScrollArea, Stack } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { addAssignmentItem } from '@/app/actions/assignments';
 import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
 import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
 import { DocumentDetailHeader } from '@/components/rag/DocumentDetailHeader';
+import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { showNotification } from '@/lib/notifications';
@@ -20,6 +22,8 @@ interface AssignmentDetailClientProps {
 }
 
 export function AssignmentDetailClient({ assignment, items }: AssignmentDetailClientProps) {
+  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const { setHeaderContent } = useHeader();
   const router = useRouter();
   const { t } = useLanguage();
 
@@ -206,63 +210,102 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
     }
   }, [assignment.id, router, t]);
 
+  const headerNode = useMemo(
+    () => (
+      <DocumentDetailHeader
+        title={assignment.title}
+        metadata={{
+          school: assignment.school || undefined,
+          course: assignment.course || undefined,
+        }}
+        status={assignment.status}
+        itemCount={visibleChunks.length}
+        docType={docType}
+        onPublish={handlePublish}
+        onUnpublish={handleUnpublish}
+        onDelete={handleDeleteDoc}
+        isPublishing={isPublishing}
+      />
+    ),
+    [
+      assignment.title,
+      assignment.school,
+      assignment.course,
+      assignment.status,
+      visibleChunks.length,
+      docType,
+      handlePublish,
+      handleUnpublish,
+      handleDeleteDoc,
+      isPublishing,
+    ],
+  );
+
+  useEffect(() => {
+    if (isMobile) {
+      setHeaderContent(headerNode);
+    } else {
+      setHeaderContent(null);
+    }
+    return () => setHeaderContent(null);
+  }, [isMobile, headerNode, setHeaderContent]);
+
   return (
-    <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-      <Stack gap="md" p="lg" maw={900} mx="auto">
-        <DocumentDetailHeader
-          title={assignment.title}
-          metadata={{
-            school: assignment.school || undefined,
-            course: assignment.course || undefined,
+    <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {!isMobile && (
+        <Box
+          px="md"
+          py="sm"
+          style={{
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            flexShrink: 0,
           }}
-          status={assignment.status}
-          itemCount={visibleChunks.length}
-          docType={docType}
-          onPublish={handlePublish}
-          onUnpublish={handleUnpublish}
-          onDelete={handleDeleteDoc}
-          isPublishing={isPublishing}
-        />
+        >
+          {headerNode}
+        </Box>
+      )}
+      <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
+        <Stack gap="md" p="lg" maw={900} mx="auto">
+          {/* Collapsible upload area */}
+          <AssignmentUploadArea
+            assignmentId={assignment.id}
+            universityId={null}
+            courseId={courseId || null}
+            school={school}
+            course={course}
+            itemCount={visibleChunks.length}
+            onParseComplete={() => router.refresh()}
+          />
 
-        {/* Collapsible upload area */}
-        <AssignmentUploadArea
-          assignmentId={assignment.id}
-          universityId={null}
-          courseId={courseId || null}
-          school={school}
-          course={course}
-          itemCount={visibleChunks.length}
-          onParseComplete={() => router.refresh()}
-        />
+          <ChunkTable
+            chunks={visibleChunks}
+            docType={docType}
+            editingChunkId={editingChunkId}
+            expandedAnswers={expandedAnswers}
+            selectedIds={selectedIds}
+            getEffectiveContent={getEffectiveContent}
+            getEffectiveMetadata={getEffectiveMetadata}
+            onStartEdit={(chunk) => setEditingChunkId(chunk.id)}
+            onCancelEdit={() => setEditingChunkId(null)}
+            onSaveEdit={handleSaveEdit}
+            onDelete={handleDelete}
+            onToggleAnswer={handleToggleAnswer}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAll={handleToggleSelectAll}
+            onBulkDelete={handleBulkDelete}
+            onAddItem={handleAddItem}
+          />
 
-        <ChunkTable
-          chunks={visibleChunks}
-          docType={docType}
-          editingChunkId={editingChunkId}
-          expandedAnswers={expandedAnswers}
-          selectedIds={selectedIds}
-          getEffectiveContent={getEffectiveContent}
-          getEffectiveMetadata={getEffectiveMetadata}
-          onStartEdit={(chunk) => setEditingChunkId(chunk.id)}
-          onCancelEdit={() => setEditingChunkId(null)}
-          onSaveEdit={handleSaveEdit}
-          onDelete={handleDelete}
-          onToggleAnswer={handleToggleAnswer}
-          onToggleSelect={handleToggleSelect}
-          onToggleSelectAll={handleToggleSelectAll}
-          onBulkDelete={handleBulkDelete}
-          onAddItem={handleAddItem}
-        />
-
-        <ChunkActionBar
-          docId={assignment.id}
-          docType={docType}
-          pendingChanges={pendingChanges}
-          editedChunks={editedChunks}
-          deletedChunkIds={deletedChunkIds}
-          onSaved={handleSaved}
-        />
-      </Stack>
-    </ScrollArea>
+          <ChunkActionBar
+            docId={assignment.id}
+            docType={docType}
+            pendingChanges={pendingChanges}
+            editedChunks={editedChunks}
+            deletedChunkIds={deletedChunkIds}
+            onSaved={handleSaved}
+          />
+        </Stack>
+      </ScrollArea>
+    </Box>
   );
 }

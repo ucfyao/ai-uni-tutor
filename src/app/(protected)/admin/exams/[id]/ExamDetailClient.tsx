@@ -1,11 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
 import { DocumentDetailHeader } from '@/components/rag/DocumentDetailHeader';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
+import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import type { ExamPaper, ExamQuestion } from '@/types/exam';
@@ -19,6 +21,8 @@ interface ExamDetailClientProps {
 }
 
 export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
+  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const { setHeaderContent } = useHeader();
   const router = useRouter();
   const { t } = useLanguage();
 
@@ -184,22 +188,59 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
     }
   }, [paper.id, router, t]);
 
+  const headerNode = useMemo(
+    () => (
+      <DocumentDetailHeader
+        title={paper.title}
+        metadata={{ school: school || undefined, course: course || undefined }}
+        status={paper.status}
+        itemCount={visibleChunks.length}
+        docType={docType}
+        onPublish={handlePublish}
+        onUnpublish={handleUnpublish}
+        onDelete={handleDeleteDoc}
+        isPublishing={isPublishing}
+      />
+    ),
+    [
+      paper.title,
+      paper.status,
+      school,
+      course,
+      visibleChunks.length,
+      docType,
+      handlePublish,
+      handleUnpublish,
+      handleDeleteDoc,
+      isPublishing,
+    ],
+  );
+
+  useEffect(() => {
+    if (isMobile) {
+      setHeaderContent(headerNode);
+    } else {
+      setHeaderContent(null);
+    }
+    return () => setHeaderContent(null);
+  }, [isMobile, headerNode, setHeaderContent]);
+
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {!isMobile && (
+        <Box
+          px="md"
+          py="sm"
+          style={{
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            flexShrink: 0,
+          }}
+        >
+          {headerNode}
+        </Box>
+      )}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="md" p="lg" maw={900} mx="auto">
-          <DocumentDetailHeader
-            title={paper.title}
-            metadata={{ school: school || undefined, course: course || undefined }}
-            status={paper.status}
-            itemCount={visibleChunks.length}
-            docType={docType}
-            onPublish={handlePublish}
-            onUnpublish={handleUnpublish}
-            onDelete={handleDeleteDoc}
-            isPublishing={isPublishing}
-          />
-
           <PdfUploadZone
             documentId={paper.id}
             docType={docType}
