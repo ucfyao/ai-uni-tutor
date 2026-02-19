@@ -309,6 +309,7 @@ export const translations = {
       backToList: '返回列表',
       create: '创建',
       uploadAnother: '上传另一个',
+      emptyLectureUploadPrompt: '上传讲义 PDF，AI 将自动提取知识点',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -348,6 +349,7 @@ export const translations = {
       explanation: '解释',
       difficulty: '难度',
       items: '题目',
+      sourcePages: '来源页码',
     },
     // Exam
     exam: {
@@ -1045,6 +1047,7 @@ export const translations = {
       backToList: 'Back to list',
       create: 'Create',
       uploadAnother: 'Upload another',
+      emptyLectureUploadPrompt: 'Upload a lecture PDF to automatically extract knowledge points',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',
@@ -1084,6 +1087,7 @@ export const translations = {
       explanation: 'Explanation',
       difficulty: 'Difficulty',
       items: 'Items',
+      sourcePages: 'Pages',
     },
     // Exam
     exam: {
