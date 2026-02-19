@@ -1,12 +1,12 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { Plus, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, ScrollArea, Stack } from '@mantine/core';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActionIcon, Badge, Box, Collapse, Group, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
-  deleteDocument,
+  addLectureChunk,
   publishDocument,
   unpublishDocument,
   updateDocumentMeta,
@@ -16,7 +16,6 @@ import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentStatus } from '@/lib/domain/models/Document';
 import { showNotification } from '@/lib/notifications';
-import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
@@ -49,7 +48,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { t } = useLanguage();
 
   const [currentStatus, setCurrentStatus] = useState<DocumentStatus>(doc.status);
@@ -64,6 +62,9 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const [deletedChunkIds, setDeletedChunkIds] = useState<Set<string>>(new Set());
   const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showUpload, setShowUpload] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const uploadCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const visibleChunks = chunks.filter((c) => !deletedChunkIds.has(c.id));
   const pendingChanges = editedChunks.size + deletedChunkIds.size;
@@ -195,19 +196,36 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     }
   }, [doc.id, t]);
 
-  const handleDeleteDoc = useCallback(async () => {
-    try {
-      await deleteDocument(doc.id, 'lecture');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
-      router.push('/admin/knowledge');
-    } catch (e) {
-      showNotification({
-        title: t.common?.error ?? 'Error',
-        message: e instanceof Error ? e.message : 'Failed to delete',
-        color: 'red',
+  // Add knowledge point handler
+  const handleAddLectureItem = useCallback(
+    async (data: { title: string; definition: string }): Promise<boolean> => {
+      const result = await addLectureChunk({
+        documentId: doc.id,
+        ...data,
       });
-    }
-  }, [doc.id, queryClient, router, t]);
+      if (result.success) {
+        showNotification({ message: t.documentDetail?.saved ?? 'Saved', color: 'green' });
+        router.refresh();
+        return true;
+      } else {
+        showNotification({
+          title: t.common?.error ?? 'Error',
+          message: result.error,
+          color: 'red',
+        });
+        return false;
+      }
+    },
+    [doc.id, router, t],
+  );
+
+  const handleParseComplete = useCallback(() => {
+    router.refresh();
+    if (uploadCollapseTimer.current) clearTimeout(uploadCollapseTimer.current);
+    uploadCollapseTimer.current = setTimeout(() => {
+      setShowUpload(false);
+    }, 1500);
+  }, [router]);
 
   // Header node
   const headerNode = useMemo(
@@ -240,6 +258,12 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     return () => setHeaderContent(null);
   }, [isMobile, headerNode, setHeaderContent]);
 
+  useEffect(() => {
+    return () => {
+      if (uploadCollapseTimer.current) clearTimeout(uploadCollapseTimer.current);
+    };
+  }, []);
+
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {!isMobile && (
@@ -258,13 +282,48 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       )}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="md" p="lg" maw={900} mx="auto">
-          <PdfUploadZone
-            documentId={doc.id}
-            docType="lecture"
-            existingItemCount={visibleChunks.length}
-            courseId={doc.courseId ?? undefined}
-            onParseComplete={() => router.refresh()}
-          />
+          {/* Toolbar */}
+          <Group justify="space-between" align="center">
+            <Badge variant="filled" color="indigo" size="lg">
+              {visibleChunks.length} {t.documentDetail.knowledgePoints}
+            </Badge>
+            <Group gap="xs">
+              <ActionIcon
+                variant={showUpload ? 'filled' : 'light'}
+                color="indigo"
+                size="lg"
+                radius="xl"
+                onClick={() => setShowUpload((v) => !v)}
+                aria-label={t.knowledge.dropPdfHere}
+              >
+                <Upload size={18} />
+              </ActionIcon>
+              <ActionIcon
+                variant="light"
+                color="indigo"
+                size="lg"
+                radius="xl"
+                onClick={() => setShowAddForm(true)}
+                aria-label={t.knowledge.addKnowledgePoint}
+              >
+                <Plus size={18} />
+              </ActionIcon>
+            </Group>
+          </Group>
+
+          {/* Collapsible upload zone */}
+          <Collapse in={showUpload}>
+            <PdfUploadZone
+              documentId={doc.id}
+              docType="lecture"
+              existingItemCount={visibleChunks.length}
+              courseId={doc.courseId ?? undefined}
+              onParseComplete={handleParseComplete}
+              prominent={visibleChunks.length === 0}
+            />
+          </Collapse>
+
+          {/* Content table */}
           <ChunkTable
             chunks={visibleChunks}
             docType="lecture"
@@ -281,7 +340,13 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}
             onBulkDelete={handleBulkDelete}
+            onAddLectureItem={handleAddLectureItem}
+            hideToolbar
+            externalShowAddForm={showAddForm}
+            onAddFormClosed={() => setShowAddForm(false)}
           />
+
+          {/* Action bar */}
           <ChunkActionBar
             docId={doc.id}
             docType="lecture"
@@ -293,7 +358,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             itemCount={visibleChunks.length}
             onPublish={handlePublish}
             onUnpublish={handleUnpublish}
-            onDelete={handleDeleteDoc}
             isPublishing={isPublishing}
           />
         </Stack>

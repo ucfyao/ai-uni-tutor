@@ -410,6 +410,42 @@ export async function updateAssignmentItems(
   return { status: 'success', message: 'Changes saved' };
 }
 
+// --- Add single lecture chunk ---
+
+const addLectureChunkSchema = z.object({
+  documentId: z.string().uuid(),
+  title: z.string().min(1).max(500),
+  definition: z.string().min(1).max(5000),
+});
+
+export async function addLectureChunk(
+  input: z.infer<typeof addLectureChunkSchema>,
+): Promise<{ success: true; data: { id: string } } | { success: false; error: string }> {
+  try {
+    const parsed = addLectureChunkSchema.parse(input);
+    const { user, role } = await requireAnyAdmin();
+    await requireLectureAccess(parsed.documentId, user.id, role);
+
+    const service = getLectureDocumentService();
+    const content = `${parsed.title}\n${parsed.definition}`;
+    const ids = await service.saveChunksAndReturn([
+      {
+        lectureDocumentId: parsed.documentId,
+        content,
+        metadata: { title: parsed.title, definition: parsed.definition } as Json,
+        embedding: null,
+      },
+    ]);
+
+    revalidatePath(`/admin/lectures/${parsed.documentId}`);
+    revalidatePath('/admin/knowledge');
+    return { success: true, data: { id: ids[0].id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'Admin access required' };
+    return { success: false, error: 'Failed to add knowledge point' };
+  }
+}
+
 // --- New actions ---
 
 const createLectureSchema = z.object({

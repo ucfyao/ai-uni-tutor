@@ -15,6 +15,8 @@ interface PdfUploadZoneProps {
   courseId?: string;
   onParseComplete: () => void;
   disabled?: boolean;
+  /** When true, show larger dropzone with guiding text (empty table state) */
+  prominent?: boolean;
 }
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -58,6 +60,7 @@ export function PdfUploadZone({
   courseId,
   onParseComplete,
   disabled = false,
+  prominent = false,
 }: PdfUploadZoneProps) {
   const { t } = useLanguage();
   const parseState = useStreamingParse();
@@ -135,7 +138,11 @@ export function PdfUploadZone({
               },
             }}
           >
-            <Group justify="center" gap="sm" style={{ minHeight: 80, pointerEvents: 'none' }}>
+            <Group
+              justify="center"
+              gap="sm"
+              style={{ minHeight: prominent ? 160 : 80, pointerEvents: 'none' }}
+            >
               <Dropzone.Accept>
                 <Upload size={24} color="var(--mantine-color-indigo-6)" />
               </Dropzone.Accept>
@@ -155,6 +162,11 @@ export function PdfUploadZone({
                 <Text size="xs" c="dimmed">
                   PDF, max 20MB
                 </Text>
+                {prominent && (
+                  <Text size="xs" c="dimmed" mt={4}>
+                    {t.knowledge.emptyLectureUploadPrompt}
+                  </Text>
+                )}
               </Stack>
             </Group>
           </Dropzone>
