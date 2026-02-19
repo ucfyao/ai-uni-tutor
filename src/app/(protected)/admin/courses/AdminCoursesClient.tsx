@@ -552,7 +552,17 @@ export function AdminCoursesClient({
                             </Badge>
                           </Table.Td>
                           <Table.Td>
-                            <Text size="sm">{courseCountByUniversity.get(uni.id) ?? 0}</Text>
+                            <Text
+                              size="sm"
+                              c="indigo"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                setFilterUniversityId(uni.id);
+                                setActiveTab('courses');
+                              }}
+                            >
+                              {courseCountByUniversity.get(uni.id) ?? 0}
+                            </Text>
                           </Table.Td>
                           <Table.Td>
                             <Group gap={4}>
