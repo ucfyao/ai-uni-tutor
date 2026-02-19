@@ -13,6 +13,18 @@ const mockRequireCourseAdmin = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
   requireAnyAdmin: () => mockRequireAnyAdmin(),
   requireCourseAdmin: (courseId: string) => mockRequireCourseAdmin(courseId),
+  requireAssignmentAccess: async (assignmentId: string, _userId: string, role: string) => {
+    if (role === 'super_admin') return;
+    const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+    const repo = getAssignmentRepository();
+    const courseId = await repo.findCourseId(assignmentId);
+    if (courseId) {
+      await mockRequireCourseAdmin(courseId);
+    } else {
+      const { ForbiddenError } = await import('@/lib/errors');
+      throw new ForbiddenError('No access to this assignment');
+    }
+  },
 }));
 
 const mockRevalidatePath = vi.fn();
