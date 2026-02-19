@@ -1,12 +1,11 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
-  deleteDocument,
+  addLectureChunk,
   publishDocument,
   unpublishDocument,
   updateDocumentMeta,
@@ -16,7 +15,6 @@ import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentStatus } from '@/lib/domain/models/Document';
 import { showNotification } from '@/lib/notifications';
-import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
@@ -49,7 +47,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { t } = useLanguage();
 
   const [currentStatus, setCurrentStatus] = useState<DocumentStatus>(doc.status);
@@ -195,19 +192,28 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     }
   }, [doc.id, t]);
 
-  const handleDeleteDoc = useCallback(async () => {
-    try {
-      await deleteDocument(doc.id, 'lecture');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
-      router.push('/admin/knowledge');
-    } catch (e) {
-      showNotification({
-        title: t.common?.error ?? 'Error',
-        message: e instanceof Error ? e.message : 'Failed to delete',
-        color: 'red',
+  // Add knowledge point handler
+  const handleAddLectureItem = useCallback(
+    async (data: { title: string; definition: string }): Promise<boolean> => {
+      const result = await addLectureChunk({
+        documentId: doc.id,
+        ...data,
       });
-    }
-  }, [doc.id, queryClient, router, t]);
+      if (result.success) {
+        showNotification({ message: t.documentDetail?.saved ?? 'Saved', color: 'green' });
+        router.refresh();
+        return true;
+      } else {
+        showNotification({
+          title: t.common?.error ?? 'Error',
+          message: result.error,
+          color: 'red',
+        });
+        return false;
+      }
+    },
+    [doc.id, router, t],
+  );
 
   // Header node
   const headerNode = useMemo(
@@ -281,6 +287,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}
             onBulkDelete={handleBulkDelete}
+            onAddLectureItem={handleAddLectureItem}
           />
           <ChunkActionBar
             docId={doc.id}
@@ -293,7 +300,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             itemCount={visibleChunks.length}
             onPublish={handlePublish}
             onUnpublish={handleUnpublish}
-            onDelete={handleDeleteDoc}
             isPublishing={isPublishing}
           />
         </Stack>

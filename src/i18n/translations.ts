@@ -284,6 +284,7 @@ export const translations = {
       createAndEdit: '创建并编辑',
       // Add Item
       addItem: '添加题目',
+      addKnowledgePoint: '添加知识点',
       questionType: '题目类型',
       questionTypes: {
         multiple_choice: '选择题',
@@ -1018,6 +1019,7 @@ export const translations = {
       createAndEdit: 'Create & Edit',
       // Add Item
       addItem: 'Add Item',
+      addKnowledgePoint: 'Add Knowledge Point',
       questionType: 'Question Type',
       questionTypes: {
         multiple_choice: 'Multiple Choice',

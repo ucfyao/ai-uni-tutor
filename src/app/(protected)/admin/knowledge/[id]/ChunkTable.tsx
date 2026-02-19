@@ -49,6 +49,8 @@ interface ChunkTableProps {
     points: number;
     difficulty: string;
   }) => Promise<boolean>;
+  /** Optional: called to add a new lecture knowledge point */
+  onAddLectureItem?: (data: { title: string; definition: string }) => Promise<boolean>;
 }
 
 const thStyle: CSSProperties = {
@@ -76,6 +78,7 @@ export function ChunkTable({
   onToggleSelectAll,
   onBulkDelete,
   onAddItem,
+  onAddLectureItem,
 }: ChunkTableProps) {
   const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 48em)', false);
@@ -89,8 +92,11 @@ export function ChunkTable({
         ? t.documentDetail.items
         : t.documentDetail.questions;
 
-  // Empty state
-  if (chunks.length === 0 && !showAddForm) {
+  // Lectures with add capability always show the table
+  const lectureHasAdd = docType === 'lecture' && !!onAddLectureItem;
+
+  // Empty state (skip for lectures — they always show the table)
+  if (chunks.length === 0 && !showAddForm && !lectureHasAdd) {
     return (
       <Stack align="center" gap="md" py="xl">
         {docType === 'assignment' && onAddItem ? (
@@ -120,7 +126,7 @@ export function ChunkTable({
     );
   }
 
-  // Show just the add form when no chunks exist yet
+  // Show just the add form when no chunks exist yet (assignment only)
   if (chunks.length === 0 && showAddForm && onAddItem) {
     return (
       <Stack gap="md">
@@ -154,6 +160,17 @@ export function ChunkTable({
                 {t.knowledge.addItem}
               </Button>
             )}
+            {lectureHasAdd && (
+              <Button
+                leftSection={<Plus size={12} />}
+                variant="light"
+                color="indigo"
+                size="xs"
+                onClick={() => setShowAddForm(true)}
+              >
+                {t.knowledge.addKnowledgePoint}
+              </Button>
+            )}
           </Group>
           {selectedIds.size > 0 && (
             <Group gap="xs">
@@ -170,6 +187,15 @@ export function ChunkTable({
           <AddItemForm
             onSubmit={async (data) => {
               const success = await onAddItem(data);
+              if (success) setShowAddForm(false);
+            }}
+            onCancel={() => setShowAddForm(false)}
+          />
+        )}
+        {showAddForm && onAddLectureItem && (
+          <LectureAddItemForm
+            onSubmit={async (data) => {
+              const success = await onAddLectureItem(data);
               if (success) setShowAddForm(false);
             }}
             onCancel={() => setShowAddForm(false)}
@@ -217,6 +243,17 @@ export function ChunkTable({
               {t.knowledge.addItem}
             </Button>
           )}
+          {lectureHasAdd && (
+            <Button
+              leftSection={<Plus size={14} />}
+              variant="light"
+              color="indigo"
+              size="xs"
+              onClick={() => setShowAddForm(true)}
+            >
+              {t.knowledge.addKnowledgePoint}
+            </Button>
+          )}
         </Group>
         {selectedIds.size > 0 && (
           <Group gap="xs">
@@ -233,6 +270,15 @@ export function ChunkTable({
         <AddItemForm
           onSubmit={async (data) => {
             const success = await onAddItem(data);
+            if (success) setShowAddForm(false);
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+      {showAddForm && onAddLectureItem && (
+        <LectureAddItemForm
+          onSubmit={async (data) => {
+            const success = await onAddLectureItem(data);
             if (success) setShowAddForm(false);
           }}
           onCancel={() => setShowAddForm(false)}
@@ -615,6 +661,85 @@ function MobileChunkRow({
             </Card>
           </Collapse>
         )}
+      </Stack>
+    </Card>
+  );
+}
+
+/* -- Add Lecture Knowledge Point Form -- */
+
+function LectureAddItemForm({
+  onSubmit,
+  onCancel,
+}: {
+  onSubmit: (data: { title: string; definition: string }) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [title, setTitle] = useState('');
+  const [definition, setDefinition] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = useCallback(async () => {
+    if (!title.trim()) {
+      showNotification({ title: t.common.error, message: 'Title is required', color: 'red' });
+      return;
+    }
+    if (!definition.trim()) {
+      showNotification({ title: t.common.error, message: 'Definition is required', color: 'red' });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSubmit({ title: title.trim(), definition: definition.trim() });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [title, definition, onSubmit, t]);
+
+  return (
+    <Card withBorder radius="lg" p="md">
+      <Stack gap="sm">
+        <Text fw={600} size="sm">
+          {t.knowledge.addKnowledgePoint}
+        </Text>
+        <TextInput
+          label={t.documentDetail.title}
+          value={title}
+          onChange={(e) => setTitle(e.currentTarget.value)}
+          required
+          size="sm"
+          radius="md"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.preventDefault();
+          }}
+          autoFocus
+        />
+        <Textarea
+          label={t.documentDetail.definition}
+          value={definition}
+          onChange={(e) => setDefinition(e.currentTarget.value)}
+          autosize
+          minRows={2}
+          maxRows={6}
+          required
+          size="sm"
+          radius="md"
+        />
+        <Group justify="flex-end" gap="sm">
+          <Button variant="subtle" color="gray" size="sm" onClick={onCancel}>
+            {t.documentDetail.cancel}
+          </Button>
+          <Button
+            color="indigo"
+            size="sm"
+            onClick={handleSubmit}
+            loading={isSaving}
+            disabled={!title.trim() || !definition.trim()}
+          >
+            {t.documentDetail.save}
+          </Button>
+        </Group>
       </Stack>
     </Card>
   );
