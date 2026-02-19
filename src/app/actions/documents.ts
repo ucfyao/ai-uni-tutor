@@ -20,6 +20,7 @@ interface DocumentListItem {
   created_at: string;
   doc_type: string;
   metadata: { school?: string; course?: string; [key: string]: unknown } | null;
+  item_count?: number;
 }
 
 const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
@@ -83,6 +84,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
         doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
           ? (doc.metadata as DocumentListItem['metadata'])
           : null,
+      item_count: doc.chunkCount ?? 0,
     }));
   }
 
@@ -110,6 +112,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
         school: paper.school ?? undefined,
         course: paper.course ?? undefined,
       },
+      item_count: paper.questionCount ?? 0,
     }));
   }
 
@@ -135,6 +138,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
       school: a.school ?? undefined,
       course: a.course ?? undefined,
     },
+    item_count: a.itemCount ?? 0,
   }));
 }
 

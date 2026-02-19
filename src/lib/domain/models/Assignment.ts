@@ -13,6 +13,7 @@ export interface AssignmentEntity {
   courseId: string | null;
   status: AssignmentStatus;
   createdAt: string;
+  itemCount?: number;
 }
 
 export interface AssignmentItemEntity {

@@ -270,6 +270,10 @@ export const translations = {
       viewDetailsLink: '查看详情',
       emptyTitle: '你的知识库是空的',
       emptyDescription: '上传课程笔记、考卷或作业来构建你的个人知识库。',
+      emptyUploadTitle: '开始上传你的第一份文档',
+      emptyUploadDescription:
+        '创建讲义、试卷或作业，然后上传 PDF 进行解析，AI 将自动提取知识点和题目。',
+      items: '条目',
       uploadCTA: '上传文档',
       processingDocument: '正在处理文档...',
       bulkDelete: '批量删除',
@@ -1007,6 +1011,10 @@ export const translations = {
       emptyTitle: 'Your knowledge base is empty',
       emptyDescription:
         'Upload lecture notes, exam papers, or assignments to build your personal knowledge base.',
+      emptyUploadTitle: 'Upload your first document',
+      emptyUploadDescription:
+        'Create a lecture, exam, or assignment, then upload a PDF to parse. AI will automatically extract knowledge points and questions.',
+      items: 'Items',
       uploadCTA: 'Upload Document',
       processingDocument: 'Processing document...',
       bulkDelete: 'Delete Selected',

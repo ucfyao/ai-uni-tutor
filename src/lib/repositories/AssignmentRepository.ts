@@ -93,13 +93,18 @@ export class AssignmentRepository implements IAssignmentRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('assignments')
-      .select('*')
+      .select('*, assignment_items(count)')
       .order('created_at', { ascending: false });
 
     if (error) {
       throw new DatabaseError(`Failed to fetch assignments: ${error.message}`, error);
     }
-    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
+    return (data ?? []).map((r: Record<string, unknown>) => {
+      const countArr = r.assignment_items as Array<{ count: number }> | undefined;
+      const entity = mapAssignmentRow(r);
+      entity.itemCount = countArr?.[0]?.count ?? 0;
+      return entity;
+    });
   }
 
   async findCourseId(id: string): Promise<string | null> {
@@ -121,14 +126,19 @@ export class AssignmentRepository implements IAssignmentRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('assignments')
-      .select('*')
+      .select('*, assignment_items(count)')
       .in('course_id', courseIds)
       .order('created_at', { ascending: false });
 
     if (error) {
       throw new DatabaseError(`Failed to fetch assignments by course: ${error.message}`, error);
     }
-    return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
+    return (data ?? []).map((r: Record<string, unknown>) => {
+      const countArr = r.assignment_items as Array<{ count: number }> | undefined;
+      const entity = mapAssignmentRow(r);
+      entity.itemCount = countArr?.[0]?.count ?? 0;
+      return entity;
+    });
   }
 
   async updateStatus(id: string, status: 'draft' | 'ready'): Promise<void> {
