@@ -1,8 +1,8 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Building2, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BookOpen, Building2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   ActionIcon,
@@ -23,7 +23,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import {
   createCourse,
   createUniversity,
@@ -76,6 +76,10 @@ export function AdminCoursesClient({
   const [modal, setModal] = useState<ModalType>(null);
   const [saving, setSaving] = useState(false);
   const [filterUniversityId, setFilterUniversityId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 200);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // University form fields
   const [uniName, setUniName] = useState('');
@@ -119,11 +123,30 @@ export function AdminCoursesClient({
     return counts;
   }, [courses]);
 
-  const filteredCourses = useMemo(
+  const filteredUniversities = useMemo(
     () =>
-      filterUniversityId ? courses.filter((c) => c.universityId === filterUniversityId) : courses,
-    [courses, filterUniversityId],
+      debouncedSearch
+        ? universities.filter(
+            (u) =>
+              u.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+              u.shortName.toLowerCase().includes(debouncedSearch.toLowerCase()),
+          )
+        : universities,
+    [universities, debouncedSearch],
   );
+
+  const filteredCourses = useMemo(() => {
+    let result = filterUniversityId
+      ? courses.filter((c) => c.universityId === filterUniversityId)
+      : courses;
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(
+        (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [courses, filterUniversityId, debouncedSearch]);
 
   const universitySelectData = useMemo(
     () => universities.map((u) => ({ value: u.id, label: u.name })),
@@ -295,6 +318,13 @@ export function AdminCoursesClient({
     return () => setHeaderContent(null);
   }, [isMobile, headerNode, setHeaderContent]);
 
+  // Focus search input when expanded
+  useEffect(() => {
+    if (searchExpanded && searchRef.current) {
+      searchRef.current.focus();
+    }
+  }, [searchExpanded]);
+
   const thStyle: CSSProperties = {
     color: 'var(--mantine-color-gray-5)',
     fontWeight: 500,
@@ -336,32 +366,109 @@ export function AdminCoursesClient({
                 </Tabs.Tab>
               </Tabs.List>
 
-              <Tooltip
-                label={
-                  activeTab === 'courses' ? t.coursesAdmin.addCourse : t.coursesAdmin.addUniversity
-                }
-              >
-                <ActionIcon
-                  variant="filled"
-                  color="indigo"
-                  size="lg"
-                  radius="xl"
-                  onClick={activeTab === 'courses' ? openAddCourse : openAddUniversity}
-                  aria-label={
+              <Group gap={8} wrap="nowrap" mb={6}>
+                {/* Search: animated expand/collapse */}
+                <Box
+                  style={{
+                    width: searchExpanded ? 220 : 36,
+                    height: 36,
+                    transition: searchExpanded
+                      ? 'width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                      : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    position: 'relative',
+                  }}
+                >
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    radius="xl"
+                    onClick={() => setSearchExpanded(true)}
+                    aria-label={t.coursesAdmin.search}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      opacity: searchExpanded ? 0 : 1,
+                      transform: searchExpanded
+                        ? 'scale(0.5) rotate(90deg)'
+                        : 'scale(1) rotate(0deg)',
+                      pointerEvents: searchExpanded ? 'none' : 'auto',
+                      transition: searchExpanded
+                        ? 'opacity 0.15s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        : 'opacity 0.2s ease 0.15s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s',
+                    }}
+                  >
+                    <Search size={16} />
+                  </ActionIcon>
+
+                  <TextInput
+                    ref={searchRef}
+                    placeholder={t.coursesAdmin.search ?? 'Search...'}
+                    leftSection={<Search size={14} />}
+                    rightSection={
+                      searchExpanded ? (
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="xs"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setSearchExpanded(false);
+                          }}
+                        >
+                          <X size={12} />
+                        </ActionIcon>
+                      ) : undefined
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                    onBlur={() => {
+                      if (!searchQuery) setSearchExpanded(false);
+                    }}
+                    size="sm"
+                    radius="xl"
+                    style={{
+                      width: 220,
+                      opacity: searchExpanded ? 1 : 0,
+                      transform: searchExpanded ? 'translateX(0)' : 'translateX(12px)',
+                      pointerEvents: searchExpanded ? 'auto' : 'none',
+                      transition: searchExpanded
+                        ? 'opacity 0.25s ease 0.12s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s'
+                        : 'opacity 0.15s ease, transform 0.2s ease',
+                    }}
+                  />
+                </Box>
+
+                {/* Create button */}
+                <Tooltip
+                  label={
                     activeTab === 'courses'
                       ? t.coursesAdmin.addCourse
                       : t.coursesAdmin.addUniversity
                   }
-                  mb={6}
                 >
-                  <Plus size={18} />
-                </ActionIcon>
-              </Tooltip>
+                  <ActionIcon
+                    variant="filled"
+                    color="indigo"
+                    size="lg"
+                    radius="xl"
+                    onClick={activeTab === 'courses' ? openAddCourse : openAddUniversity}
+                    aria-label={
+                      activeTab === 'courses'
+                        ? t.coursesAdmin.addCourse
+                        : t.coursesAdmin.addUniversity
+                    }
+                  >
+                    <Plus size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             </Group>
 
             {/* ── Universities Tab ── */}
             <Tabs.Panel value="universities" pt="md">
-              {universities.length === 0 ? (
+              {filteredUniversities.length === 0 ? (
                 <Alert variant="light" color="gray">
                   {t.coursesAdmin.noUniversities}
                 </Alert>
@@ -396,7 +503,7 @@ export function AdminCoursesClient({
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                      {universities.map((uni) => (
+                      {filteredUniversities.map((uni) => (
                         <Table.Tr key={uni.id} style={{ transition: 'background 0.12s ease' }}>
                           <Table.Td>
                             <CopyButton value={uni.id}>
