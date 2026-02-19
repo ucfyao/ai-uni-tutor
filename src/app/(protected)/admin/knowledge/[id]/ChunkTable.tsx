@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useState, type CSSProperties } from 'react';
 import {
   ActionIcon,
@@ -12,7 +12,6 @@ import {
   Collapse,
   Group,
   Select,
-  Skeleton,
   Stack,
   Table,
   Text,
@@ -111,11 +110,9 @@ export function ChunkTable({
           </>
         ) : (
           <>
-            <Skeleton height={16} width="60%" />
-            <Skeleton height={16} width="80%" />
-            <Skeleton height={16} width="50%" />
+            <FileText size={40} color="var(--mantine-color-gray-4)" />
             <Text c="dimmed" fz="sm">
-              {t.knowledge.processingDocument}
+              {t.knowledge.publishDisabledTooltip}
             </Text>
           </>
         )}

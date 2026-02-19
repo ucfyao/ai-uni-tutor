@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
@@ -11,6 +12,7 @@ import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { showNotification } from '@/lib/notifications';
+import { queryKeys } from '@/lib/query-keys';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
 import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
@@ -25,6 +27,7 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { t } = useLanguage();
 
   const docType: DocType = 'assignment';
@@ -203,12 +206,13 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
   const handleDeleteDoc = useCallback(async () => {
     try {
       await deleteDocument(assignment.id, 'assignment');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       showNotification({ message: 'Deleted', color: 'green' });
       router.push('/admin/knowledge');
     } catch {
       showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
     }
-  }, [assignment.id, router, t]);
+  }, [assignment.id, queryClient, router, t]);
 
   const headerNode = useMemo(
     () => (

@@ -347,14 +347,22 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               </Box>
 
               {/* Create button */}
-              <Tooltip label={t.knowledge.createAssignment}>
+              <Tooltip
+                label={
+                  activeTab === 'exam'
+                    ? t.knowledge.createExam
+                    : activeTab === 'assignment'
+                      ? t.knowledge.createAssignment
+                      : t.knowledge.createLecture
+                }
+              >
                 <ActionIcon
                   variant="filled"
                   color="indigo"
                   size="lg"
                   radius="xl"
                   onClick={() => setUploadModalOpen(true)}
-                  aria-label={t.knowledge.createAssignment}
+                  aria-label={t.knowledge.createDocument}
                 >
                   <Plus size={18} />
                 </ActionIcon>
@@ -405,7 +413,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       <FullScreenModal
         opened={uploadModalOpen}
         onClose={handleCloseModal}
-        title={t.knowledge.createAssignment}
+        title={
+          activeTab === 'exam'
+            ? t.knowledge.createExam
+            : activeTab === 'assignment'
+              ? t.knowledge.createAssignment
+              : t.knowledge.createLecture
+        }
         centered
         size="md"
         radius="lg"
@@ -422,8 +436,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       >
         <Stack gap="md">
           <TextInput
-            label={t.knowledge.assignmentTitle}
-            placeholder={t.knowledge.assignmentTitlePlaceholder}
+            label={t.knowledge.title}
+            placeholder={t.knowledge.titlePlaceholder}
             value={title}
             onChange={(e) => setTitle(e.currentTarget.value)}
             required
