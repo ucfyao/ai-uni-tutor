@@ -53,6 +53,7 @@ function createMockDocRepo(): Record<keyof LectureDocumentRepository, ReturnType
     findByUserId: vi.fn(),
     findForAdmin: vi.fn(),
     deleteById: vi.fn(),
+    findOutlinesByCourseId: vi.fn(),
     saveOutline: vi.fn(),
   };
 }

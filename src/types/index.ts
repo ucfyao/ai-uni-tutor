@@ -7,6 +7,12 @@ export type Course = {
 
 export type TutoringMode = 'Lecture Helper' | 'Assignment Coach' | 'Mock Exam';
 
+export interface ChatSource {
+  documentName: string;
+  pages: number[];
+  similarity: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -16,6 +22,7 @@ export interface ChatMessage {
     data: string; // base64
     mimeType: string;
   }[];
+  sources?: ChatSource[];
 }
 
 export interface ChatSession {

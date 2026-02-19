@@ -88,6 +88,7 @@ export async function POST(request: Request) {
 
       // ── Course-level permission check (look up course from existing record) ──
       let courseId: string | null = null;
+      let documentName: string | null = null;
       if (doc_type === 'lecture') {
         const doc = await documentService.findById(documentId);
         if (!doc) {
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
           return;
         }
         courseId = doc.courseId;
+        documentName = doc.name;
       } else if (doc_type === 'exam') {
         courseId = await getExamPaperRepository().findCourseId(documentId);
       } else {
@@ -290,7 +292,7 @@ export async function POST(request: Request) {
             lectureDocumentId: documentId,
             content,
             embedding,
-            metadata: { type, ...data },
+            metadata: { type, ...data, ...(documentName && { documentName }) },
           });
 
           if (batch.length >= BATCH_SIZE || i === newItems.length - 1) {
@@ -421,6 +423,15 @@ export async function POST(request: Request) {
 
         await assignmentRepo.insertItems(itemsWithEmbeddings);
         send('batch_saved', { chunkIds: assignmentItems.map((_, i) => `a-${i}`), batchIndex: 0 });
+      }
+
+      // Fire-and-forget: regenerate course outline after lecture upload
+      if (doc_type === 'lecture' && courseId) {
+        import('@/lib/services/CourseService').then(({ getCourseService }) =>
+          getCourseService()
+            .regenerateCourseOutline(courseId!)
+            .catch((e) => console.warn('Course outline regeneration failed (non-fatal):', e)),
+        );
       }
 
       send('status', { stage: 'complete', message: `Done! ${totalItems} items extracted.` });

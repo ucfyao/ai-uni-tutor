@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import type { ChatSource } from '@/types';
 
 const STREAM_TIMEOUT_MS = 60000; // 60 seconds timeout
 
@@ -15,6 +16,7 @@ interface StreamCallbacks {
   onChunk: (text: string) => void;
   onError: (error: string, isLimitError?: boolean, isRetryable?: boolean) => void;
   onComplete: () => void | Promise<void>;
+  onSources?: (sources: ChatSource[]) => void;
 }
 
 export function useChatStream() {
@@ -26,7 +28,7 @@ export function useChatStream() {
   const streamChatResponse = useCallback(
     async (options: StreamChatOptions, callbacks: StreamCallbacks) => {
       const { course, mode, history, userInput, images = [], document } = options;
-      const { onChunk, onError, onComplete } = callbacks;
+      const { onChunk, onError, onComplete, onSources } = callbacks;
 
       cancelledRef.current = false;
       const controller = new AbortController();
@@ -83,7 +85,9 @@ export function useChatStream() {
               }
               try {
                 const parsed = JSON.parse(data);
-                if (parsed.text) {
+                if (parsed.sources && onSources) {
+                  onSources(parsed.sources);
+                } else if (parsed.text) {
                   onChunk(parsed.text);
                 } else if (parsed.error) {
                   onError(parsed.error, parsed.isLimitError, true);

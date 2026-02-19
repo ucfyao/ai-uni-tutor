@@ -10,6 +10,7 @@ import { MODE_CONFIGS, type ModeConfig } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
 import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { appendRagContext } from '@/lib/prompts';
+import type { ChatSource } from '@/types';
 import { ChatMessage, Course, TutoringMode } from '@/types';
 
 export interface ChatGenerationOptions {
@@ -19,6 +20,7 @@ export interface ChatGenerationOptions {
   userInput: string;
   images?: { data: string; mimeType: string }[];
   document?: { data: string; mimeType: string };
+  onSources?: (sources: ChatSource[]) => void;
 }
 
 export class ChatService {
@@ -53,7 +55,8 @@ export class ChatService {
     }
 
     // RAG Integration
-    systemInstruction = await this.addRAGContext(systemInstruction, processedInput, course, config);
+    const ragResult = await this.addRAGContext(systemInstruction, processedInput, course, config);
+    systemInstruction = ragResult.systemInstruction;
 
     // Prepare contents for Gemini
     const contents = this.prepareContents(history, processedInput, images, document);
@@ -73,7 +76,7 @@ export class ChatService {
    * Generate streaming AI response
    */
   async *generateStream(options: ChatGenerationOptions): AsyncGenerator<string, void, unknown> {
-    const { course, mode, history, userInput, images, document } = options;
+    const { course, mode, history, userInput, images, document, onSources } = options;
 
     // Validation
     this.validateRequest(course, mode);
@@ -91,7 +94,13 @@ export class ChatService {
     }
 
     // RAG Integration
-    systemInstruction = await this.addRAGContext(systemInstruction, processedInput, course, config);
+    const ragResult = await this.addRAGContext(systemInstruction, processedInput, course, config);
+    systemInstruction = ragResult.systemInstruction;
+
+    // Emit sources if callback provided
+    if (onSources && ragResult.sources.length > 0) {
+      onSources(ragResult.sources);
+    }
 
     // Prepare contents
     const contents = this.prepareContents(history, processedInput, images, document);
@@ -134,10 +143,11 @@ Guidelines:
 
     // Add RAG context if course ID provided
     if (courseId) {
-      systemInstruction = await this.addRAGContext(systemInstruction, concept, { id: courseId }, {
+      const ragResult = await this.addRAGContext(systemInstruction, concept, { id: courseId }, {
         ragMatchCount: 3,
         assignmentRag: false,
       } as ModeConfig);
+      systemInstruction = ragResult.systemInstruction;
     }
 
     const response = await ai.models.generateContent({
@@ -236,15 +246,18 @@ Guidelines:
     query: string,
     course: { id?: string; code?: string },
     config: ModeConfig,
-  ): Promise<string> {
+  ): Promise<{ systemInstruction: string; sources: ChatSource[] }> {
+    let sources: ChatSource[] = [];
+
     try {
       // Existing lecture RAG
       const { retrieveContext } = await import('@/lib/rag/retrieval');
-      const context = await retrieveContext(query, course.id, {}, config.ragMatchCount);
+      const result = await retrieveContext(query, course.id, {}, config.ragMatchCount);
 
-      if (context) {
-        systemInstruction = appendRagContext(systemInstruction, context);
+      if (result.contextText) {
+        systemInstruction = appendRagContext(systemInstruction, result.contextText);
       }
+      sources = result.sources;
 
       // Assignment RAG (only for Assignment Coach mode)
       if (config.assignmentRag && course.id) {
@@ -260,7 +273,7 @@ Guidelines:
       console.error('RAG Retrieval Failed:', e);
     }
 
-    return systemInstruction;
+    return { systemInstruction, sources };
   }
 
   private async generateWithRetry(
