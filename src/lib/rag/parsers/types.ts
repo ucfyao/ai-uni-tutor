@@ -40,17 +40,6 @@ export interface DocumentStructure {
   sections: SectionInfo[];
 }
 
-export interface QualityReview {
-  isRelevant: boolean;
-  qualityScore: number;
-  issues: string[];
-  suggestedDefinition?: string;
-}
-
-export interface ReviewedKnowledgePoint extends KnowledgePoint {
-  review: QualityReview;
-}
-
 export interface OutlineSection {
   title: string;
   knowledgePoints: string[];

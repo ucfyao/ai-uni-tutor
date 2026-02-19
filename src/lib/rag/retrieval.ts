@@ -5,7 +5,7 @@ import type { Json } from '@/types/database';
 import { RAG_CONFIG } from './config';
 import { generateEmbedding } from './embedding';
 
-export interface RetrievalResult {
+interface RetrievalResult {
   contextText: string;
   sources: ChatSource[];
 }

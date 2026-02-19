@@ -12,12 +12,21 @@ import { checkLLMUsage, getLLMUsage, llmFreeRatelimit, llmProRatelimit } from '@
 import { getProfileRepository } from '@/lib/repositories';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
 
-export interface QuotaStatus {
+interface QuotaStatus {
   canSend: boolean;
   usage: number;
   limit: number;
   remaining: number;
   isPro: boolean;
+}
+
+interface QuotaCheckResult {
+  allowed: boolean;
+  usage: number;
+  limit: number;
+  remaining: number;
+  isPro: boolean;
+  error?: string;
 }
 
 export interface AccessLimits {
@@ -30,15 +39,6 @@ export interface AccessLimits {
   rateLimitLlmProRequests: number;
   rateLimitLlmProWindow: string;
   maxFileSizeMB: number;
-}
-
-export interface QuotaCheckResult {
-  allowed: boolean;
-  usage: number;
-  limit: number;
-  remaining: number;
-  isPro: boolean;
-  error?: string;
 }
 
 export class QuotaService {

@@ -29,13 +29,6 @@ export function metaStr(meta: Json, key: string): string {
   return '';
 }
 
-/** Resolve doc_type from document metadata */
-export function resolveDocType(metadata: Json): DocType {
-  const raw = metaStr(metadata, 'doc_type') || metaStr(metadata, 'docType');
-  if (raw === 'exam' || raw === 'assignment') return raw;
-  return 'lecture';
-}
-
 /** Status color mapping */
 export function statusColor(status: string): string {
   switch (status) {
