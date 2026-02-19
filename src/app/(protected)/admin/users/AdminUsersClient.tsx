@@ -420,9 +420,19 @@ export function AdminUsersClient({ currentUserId }: Props) {
               </Popover.Target>
               <Popover.Dropdown>
                 <Stack gap="xs">
-                  <Text size="sm" fw={500}>
-                    Assigned Courses
-                  </Text>
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={500}>
+                      Assigned Courses
+                    </Text>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="xs"
+                      onClick={() => setCoursePopoverId(null)}
+                    >
+                      <X size={14} />
+                    </ActionIcon>
+                  </Group>
                   <MultiSelect
                     data={courseOptions}
                     value={selectedCourseIds}
