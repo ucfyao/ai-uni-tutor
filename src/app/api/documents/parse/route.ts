@@ -408,19 +408,40 @@ export async function POST(request: Request) {
         await examRepo.updateStatus(effectiveRecordId, 'ready');
       } else {
         // ── ASSIGNMENT: Save to assignment_items with embeddings ──
+        // Append mode: query existing items for dedup + order_num offset
         send('status', { stage: 'embedding', message: 'Generating embeddings...' });
         const assignmentRepo = getAssignmentRepository();
+
+        // Query existing items for content-based dedup
+        const existingItems = await assignmentRepo.findItemsByAssignmentId(effectiveRecordId);
+        const existingContents = new Set(
+          existingItems.map((item) => item.content.trim().toLowerCase()),
+        );
+        const maxOrderNum =
+          existingItems.length > 0 ? Math.max(...existingItems.map((item) => item.orderNum)) : 0;
 
         for (let i = 0; i < items.length; i++) {
           send('item', { index: i, type: items[i].type, data: items[i].data });
           send('progress', { current: i + 1, total: totalItems });
         }
 
-        const assignmentItems = items.map((item, idx) => {
+        // Filter out duplicates based on content
+        const newItems = items.filter((item) => {
+          const q = item.data as ParsedQuestion;
+          return !existingContents.has(q.content.trim().toLowerCase());
+        });
+
+        if (newItems.length === 0) {
+          await assignmentRepo.updateStatus(effectiveRecordId, 'ready');
+          send('status', { stage: 'complete', message: 'No new items to add (all duplicates).' });
+          return;
+        }
+
+        const assignmentItems = newItems.map((item, idx) => {
           const q = item.data as ParsedQuestion;
           return {
             assignmentId: effectiveRecordId,
-            orderNum: idx + 1,
+            orderNum: maxOrderNum + idx + 1,
             type: '',
             content: q.content,
             referenceAnswer: q.referenceAnswer || '',

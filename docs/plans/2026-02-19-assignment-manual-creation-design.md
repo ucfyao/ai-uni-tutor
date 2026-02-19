@@ -31,8 +31,9 @@ Knowledge list → "+" → Upload Modal (PDF + course) → LLM parse → complet
 Knowledge list → "+" (on Assignment tab) → Lightweight Modal (title + university + course) → Create empty record → Redirect to detail page
 ```
 
+- Modal: uses `FullScreenModal` wrapper (per project convention)
 - Modal fields: Title (required), University (required), Course (required)
-- Creates `assignments` record with `status='ready'`, no items
+- Creates `assignments` record with `status='draft'`, no items
 - Redirects to `/admin/knowledge/[id]?type=assignment`
 - Lecture and Exam tabs still open the existing Upload Modal
 
@@ -59,7 +60,7 @@ Knowledge list → "+" (on Assignment tab) → Lightweight Modal (title + univer
 
 ### Upload Area Behavior
 
-- **0 items**: expanded by default, shows Dropzone + university/course selectors + parse button
+- **0 items**: expanded by default, shows Dropzone + parse button (university/course from assignment record, no selectors)
 - **1+ items**: collapsed by default, expandable via click/toggle
 - On parse: SSE stream appends new items to existing list (no replacement)
 - University/course pre-filled from the assignment record
@@ -68,43 +69,93 @@ Knowledge list → "+" (on Assignment tab) → Lightweight Modal (title + univer
 
 - Position: top of the items table, alongside the item count badge
 - Action: appends a new empty item at the end of the list, auto-enters edit mode
-- New item fields: content, reference answer, explanation, points, difficulty (same as existing edit form)
+- New item fields: question type (dropdown: multiple_choice / short_answer / fill_in_blank / true_false / essay), content, reference answer, explanation, points, difficulty
 - New items are tracked in local state until saved
+
+## New Component: Detail Page Upload Area
+
+New component at `src/components/rag/AssignmentUploadArea.tsx`:
+
+- **Props**: `assignmentId`, `universityId`, `courseId`, `itemCount`, `onParseComplete`
+- **Contains**: Dropzone (PDF) + parse button + SSE streaming progress
+- **No university/course selectors** — values come from the assignment record (props)
+- **Collapsible**: wrapped in Mantine `Collapse`; expanded by default when `itemCount === 0`, collapsed when `itemCount > 0`
+- **On parse complete**: calls `onParseComplete` → parent calls `router.refresh()`
+
+Upload Modal in `KnowledgeClient.tsx` remains unchanged — it is only used for Lecture/Exam creation flow.
 
 ## Data Layer Changes
 
-### New Server Action: `createEmptyAssignment`
+### New Action File: `src/app/actions/assignments.ts`
+
+Separate from `documents.ts`. All assignment-specific actions live here.
+
+#### `createEmptyAssignment`
 
 - Input: `{ title: string, universityId: string, courseId: string }`
-- Creates `assignments` record: `status='ready'`, `school` from university, `course` from course code
+- Delegates to `AssignmentService.createEmpty()`
 - Returns the new assignment ID
 - Auth: `requireAnyAdmin()`
 
-### New Server Action: `addAssignmentItem`
+#### `addAssignmentItem`
 
-- Input: `{ assignmentId: string, content: string, referenceAnswer?: string, explanation?: string, points?: number, difficulty?: string }`
-- Creates `assignment_items` record with next `order_num`
-- Generates embedding via existing embedding pipeline
+- Input: `{ assignmentId: string, type: string, content: string, referenceAnswer?: string, explanation?: string, points?: number, difficulty?: string }`
+- Delegates to `AssignmentService.addItem()`
 - Auth: `requireAnyAdmin()` + `requireAssignmentAccess()`
+
+#### Auth helper: extract `requireAssignmentAccess`
+
+`requireAssignmentAccess()` is currently a local function in `documents.ts`. Extract it to a shared location (e.g., `src/lib/supabase/server.ts` alongside `requireAnyAdmin`) so both `documents.ts` and `assignments.ts` can import it.
+
+### New Service: `AssignmentService`
+
+- `createEmpty(userId, data)`: create assignment record with `status='draft'`, return ID. `userId` comes from auth in the action layer.
+- `addItem(assignmentId, data)`: query max `order_num`, insert item with next `order_num`, generate embedding via `generateEmbedding()`, return item
 
 ### Repository Changes
 
-- `AssignmentRepository.createEmpty(data)`: insert assignment with status='ready'
-- `AssignmentRepository.insertSingleItem(assignmentId, data)`: insert one item, auto-assign order_num
+- `AssignmentRepository.getMaxOrderNum(assignmentId)`: return current max `order_num` (or 0 if no items)
+- `AssignmentRepository.insertSingleItem(assignmentId, data)`: insert one item with specified `order_num`
 - Embedding generation: reuse existing `generateEmbedding()` from RAG pipeline
 
 ### Parse Route Modification
 
-- When parsing PDF for an existing assignment that already has items, append new items after the last `order_num`
+- Before inserting parsed items, query existing items for the assignment
+- **Content-based deduplication**: compare parsed item `content` against existing items, skip duplicates
+- **Order number offset**: new (non-duplicate) items start from `max(order_num) + 1`
 - No deletion of existing items during re-parse
 
-## No Database Schema Changes
+## Database Schema Changes
 
-Existing `assignments` and `assignment_items` tables support all requirements:
+### Add `'draft'` to assignment status
 
-- `assignments.status` already has `'ready'` as a valid value
+- **Supabase migration**: `ALTER TYPE assignment_status ADD VALUE 'draft'` (if status is a Postgres enum), or no migration needed if status is plain `text`
+- **TypeScript types**: add `'draft'` to `AssignmentStatus` union in:
+  - `src/lib/domain/models/Assignment.ts`
+  - `src/types/database.ts` (Row/Insert/Update types)
+  - `src/lib/repositories/AssignmentRepository.ts` (type cast)
+- **Knowledge list page**: no filter changes needed — `findAllForAdmin()` / `findByCourseIds()` return all statuses, `'draft'` will appear automatically
+- **Detail page status display**: add `'draft'` case to `statusColor()` in `types.ts` (e.g., `'draft' → 'blue'`)
+
+### No other schema changes
+
 - `assignment_items.order_num` supports ordering
 - `assignment_items.embedding` supports RAG retrieval
+
+## Cache Invalidation
+
+- **Knowledge list page** (TanStack Query): after `createEmptyAssignment`, invalidate `queryKeys.documents.byType('assignment')` to refresh the list
+- **Detail page** (Server Component props): after `addAssignmentItem` or parse-append, call `router.refresh()` to refetch server data
+
+## i18n
+
+New keys required in both `en.ts` and `zh.ts`:
+
+- Lightweight modal: title, submit button, cancel
+- Add Item button label
+- Question type dropdown options (multiple_choice, short_answer, fill_in_blank, true_false, essay)
+- Collapsible upload area toggle text
+- Empty assignment state message (0 items prompt)
 
 ## Scope Exclusions
 

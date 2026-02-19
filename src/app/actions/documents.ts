@@ -9,7 +9,11 @@ import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingS
 import { getDocumentService } from '@/lib/services/DocumentService';
 import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
-import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
+import {
+  requireAnyAdmin,
+  requireAssignmentAccess,
+  requireCourseAdmin,
+} from '@/lib/supabase/server';
 import type { FormActionState } from '@/types/actions';
 import type { Json } from '@/types/database';
 
@@ -59,25 +63,6 @@ async function requireExamAccess(paperId: string, _userId: string, role: string)
   } else {
     // No course_id: only super_admin can access legacy/unlinked papers (handled above)
     throw new ForbiddenError('No access to this exam paper');
-  }
-}
-
-/** Enforce course-level or ownership permission for an assignment.
- *  Admin users must go through course assignment — no owner fallback. */
-async function requireAssignmentAccess(
-  assignmentId: string,
-  _userId: string,
-  role: string,
-): Promise<void> {
-  if (role === 'super_admin') return;
-  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-  const assignmentRepo = getAssignmentRepository();
-  const courseId = await assignmentRepo.findCourseId(assignmentId);
-  if (courseId) {
-    await requireCourseAdmin(courseId);
-  } else {
-    // No course_id: only super_admin can access legacy/unlinked assignments (handled above)
-    throw new ForbiddenError('No access to this assignment');
   }
 }
 

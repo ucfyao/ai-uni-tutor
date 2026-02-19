@@ -45,6 +45,8 @@ export function statusColor(status: string): string {
       return 'yellow';
     case 'error':
       return 'red';
+    case 'draft':
+      return 'blue';
     default:
       return 'gray';
   }

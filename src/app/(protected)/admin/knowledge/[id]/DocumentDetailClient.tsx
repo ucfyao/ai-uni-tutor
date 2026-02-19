@@ -1,9 +1,14 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+import { addAssignmentItem } from '@/app/actions/assignments';
+import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
 import { useHeader } from '@/context/HeaderContext';
+import { useLanguage } from '@/i18n/LanguageContext';
+import { showNotification } from '@/lib/notifications';
 import { ChunkActionBar } from './ChunkActionBar';
 import { ChunkTable } from './ChunkTable';
 import { DocumentDetailHeader } from './DocumentDetailHeader';
@@ -18,11 +23,14 @@ interface DocumentDetailClientProps {
 export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailClientProps) {
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
+  const router = useRouter();
+  const { t } = useLanguage();
 
   /* -- derived from document metadata -- */
   const docType: DocType = doc.docType;
   const school = metaStr(doc.metadata, 'school');
   const course = metaStr(doc.metadata, 'course');
+  const courseId = metaStr(doc.metadata, 'courseId');
 
   /* -- document name -- */
   const [currentName, setCurrentName] = useState(doc.name);
@@ -126,6 +134,32 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
     setSelectedIds(new Set());
   }, []);
 
+  /* -- add item handler (assignment only) -- */
+  const handleAddItem = useCallback(
+    async (data: {
+      type: string;
+      content: string;
+      referenceAnswer: string;
+      explanation: string;
+      points: number;
+      difficulty: string;
+    }): Promise<boolean> => {
+      const result = await addAssignmentItem({
+        assignmentId: doc.id,
+        ...data,
+      });
+      if (result.success) {
+        showNotification({ message: t.documentDetail.saved, color: 'green' });
+        router.refresh();
+        return true;
+      } else {
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
+        return false;
+      }
+    },
+    [doc.id, router, t],
+  );
+
   /* -- Header (mirrors ChatPageLayout pattern) -- */
   const headerNode = useMemo(
     () => (
@@ -173,6 +207,19 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
       {/* Scrollable Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="md" p="lg" maw={900} mx="auto">
+          {/* Assignment: collapsible upload area */}
+          {docType === 'assignment' && (
+            <AssignmentUploadArea
+              assignmentId={doc.id}
+              universityId={null}
+              courseId={courseId || null}
+              school={school}
+              course={course}
+              itemCount={visibleChunks.length}
+              onParseComplete={() => router.refresh()}
+            />
+          )}
+
           <ChunkTable
             chunks={visibleChunks}
             docType={docType}
@@ -189,6 +236,7 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}
             onBulkDelete={handleBulkDelete}
+            onAddItem={docType === 'assignment' ? handleAddItem : undefined}
           />
 
           {/* Sticky footer */}

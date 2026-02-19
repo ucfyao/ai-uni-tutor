@@ -1,7 +1,7 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
-import { type CSSProperties } from 'react';
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useState, type CSSProperties } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -11,13 +11,17 @@ import {
   Checkbox,
   Collapse,
   Group,
+  Select,
   Skeleton,
   Stack,
   Table,
   Text,
+  Textarea,
+  TextInput,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { showNotification } from '@/lib/notifications';
 import { ChunkEditForm } from './ChunkEditForm';
 import type { Chunk, DocType } from './types';
 
@@ -37,6 +41,15 @@ interface ChunkTableProps {
   onToggleSelect: (chunkId: string) => void;
   onToggleSelectAll: () => void;
   onBulkDelete: () => void;
+  /** Optional: called to add a new assignment item (assignment type only) */
+  onAddItem?: (data: {
+    type: string;
+    content: string;
+    referenceAnswer: string;
+    explanation: string;
+    points: number;
+    difficulty: string;
+  }) => Promise<boolean>;
 }
 
 const thStyle: CSSProperties = {
@@ -63,9 +76,11 @@ export function ChunkTable({
   onToggleSelect,
   onToggleSelectAll,
   onBulkDelete,
+  onAddItem,
 }: ChunkTableProps) {
   const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   // Label for count badge
   const countLabel =
@@ -75,16 +90,50 @@ export function ChunkTable({
         ? t.documentDetail.items
         : t.documentDetail.questions;
 
-  // Empty chunks skeleton
-  if (chunks.length === 0) {
+  // Empty state
+  if (chunks.length === 0 && !showAddForm) {
     return (
       <Stack align="center" gap="md" py="xl">
-        <Skeleton height={16} width="60%" />
-        <Skeleton height={16} width="80%" />
-        <Skeleton height={16} width="50%" />
-        <Text c="dimmed" fz="sm">
-          {t.knowledge.processingDocument}
-        </Text>
+        {docType === 'assignment' && onAddItem ? (
+          <>
+            <Text c="dimmed" fz="sm">
+              {t.knowledge.emptyAssignment}
+            </Text>
+            <Button
+              leftSection={<Plus size={14} />}
+              variant="light"
+              color="indigo"
+              size="sm"
+              onClick={() => setShowAddForm(true)}
+            >
+              {t.knowledge.addItem}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Skeleton height={16} width="60%" />
+            <Skeleton height={16} width="80%" />
+            <Skeleton height={16} width="50%" />
+            <Text c="dimmed" fz="sm">
+              {t.knowledge.processingDocument}
+            </Text>
+          </>
+        )}
+      </Stack>
+    );
+  }
+
+  // Show just the add form when no chunks exist yet
+  if (chunks.length === 0 && showAddForm && onAddItem) {
+    return (
+      <Stack gap="md">
+        <AddItemForm
+          onSubmit={async (data) => {
+            const success = await onAddItem(data);
+            if (success) setShowAddForm(false);
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
       </Stack>
     );
   }
@@ -93,9 +142,22 @@ export function ChunkTable({
     return (
       <Stack gap="md">
         <Group justify="space-between" align="center">
-          <Badge variant="filled" color="indigo" size="lg">
-            {chunks.length} {countLabel}
-          </Badge>
+          <Group gap="xs">
+            <Badge variant="filled" color="indigo" size="lg">
+              {chunks.length} {countLabel}
+            </Badge>
+            {docType === 'assignment' && onAddItem && (
+              <Button
+                leftSection={<Plus size={12} />}
+                variant="light"
+                color="indigo"
+                size="xs"
+                onClick={() => setShowAddForm(true)}
+              >
+                {t.knowledge.addItem}
+              </Button>
+            )}
+          </Group>
           {selectedIds.size > 0 && (
             <Group gap="xs">
               <Text fz="sm" c="dimmed">
@@ -107,6 +169,15 @@ export function ChunkTable({
             </Group>
           )}
         </Group>
+        {showAddForm && onAddItem && (
+          <AddItemForm
+            onSubmit={async (data) => {
+              const success = await onAddItem(data);
+              if (success) setShowAddForm(false);
+            }}
+            onCancel={() => setShowAddForm(false)}
+          />
+        )}
         {chunks.map((chunk, index) => (
           <MobileChunkRow
             key={chunk.id}
@@ -134,9 +205,22 @@ export function ChunkTable({
   return (
     <Stack gap="md">
       <Group justify="space-between" align="center">
-        <Badge variant="filled" color="indigo" size="lg">
-          {chunks.length} {countLabel}
-        </Badge>
+        <Group gap="xs">
+          <Badge variant="filled" color="indigo" size="lg">
+            {chunks.length} {countLabel}
+          </Badge>
+          {docType === 'assignment' && onAddItem && (
+            <Button
+              leftSection={<Plus size={14} />}
+              variant="light"
+              color="indigo"
+              size="xs"
+              onClick={() => setShowAddForm(true)}
+            >
+              {t.knowledge.addItem}
+            </Button>
+          )}
+        </Group>
         {selectedIds.size > 0 && (
           <Group gap="xs">
             <Text fz="sm" c="dimmed">
@@ -148,6 +232,15 @@ export function ChunkTable({
           </Group>
         )}
       </Group>
+      {showAddForm && onAddItem && (
+        <AddItemForm
+          onSubmit={async (data) => {
+            const success = await onAddItem(data);
+            if (success) setShowAddForm(false);
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
       <Card withBorder radius="lg" p={0} style={{ overflow: 'auto' }}>
         <Table
           verticalSpacing="sm"
@@ -525,6 +618,146 @@ function MobileChunkRow({
             </Card>
           </Collapse>
         )}
+      </Stack>
+    </Card>
+  );
+}
+
+/* -- Add Item Form (assignment only) -- */
+
+function AddItemForm({
+  onSubmit,
+  onCancel,
+}: {
+  onSubmit: (data: {
+    type: string;
+    content: string;
+    referenceAnswer: string;
+    explanation: string;
+    points: number;
+    difficulty: string;
+  }) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [itemType, setItemType] = useState('short_answer');
+  const [content, setContent] = useState('');
+  const [referenceAnswer, setReferenceAnswer] = useState('');
+  const [explanation, setExplanation] = useState('');
+  const [points, setPoints] = useState('0');
+  const [difficulty, setDifficulty] = useState('medium');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const questionTypeOptions = [
+    { value: 'multiple_choice', label: t.knowledge.questionTypes.multiple_choice },
+    { value: 'short_answer', label: t.knowledge.questionTypes.short_answer },
+    { value: 'fill_in_blank', label: t.knowledge.questionTypes.fill_in_blank },
+    { value: 'true_false', label: t.knowledge.questionTypes.true_false },
+    { value: 'essay', label: t.knowledge.questionTypes.essay },
+  ];
+
+  const handleSubmit = useCallback(async () => {
+    if (!content.trim()) {
+      showNotification({ title: t.common.error, message: 'Content is required', color: 'red' });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSubmit({
+        type: itemType,
+        content: content.trim(),
+        referenceAnswer: referenceAnswer.trim(),
+        explanation: explanation.trim(),
+        points: Number(points) || 0,
+        difficulty,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [content, itemType, referenceAnswer, explanation, points, difficulty, onSubmit, t]);
+
+  return (
+    <Card withBorder radius="lg" p="md">
+      <Stack gap="sm">
+        <Text fw={600} size="sm">
+          {t.knowledge.addItem}
+        </Text>
+        <Group grow>
+          <Select
+            label={t.knowledge.questionType}
+            data={questionTypeOptions}
+            value={itemType}
+            onChange={(v) => setItemType(v || 'short_answer')}
+            size="sm"
+            radius="md"
+          />
+          <Select
+            label={t.documentDetail.difficulty}
+            data={[
+              { value: 'easy', label: 'Easy' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'hard', label: 'Hard' },
+            ]}
+            value={difficulty}
+            onChange={(v) => setDifficulty(v || 'medium')}
+            size="sm"
+            radius="md"
+          />
+          <TextInput
+            label={t.documentDetail.score}
+            value={points}
+            onChange={(e) => setPoints(e.currentTarget.value)}
+            type="number"
+            min={0}
+            size="sm"
+            radius="md"
+          />
+        </Group>
+        <Textarea
+          label={t.documentDetail.content}
+          value={content}
+          onChange={(e) => setContent(e.currentTarget.value)}
+          autosize
+          minRows={2}
+          maxRows={6}
+          required
+          size="sm"
+          radius="md"
+        />
+        <Textarea
+          label={t.documentDetail.answer}
+          value={referenceAnswer}
+          onChange={(e) => setReferenceAnswer(e.currentTarget.value)}
+          autosize
+          minRows={2}
+          maxRows={4}
+          size="sm"
+          radius="md"
+        />
+        <Textarea
+          label={t.documentDetail.explanation}
+          value={explanation}
+          onChange={(e) => setExplanation(e.currentTarget.value)}
+          autosize
+          minRows={1}
+          maxRows={3}
+          size="sm"
+          radius="md"
+        />
+        <Group justify="flex-end" gap="sm">
+          <Button variant="subtle" color="gray" size="sm" onClick={onCancel}>
+            {t.documentDetail.cancel}
+          </Button>
+          <Button
+            color="indigo"
+            size="sm"
+            onClick={handleSubmit}
+            loading={isSaving}
+            disabled={!content.trim()}
+          >
+            {t.documentDetail.save}
+          </Button>
+        </Group>
       </Stack>
     </Card>
   );
