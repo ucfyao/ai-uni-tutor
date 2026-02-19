@@ -36,5 +36,8 @@ e2e/.auth/
 test-results/
 playwright-report/
 
+# Design docs & plans (local only)
+docs/plans/
+
 # Git worktrees
 .worktrees/
