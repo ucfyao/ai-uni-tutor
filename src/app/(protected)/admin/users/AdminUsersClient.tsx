@@ -2,23 +2,24 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
-import React, { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   ActionIcon,
   Badge,
+  Box,
   Button,
   Card,
   Group,
   Loader,
   MultiSelect,
   Popover,
+  ScrollArea,
   SegmentedControl,
   Select,
   Stack,
   Table,
   Text,
   TextInput,
-  Title,
   Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
@@ -69,19 +70,27 @@ export function AdminUsersClient({ currentUserId }: Props) {
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const { setHeaderContent } = useHeader();
+
+  const headerNode = useMemo(
+    () => (
+      <Group gap={8} align="center" wrap="nowrap" px={isMobile ? 6 : 8} py={isMobile ? 4 : 6}>
+        <ShieldCheck size={isMobile ? 18 : 20} color="var(--mantine-color-indigo-5)" />
+        <Text fw={650} size={isMobile ? 'md' : 'lg'}>
+          User Management
+        </Text>
+      </Group>
+    ),
+    [isMobile],
+  );
+
   useEffect(() => {
     if (isMobile) {
-      setHeaderContent(
-        <Group gap="sm" align="center">
-          <ShieldCheck size={20} />
-          <Title order={4}>User Management</Title>
-        </Group>,
-      );
+      setHeaderContent(headerNode);
     } else {
       setHeaderContent(null);
     }
     return () => setHeaderContent(null);
-  }, [isMobile, setHeaderContent]);
+  }, [isMobile, headerNode, setHeaderContent]);
 
   // Unified user list query
   const { data: users = [], isLoading: usersLoading } = useQuery({
@@ -385,87 +394,113 @@ export function AdminUsersClient({ currentUserId }: Props) {
   };
 
   return (
-    <Stack p={isMobile ? 'md' : 'xl'} gap="lg">
-      <Card withBorder p="md" radius="md">
-        {/* Header: Search icon (left) + SegmentedControl tabs (center/right) */}
-        <Group mb="md" gap="sm" justify="space-between">
-          <Group gap="sm" style={{ flex: searchExpanded ? 1 : undefined }}>
-            {searchExpanded ? (
-              <TextInput
-                ref={searchInputRef}
-                placeholder="Search by name or email..."
-                leftSection={<Search size={16} />}
-                rightSection={
-                  searchTerm ? (
+    <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Desktop Header */}
+      {!isMobile && (
+        <Box
+          px="md"
+          h={52}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            flexShrink: 0,
+          }}
+        >
+          {headerNode}
+        </Box>
+      )}
+
+      {/* Main Content */}
+      <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
+        <Stack gap="lg" p="lg" maw={900} mx="auto">
+          <Card withBorder p="md" radius="md">
+            {/* Header: Search icon (left) + SegmentedControl tabs (center/right) */}
+            <Group mb="md" gap="sm" justify="space-between">
+              <Group gap="sm" style={{ flex: searchExpanded ? 1 : undefined }}>
+                {searchExpanded ? (
+                  <TextInput
+                    ref={searchInputRef}
+                    placeholder="Search by name or email..."
+                    leftSection={<Search size={16} />}
+                    rightSection={
+                      searchTerm ? (
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="xs"
+                          onClick={() => {
+                            setSearchTerm('');
+                            setSearchExpanded(false);
+                          }}
+                        >
+                          <X size={14} />
+                        </ActionIcon>
+                      ) : undefined
+                    }
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                    onBlur={handleSearchBlur}
+                    size="xs"
+                    style={{ width: isMobile ? '100%' : 260 }}
+                  />
+                ) : (
+                  <Tooltip label="Search">
                     <ActionIcon
                       variant="subtle"
                       color="gray"
-                      size="xs"
-                      onClick={() => {
-                        setSearchTerm('');
-                        setSearchExpanded(false);
-                      }}
+                      size="md"
+                      onClick={handleSearchExpand}
                     >
-                      <X size={14} />
+                      <Search size={16} />
                     </ActionIcon>
-                  ) : undefined
-                }
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                onBlur={handleSearchBlur}
-                size="xs"
-                style={{ width: isMobile ? '100%' : 260 }}
-              />
+                  </Tooltip>
+                )}
+              </Group>
+
+              {!(isMobile && searchExpanded) && (
+                <SegmentedControl
+                  size="xs"
+                  value={roleFilter}
+                  onChange={setRoleFilter}
+                  data={[
+                    { value: 'all', label: 'All' },
+                    { value: 'user', label: 'User' },
+                    { value: 'admin', label: 'Admin' },
+                    { value: 'super_admin', label: 'Super' },
+                  ]}
+                />
+              )}
+            </Group>
+
+            {/* User table */}
+            {usersLoading ? (
+              <Group justify="center" py="xl">
+                <Loader size="sm" />
+              </Group>
+            ) : users.length === 0 ? (
+              <Text c="dimmed" ta="center" py="xl" size="sm">
+                No users found.
+              </Text>
             ) : (
-              <Tooltip label="Search">
-                <ActionIcon variant="subtle" color="gray" size="md" onClick={handleSearchExpand}>
-                  <Search size={16} />
-                </ActionIcon>
-              </Tooltip>
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Name</Table.Th>
+                    <Table.Th>Email</Table.Th>
+                    <Table.Th>Role</Table.Th>
+                    {!isMobile && <Table.Th>Courses</Table.Th>}
+                    {!isMobile && <Table.Th>Joined</Table.Th>}
+                    <Table.Th>Actions</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>{users.map(renderRow)}</Table.Tbody>
+              </Table>
             )}
-          </Group>
-
-          {!(isMobile && searchExpanded) && (
-            <SegmentedControl
-              size="xs"
-              value={roleFilter}
-              onChange={setRoleFilter}
-              data={[
-                { value: 'all', label: 'All' },
-                { value: 'user', label: 'User' },
-                { value: 'admin', label: 'Admin' },
-                { value: 'super_admin', label: 'Super' },
-              ]}
-            />
-          )}
-        </Group>
-
-        {/* User table */}
-        {usersLoading ? (
-          <Group justify="center" py="xl">
-            <Loader size="sm" />
-          </Group>
-        ) : users.length === 0 ? (
-          <Text c="dimmed" ta="center" py="xl" size="sm">
-            No users found.
-          </Text>
-        ) : (
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Email</Table.Th>
-                <Table.Th>Role</Table.Th>
-                {!isMobile && <Table.Th>Courses</Table.Th>}
-                {!isMobile && <Table.Th>Joined</Table.Th>}
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>{users.map(renderRow)}</Table.Tbody>
-          </Table>
-        )}
-      </Card>
-    </Stack>
+          </Card>
+        </Stack>
+      </ScrollArea>
+    </Box>
   );
 }
 
