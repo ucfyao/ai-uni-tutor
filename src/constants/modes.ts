@@ -58,8 +58,6 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
   },
 };
 
-export const MODES_LIST = Object.values(MODES_METADATA);
-
 // ============================================================================
 // STRATEGY CONFIG (replaces src/lib/strategies/ directory)
 // ============================================================================
@@ -173,5 +171,3 @@ Tone: Supportive, patient, thought-provoking, encouraging independence.`,
     postprocessResponse: (response: string) => response.replace(/\[INTERNAL:.*?\]/g, '').trim(),
   },
 };
-
-export const CHAT_MODES = Object.keys(MODE_CONFIGS) as ChatMode[];

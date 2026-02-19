@@ -1,14 +1,16 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Building2, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BookOpen, Building2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import {
   ActionIcon,
   Alert,
   Badge,
   Box,
   Button,
+  Card,
   CopyButton,
   Group,
   Modal,
@@ -21,7 +23,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import {
   createCourse,
   createUniversity,
@@ -74,6 +76,10 @@ export function AdminCoursesClient({
   const [modal, setModal] = useState<ModalType>(null);
   const [saving, setSaving] = useState(false);
   const [filterUniversityId, setFilterUniversityId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 200);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // University form fields
   const [uniName, setUniName] = useState('');
@@ -117,11 +123,30 @@ export function AdminCoursesClient({
     return counts;
   }, [courses]);
 
-  const filteredCourses = useMemo(
+  const filteredUniversities = useMemo(
     () =>
-      filterUniversityId ? courses.filter((c) => c.universityId === filterUniversityId) : courses,
-    [courses, filterUniversityId],
+      debouncedSearch
+        ? universities.filter(
+            (u) =>
+              u.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+              u.shortName.toLowerCase().includes(debouncedSearch.toLowerCase()),
+          )
+        : universities,
+    [universities, debouncedSearch],
   );
+
+  const filteredCourses = useMemo(() => {
+    let result = filterUniversityId
+      ? courses.filter((c) => c.universityId === filterUniversityId)
+      : courses;
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(
+        (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [courses, filterUniversityId, debouncedSearch]);
 
   const universitySelectData = useMemo(
     () => universities.map((u) => ({ value: u.id, label: u.name })),
@@ -293,6 +318,21 @@ export function AdminCoursesClient({
     return () => setHeaderContent(null);
   }, [isMobile, headerNode, setHeaderContent]);
 
+  // Focus search input when expanded
+  useEffect(() => {
+    if (searchExpanded && searchRef.current) {
+      searchRef.current.focus();
+    }
+  }, [searchExpanded]);
+
+  const thStyle: CSSProperties = {
+    color: 'var(--mantine-color-gray-5)',
+    fontWeight: 500,
+    fontSize: 'var(--mantine-font-size-xs)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  };
+
   // ── Render ──
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -316,42 +356,170 @@ export function AdminCoursesClient({
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="lg" p="lg" maw={900} mx="auto">
           <Tabs value={activeTab} onChange={setActiveTab}>
-            <Tabs.List>
-              <Tabs.Tab value="universities" leftSection={<Building2 size={16} />}>
-                {t.coursesAdmin.universities}
-              </Tabs.Tab>
-              <Tabs.Tab value="courses" leftSection={<BookOpen size={16} />}>
-                {t.coursesAdmin.courses}
-              </Tabs.Tab>
-            </Tabs.List>
+            <Group justify="space-between" align="flex-end" wrap="nowrap">
+              <Tabs.List>
+                <Tabs.Tab value="universities" leftSection={<Building2 size={16} />}>
+                  {t.coursesAdmin.universities}
+                </Tabs.Tab>
+                <Tabs.Tab value="courses" leftSection={<BookOpen size={16} />}>
+                  {t.coursesAdmin.courses}
+                </Tabs.Tab>
+              </Tabs.List>
+
+              <Group gap={8} wrap="nowrap" mb={6}>
+                {/* University filter — only visible on Courses tab */}
+                {activeTab === 'courses' && (
+                  <Select
+                    placeholder={t.coursesAdmin.university}
+                    data={universitySelectData}
+                    value={filterUniversityId}
+                    onChange={setFilterUniversityId}
+                    clearable
+                    searchable
+                    size="sm"
+                    radius="xl"
+                    w={180}
+                  />
+                )}
+
+                {/* Search: animated expand/collapse */}
+                <Box
+                  style={{
+                    width: searchExpanded ? 220 : 36,
+                    height: 36,
+                    transition: searchExpanded
+                      ? 'width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                      : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    position: 'relative',
+                  }}
+                >
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    radius="xl"
+                    onClick={() => setSearchExpanded(true)}
+                    aria-label={t.coursesAdmin.search}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      opacity: searchExpanded ? 0 : 1,
+                      transform: searchExpanded
+                        ? 'scale(0.5) rotate(90deg)'
+                        : 'scale(1) rotate(0deg)',
+                      pointerEvents: searchExpanded ? 'none' : 'auto',
+                      transition: searchExpanded
+                        ? 'opacity 0.15s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        : 'opacity 0.2s ease 0.15s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s',
+                    }}
+                  >
+                    <Search size={16} />
+                  </ActionIcon>
+
+                  <TextInput
+                    ref={searchRef}
+                    placeholder={t.coursesAdmin.search ?? 'Search...'}
+                    leftSection={<Search size={14} />}
+                    rightSection={
+                      searchExpanded ? (
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="xs"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setSearchExpanded(false);
+                          }}
+                        >
+                          <X size={12} />
+                        </ActionIcon>
+                      ) : undefined
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                    onBlur={() => {
+                      if (!searchQuery) setSearchExpanded(false);
+                    }}
+                    size="sm"
+                    radius="xl"
+                    style={{
+                      width: 220,
+                      opacity: searchExpanded ? 1 : 0,
+                      transform: searchExpanded ? 'translateX(0)' : 'translateX(12px)',
+                      pointerEvents: searchExpanded ? 'auto' : 'none',
+                      transition: searchExpanded
+                        ? 'opacity 0.25s ease 0.12s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s'
+                        : 'opacity 0.15s ease, transform 0.2s ease',
+                    }}
+                  />
+                </Box>
+
+                {/* Create button */}
+                <Tooltip
+                  label={
+                    activeTab === 'courses'
+                      ? t.coursesAdmin.addCourse
+                      : t.coursesAdmin.addUniversity
+                  }
+                >
+                  <ActionIcon
+                    variant="filled"
+                    color="indigo"
+                    size="lg"
+                    radius="xl"
+                    onClick={activeTab === 'courses' ? openAddCourse : openAddUniversity}
+                    aria-label={
+                      activeTab === 'courses'
+                        ? t.coursesAdmin.addCourse
+                        : t.coursesAdmin.addUniversity
+                    }
+                  >
+                    <Plus size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            </Group>
 
             {/* ── Universities Tab ── */}
             <Tabs.Panel value="universities" pt="md">
-              <Stack gap="md">
-                <Group justify="flex-end">
-                  <Button leftSection={<Plus size={16} />} size="sm" onClick={openAddUniversity}>
-                    {t.coursesAdmin.addUniversity}
-                  </Button>
-                </Group>
-
-                {universities.length === 0 ? (
-                  <Alert variant="light" color="gray">
-                    {t.coursesAdmin.noUniversities}
-                  </Alert>
-                ) : (
-                  <Table striped highlightOnHover withTableBorder withColumnBorders>
+              {filteredUniversities.length === 0 ? (
+                <Alert variant="light" color="gray">
+                  {t.coursesAdmin.noUniversities}
+                </Alert>
+              ) : (
+                <Card
+                  withBorder
+                  radius="lg"
+                  p={0}
+                  style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}
+                >
+                  <Table
+                    verticalSpacing="sm"
+                    layout="fixed"
+                    highlightOnHover
+                    highlightOnHoverColor="var(--mantine-color-gray-0)"
+                  >
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th w={100}>ID</Table.Th>
-                        <Table.Th>{t.coursesAdmin.name}</Table.Th>
-                        <Table.Th>{t.coursesAdmin.shortName}</Table.Th>
-                        <Table.Th>{t.coursesAdmin.courseCount}</Table.Th>
-                        <Table.Th w={100}>{t.coursesAdmin.actions}</Table.Th>
+                        <Table.Th w="12%" style={thStyle}>
+                          ID
+                        </Table.Th>
+                        <Table.Th w="30%" style={thStyle}>
+                          {t.coursesAdmin.name}
+                        </Table.Th>
+                        <Table.Th w="18%" style={thStyle}>
+                          {t.coursesAdmin.shortName}
+                        </Table.Th>
+                        <Table.Th w="18%" style={thStyle}>
+                          {t.coursesAdmin.courseCount}
+                        </Table.Th>
+                        <Table.Th w="12%" style={thStyle} />
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                      {universities.map((uni) => (
-                        <Table.Tr key={uni.id}>
+                      {filteredUniversities.map((uni) => (
+                        <Table.Tr key={uni.id} style={{ transition: 'background 0.12s ease' }}>
                           <Table.Td>
                             <CopyButton value={uni.id}>
                               {({ copied, copy }) => (
@@ -384,7 +552,17 @@ export function AdminCoursesClient({
                             </Badge>
                           </Table.Td>
                           <Table.Td>
-                            <Text size="sm">{courseCountByUniversity.get(uni.id) ?? 0}</Text>
+                            <Text
+                              size="sm"
+                              c="indigo"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                setFilterUniversityId(uni.id);
+                                setActiveTab('courses');
+                              }}
+                            >
+                              {courseCountByUniversity.get(uni.id) ?? 0}
+                            </Text>
                           </Table.Td>
                           <Table.Td>
                             <Group gap={4}>
@@ -414,47 +592,49 @@ export function AdminCoursesClient({
                       ))}
                     </Table.Tbody>
                   </Table>
-                )}
-              </Stack>
+                </Card>
+              )}
             </Tabs.Panel>
 
             {/* ── Courses Tab ── */}
             <Tabs.Panel value="courses" pt="md">
-              <Stack gap="md">
-                <Group justify="space-between">
-                  <Select
-                    placeholder={t.coursesAdmin.university}
-                    data={universitySelectData}
-                    value={filterUniversityId}
-                    onChange={setFilterUniversityId}
-                    clearable
-                    searchable
-                    size="sm"
-                    w={260}
-                  />
-                  <Button leftSection={<Plus size={16} />} size="sm" onClick={openAddCourse}>
-                    {t.coursesAdmin.addCourse}
-                  </Button>
-                </Group>
-
-                {filteredCourses.length === 0 ? (
-                  <Alert variant="light" color="gray">
-                    {t.coursesAdmin.noCourses}
-                  </Alert>
-                ) : (
-                  <Table striped highlightOnHover withTableBorder withColumnBorders>
+              {filteredCourses.length === 0 ? (
+                <Alert variant="light" color="gray">
+                  {t.coursesAdmin.noCourses}
+                </Alert>
+              ) : (
+                <Card
+                  withBorder
+                  radius="lg"
+                  p={0}
+                  style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', overflow: 'auto' }}
+                >
+                  <Table
+                    verticalSpacing="sm"
+                    layout="fixed"
+                    highlightOnHover
+                    highlightOnHoverColor="var(--mantine-color-gray-0)"
+                  >
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th w={100}>ID</Table.Th>
-                        <Table.Th>{t.coursesAdmin.code}</Table.Th>
-                        <Table.Th>{t.coursesAdmin.courseName}</Table.Th>
-                        <Table.Th>{t.coursesAdmin.university}</Table.Th>
-                        <Table.Th w={100}>{t.coursesAdmin.actions}</Table.Th>
+                        <Table.Th w="12%" style={thStyle}>
+                          ID
+                        </Table.Th>
+                        <Table.Th w="18%" style={thStyle}>
+                          {t.coursesAdmin.code}
+                        </Table.Th>
+                        <Table.Th w="28%" style={thStyle}>
+                          {t.coursesAdmin.courseName}
+                        </Table.Th>
+                        <Table.Th w="28%" style={thStyle}>
+                          {t.coursesAdmin.university}
+                        </Table.Th>
+                        <Table.Th w="14%" style={thStyle} />
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
                       {filteredCourses.map((course) => (
-                        <Table.Tr key={course.id}>
+                        <Table.Tr key={course.id} style={{ transition: 'background 0.12s ease' }}>
                           <Table.Td>
                             <CopyButton value={course.id}>
                               {({ copied, copy }) => (
@@ -517,8 +697,8 @@ export function AdminCoursesClient({
                       ))}
                     </Table.Tbody>
                   </Table>
-                )}
-              </Stack>
+                </Card>
+              )}
             </Tabs.Panel>
           </Tabs>
         </Stack>

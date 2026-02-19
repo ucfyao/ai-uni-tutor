@@ -76,34 +76,3 @@ export async function handleRequest(
   );
   return { response, userId };
 }
-
-/**
- * Get the current user's id from the request (for rate limiting etc.).
- * Uses request cookies only; does not modify response.
- * Prefer using handleRequest() in the proxy so getUser() is only called once per request.
- */
-export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
-  const env = getEnv();
-  const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll() {
-        // No-op: we only need to read the session for rate limit key
-      },
-    },
-  });
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
-
-/**
- * @deprecated Use handleRequest() in the proxy to avoid double getUser(). Kept for backwards compatibility.
- */
-export async function updateSession(request: NextRequest) {
-  const { response } = await handleRequest(request);
-  return response;
-}

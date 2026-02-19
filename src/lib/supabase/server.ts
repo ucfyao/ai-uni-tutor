@@ -99,8 +99,3 @@ export async function requireAssignmentAccess(
     throw new ForbiddenError('No access to this assignment');
   }
 }
-
-/** @deprecated Use requireSuperAdmin(), requireAnyAdmin(), or requireCourseAdmin() instead. */
-export async function requireAdmin() {
-  return (await requireAnyAdmin()).user;
-}

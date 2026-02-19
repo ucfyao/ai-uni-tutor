@@ -15,6 +15,8 @@ interface PdfUploadZoneProps {
   courseId?: string;
   onParseComplete: () => void;
   disabled?: boolean;
+  /** When true, show larger dropzone with guiding text (empty table state) */
+  prominent?: boolean;
 }
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -58,6 +60,7 @@ export function PdfUploadZone({
   courseId,
   onParseComplete,
   disabled = false,
+  prominent = false,
 }: PdfUploadZoneProps) {
   const { t } = useLanguage();
   const parseState = useStreamingParse();
