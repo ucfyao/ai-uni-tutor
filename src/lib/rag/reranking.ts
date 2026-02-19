@@ -10,7 +10,7 @@ const rerankResponseSchema = z.array(
   }),
 );
 
-export interface RankedChunk {
+interface RankedChunk {
   content: string;
   metadata: Json;
   similarity: number;
@@ -33,9 +33,7 @@ export async function rerankWithLLM(
   }
 
   try {
-    const chunkSummaries = chunks
-      .map((c, i) => `[${i}] ${c.content.slice(0, 300)}`)
-      .join('\n\n');
+    const chunkSummaries = chunks.map((c, i) => `[${i}] ${c.content.slice(0, 300)}`).join('\n\n');
 
     const prompt = `You are a relevance scoring system. Score how relevant each text chunk is to the user's query.
 
