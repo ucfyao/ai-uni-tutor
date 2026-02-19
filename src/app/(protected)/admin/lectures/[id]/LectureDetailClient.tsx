@@ -319,6 +319,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
               existingItemCount={visibleChunks.length}
               courseId={doc.courseId ?? undefined}
               onParseComplete={handleParseComplete}
+              prominent={visibleChunks.length === 0}
             />
           </Collapse>
 
