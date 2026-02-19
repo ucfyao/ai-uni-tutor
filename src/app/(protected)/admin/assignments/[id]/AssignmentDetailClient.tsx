@@ -1,0 +1,268 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useCallback, useState } from 'react';
+import { ScrollArea, Stack } from '@mantine/core';
+import { addAssignmentItem } from '@/app/actions/assignments';
+import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
+import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
+import { DocumentDetailHeader } from '@/components/rag/DocumentDetailHeader';
+import { useLanguage } from '@/i18n/LanguageContext';
+import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
+import { showNotification } from '@/lib/notifications';
+import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
+import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
+import type { Chunk, DocType } from '../../knowledge/[id]/types';
+
+interface AssignmentDetailClientProps {
+  assignment: AssignmentEntity;
+  items: AssignmentItemEntity[];
+}
+
+export function AssignmentDetailClient({ assignment, items }: AssignmentDetailClientProps) {
+  const router = useRouter();
+  const { t } = useLanguage();
+
+  const docType: DocType = 'assignment';
+  const school = assignment.school || '';
+  const course = assignment.course || '';
+  const courseId = assignment.courseId || '';
+
+  /* -- chunk editing state -- */
+  const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
+  const [editedChunks, setEditedChunks] = useState<
+    Map<string, { content: string; metadata: Record<string, unknown> }>
+  >(new Map());
+  const [deletedChunkIds, setDeletedChunkIds] = useState<Set<string>>(new Set());
+  const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  /* -- convert items to Chunk format -- */
+  const chunks: Chunk[] = items.map((item) => ({
+    id: item.id,
+    content: item.content,
+    metadata: {
+      type: 'question',
+      questionNumber: String(item.orderNum),
+      content: item.content,
+      referenceAnswer: item.referenceAnswer,
+      explanation: item.explanation,
+      points: item.points,
+      difficulty: item.difficulty,
+      itemType: item.type,
+    },
+    embedding: null,
+  }));
+
+  /* -- derived -- */
+  const visibleChunks = chunks.filter((c) => !deletedChunkIds.has(c.id));
+  const pendingChanges = editedChunks.size + deletedChunkIds.size;
+
+  /* -- chunk helpers -- */
+  const getEffectiveMetadata = useCallback(
+    (chunk: Chunk): Record<string, unknown> => {
+      const edited = editedChunks.get(chunk.id);
+      if (edited) return edited.metadata;
+      if (chunk.metadata && typeof chunk.metadata === 'object' && !Array.isArray(chunk.metadata)) {
+        return chunk.metadata as Record<string, unknown>;
+      }
+      return {};
+    },
+    [editedChunks],
+  );
+
+  const getEffectiveContent = useCallback(
+    (chunk: Chunk): string => {
+      const edited = editedChunks.get(chunk.id);
+      return edited ? edited.content : chunk.content;
+    },
+    [editedChunks],
+  );
+
+  const handleSaveEdit = useCallback(
+    (chunkId: string, content: string, metadata: Record<string, unknown>) => {
+      setEditedChunks((prev) => {
+        const next = new Map(prev);
+        next.set(chunkId, { content, metadata });
+        return next;
+      });
+      setEditingChunkId(null);
+    },
+    [],
+  );
+
+  const handleDelete = useCallback(
+    (chunkId: string) => {
+      setDeletedChunkIds((prev) => {
+        const next = new Set(prev);
+        next.add(chunkId);
+        return next;
+      });
+      if (editingChunkId === chunkId) setEditingChunkId(null);
+    },
+    [editingChunkId],
+  );
+
+  const handleToggleAnswer = useCallback((chunkId: string) => {
+    setExpandedAnswers((prev) => {
+      const next = new Set(prev);
+      if (next.has(chunkId)) next.delete(chunkId);
+      else next.add(chunkId);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelect = useCallback((chunkId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(chunkId)) next.delete(chunkId);
+      else next.add(chunkId);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === visibleChunks.length) return new Set();
+      return new Set(visibleChunks.map((c) => c.id));
+    });
+  }, [visibleChunks]);
+
+  const handleBulkDelete = useCallback(() => {
+    setDeletedChunkIds((prev) => {
+      const next = new Set(prev);
+      for (const id of selectedIds) next.add(id);
+      return next;
+    });
+    setSelectedIds(new Set());
+  }, [selectedIds]);
+
+  const handleSaved = useCallback(() => {
+    setEditedChunks(new Map());
+    setDeletedChunkIds(new Set());
+    setSelectedIds(new Set());
+  }, []);
+
+  /* -- add item handler -- */
+  const handleAddItem = useCallback(
+    async (data: {
+      type: string;
+      content: string;
+      referenceAnswer: string;
+      explanation: string;
+      points: number;
+      difficulty: string;
+    }): Promise<boolean> => {
+      const result = await addAssignmentItem({
+        assignmentId: assignment.id,
+        ...data,
+      });
+      if (result.success) {
+        showNotification({ message: t.documentDetail.saved, color: 'green' });
+        router.refresh();
+        return true;
+      } else {
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
+        return false;
+      }
+    },
+    [assignment.id, router, t],
+  );
+
+  /* -- publish / unpublish / delete handlers -- */
+  const handlePublish = useCallback(async () => {
+    setIsPublishing(true);
+    try {
+      const result = await publishDocument(assignment.id, 'assignment');
+      if (result.success) {
+        showNotification({ message: 'Published', color: 'green' });
+        router.refresh();
+      } else {
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
+      }
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [assignment.id, router, t]);
+
+  const handleUnpublish = useCallback(async () => {
+    const result = await unpublishDocument(assignment.id, 'assignment');
+    if (result.success) {
+      showNotification({ message: 'Unpublished', color: 'green' });
+      router.refresh();
+    } else {
+      showNotification({ title: t.common.error, message: result.error, color: 'red' });
+    }
+  }, [assignment.id, router, t]);
+
+  const handleDeleteDoc = useCallback(async () => {
+    try {
+      await deleteDocument(assignment.id, 'assignment');
+      showNotification({ message: 'Deleted', color: 'green' });
+      router.push('/admin/knowledge');
+    } catch {
+      showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
+    }
+  }, [assignment.id, router, t]);
+
+  return (
+    <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
+      <Stack gap="md" p="lg" maw={900} mx="auto">
+        <DocumentDetailHeader
+          title={assignment.title}
+          metadata={{
+            school: assignment.school || undefined,
+            course: assignment.course || undefined,
+          }}
+          status={assignment.status}
+          itemCount={visibleChunks.length}
+          docType={docType}
+          onPublish={handlePublish}
+          onUnpublish={handleUnpublish}
+          onDelete={handleDeleteDoc}
+          isPublishing={isPublishing}
+        />
+
+        {/* Collapsible upload area */}
+        <AssignmentUploadArea
+          assignmentId={assignment.id}
+          universityId={null}
+          courseId={courseId || null}
+          school={school}
+          course={course}
+          itemCount={visibleChunks.length}
+          onParseComplete={() => router.refresh()}
+        />
+
+        <ChunkTable
+          chunks={visibleChunks}
+          docType={docType}
+          editingChunkId={editingChunkId}
+          expandedAnswers={expandedAnswers}
+          selectedIds={selectedIds}
+          getEffectiveContent={getEffectiveContent}
+          getEffectiveMetadata={getEffectiveMetadata}
+          onStartEdit={(chunk) => setEditingChunkId(chunk.id)}
+          onCancelEdit={() => setEditingChunkId(null)}
+          onSaveEdit={handleSaveEdit}
+          onDelete={handleDelete}
+          onToggleAnswer={handleToggleAnswer}
+          onToggleSelect={handleToggleSelect}
+          onToggleSelectAll={handleToggleSelectAll}
+          onBulkDelete={handleBulkDelete}
+          onAddItem={handleAddItem}
+        />
+
+        <ChunkActionBar
+          docId={assignment.id}
+          docType={docType}
+          pendingChanges={pendingChanges}
+          editedChunks={editedChunks}
+          deletedChunkIds={deletedChunkIds}
+          onSaved={handleSaved}
+        />
+      </Stack>
+    </ScrollArea>
+  );
+}

@@ -18,7 +18,6 @@ function mapPaperRow(row: Record<string, unknown>, questionCount?: number): Exam
   return {
     id: row.id as string,
     userId: row.user_id as string,
-    documentId: (row.document_id as string) ?? null,
     title: row.title as string,
     visibility: row.visibility as 'public' | 'private',
     school: (row.school as string) ?? null,
@@ -26,8 +25,7 @@ function mapPaperRow(row: Record<string, unknown>, questionCount?: number): Exam
     courseId: (row.course_id as string) ?? null,
     year: (row.year as string) ?? null,
     questionTypes: (row.question_types as string[]) ?? [],
-    status: row.status as 'parsing' | 'ready' | 'error',
-    statusMessage: (row.status_message as string) ?? null,
+    status: row.status as 'draft' | 'ready',
     questionCount,
     createdAt: row.created_at as string,
   };
@@ -59,7 +57,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
     courseId?: string;
     year?: string | null;
     visibility?: 'public' | 'private';
-    status?: 'parsing' | 'ready' | 'error';
+    status?: 'draft' | 'ready';
     questionTypes?: string[];
   }): Promise<string> {
     const supabase = await createClient();
@@ -74,7 +72,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
         course_id: data.courseId ?? null,
         year: data.year ?? null,
         visibility: data.visibility ?? 'private',
-        status: data.status ?? 'parsing',
+        status: data.status ?? 'draft',
         question_types: data.questionTypes ?? [],
       })
       .select('id')
@@ -197,23 +195,22 @@ export class ExamPaperRepository implements IExamPaperRepository {
     };
   }
 
-  async updateStatus(
-    id: string,
-    status: 'parsing' | 'ready' | 'error',
-    statusMessage?: string,
-  ): Promise<void> {
+  async publish(id: string): Promise<void> {
     const supabase = await createClient();
+    const { error } = await supabase
+      .from('exam_papers')
+      .update({ status: 'ready' as const })
+      .eq('id', id);
+    if (error) throw new DatabaseError(`Failed to publish exam: ${error.message}`, error);
+  }
 
-    const updates: Record<string, unknown> = { status };
-    if (statusMessage !== undefined) {
-      updates.status_message = statusMessage;
-    }
-
-    const { error } = await supabase.from('exam_papers').update(updates).eq('id', id);
-
-    if (error) {
-      throw new DatabaseError(`Failed to update paper status: ${error.message}`, error);
-    }
+  async unpublish(id: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('exam_papers')
+      .update({ status: 'draft' as const })
+      .eq('id', id);
+    if (error) throw new DatabaseError(`Failed to unpublish exam: ${error.message}`, error);
   }
 
   async updatePaper(id: string, data: { title?: string; questionTypes?: string[] }): Promise<void> {

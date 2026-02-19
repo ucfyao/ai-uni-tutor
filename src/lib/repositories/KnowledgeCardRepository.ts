@@ -26,7 +26,6 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
       keyConcepts: row.key_concepts ?? [],
       examples: row.examples ?? [],
       sourcePages: row.source_pages ?? [],
-      documentId: row.document_id,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
@@ -50,7 +49,6 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
         keyConcepts: row.key_concepts ?? [],
         examples: row.examples ?? [],
         sourcePages: row.source_pages ?? [],
-        documentId: row.document_id,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
       }),
@@ -66,7 +64,6 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
       key_concepts: dto.keyConcepts ?? [],
       examples: dto.examples ?? [],
       source_pages: dto.sourcePages ?? [],
-      document_id: dto.documentId ?? null,
       embedding: dto.embedding ?? null,
     };
 
@@ -79,14 +76,6 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
     if (error || !data)
       throw new DatabaseError(`Failed to upsert knowledge card: ${error?.message}`, error);
     return this.mapToEntity(data);
-  }
-
-  async deleteByDocumentId(documentId: string): Promise<void> {
-    const supabase = await createClient();
-    const { error } = await supabase.from('knowledge_cards').delete().eq('document_id', documentId);
-
-    if (error)
-      throw new DatabaseError(`Failed to delete cards by document: ${error.message}`, error);
   }
 }
 

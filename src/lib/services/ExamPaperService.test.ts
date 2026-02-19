@@ -35,7 +35,8 @@ function createMockExamPaperRepo(): {
     findById: vi.fn(),
     findWithFilters: vi.fn(),
     findOwner: vi.fn(),
-    updateStatus: vi.fn(),
+    publish: vi.fn(),
+    unpublish: vi.fn(),
     updatePaper: vi.fn(),
     delete: vi.fn(),
     insertQuestions: vi.fn(),
@@ -59,7 +60,6 @@ const PAPER_ID = 'paper-001';
 const PAPER: ExamPaper = {
   id: PAPER_ID,
   userId: USER_ID,
-  documentId: null,
   title: '2024 Fall Midterm - Linear Algebra',
   visibility: 'private',
   school: 'MIT',
@@ -68,7 +68,6 @@ const PAPER: ExamPaper = {
   year: '2024',
   questionTypes: ['choice', 'short_answer'],
   status: 'ready',
-  statusMessage: null,
   questionCount: 2,
   createdAt: '2025-01-01T00:00:00Z',
 };
@@ -153,10 +152,9 @@ describe('ExamPaperService', () => {
   // ==================== parsePaper (happy path) ====================
 
   describe('parsePaper', () => {
-    it('should create paper, parse PDF, extract questions via AI, and update status to ready', async () => {
+    it('should create paper, parse PDF, extract questions via AI, and update paper metadata', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.insertQuestions.mockResolvedValue(undefined);
-      repo.updateStatus.mockResolvedValue(undefined);
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
@@ -174,7 +172,7 @@ describe('ExamPaperService', () => {
 
       expect(result).toEqual({ paperId: PAPER_ID });
 
-      // Paper created with parsing status
+      // Paper created with draft status
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: USER_ID,
@@ -183,7 +181,7 @@ describe('ExamPaperService', () => {
           course: 'MATH101',
           year: '2024',
           visibility: 'private',
-          status: 'parsing',
+          status: 'draft',
         }),
       );
 
@@ -207,8 +205,7 @@ describe('ExamPaperService', () => {
         ]),
       );
 
-      // Status updated to ready
-      expect(repo.updateStatus).toHaveBeenCalledWith(PAPER_ID, 'ready');
+      // Paper metadata updated (title + question types)
       expect(repo.updatePaper).toHaveBeenCalledWith(PAPER_ID, {
         title: '2024 Fall Midterm - Linear Algebra',
         questionTypes: ['choice', 'short_answer'],
@@ -218,7 +215,6 @@ describe('ExamPaperService', () => {
     it('should default visibility to private', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.insertQuestions.mockResolvedValue(undefined);
-      repo.updateStatus.mockResolvedValue(undefined);
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
@@ -235,7 +231,6 @@ describe('ExamPaperService', () => {
     it('should use public visibility when specified', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.insertQuestions.mockResolvedValue(undefined);
-      repo.updateStatus.mockResolvedValue(undefined);
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
@@ -254,7 +249,6 @@ describe('ExamPaperService', () => {
     it('should use filename (minus .pdf) as fallback title when AI returns no title', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.insertQuestions.mockResolvedValue(undefined);
-      repo.updateStatus.mockResolvedValue(undefined);
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
@@ -287,9 +281,9 @@ describe('ExamPaperService', () => {
 
     // ==================== parsePaper (error paths) ====================
 
-    it('should set error status when PDF has no text', async () => {
+    it('should delete draft paper when PDF has no text', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.updateStatus.mockResolvedValue(undefined);
+      repo.delete.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
         fullText: '   ',
@@ -300,16 +294,12 @@ describe('ExamPaperService', () => {
         service.parsePaper(USER_ID, Buffer.from('empty'), 'empty.pdf', {}),
       ).rejects.toThrow('PDF contains no extractable text');
 
-      expect(repo.updateStatus).toHaveBeenCalledWith(
-        PAPER_ID,
-        'error',
-        'PDF contains no extractable text',
-      );
+      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
 
-    it('should set error status when AI extracts no questions', async () => {
+    it('should delete draft paper when AI extracts no questions', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.updateStatus.mockResolvedValue(undefined);
+      repo.delete.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
         fullText: 'some text',
@@ -322,16 +312,12 @@ describe('ExamPaperService', () => {
         service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {}),
       ).rejects.toThrow('AI could not extract any questions from the PDF');
 
-      expect(repo.updateStatus).toHaveBeenCalledWith(
-        PAPER_ID,
-        'error',
-        'AI could not extract any questions from the PDF',
-      );
+      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
 
-    it('should set error status when AI returns null questions', async () => {
+    it('should delete draft paper when AI returns null questions', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.updateStatus.mockResolvedValue(undefined);
+      repo.delete.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
         fullText: 'some text',
@@ -344,12 +330,12 @@ describe('ExamPaperService', () => {
         service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {}),
       ).rejects.toThrow('AI could not extract any questions from the PDF');
 
-      expect(repo.updateStatus).toHaveBeenCalledWith(PAPER_ID, 'error', expect.any(String));
+      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
 
-    it('should set error status when PDF parsing fails', async () => {
+    it('should delete draft paper when PDF parsing fails', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.updateStatus.mockResolvedValue(undefined);
+      repo.delete.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockRejectedValue(new Error('Corrupt PDF'));
 
@@ -357,12 +343,12 @@ describe('ExamPaperService', () => {
         service.parsePaper(USER_ID, Buffer.from('bad'), 'broken.pdf', {}),
       ).rejects.toThrow('Corrupt PDF');
 
-      expect(repo.updateStatus).toHaveBeenCalledWith(PAPER_ID, 'error', 'Corrupt PDF');
+      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
 
-    it('should set error status with "Unknown parsing error" for non-Error throws', async () => {
+    it('should delete draft paper for non-Error throws', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.updateStatus.mockResolvedValue(undefined);
+      repo.delete.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockRejectedValue('string error');
 
@@ -370,7 +356,7 @@ describe('ExamPaperService', () => {
         'string error',
       );
 
-      expect(repo.updateStatus).toHaveBeenCalledWith(PAPER_ID, 'error', 'Unknown parsing error');
+      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
   });
 

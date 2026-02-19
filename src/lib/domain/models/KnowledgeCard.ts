@@ -12,7 +12,6 @@ export interface KnowledgeCardEntity {
   keyConcepts: string[];
   examples: string[];
   sourcePages: number[];
-  documentId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,7 +23,6 @@ export interface CreateKnowledgeCardDTO {
   keyConcepts?: string[];
   examples?: string[];
   sourcePages?: number[];
-  documentId?: string;
   embedding?: number[];
 }
 

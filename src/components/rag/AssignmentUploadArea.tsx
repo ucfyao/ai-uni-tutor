@@ -74,6 +74,7 @@ export function AssignmentUploadArea({
     if (!selectedFile || !courseId) return;
 
     parseState.startParse(selectedFile, {
+      documentId: assignmentId,
       docType: 'assignment',
       school: school || '',
       course: course || '',

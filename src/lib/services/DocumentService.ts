@@ -1,37 +1,32 @@
 /**
- * Document Service
+ * Lecture Document Service
  *
- * Business logic layer for document operations.
- * Uses DocumentRepository and DocumentChunkRepository for data access.
+ * Business logic layer for lecture document operations.
+ * Uses LectureDocumentRepository and LectureChunkRepository for data access.
  */
 
-import type {
-  CreateDocumentChunkDTO,
-  DocumentEntity,
-  DocumentStatus,
-} from '@/lib/domain/models/Document';
+import type { CreateLectureChunkDTO, LectureDocumentEntity } from '@/lib/domain/models/Document';
 import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { ForbiddenError } from '@/lib/errors';
-import { getDocumentChunkRepository, getDocumentRepository } from '@/lib/repositories';
-import type { DocumentChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
-import type { DocumentRepository } from '@/lib/repositories/DocumentRepository';
+import { getLectureChunkRepository, getLectureDocumentRepository } from '@/lib/repositories';
+import type { LectureChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
+import type { LectureDocumentRepository } from '@/lib/repositories/DocumentRepository';
 import type { Json } from '@/types/database';
 
-export class DocumentService {
-  private readonly docRepo: DocumentRepository;
-  private readonly chunkRepo: DocumentChunkRepository;
+export class LectureDocumentService {
+  private readonly docRepo: LectureDocumentRepository;
+  private readonly chunkRepo: LectureChunkRepository;
 
-  constructor(docRepo?: DocumentRepository, chunkRepo?: DocumentChunkRepository) {
-    this.docRepo = docRepo ?? getDocumentRepository();
-    this.chunkRepo = chunkRepo ?? getDocumentChunkRepository();
+  constructor(docRepo?: LectureDocumentRepository, chunkRepo?: LectureChunkRepository) {
+    this.docRepo = docRepo ?? getLectureDocumentRepository();
+    this.chunkRepo = chunkRepo ?? getLectureChunkRepository();
   }
 
   async getDocumentsForAdmin(
-    docType: string,
     courseIds?: string[],
     pagination?: PaginationOptions,
-  ): Promise<PaginatedResult<DocumentEntity>> {
-    return this.docRepo.findByDocTypeForAdmin(docType, courseIds, pagination);
+  ): Promise<PaginatedResult<LectureDocumentEntity>> {
+    return this.docRepo.findForAdmin(courseIds, pagination);
   }
 
   async checkDuplicate(userId: string, name: string): Promise<boolean> {
@@ -43,28 +38,34 @@ export class DocumentService {
     userId: string,
     name: string,
     metadata?: Json,
-    docType?: string,
     courseId?: string,
-  ): Promise<DocumentEntity> {
+  ): Promise<LectureDocumentEntity> {
     return this.docRepo.create({
       userId,
       name,
-      status: 'processing',
+      status: 'draft',
       metadata,
-      docType,
       courseId,
     });
   }
 
-  async updateStatus(docId: string, status: DocumentStatus, statusMessage?: string): Promise<void> {
-    await this.docRepo.updateStatus(docId, { status, statusMessage });
+  async publish(docId: string): Promise<void> {
+    const chunks = await this.chunkRepo.findByLectureDocumentId(docId);
+    if (chunks.length === 0) {
+      throw new Error('Cannot publish: no content items');
+    }
+    await this.docRepo.publish(docId);
   }
 
-  async saveChunks(chunks: CreateDocumentChunkDTO[]): Promise<void> {
+  async unpublish(docId: string): Promise<void> {
+    await this.docRepo.unpublish(docId);
+  }
+
+  async saveChunks(chunks: CreateLectureChunkDTO[]): Promise<void> {
     await this.chunkRepo.createBatch(chunks);
   }
 
-  async saveChunksAndReturn(chunks: CreateDocumentChunkDTO[]): Promise<{ id: string }[]> {
+  async saveChunksAndReturn(chunks: CreateLectureChunkDTO[]): Promise<{ id: string }[]> {
     return this.chunkRepo.createBatchAndReturn(chunks);
   }
 
@@ -75,16 +76,16 @@ export class DocumentService {
     await this.docRepo.delete(docId, userId);
   }
 
-  async findById(docId: string): Promise<DocumentEntity | null> {
+  async findById(docId: string): Promise<LectureDocumentEntity | null> {
     return this.docRepo.findById(docId);
   }
 
   async getChunks(docId: string) {
-    return this.chunkRepo.findByDocumentId(docId);
+    return this.chunkRepo.findByLectureDocumentId(docId);
   }
 
   async getChunksWithEmbeddings(docId: string) {
-    return this.chunkRepo.findByDocumentIdWithEmbeddings(docId);
+    return this.chunkRepo.findByLectureDocumentIdWithEmbeddings(docId);
   }
 
   async updateChunk(chunkId: string, content: string, metadata?: Json): Promise<void> {
@@ -95,27 +96,26 @@ export class DocumentService {
     await this.chunkRepo.deleteChunk(chunkId);
   }
 
-  async deleteChunksByDocumentId(docId: string): Promise<void> {
-    await this.chunkRepo.deleteByDocumentId(docId);
+  async deleteChunksByLectureDocumentId(docId: string): Promise<void> {
+    await this.chunkRepo.deleteByLectureDocumentId(docId);
   }
 
-  async updateChunkEmbedding(
-    chunkId: string,
-    embedding: number[],
-    documentId?: string,
-  ): Promise<void> {
-    await this.chunkRepo.updateEmbedding(chunkId, embedding, documentId);
+  async updateChunkEmbedding(chunkId: string, embedding: number[]): Promise<void> {
+    await this.chunkRepo.updateEmbedding(chunkId, embedding);
   }
 
   async updateDocumentMetadata(
     docId: string,
-    updates: { name?: string; metadata?: Json; docType?: string },
+    updates: { name?: string; metadata?: Json },
   ): Promise<void> {
     await this.docRepo.updateMetadata(docId, updates);
   }
 
-  async verifyChunksBelongToDocument(chunkIds: string[], documentId: string): Promise<boolean> {
-    return this.chunkRepo.verifyChunksBelongToDocument(chunkIds, documentId);
+  async verifyChunksBelongToLectureDocument(
+    chunkIds: string[],
+    lectureDocumentId: string,
+  ): Promise<boolean> {
+    return this.chunkRepo.verifyChunksBelongToLectureDocument(chunkIds, lectureDocumentId);
   }
 
   async deleteByAdmin(docId: string): Promise<void> {
@@ -123,11 +123,11 @@ export class DocumentService {
   }
 }
 
-let _documentService: DocumentService | null = null;
+let _lectureDocumentService: LectureDocumentService | null = null;
 
-export function getDocumentService(): DocumentService {
-  if (!_documentService) {
-    _documentService = new DocumentService();
+export function getLectureDocumentService(): LectureDocumentService {
+  if (!_lectureDocumentService) {
+    _lectureDocumentService = new LectureDocumentService();
   }
-  return _documentService;
+  return _lectureDocumentService;
 }

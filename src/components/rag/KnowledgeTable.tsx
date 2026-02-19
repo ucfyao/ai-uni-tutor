@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { AlertCircle, ArrowDown, ArrowUp, Eye, FileText, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, FileText, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
@@ -19,7 +19,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { deleteDocument, retryDocument } from '@/app/actions/documents';
+import { deleteDocument } from '@/app/actions/documents';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import classes from './KnowledgeTable.module.css';
@@ -27,8 +27,7 @@ import classes from './KnowledgeTable.module.css';
 export interface KnowledgeDocument {
   id: string;
   name: string;
-  status: string; // 'processing' | 'ready' | 'error'
-  status_message: string | null;
+  status: string; // 'draft' | 'ready'
   created_at: string;
   doc_type: string; // 'lecture' | 'exam' | 'assignment'
   metadata: {
@@ -144,21 +143,10 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
 
   const handleDelete = (doc: KnowledgeDocument) => setDeleteTarget(doc);
 
-  const handleRetry = async (doc: KnowledgeDocument) => {
-    try {
-      const result = await retryDocument(doc.id, doc.doc_type);
-      if (result.status === 'success') {
-        showNotification({ title: t.knowledge.success, message: result.message, color: 'green' });
-      } else {
-        showNotification({ title: t.knowledge.error, message: result.message, color: 'red' });
-      }
-    } catch {
-      showNotification({
-        title: t.knowledge.error,
-        message: t.knowledge.failedToRetry,
-        color: 'red',
-      });
-    }
+  const getDocDetailPath = (doc: KnowledgeDocument) => {
+    if (doc.doc_type === 'exam') return `/admin/exams/${doc.id}`;
+    if (doc.doc_type === 'assignment') return `/admin/assignments/${doc.id}`;
+    return `/admin/lectures/${doc.id}`;
   };
 
   const renderStatusBadge = (doc: KnowledgeDocument) => {
@@ -169,46 +157,11 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
         </Badge>
       );
     }
-    if (doc.status === 'processing') {
+    if (doc.status === 'draft') {
       return (
-        <Badge
-          color="blue"
-          variant="dot"
-          size="sm"
-          style={{ animation: 'pulse 2s ease-in-out infinite' }}
-        >
-          {doc.status_message || t.knowledge.processing}
+        <Badge color="blue" variant="dot" size="sm">
+          {t.knowledge.draft}
         </Badge>
-      );
-    }
-    if (doc.status === 'error') {
-      return (
-        <Group gap={4}>
-          <Badge color="red" variant="dot" size="sm">
-            Error
-          </Badge>
-          {doc.status_message && (
-            <Tooltip label={doc.status_message}>
-              <AlertCircle
-                size={14}
-                color="var(--mantine-color-red-5)"
-                style={{ cursor: 'help' }}
-              />
-            </Tooltip>
-          )}
-          {!readOnly && (
-            <Tooltip label={t.knowledge.retryProcessing}>
-              <ActionIcon
-                variant="subtle"
-                color="orange"
-                size="sm"
-                onClick={() => handleRetry(doc)}
-              >
-                <RefreshCw size={14} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-        </Group>
       );
     }
     return null;
@@ -303,9 +256,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                     <ActionIcon
                       variant="subtle"
                       color="gray"
-                      onClick={() =>
-                        router.push(`/admin/knowledge/${doc.id}?type=${doc.doc_type || 'lecture'}`)
-                      }
+                      onClick={() => router.push(getDocDetailPath(doc))}
                       aria-label="View document details"
                     >
                       <Eye size={16} />
@@ -465,11 +416,7 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                         <ActionIcon
                           variant="subtle"
                           color="gray"
-                          onClick={() =>
-                            router.push(
-                              `/admin/knowledge/${doc.id}?type=${doc.doc_type || 'lecture'}`,
-                            )
-                          }
+                          onClick={() => router.push(getDocDetailPath(doc))}
                           aria-label="View document details"
                         >
                           <Eye size={16} />
@@ -494,15 +441,6 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
           </Table.Tbody>
         </Table>
       </Card>
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          [style*="animation: pulse"] { animation: none !important; }
-        }
-      `}</style>
     </>
   );
 }

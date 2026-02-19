@@ -2,28 +2,21 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { DocumentEntity } from '@/lib/domain/models/Document';
-import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
+import type { LectureDocumentEntity } from '@/lib/domain/models/Document';
+import { ForbiddenError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
-import { getDocumentProcessingService } from '@/lib/services/DocumentProcessingService';
-import { getDocumentService } from '@/lib/services/DocumentService';
-import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
-import { getQuotaService } from '@/lib/services/QuotaService';
+import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import {
   requireAnyAdmin,
   requireAssignmentAccess,
   requireCourseAdmin,
 } from '@/lib/supabase/server';
-import type { FormActionState } from '@/types/actions';
 import type { Json } from '@/types/database';
-
-type UploadState = FormActionState;
 
 interface DocumentListItem {
   id: string;
   name: string;
   status: string;
-  status_message: string | null;
   created_at: string;
   doc_type: string;
   metadata: { school?: string; course?: string; [key: string]: unknown } | null;
@@ -38,8 +31,8 @@ async function requireLectureAccess(
   documentId: string,
   userId: string,
   role: string,
-): Promise<DocumentEntity> {
-  const doc = await getDocumentService().findById(documentId);
+): Promise<LectureDocumentEntity> {
+  const doc = await getLectureDocumentService().findById(documentId);
   if (!doc) throw new ForbiddenError('Document not found');
 
   if (doc.courseId) {
@@ -72,19 +65,18 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   if (!parsed.success) throw new Error('Invalid document type');
 
   if (parsed.data === 'lecture') {
-    const service = getDocumentService();
+    const service = getLectureDocumentService();
     // super_admin sees all lectures (no course filter); admin sees only assigned courses
     let courseIds: string[] | undefined;
     if (role !== 'super_admin') {
       const { getAdminService } = await import('@/lib/services/AdminService');
       courseIds = await getAdminService().getAssignedCourseIds(user.id);
     }
-    const { data: entities } = await service.getDocumentsForAdmin('lecture', courseIds);
+    const { data: entities } = await service.getDocumentsForAdmin(courseIds);
     return entities.map((doc) => ({
       id: doc.id,
       name: doc.name,
       status: doc.status,
-      status_message: doc.statusMessage,
       created_at: doc.createdAt.toISOString(),
       doc_type: 'lecture',
       metadata:
@@ -111,8 +103,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
     return papers.map((paper) => ({
       id: paper.id,
       name: paper.title,
-      status: paper.status === 'parsing' ? 'processing' : paper.status,
-      status_message: paper.statusMessage,
+      status: paper.status,
       created_at: paper.createdAt,
       doc_type: 'exam',
       metadata: {
@@ -137,8 +128,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   return assignments.map((a) => ({
     id: a.id,
     name: a.title,
-    status: a.status === 'parsing' ? 'processing' : a.status,
-    status_message: a.statusMessage,
+    status: a.status,
     created_at: a.createdAt,
     doc_type: 'assignment',
     metadata: {
@@ -146,154 +136,6 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
       course: a.course ?? undefined,
     },
   }));
-}
-
-const uploadSchema = z.object({
-  file: z.instanceof(File),
-  doc_type: z.enum(['lecture', 'exam', 'assignment']).optional().default('lecture'),
-  school: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().max(100).optional(),
-  ),
-  course: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().max(100).optional(),
-  ),
-  has_answers: z.preprocess(
-    (value) => value === 'true' || value === true,
-    z.boolean().optional().default(false),
-  ),
-});
-
-export async function uploadDocument(
-  prevState: UploadState,
-  formData: FormData,
-): Promise<UploadState> {
-  let docId: string | undefined;
-  try {
-    const parsed = uploadSchema.safeParse({
-      file: formData.get('file'),
-      doc_type: formData.get('doc_type') || undefined,
-      school: formData.get('school'),
-      course: formData.get('course'),
-      has_answers: formData.get('has_answers'),
-    });
-    if (!parsed.success) {
-      return { status: 'error', message: 'Invalid upload data' };
-    }
-
-    const { file, doc_type, school, course, has_answers } = parsed.data;
-
-    // Exam/assignment must use the SSE route (/api/documents/parse) which routes to correct tables
-    if (doc_type !== 'lecture') {
-      return { status: 'error', message: 'Use the streaming upload for exam/assignment documents' };
-    }
-
-    if (file.type !== 'application/pdf') {
-      return { status: 'error', message: 'Only PDF files are supported currently' };
-    }
-
-    // Course-level permission check: courseId from formData
-    const rawCourseId = formData.get('courseId') as string | null;
-    if (rawCourseId && !z.string().uuid().safeParse(rawCourseId).success) {
-      return { status: 'error', message: 'Invalid course ID' };
-    }
-    const courseId = rawCourseId ?? null;
-    const { user: authUser, role } = await requireAnyAdmin();
-    let user = authUser;
-
-    // Admin (non-super_admin) must provide courseId for lecture uploads
-    if (role === 'admin' && !courseId) {
-      return { status: 'error', message: 'Admin must select a course for lecture uploads' };
-    }
-    if (courseId) {
-      user = await requireCourseAdmin(courseId);
-    }
-
-    const documentService = getDocumentService();
-
-    // Enforce AI quota before processing (embedding generation uses Gemini)
-    await getQuotaService().enforce(user.id);
-
-    // Check for duplicates
-    const isDuplicate = await documentService.checkDuplicate(user.id, file.name);
-    if (isDuplicate) {
-      return { status: 'error', message: `File "${file.name}" already exists.` };
-    }
-
-    // 1. Create Document Entry (Processing)
-    const doc = await documentService.createDocument(
-      user.id,
-      file.name,
-      {
-        school: school || 'Unspecified',
-        course: course || 'General',
-      },
-      doc_type,
-      courseId ?? undefined,
-    );
-    docId = doc.id;
-
-    revalidatePath('/admin/knowledge');
-
-    // 2. Process document via DocumentProcessingService
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const processingService = getDocumentProcessingService();
-
-    try {
-      await processingService.processWithLLM({
-        documentId: doc.id,
-        buffer,
-        docType: doc_type,
-        hasAnswers: has_answers,
-        callbacks: {
-          onProgress: (stage, message) => {
-            // Status updates are fire-and-forget for server actions
-            documentService.updateStatus(doc.id, 'processing', message).catch(() => {});
-          },
-        },
-      });
-    } catch (e) {
-      console.error('Error during document processing:', e);
-      try {
-        await documentService.deleteChunksByDocumentId(doc.id);
-        await getKnowledgeCardService().deleteByDocumentId(doc.id);
-      } catch {
-        /* ignore cleanup errors */
-      }
-      const msg = e instanceof Error ? e.message : 'Failed to process document';
-      await documentService.updateStatus(doc.id, 'error', msg);
-      revalidatePath('/admin/knowledge');
-      return { status: 'error', message: msg };
-    }
-
-    // 3. Update Document Status
-    await documentService.updateStatus(doc.id, 'ready');
-
-    revalidatePath('/admin/knowledge');
-    return { status: 'success', message: 'Document processed successfully' };
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return { status: 'error', message: 'Admin access required' };
-    }
-    if (error instanceof QuotaExceededError) {
-      return { status: 'error', message: error.message };
-    }
-    console.error('Upload error:', error);
-    if (docId) {
-      try {
-        const documentService = getDocumentService();
-        await documentService.deleteChunksByDocumentId(docId);
-        await getKnowledgeCardService().deleteByDocumentId(docId);
-        await documentService.updateStatus(docId, 'error', 'Upload failed unexpectedly');
-        revalidatePath('/admin/knowledge');
-      } catch {
-        /* ignore cleanup errors */
-      }
-    }
-    return { status: 'error', message: 'Internal server error during upload' };
-  }
 }
 
 export async function deleteDocument(documentId: string, docType: string) {
@@ -313,9 +155,8 @@ export async function deleteDocument(documentId: string, docType: string) {
   } else {
     // Lecture (documents table) — enforce course-level or ownership permission
     await requireLectureAccess(documentId, user.id, role);
-    const documentService = getDocumentService();
-    await documentService.deleteChunksByDocumentId(documentId);
-    await getKnowledgeCardService().deleteByDocumentId(documentId);
+    const documentService = getLectureDocumentService();
+    await documentService.deleteChunksByLectureDocumentId(documentId);
     await documentService.deleteByAdmin(documentId);
   }
 
@@ -330,12 +171,15 @@ export async function updateDocumentChunks(
   const { user, role } = await requireAnyAdmin();
   await requireLectureAccess(documentId, user.id, role);
 
-  const documentService = getDocumentService();
+  const documentService = getLectureDocumentService();
 
   // Verify all chunk IDs belong to this document (IDOR protection)
   const allChunkIds = [...deletedIds, ...updates.map((u) => u.id)];
   if (allChunkIds.length > 0) {
-    const chunksValid = await documentService.verifyChunksBelongToDocument(allChunkIds, documentId);
+    const chunksValid = await documentService.verifyChunksBelongToLectureDocument(
+      allChunkIds,
+      documentId,
+    );
     if (!chunksValid) {
       return { status: 'error', message: 'Invalid chunk IDs' };
     }
@@ -349,6 +193,7 @@ export async function updateDocumentChunks(
   }
 
   revalidatePath(`/admin/knowledge/${documentId}`);
+  revalidatePath(`/admin/lectures/${documentId}`);
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Changes saved' };
 }
@@ -357,29 +202,23 @@ export async function regenerateEmbeddings(
   documentId: string,
 ): Promise<{ status: 'success' | 'error'; message: string }> {
   const { user, role } = await requireAnyAdmin();
-  const doc = await requireLectureAccess(documentId, user.id, role);
+  await requireLectureAccess(documentId, user.id, role);
 
-  const documentService = getDocumentService();
-
-  await documentService.updateStatus(doc.id, 'processing', 'Regenerating embeddings...');
-  revalidatePath(`/admin/knowledge/${documentId}`);
+  const documentService = getLectureDocumentService();
 
   try {
     const chunks = await documentService.getChunksWithEmbeddings(documentId);
     for (const chunk of chunks) {
       const embedding = await generateEmbeddingWithRetry(chunk.content);
-      await documentService.updateChunkEmbedding(chunk.id, embedding, documentId);
+      await documentService.updateChunkEmbedding(chunk.id, embedding);
     }
-    await documentService.updateStatus(doc.id, 'ready');
   } catch (e) {
     console.error('Error regenerating embeddings:', e);
-    await documentService.updateStatus(doc.id, 'error', 'Failed to regenerate embeddings');
-    revalidatePath(`/admin/knowledge/${documentId}`);
-    revalidatePath('/admin/knowledge');
     return { status: 'error', message: 'Failed to regenerate embeddings' };
   }
 
   revalidatePath(`/admin/knowledge/${documentId}`);
+  revalidatePath(`/admin/lectures/${documentId}`);
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Embeddings regenerated' };
 }
@@ -396,22 +235,35 @@ export async function retryDocument(
   if (parsedType.data === 'exam') {
     await requireExamAccess(documentId, user.id, role);
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    await getExamPaperRepository().delete(documentId);
+    const examRepo = getExamPaperRepository();
+    // Delete all questions but keep the paper record
+    const questions = await examRepo.findQuestionsByPaperId(documentId);
+    for (const q of questions) {
+      await examRepo.deleteQuestion(q.id);
+    }
+    // Reset to draft
+    await examRepo.unpublish(documentId);
   } else if (parsedType.data === 'assignment') {
     await requireAssignmentAccess(documentId, user.id, role);
     const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-    await getAssignmentRepository().delete(documentId);
+    const assignmentRepo = getAssignmentRepository();
+    // Delete all items but keep the assignment record
+    const items = await assignmentRepo.findItemsByAssignmentId(documentId);
+    for (const item of items) {
+      await assignmentRepo.deleteItem(item.id);
+    }
+    // Reset to draft
+    await assignmentRepo.updateStatus(documentId, 'draft');
   } else {
-    // Lecture — enforce course-level or ownership permission
+    // Lecture — clear chunks and knowledge cards, keep document record as draft
     await requireLectureAccess(documentId, user.id, role);
-    const documentService = getDocumentService();
-    await documentService.deleteChunksByDocumentId(documentId);
-    await getKnowledgeCardService().deleteByDocumentId(documentId);
-    await documentService.deleteByAdmin(documentId);
+    const documentService = getLectureDocumentService();
+    await documentService.deleteChunksByLectureDocumentId(documentId);
+    await documentService.unpublish(documentId);
   }
 
   revalidatePath('/admin/knowledge');
-  return { status: 'success', message: 'Document removed. Please re-upload.' };
+  return { status: 'success', message: 'Items cleared. Upload a new PDF to re-parse.' };
 }
 
 const updateDocumentMetaSchema = z.object({
@@ -434,9 +286,9 @@ export async function updateDocumentMeta(
 
   const doc = await requireLectureAccess(documentId, user.id, role);
 
-  const documentService = getDocumentService();
+  const documentService = getLectureDocumentService();
 
-  const metadataUpdates: { name?: string; metadata?: Json; docType?: string } = {};
+  const metadataUpdates: { name?: string; metadata?: Json } = {};
   if (validatedUpdates.name !== undefined) metadataUpdates.name = validatedUpdates.name;
   if (validatedUpdates.school !== undefined || validatedUpdates.course !== undefined) {
     const existingMeta = (doc.metadata as Record<string, unknown>) ?? {};
@@ -450,6 +302,7 @@ export async function updateDocumentMeta(
   await documentService.updateDocumentMetadata(documentId, metadataUpdates);
 
   revalidatePath(`/admin/knowledge/${documentId}`);
+  revalidatePath(`/admin/lectures/${documentId}`);
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Document updated' };
 }
@@ -500,6 +353,7 @@ export async function updateExamQuestions(
   }
 
   revalidatePath(`/admin/knowledge/${paperId}`);
+  revalidatePath(`/admin/exams/${paperId}`);
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Changes saved' };
 }
@@ -543,6 +397,144 @@ export async function updateAssignmentItems(
   }
 
   revalidatePath(`/admin/knowledge/${assignmentId}`);
+  revalidatePath(`/admin/assignments/${assignmentId}`);
   revalidatePath('/admin/knowledge');
   return { status: 'success', message: 'Changes saved' };
+}
+
+// --- New actions ---
+
+const createLectureSchema = z.object({
+  title: z.string().min(1).max(255),
+  universityId: z.string().uuid(),
+  courseId: z.string().uuid(),
+});
+
+export async function createLecture(
+  input: z.infer<typeof createLectureSchema>,
+): Promise<{ success: true; data: { id: string } } | { success: false; error: string }> {
+  try {
+    const parsed = createLectureSchema.parse(input);
+    const { user } = await requireAnyAdmin();
+    await requireCourseAdmin(parsed.courseId);
+
+    const { getCourseRepository } = await import('@/lib/repositories/CourseRepository');
+    const course = await getCourseRepository().findById(parsed.courseId);
+    const { getUniversityRepository } = await import('@/lib/repositories/UniversityRepository');
+    const uni = await getUniversityRepository().findById(parsed.universityId);
+
+    const service = getLectureDocumentService();
+    const doc = await service.createDocument(
+      user.id,
+      parsed.title,
+      { school: uni?.shortName ?? '', course: course?.code ?? '' },
+      parsed.courseId,
+    );
+
+    revalidatePath('/admin/knowledge');
+    return { success: true, data: { id: doc.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'Admin access required' };
+    return { success: false, error: 'Failed to create lecture' };
+  }
+}
+
+const createExamSchema = z.object({
+  title: z.string().min(1).max(255),
+  universityId: z.string().uuid(),
+  courseId: z.string().uuid(),
+});
+
+export async function createExam(
+  input: z.infer<typeof createExamSchema>,
+): Promise<{ success: true; data: { id: string } } | { success: false; error: string }> {
+  try {
+    const parsed = createExamSchema.parse(input);
+    const { user } = await requireAnyAdmin();
+    await requireCourseAdmin(parsed.courseId);
+
+    const { getCourseRepository } = await import('@/lib/repositories/CourseRepository');
+    const course = await getCourseRepository().findById(parsed.courseId);
+    const { getUniversityRepository } = await import('@/lib/repositories/UniversityRepository');
+    const uni = await getUniversityRepository().findById(parsed.universityId);
+
+    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+    const examRepo = getExamPaperRepository();
+    const paperId = await examRepo.create({
+      userId: user.id,
+      title: parsed.title,
+      school: uni?.shortName ?? '',
+      course: course?.code ?? '',
+      courseId: parsed.courseId,
+    });
+
+    revalidatePath('/admin/knowledge');
+    return { success: true, data: { id: paperId } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'Admin access required' };
+    return { success: false, error: 'Failed to create exam' };
+  }
+}
+
+export async function publishDocument(
+  id: string,
+  docType: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const parsed = docTypeSchema.safeParse(docType);
+  if (!parsed.success) return { success: false, error: 'Invalid document type' };
+
+  const { user, role } = await requireAnyAdmin();
+
+  try {
+    if (parsed.data === 'lecture') {
+      await requireLectureAccess(id, user.id, role);
+      await getLectureDocumentService().publish(id);
+    } else if (parsed.data === 'exam') {
+      await requireExamAccess(id, user.id, role);
+      const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+      await getExamPaperRepository().publish(id);
+    } else {
+      await requireAssignmentAccess(id, user.id, role);
+      const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+      await getAssignmentRepository().publish(id);
+    }
+
+    revalidatePath('/admin/knowledge');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to publish' };
+  }
+}
+
+export async function unpublishDocument(
+  id: string,
+  docType: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const parsed = docTypeSchema.safeParse(docType);
+  if (!parsed.success) return { success: false, error: 'Invalid document type' };
+
+  const { user, role } = await requireAnyAdmin();
+
+  try {
+    if (parsed.data === 'lecture') {
+      await requireLectureAccess(id, user.id, role);
+      await getLectureDocumentService().unpublish(id);
+    } else if (parsed.data === 'exam') {
+      await requireExamAccess(id, user.id, role);
+      const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
+      await getExamPaperRepository().unpublish(id);
+    } else {
+      await requireAssignmentAccess(id, user.id, role);
+      const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
+      await getAssignmentRepository().unpublish(id);
+    }
+
+    revalidatePath('/admin/knowledge');
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to unpublish',
+    };
+  }
 }

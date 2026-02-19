@@ -16,7 +16,7 @@ export interface IExamPaperRepository {
     courseId?: string | null;
     year?: string | null;
     visibility?: 'public' | 'private';
-    status?: 'parsing' | 'ready' | 'error';
+    status?: 'draft' | 'ready';
     questionTypes?: string[];
   }): Promise<string>; // returns paperId
 
@@ -32,11 +32,8 @@ export interface IExamPaperRepository {
     courseIds: string[],
     pagination?: PaginationOptions,
   ): Promise<PaginatedResult<ExamPaper>>;
-  updateStatus(
-    id: string,
-    status: 'parsing' | 'ready' | 'error',
-    statusMessage?: string,
-  ): Promise<void>;
+  publish(id: string): Promise<void>;
+  unpublish(id: string): Promise<void>;
   updatePaper(id: string, data: { title?: string; questionTypes?: string[] }): Promise<void>;
   delete(id: string): Promise<void>;
 

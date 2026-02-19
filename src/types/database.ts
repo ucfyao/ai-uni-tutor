@@ -180,7 +180,6 @@ export interface Database {
           key_concepts: string[];
           examples: string[];
           source_pages: number[];
-          document_id: string | null;
           embedding: number[] | null;
           created_at: string;
           updated_at: string;
@@ -193,7 +192,6 @@ export interface Database {
           key_concepts?: string[];
           examples?: string[];
           source_pages?: number[];
-          document_id?: string | null;
           embedding?: number[] | null;
           created_at?: string;
           updated_at?: string;
@@ -206,7 +204,6 @@ export interface Database {
           key_concepts?: string[];
           examples?: string[];
           source_pages?: number[];
-          document_id?: string | null;
           embedding?: number[] | null;
           created_at?: string;
           updated_at?: string;
@@ -285,14 +282,12 @@ export interface Database {
         };
         Relationships: [];
       };
-      documents: {
+      lecture_documents: {
         Row: {
           id: string;
           user_id: string;
           name: string;
-          status: 'processing' | 'ready' | 'error';
-          status_message: string | null;
-          doc_type: 'lecture' | 'exam' | 'assignment';
+          status: 'draft' | 'ready';
           course_id: string | null;
           created_at: string;
           metadata: Json;
@@ -303,9 +298,7 @@ export interface Database {
           id?: string;
           user_id: string;
           name: string;
-          status?: 'processing' | 'ready' | 'error';
-          status_message?: string | null;
-          doc_type?: 'lecture' | 'exam' | 'assignment';
+          status?: 'draft' | 'ready';
           course_id?: string | null;
           created_at?: string;
           metadata?: Json;
@@ -316,9 +309,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           name?: string;
-          status?: 'processing' | 'ready' | 'error';
-          status_message?: string | null;
-          doc_type?: 'lecture' | 'exam' | 'assignment';
+          status?: 'draft' | 'ready';
           course_id?: string | null;
           created_at?: string;
           metadata?: Json;
@@ -327,10 +318,10 @@ export interface Database {
         };
         Relationships: [];
       };
-      document_chunks: {
+      lecture_chunks: {
         Row: {
           id: string;
-          document_id: string;
+          lecture_document_id: string;
           content: string;
           embedding: number[] | null;
           metadata: Json;
@@ -338,7 +329,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          document_id: string;
+          lecture_document_id: string;
           content: string;
           embedding?: number[] | null;
           metadata?: Json;
@@ -346,7 +337,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          document_id?: string;
+          lecture_document_id?: string;
           content?: string;
           embedding?: number[] | null;
           metadata?: Json;
@@ -358,7 +349,6 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          document_id: string | null;
           title: string;
           visibility: 'public' | 'private';
           school: string | null;
@@ -366,14 +356,12 @@ export interface Database {
           course_id: string | null;
           year: string | null;
           question_types: string[];
-          status: 'parsing' | 'ready' | 'error';
-          status_message: string | null;
+          status: 'draft' | 'ready';
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          document_id?: string | null;
           title: string;
           visibility?: 'public' | 'private';
           school?: string | null;
@@ -381,14 +369,12 @@ export interface Database {
           course_id?: string | null;
           year?: string | null;
           question_types?: string[];
-          status?: 'parsing' | 'ready' | 'error';
-          status_message?: string | null;
+          status?: 'draft' | 'ready';
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          document_id?: string | null;
           title?: string;
           visibility?: 'public' | 'private';
           school?: string | null;
@@ -396,8 +382,7 @@ export interface Database {
           course_id?: string | null;
           year?: string | null;
           question_types?: string[];
-          status?: 'parsing' | 'ready' | 'error';
-          status_message?: string | null;
+          status?: 'draft' | 'ready';
           created_at?: string;
         };
         Relationships: [];
@@ -500,8 +485,7 @@ export interface Database {
           school: string | null;
           course: string | null;
           course_id: string | null;
-          status: string;
-          status_message: string | null;
+          status: 'draft' | 'ready';
           created_at: string;
         };
         Insert: {
@@ -511,8 +495,7 @@ export interface Database {
           school?: string | null;
           course?: string | null;
           course_id?: string | null;
-          status?: string;
-          status_message?: string | null;
+          status?: 'draft' | 'ready';
           created_at?: string;
         };
         Update: {
@@ -522,8 +505,7 @@ export interface Database {
           school?: string | null;
           course?: string | null;
           course_id?: string | null;
-          status?: string;
-          status_message?: string | null;
+          status?: 'draft' | 'ready';
           created_at?: string;
         };
         Relationships: [];
@@ -600,20 +582,6 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
-      match_documents: {
-        Args: {
-          query_embedding: number[];
-          match_threshold: number;
-          match_count: number;
-          filter?: Json;
-        };
-        Returns: {
-          id: string;
-          content: string;
-          similarity: number;
-          metadata: Json;
-        }[];
-      };
       match_knowledge_cards: {
         Args: {
           query_embedding: number[];
@@ -627,7 +595,6 @@ export interface Database {
           key_concepts: string[];
           examples: string[];
           source_pages: number[];
-          document_id: string | null;
           created_at: string;
           updated_at: string;
           similarity: number;

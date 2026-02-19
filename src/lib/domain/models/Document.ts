@@ -1,53 +1,43 @@
 /**
- * Domain Models - Document Entity
+ * Domain Models - Lecture Document Entity
  *
- * Represents a document in the domain layer.
+ * Represents a lecture document in the domain layer.
  * Independent of database implementation.
  */
 
 import type { Json } from '@/types/database';
 
-export type DocumentStatus = 'processing' | 'ready' | 'error';
+export type DocumentStatus = 'draft' | 'ready';
 
-type DocumentType = 'lecture' | 'exam' | 'assignment';
-
-export interface DocumentEntity {
+export interface LectureDocumentEntity {
   id: string;
   userId: string;
   name: string;
   status: DocumentStatus;
-  statusMessage: string | null;
   metadata: Json;
-  docType: DocumentType | null;
   courseId: string | null;
   outline: Json | null;
   createdAt: Date;
 }
 
-export interface CreateDocumentDTO {
+export interface CreateLectureDocumentDTO {
   userId: string;
   name: string;
   status?: DocumentStatus;
   metadata?: Json;
-  docType?: string;
   courseId?: string;
 }
 
-export interface UpdateDocumentStatusDTO {
-  status: DocumentStatus;
-  statusMessage?: string | null;
-}
-
-export interface DocumentChunkEntity {
+export interface LectureChunkEntity {
   id: string;
-  documentId: string;
+  lectureDocumentId: string;
   content: string;
   metadata: Json;
   embedding: number[] | null;
 }
 
-export interface CreateDocumentChunkDTO {
-  documentId: string;
+export interface CreateLectureChunkDTO {
+  lectureDocumentId: string;
   content: string;
   embedding?: number[] | null;
   metadata?: Json;
