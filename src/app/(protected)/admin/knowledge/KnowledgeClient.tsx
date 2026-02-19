@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, Library, Play, Plus, Search, Upload, X } from 'lucide-react';
+import { BookOpen, FileText, Library, Plus, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -9,8 +9,6 @@ import {
   Box,
   Button,
   Group,
-  Progress,
-  rem,
   ScrollArea,
   SegmentedControl,
   Select,
@@ -21,63 +19,19 @@ import {
   ThemeIcon,
   Tooltip,
 } from '@mantine/core';
-import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { createEmptyAssignment } from '@/app/actions/assignments';
-import { deleteDocument, fetchDocuments } from '@/app/actions/documents';
+import { createExam, createLecture, fetchDocuments } from '@/app/actions/documents';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useCourseData } from '@/hooks/useCourseData';
-import { useStreamingParse } from '@/hooks/useStreamingParse';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 
 const PREFS_KEY = 'knowledge-upload-prefs';
-
-function ElapsedTimer({ startTime }: { startTime: number }) {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 100);
-    return () => clearInterval(id);
-  }, []);
-  const sec = (Date.now() - startTime) / 1000;
-  if (sec < 60) return <>{sec.toFixed(1)}s</>;
-  return (
-    <>
-      {Math.floor(sec / 60)}m {Math.round(sec % 60)}s
-    </>
-  );
-}
-
-function getProgressPercent(
-  status: string,
-  progress: { current: number; total: number },
-  savedCount: number,
-): number {
-  if (status === 'complete') return 100;
-  if (status === 'parsing_pdf') return 5;
-  if (status === 'extracting') {
-    // progress events now fire per-batch during extraction
-    const extractPct = progress.total > 0 ? progress.current / progress.total : 0;
-    return 10 + extractPct * 55;
-  }
-  if (status === 'embedding') {
-    const embedPct = progress.total > 0 ? savedCount / progress.total : 0;
-    return 65 + embedPct * 35;
-  }
-  return 0;
-}
-
-const STAGE_COLORS: Record<string, string> = {
-  parsing_pdf: 'indigo',
-  extracting: 'blue',
-  embedding: 'teal',
-  complete: 'green',
-  error: 'red',
-};
 
 interface KnowledgeClientProps {
   initialDocuments: KnowledgeDocument[];
@@ -95,15 +49,10 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const [debouncedSearch] = useDebouncedValue(searchQuery, 200);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Upload modal state
+  // Create modal state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-
-  // Assignment creation modal state
-  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
-  const [assignmentTitle, setAssignmentTitle] = useState('');
-  const [assignmentUniId, setAssignmentUniId] = useState<string | null>(null);
-  const [assignmentCourseId, setAssignmentCourseId] = useState<string | null>(null);
-  const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
+  const [title, setTitle] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   // Fetch documents by type via server action
   const queryClient = useQueryClient();
@@ -124,22 +73,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     [documents, debouncedSearch],
   );
 
-  // Upload form state (docType always follows activeTab)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // Create form state (docType always follows activeTab)
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
-  const parseState = useStreamingParse();
-  const parseDocTypeRef = useRef<string>(activeTab);
-  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
+  const { universities, courses: filteredCourses } = useCourseData(selectedUniId);
 
-  // Courses filtered for assignment modal
-  const assignmentFilteredCourses = useMemo(
-    () => (assignmentUniId ? allCourses.filter((c) => c.universityId === assignmentUniId) : []),
-    [allCourses, assignmentUniId],
-  );
-
-  const isFormValid = selectedFile && selectedUniId && selectedCourseId;
+  const isFormValid = title.trim() && selectedUniId && selectedCourseId;
 
   // Initialize from localStorage
   useEffect(() => {
@@ -164,79 +104,64 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     }
   }, [selectedUniId, selectedCourseId]);
 
-  const isParsing = parseState.status !== 'idle';
+  const handleCreate = async () => {
+    if (!title.trim() || !selectedUniId || !selectedCourseId) return;
 
-  const resetForm = useCallback(() => {
-    setSelectedFile(null);
-  }, []);
-
-  const handleStartParse = () => {
-    if (!selectedFile || !selectedUniId || !selectedCourseId) return;
-
-    parseDocTypeRef.current = activeTab;
-
-    const uniObj = universities.find((u) => u.id === selectedUniId);
-    const courseObj = allCourses.find((c) => c.id === selectedCourseId);
-
-    parseState.startParse(selectedFile, {
-      docType: activeTab,
-      school: uniObj?.shortName ?? '',
-      course: courseObj?.code ?? '',
-      courseId: selectedCourseId,
-      hasAnswers: false,
-    });
-  };
-
-  const handleDismissParse = useCallback(async () => {
-    // Auto-delete the document record if parsing failed
-    if (parseState.status === 'error' && parseState.documentId) {
-      try {
-        await deleteDocument(parseState.documentId, parseDocTypeRef.current);
-      } catch {
-        // Ignore — record may already be gone
-      }
-    }
-    resetForm();
-    parseState.reset();
-    queryClient.invalidateQueries({ queryKey: queryKeys.documents.byType(activeTab) });
-  }, [resetForm, parseState, queryClient, activeTab]);
-
-  const handleCloseModal = useCallback(() => {
-    if (isParsing && parseState.status !== 'complete' && parseState.status !== 'error') {
-      // Don't close while actively processing
-      return;
-    }
-    handleDismissParse();
-    setUploadModalOpen(false);
-  }, [isParsing, parseState.status, handleDismissParse]);
-
-  const handleCreateAssignment = async () => {
-    if (!assignmentTitle.trim() || !assignmentUniId || !assignmentCourseId) return;
-    setIsCreatingAssignment(true);
+    setIsCreating(true);
     try {
-      const result = await createEmptyAssignment({
-        title: assignmentTitle.trim(),
-        universityId: assignmentUniId,
-        courseId: assignmentCourseId,
-      });
-      if (result.success) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.documents.byType('assignment') });
-        setAssignmentModalOpen(false);
-        setAssignmentTitle('');
-        router.push(`/admin/knowledge/${result.data.id}?type=assignment`);
+      let id: string;
+      if (activeTab === 'exam') {
+        const result = await createExam({
+          title: title.trim(),
+          universityId: selectedUniId,
+          courseId: selectedCourseId,
+        });
+        if (!result.success) throw new Error(result.error);
+        id = result.data.id;
+      } else if (activeTab === 'assignment') {
+        const result = await createEmptyAssignment({
+          title: title.trim(),
+          universityId: selectedUniId,
+          courseId: selectedCourseId,
+        });
+        if (!result.success) throw new Error(result.error);
+        id = result.data.id;
       } else {
-        showNotification({ title: t.knowledge.error, message: result.error, color: 'red' });
+        const result = await createLecture({
+          title: title.trim(),
+          universityId: selectedUniId,
+          courseId: selectedCourseId,
+        });
+        if (!result.success) throw new Error(result.error);
+        id = result.data.id;
       }
-    } catch {
+
+      // Navigate to detail page
+      const detailPath =
+        activeTab === 'exam'
+          ? `/admin/exams/${id}`
+          : activeTab === 'assignment'
+            ? `/admin/assignments/${id}`
+            : `/admin/lectures/${id}`;
+      router.push(detailPath);
+      setUploadModalOpen(false);
+      setTitle('');
+    } catch (error) {
       showNotification({
         title: t.knowledge.error,
-        message: 'Failed to create assignment',
+        message: error instanceof Error ? error.message : 'Failed to create document',
         color: 'red',
       });
     } finally {
-      setIsCreatingAssignment(false);
+      setIsCreating(false);
     }
   };
+
+  const handleCloseModal = useCallback(() => {
+    if (isCreating) return;
+    setUploadModalOpen(false);
+    setTitle('');
+  }, [isCreating]);
 
   const handleDocumentDeleted = useCallback(
     (id: string) => {
@@ -249,12 +174,6 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
     },
     [queryClient],
   );
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   // ── Header (mirrors ChatPageLayout pattern) ──
   const headerNode = useMemo(
@@ -308,7 +227,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="lg" p="lg" maw={900} mx="auto">
-          {/* ── Toolbar: SegmentedControl + Search + Upload ── */}
+          {/* ── Toolbar: SegmentedControl + Search + Create ── */}
           <Group gap="sm" justify="space-between" wrap="nowrap">
             <SegmentedControl
               value={activeTab}
@@ -427,29 +346,15 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 />
               </Box>
 
-              {/* Upload / Create button */}
-              <Tooltip
-                label={
-                  activeTab === 'assignment'
-                    ? t.knowledge.createAssignment
-                    : t.knowledge.uploadDocument
-                }
-              >
+              {/* Create button */}
+              <Tooltip label={t.knowledge.createAssignment}>
                 <ActionIcon
                   variant="filled"
                   color="indigo"
                   size="lg"
                   radius="xl"
-                  onClick={() =>
-                    activeTab === 'assignment'
-                      ? setAssignmentModalOpen(true)
-                      : setUploadModalOpen(true)
-                  }
-                  aria-label={
-                    activeTab === 'assignment'
-                      ? t.knowledge.createAssignment
-                      : t.knowledge.uploadDocument
-                  }
+                  onClick={() => setUploadModalOpen(true)}
+                  aria-label={t.knowledge.createAssignment}
                 >
                   <Plus size={18} />
                 </ActionIcon>
@@ -488,7 +393,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               <Text c="dimmed" ta="center" maw={400}>
                 {t.knowledge.emptyDescription}
               </Text>
-              <Button leftSection={<Upload size={16} />} onClick={() => setUploadModalOpen(true)}>
+              <Button leftSection={<Plus size={16} />} onClick={() => setUploadModalOpen(true)}>
                 {t.knowledge.uploadCTA}
               </Button>
             </Stack>
@@ -496,248 +401,17 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         </Stack>
       </ScrollArea>
 
-      {/* ── Upload Modal ── */}
+      {/* ── Create Modal ── */}
       <FullScreenModal
         opened={uploadModalOpen}
         onClose={handleCloseModal}
-        title={t.knowledge.uploadDocument}
-        centered
-        size="md"
-        radius="lg"
-        closeOnClickOutside={!isParsing}
-        closeOnEscape={!isParsing}
-        withCloseButton={
-          !isParsing || parseState.status === 'complete' || parseState.status === 'error'
-        }
-        overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
-        styles={{
-          content: {
-            border: '1px solid var(--mantine-color-default-border)',
-            background: 'var(--mantine-color-body)',
-          },
-        }}
-      >
-        {!isParsing ? (
-          /* ── Upload Form ── */
-          <Stack gap="md">
-            {/* Dropzone */}
-            <Box
-              style={{
-                borderRadius: 'var(--mantine-radius-lg)',
-                border: selectedFile
-                  ? '1px solid var(--mantine-color-gray-3)'
-                  : '1.5px dashed var(--mantine-color-gray-3)',
-                overflow: 'hidden',
-              }}
-            >
-              {selectedFile ? (
-                <Group
-                  gap="sm"
-                  px="md"
-                  py="sm"
-                  style={{ background: 'var(--mantine-color-default-hover)' }}
-                >
-                  <FileText size={16} color="var(--mantine-color-indigo-5)" />
-                  <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
-                    {selectedFile.name}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    {formatFileSize(selectedFile.size)}
-                  </Text>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="xs"
-                    onClick={() => setSelectedFile(null)}
-                    aria-label="Remove file"
-                  >
-                    <X size={12} />
-                  </ActionIcon>
-                </Group>
-              ) : (
-                <Dropzone
-                  onDrop={(files) => setSelectedFile(files[0])}
-                  onReject={() =>
-                    showNotification({
-                      title: 'File rejected',
-                      message: `Please upload a valid PDF less than ${process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 10}MB.`,
-                      color: 'red',
-                    })
-                  }
-                  maxSize={parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10') * 1024 * 1024}
-                  accept={PDF_MIME_TYPE}
-                  multiple={false}
-                  styles={{
-                    root: {
-                      border: 'none',
-                      background: 'transparent',
-                      '&:hover': { background: 'var(--mantine-color-default-hover)' },
-                    },
-                  }}
-                >
-                  <Group
-                    justify="center"
-                    gap="sm"
-                    style={{ minHeight: rem(80), pointerEvents: 'none' }}
-                  >
-                    <Dropzone.Accept>
-                      <Upload size={24} color="var(--mantine-color-indigo-6)" />
-                    </Dropzone.Accept>
-                    <Dropzone.Reject>
-                      <X size={24} color="var(--mantine-color-red-6)" />
-                    </Dropzone.Reject>
-                    <Dropzone.Idle>
-                      <Upload
-                        size={24}
-                        color="var(--mantine-color-indigo-4)"
-                        style={{ flexShrink: 0 }}
-                      />
-                    </Dropzone.Idle>
-                    <div style={{ textAlign: 'center' }}>
-                      <Text size="sm" c="dimmed">
-                        {t.knowledge.dropPdfHere}{' '}
-                        <Text span c="indigo" fw={600}>
-                          {t.knowledge.browse}
-                        </Text>
-                      </Text>
-                      <Text size="xs" c="dimmed" mt={4}>
-                        {t.knowledge.pdfOnly}
-                      </Text>
-                    </div>
-                  </Group>
-                </Dropzone>
-              )}
-            </Box>
-
-            {/* University & Course */}
-            <Select
-              placeholder={t.knowledge.university}
-              data={universities.map((u) => ({ value: u.id, label: u.name }))}
-              value={selectedUniId}
-              onChange={(val) => {
-                setSelectedUniId(val);
-                setSelectedCourseId(null);
-              }}
-              searchable
-              size="sm"
-              radius="md"
-            />
-            <Select
-              placeholder={t.knowledge.course}
-              data={filteredCourses.map((c) => ({
-                value: c.id,
-                label: `${c.code}: ${c.name}`,
-              }))}
-              value={selectedCourseId}
-              onChange={setSelectedCourseId}
-              disabled={!selectedUniId}
-              searchable
-              size="sm"
-              radius="md"
-            />
-
-            {/* Start button */}
-            <Button
-              leftSection={<Play size={14} />}
-              disabled={!isFormValid}
-              onClick={handleStartParse}
-              color="indigo"
-              size="md"
-              radius="md"
-              fullWidth
-            >
-              {t.knowledge.startParsing}
-            </Button>
-          </Stack>
-        ) : (
-          /* ── Progress View ── */
-          <Stack gap="md" py="sm">
-            {/* Status text */}
-            <Group gap="sm" justify="space-between" wrap="nowrap">
-              <Text size="sm" fw={500} c={STAGE_COLORS[parseState.status]}>
-                {parseState.status === 'parsing_pdf' && t.knowledge.parsingPdf}
-                {parseState.status === 'extracting' &&
-                  (parseState.progress.total > 1
-                    ? `${t.knowledge.extracting} (${parseState.progress.current}/${parseState.progress.total})`
-                    : t.knowledge.extracting)}
-                {parseState.status === 'embedding' &&
-                  `${t.knowledge.savingToDatabase.replace('...', '')} ${parseState.savedChunkIds.size}/${parseState.progress.total}`}
-                {parseState.status === 'complete' &&
-                  `${parseState.items.length} ${parseState.items[0]?.type === 'knowledge_point' ? t.knowledge.knowledgePoints : t.knowledge.questions}`}
-                {parseState.status === 'error' && (parseState.error || t.knowledge.parsingError)}
-              </Text>
-              {parseState.status !== 'complete' &&
-                parseState.status !== 'error' &&
-                parseState.stageTimes.parsing_pdf && (
-                  <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    <ElapsedTimer startTime={parseState.stageTimes.parsing_pdf.start} />
-                  </Text>
-                )}
-            </Group>
-
-            {/* Progress bar */}
-            <Progress
-              value={getProgressPercent(
-                parseState.status,
-                parseState.progress,
-                parseState.savedChunkIds.size,
-              )}
-              color={STAGE_COLORS[parseState.status] || 'indigo'}
-              size="lg"
-              radius="xl"
-              animated={parseState.status !== 'complete' && parseState.status !== 'error'}
-            />
-
-            {/* Complete: View Details button */}
-            {parseState.status === 'complete' && parseState.documentId && (
-              <Button
-                color="indigo"
-                radius="md"
-                fullWidth
-                onClick={() => {
-                  const docId = parseState.documentId;
-                  const parsedType = parseDocTypeRef.current;
-                  handleDismissParse();
-                  setUploadModalOpen(false);
-                  router.push(`/admin/knowledge/${docId}?type=${parsedType}`);
-                }}
-              >
-                {t.knowledge.viewDetailsLink}
-              </Button>
-            )}
-
-            {/* Error: Dismiss button */}
-            {parseState.status === 'error' && (
-              <Button
-                variant="light"
-                color="red"
-                radius="md"
-                fullWidth
-                onClick={() => {
-                  handleDismissParse();
-                  // Keep modal open so user can retry
-                }}
-              >
-                {t.knowledge.retryProcessing}
-              </Button>
-            )}
-          </Stack>
-        )}
-      </FullScreenModal>
-
-      {/* ── Assignment Creation Modal ── */}
-      <FullScreenModal
-        opened={assignmentModalOpen}
-        onClose={() => {
-          if (!isCreatingAssignment) {
-            setAssignmentModalOpen(false);
-            setAssignmentTitle('');
-          }
-        }}
         title={t.knowledge.createAssignment}
         centered
         size="md"
         radius="lg"
+        closeOnClickOutside={!isCreating}
+        closeOnEscape={!isCreating}
+        withCloseButton={!isCreating}
         overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
         styles={{
           content: {
@@ -750,8 +424,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           <TextInput
             label={t.knowledge.assignmentTitle}
             placeholder={t.knowledge.assignmentTitlePlaceholder}
-            value={assignmentTitle}
-            onChange={(e) => setAssignmentTitle(e.currentTarget.value)}
+            value={title}
+            onChange={(e) => setTitle(e.currentTarget.value)}
             required
             size="sm"
             radius="md"
@@ -760,10 +434,10 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             label={t.knowledge.university}
             placeholder={t.knowledge.university}
             data={universities.map((u) => ({ value: u.id, label: u.name }))}
-            value={assignmentUniId}
+            value={selectedUniId}
             onChange={(val) => {
-              setAssignmentUniId(val);
-              setAssignmentCourseId(null);
+              setSelectedUniId(val);
+              setSelectedCourseId(null);
             }}
             searchable
             required
@@ -773,13 +447,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           <Select
             label={t.knowledge.course}
             placeholder={t.knowledge.course}
-            data={assignmentFilteredCourses.map((c) => ({
+            data={filteredCourses.map((c) => ({
               value: c.id,
               label: `${c.code}: ${c.name}`,
             }))}
-            value={assignmentCourseId}
-            onChange={setAssignmentCourseId}
-            disabled={!assignmentUniId}
+            value={selectedCourseId}
+            onChange={setSelectedCourseId}
+            disabled={!selectedUniId}
             searchable
             required
             size="sm"
@@ -787,9 +461,9 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           />
           <Button
             leftSection={<Plus size={14} />}
-            disabled={!assignmentTitle.trim() || !assignmentUniId || !assignmentCourseId}
-            loading={isCreatingAssignment}
-            onClick={handleCreateAssignment}
+            disabled={!isFormValid}
+            loading={isCreating}
+            onClick={handleCreate}
             color="indigo"
             size="md"
             radius="md"

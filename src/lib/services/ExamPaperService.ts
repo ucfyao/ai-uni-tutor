@@ -66,7 +66,7 @@ export class ExamPaperService {
     fileName: string,
     options: { school?: string; course?: string; year?: string; visibility?: 'public' | 'private' },
   ): Promise<{ paperId: string }> {
-    // Create paper entry with parsing status
+    // Create paper entry with draft status
     const paperId = await this.repo.create({
       userId,
       title: fileName.replace(/\.pdf$/i, ''),
@@ -74,7 +74,7 @@ export class ExamPaperService {
       course: options.course,
       year: options.year,
       visibility: options.visibility ?? 'private',
-      status: 'parsing',
+      status: 'draft',
       questionTypes: [],
     });
 
@@ -139,8 +139,7 @@ export class ExamPaperService {
       // Collect unique question types
       const questionTypes = [...new Set(questions.map((q) => q.type))];
 
-      // Update paper to ready
-      await this.repo.updateStatus(paperId, 'ready');
+      // Update paper metadata
       await this.repo.updatePaper(paperId, {
         title: parsed.title || fileName.replace(/\.pdf$/i, ''),
         questionTypes,
@@ -148,13 +147,8 @@ export class ExamPaperService {
 
       return { paperId };
     } catch (error) {
-      // Set paper status to error
-      await this.repo.updateStatus(
-        paperId,
-        'error',
-        error instanceof Error ? error.message : 'Unknown parsing error',
-      );
-
+      // Delete the draft paper on failure — caller surfaces the error
+      await this.repo.delete(paperId);
       throw error;
     }
   }
@@ -214,6 +208,24 @@ export class ExamPaperService {
     >,
   ): Promise<void> {
     await this.repo.updateQuestion(questionId, data);
+  }
+
+  /**
+   * Publish a paper (draft → ready). Requires at least one question.
+   */
+  async publish(paperId: string): Promise<void> {
+    const questions = await this.repo.findQuestionsByPaperId(paperId);
+    if (questions.length === 0) {
+      throw new Error('Cannot publish: no questions');
+    }
+    await this.repo.publish(paperId);
+  }
+
+  /**
+   * Unpublish a paper (ready → draft).
+   */
+  async unpublish(paperId: string): Promise<void> {
+    await this.repo.unpublish(paperId);
   }
 }
 

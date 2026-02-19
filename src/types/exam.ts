@@ -5,7 +5,6 @@
 export interface ExamPaper {
   id: string;
   userId: string;
-  documentId: string | null;
   title: string;
   visibility: 'public' | 'private';
   school: string | null;
@@ -13,8 +12,7 @@ export interface ExamPaper {
   courseId: string | null;
   year: string | null;
   questionTypes: string[];
-  status: 'parsing' | 'ready' | 'error';
-  statusMessage: string | null;
+  status: 'draft' | 'ready';
   questionCount?: number;
   createdAt: string;
 }

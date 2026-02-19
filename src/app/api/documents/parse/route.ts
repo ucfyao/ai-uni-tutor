@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CreateDocumentChunkDTO } from '@/lib/domain/models/Document';
+import type { CreateLectureChunkDTO } from '@/lib/domain/models/Document';
 import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
@@ -8,7 +8,7 @@ import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
-import { getDocumentService } from '@/lib/services/DocumentService';
+import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
@@ -31,15 +31,8 @@ function getMaxFileSize(): number {
 }
 
 const uploadSchema = z.object({
-  doc_type: z.enum(['lecture', 'exam', 'assignment']).optional().default('lecture'),
-  school: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().max(100).optional(),
-  ),
-  course: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().max(100).optional(),
-  ),
+  documentId: z.string().uuid(),
+  doc_type: z.enum(['lecture', 'exam', 'assignment']),
   has_answers: z.preprocess(
     (value) => value === 'true' || value === true,
     z.boolean().optional().default(false),
@@ -53,10 +46,7 @@ export async function POST(request: Request) {
 
   // Start the async pipeline without awaiting (runs in background while streaming)
   const pipeline = (async () => {
-    let docId: string | undefined;
-    let recordId: string | undefined;
-    let recordDocType: string | undefined;
-    const documentService = getDocumentService();
+    const documentService = getLectureDocumentService();
 
     try {
       // ── Auth ──
@@ -86,25 +76,32 @@ export async function POST(request: Request) {
       }
 
       const parsed = uploadSchema.safeParse({
-        doc_type: formData.get('doc_type') || undefined,
-        school: formData.get('school'),
-        course: formData.get('course'),
+        documentId: formData.get('documentId'),
+        doc_type: formData.get('doc_type'),
         has_answers: formData.get('has_answers'),
       });
       if (!parsed.success) {
         send('error', { message: 'Invalid upload data', code: 'VALIDATION_ERROR' });
         return;
       }
-      const { doc_type, school, course, has_answers } = parsed.data;
+      const { documentId, doc_type, has_answers } = parsed.data;
 
-      // ── Course-level permission check ──
-      const rawCourseId = formData.get('courseId') as string | null;
-      if (rawCourseId && !z.string().uuid().safeParse(rawCourseId).success) {
-        send('error', { message: 'Invalid course ID', code: 'VALIDATION_ERROR' });
-        return;
+      // ── Course-level permission check (look up course from existing record) ──
+      let courseId: string | null = null;
+      if (doc_type === 'lecture') {
+        const doc = await documentService.findById(documentId);
+        if (!doc) {
+          send('error', { message: 'Document not found', code: 'NOT_FOUND' });
+          return;
+        }
+        courseId = doc.courseId;
+      } else if (doc_type === 'exam') {
+        courseId = await getExamPaperRepository().findCourseId(documentId);
+      } else {
+        courseId = await getAssignmentRepository().findCourseId(documentId);
       }
-      const courseId = rawCourseId ?? null;
-      // Admin (non-super_admin) must provide courseId for all uploads
+
+      // Admin (non-super_admin) must have a course assigned
       if (authRole === 'admin' && !courseId) {
         send('error', {
           message: 'Admin must select a course for uploads',
@@ -133,81 +130,14 @@ export async function POST(request: Request) {
         return;
       }
 
-      // ── Create record in the correct domain table ──
-      let effectiveRecordId: string;
-      recordDocType = doc_type;
-
-      if (doc_type === 'lecture') {
-        // Lecture → documents table (existing flow, unchanged)
-        const isDuplicate = await documentService.checkDuplicate(user.id, file.name);
-        if (isDuplicate) {
-          send('error', { message: `File "${file.name}" already exists.`, code: 'DUPLICATE' });
-          return;
-        }
-        const doc = await documentService.createDocument(
-          user.id,
-          file.name,
-          { school: school || 'Unspecified', course: course || 'General' },
-          doc_type,
-          courseId ?? undefined,
-        );
-        effectiveRecordId = doc.id;
-        docId = doc.id;
-      } else if (doc_type === 'exam') {
-        const examRepo = getExamPaperRepository();
-        effectiveRecordId = await examRepo.create({
-          userId: user.id,
-          title: file.name,
-          school: school || null,
-          course: course || null,
-          courseId: courseId ?? undefined,
-          status: 'parsing',
-        });
-      } else {
-        const assignmentRepo = getAssignmentRepository();
-        effectiveRecordId = await assignmentRepo.create({
-          userId: user.id,
-          title: file.name,
-          school: school || null,
-          course: course || null,
-          courseId: courseId ?? undefined,
-          status: 'parsing',
-        });
-      }
-      recordId = effectiveRecordId;
-      send('document_created', { documentId: effectiveRecordId });
-
-      // Helper — update status on correct table
-      async function updateRecordStatus(status: string, msg: string) {
-        if (doc_type === 'lecture') {
-          await documentService.updateStatus(
-            effectiveRecordId,
-            status as 'processing' | 'ready' | 'error',
-            msg,
-          );
-        } else if (doc_type === 'exam') {
-          await getExamPaperRepository().updateStatus(
-            effectiveRecordId,
-            status as 'parsing' | 'ready' | 'error',
-            msg,
-          );
-        } else {
-          await getAssignmentRepository().updateStatus(effectiveRecordId, status as string, msg);
-        }
-      }
-
       // ── Parse PDF ──
       send('status', { stage: 'parsing_pdf', message: 'Parsing PDF...' });
-      if (doc_type === 'lecture') {
-        await documentService.updateStatus(effectiveRecordId, 'processing', 'Parsing PDF...');
-      }
 
       const arrayBuffer = await file.arrayBuffer();
       let buffer: Buffer | null = Buffer.from(arrayBuffer);
 
       // [I4] Validate PDF magic bytes before passing to parser
       if (buffer.length < 5 || buffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
-        await updateRecordStatus('error', 'Invalid PDF file');
         send('error', { message: 'File is not a valid PDF', code: 'INVALID_FILE' });
         return;
       }
@@ -216,7 +146,6 @@ export async function POST(request: Request) {
       try {
         pdfData = await parsePDF(buffer);
       } catch {
-        await updateRecordStatus('error', 'Failed to parse PDF');
         send('error', { message: 'Failed to parse PDF content', code: 'PDF_PARSE_ERROR' });
         return;
       }
@@ -225,20 +154,17 @@ export async function POST(request: Request) {
 
       const totalText = pdfData.pages.reduce((acc, p) => acc + p.text.trim(), '');
       if (totalText.length === 0) {
-        await updateRecordStatus('error', 'PDF contains no extractable text');
         send('error', { message: 'PDF contains no extractable text', code: 'EMPTY_PDF' });
         return;
       }
 
       // [C3] Check abort before expensive LLM call
       if (signal.aborted) {
-        await updateRecordStatus('error', 'Client disconnected');
         return;
       }
 
       // ── LLM Extraction ──
       send('status', { stage: 'extracting', message: 'AI extracting content...' });
-      await updateRecordStatus('processing', 'Extracting content...');
 
       let items: Array<{
         type: 'knowledge_point' | 'question';
@@ -254,7 +180,7 @@ export async function POST(request: Request) {
         if (doc_type === 'lecture') {
           const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
           const parseResult = await parseLectureMultiPass(pdfData.pages, {
-            documentId: effectiveRecordId,
+            documentId,
             onBatchProgress,
             onProgress: (progress) => send('pipeline_progress', progress),
             signal,
@@ -279,13 +205,11 @@ export async function POST(request: Request) {
             (e as { status: number }).status === 429);
 
         if (isQuotaError) {
-          await updateRecordStatus('error', 'AI quota exceeded');
           send('error', {
             message: 'AI service quota exceeded. Please contact your administrator.',
             code: 'LLM_QUOTA_EXCEEDED',
           });
         } else {
-          await updateRecordStatus('error', 'Failed to extract content');
           send('error', {
             message: 'Failed to extract content from PDF',
             code: 'EXTRACTION_ERROR',
@@ -296,20 +220,33 @@ export async function POST(request: Request) {
 
       const totalItems = items.length;
       if (totalItems === 0) {
-        await updateRecordStatus('ready', '');
         send('progress', { current: 0, total: 0 });
         send('status', { stage: 'complete', message: 'No content extracted' });
         return;
       }
 
       if (doc_type === 'lecture') {
-        // ── LECTURE: Save knowledge cards, then embed + save chunks ──
-        const knowledgePoints = items.map((item) => item.data as KnowledgePoint);
+        // ── LECTURE: Content-based dedup, save knowledge cards, then embed + save chunks ──
+        const existingChunks = await documentService.getChunks(documentId);
+        const existingTitles = new Set(
+          existingChunks.map((c) => {
+            const meta = c.metadata as Record<string, unknown>;
+            return ((meta.title as string) || '').trim().toLowerCase();
+          }),
+        );
+        const newItems = items.filter((item) => {
+          const kp = item.data as KnowledgePoint;
+          return !existingTitles.has(kp.title.trim().toLowerCase());
+        });
+
+        if (newItems.length === 0) {
+          send('status', { stage: 'complete', message: 'No new items to add (all duplicates).' });
+          return;
+        }
+
+        const knowledgePoints = newItems.map((item) => item.data as KnowledgePoint);
         try {
-          await getKnowledgeCardService().saveFromKnowledgePoints(
-            knowledgePoints,
-            effectiveRecordId,
-          );
+          await getKnowledgeCardService().saveFromKnowledgePoints(knowledgePoints);
         } catch (cardError) {
           console.error('Knowledge card save error (non-fatal):', cardError);
         }
@@ -317,12 +254,13 @@ export async function POST(request: Request) {
         // Save document outline if generated
         if (documentOutline) {
           try {
-            const { getDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
+            const { getLectureDocumentRepository } =
+              await import('@/lib/repositories/DocumentRepository');
             const { generateEmbedding } = await import('@/lib/rag/embedding');
             const outlineText = JSON.stringify(documentOutline);
             const embedding = await generateEmbedding(outlineText.slice(0, 2000));
-            await getDocumentRepository().saveOutline(
-              effectiveRecordId,
+            await getLectureDocumentRepository().saveOutline(
+              documentId,
               documentOutline as unknown as Json,
               embedding,
             );
@@ -332,59 +270,72 @@ export async function POST(request: Request) {
         }
 
         send('status', { stage: 'embedding', message: 'Generating embeddings & saving...' });
-        await documentService.updateStatus(
-          effectiveRecordId,
-          'processing',
-          'Generating embeddings & saving...',
-        );
 
-        let batch: CreateDocumentChunkDTO[] = [];
+        let batch: CreateLectureChunkDTO[] = [];
         let batchIndex = 0;
 
-        for (let i = 0; i < items.length; i++) {
+        for (let i = 0; i < newItems.length; i++) {
           if (signal.aborted) {
             if (batch.length > 0) await documentService.saveChunksAndReturn(batch);
-            await documentService.updateStatus(effectiveRecordId, 'ready');
             return;
           }
 
-          const { type, data } = items[i];
+          const { type, data } = newItems[i];
           send('item', { index: i, type, data });
-          send('progress', { current: i + 1, total: totalItems });
+          send('progress', { current: i + 1, total: newItems.length });
 
           const content = buildChunkContent(type, data);
           const embedding = await generateEmbeddingWithRetry(content);
           batch.push({
-            documentId: effectiveRecordId,
+            lectureDocumentId: documentId,
             content,
             embedding,
             metadata: { type, ...data },
           });
 
-          if (batch.length >= BATCH_SIZE || i === items.length - 1) {
+          if (batch.length >= BATCH_SIZE || i === newItems.length - 1) {
             const savedChunks = await documentService.saveChunksAndReturn(batch);
             send('batch_saved', { chunkIds: savedChunks.map((c) => c.id), batchIndex });
             batch = [];
             batchIndex++;
           }
         }
-
-        await documentService.updateStatus(effectiveRecordId, 'ready');
       } else if (doc_type === 'exam') {
-        // ── EXAM: Save to exam_questions (no embedding) ──
+        // ── EXAM: Content-based dedup, then save questions ──
         send('status', { stage: 'embedding', message: 'Saving questions...' });
         const examRepo = getExamPaperRepository();
 
-        for (let i = 0; i < items.length; i++) {
-          send('item', { index: i, type: items[i].type, data: items[i].data });
-          send('progress', { current: i + 1, total: totalItems });
+        // Query existing questions for content-based dedup
+        const existingQuestions = await examRepo.findQuestionsByPaperId(documentId);
+        const existingContents = new Set(
+          existingQuestions.map((q) => q.content.trim().toLowerCase()),
+        );
+        const maxOrderNum =
+          existingQuestions.length > 0 ? Math.max(...existingQuestions.map((q) => q.orderNum)) : 0;
+
+        const newItems = items.filter((item) => {
+          const q = item.data as ParsedQuestion;
+          return !existingContents.has(q.content.trim().toLowerCase());
+        });
+
+        if (newItems.length === 0) {
+          send('status', {
+            stage: 'complete',
+            message: 'No new questions to add (all duplicates).',
+          });
+          return;
         }
 
-        const questions = items.map((item, idx) => {
+        for (let i = 0; i < newItems.length; i++) {
+          send('item', { index: i, type: newItems[i].type, data: newItems[i].data });
+          send('progress', { current: i + 1, total: newItems.length });
+        }
+
+        const questions = newItems.map((item, idx) => {
           const q = item.data as ParsedQuestion;
           return {
-            paperId: effectiveRecordId,
-            orderNum: idx + 1,
+            paperId: documentId,
+            orderNum: maxOrderNum + idx + 1,
             type: '',
             content: q.content,
             options: q.options
@@ -402,18 +353,15 @@ export async function POST(request: Request) {
 
         const questionTypes = [...new Set(questions.map((q) => q.type).filter(Boolean))];
         if (questionTypes.length > 0) {
-          await examRepo.updatePaper(effectiveRecordId, { questionTypes });
+          await examRepo.updatePaper(documentId, { questionTypes });
         }
-
-        await examRepo.updateStatus(effectiveRecordId, 'ready');
       } else {
-        // ── ASSIGNMENT: Save to assignment_items with embeddings ──
-        // Append mode: query existing items for dedup + order_num offset
+        // ── ASSIGNMENT: Content-based dedup + embeddings (existing logic) ──
         send('status', { stage: 'embedding', message: 'Generating embeddings...' });
         const assignmentRepo = getAssignmentRepository();
 
         // Query existing items for content-based dedup
-        const existingItems = await assignmentRepo.findItemsByAssignmentId(effectiveRecordId);
+        const existingItems = await assignmentRepo.findItemsByAssignmentId(documentId);
         const existingContents = new Set(
           existingItems.map((item) => item.content.trim().toLowerCase()),
         );
@@ -432,7 +380,6 @@ export async function POST(request: Request) {
         });
 
         if (newItems.length === 0) {
-          await assignmentRepo.updateStatus(effectiveRecordId, 'ready');
           send('status', { stage: 'complete', message: 'No new items to add (all duplicates).' });
           return;
         }
@@ -440,7 +387,7 @@ export async function POST(request: Request) {
         const assignmentItems = newItems.map((item, idx) => {
           const q = item.data as ParsedQuestion;
           return {
-            assignmentId: effectiveRecordId,
+            assignmentId: documentId,
             orderNum: maxOrderNum + idx + 1,
             type: '',
             content: q.content,
@@ -474,39 +421,11 @@ export async function POST(request: Request) {
 
         await assignmentRepo.insertItems(itemsWithEmbeddings);
         send('batch_saved', { chunkIds: assignmentItems.map((_, i) => `a-${i}`), batchIndex: 0 });
-
-        await assignmentRepo.updateStatus(effectiveRecordId, 'ready');
       }
 
       send('status', { stage: 'complete', message: `Done! ${totalItems} items extracted.` });
     } catch (error) {
       console.error('Parse pipeline error:', error);
-      if (recordId) {
-        try {
-          if (recordDocType === 'exam') {
-            await getExamPaperRepository().updateStatus(
-              recordId,
-              'error',
-              'Processing failed unexpectedly',
-            );
-          } else if (recordDocType === 'assignment') {
-            await getAssignmentRepository().updateStatus(
-              recordId,
-              'error',
-              'Processing failed unexpectedly',
-            );
-          } else if (docId) {
-            await documentService.updateStatus(docId, 'error', 'Processing failed unexpectedly');
-            try {
-              await getKnowledgeCardService().deleteByDocumentId(docId);
-            } catch {
-              /* ignore card cleanup errors */
-            }
-          }
-        } catch {
-          /* ignore cleanup errors */
-        }
-      }
       send('error', { message: 'Internal server error', code: 'INTERNAL_ERROR' });
     } finally {
       close();

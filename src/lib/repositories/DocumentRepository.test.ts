@@ -1,13 +1,13 @@
 /**
- * DocumentRepository Tests
+ * LectureDocumentRepository Tests
  *
- * Tests all document-related database operations including
+ * Tests all lecture document-related database operations including
  * entity mapping, PGRST116 handling, ownership verification,
  * and error handling.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { documentEntity, documentRow, processingDocumentRow } from '@/__tests__/fixtures/documents';
+import { documentEntity, documentRow, draftDocumentRow } from '@/__tests__/fixtures/documents';
 import {
   createMockSupabase,
   dbError,
@@ -28,13 +28,13 @@ vi.mock('@/lib/supabase/server', () => {
 });
 
 // Import after mocks
-const { DocumentRepository } = await import('./DocumentRepository');
+const { LectureDocumentRepository } = await import('./DocumentRepository');
 
-describe('DocumentRepository', () => {
-  let repo: InstanceType<typeof DocumentRepository>;
+describe('LectureDocumentRepository', () => {
+  let repo: InstanceType<typeof LectureDocumentRepository>;
 
   beforeEach(() => {
-    repo = new DocumentRepository();
+    repo = new LectureDocumentRepository();
     mockSupabase.reset();
   });
 
@@ -51,7 +51,7 @@ describe('DocumentRepository', () => {
       const result = await repo.findById('doc-001');
 
       expect(result).toEqual(documentEntity);
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('documents');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_documents');
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('*');
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'doc-001');
       expect(mockSupabase.client._chain.single).toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('DocumentRepository', () => {
     });
 
     it('should return null on any error (no throw)', async () => {
-      // DocumentRepository.findById returns null on error || !data
+      // LectureDocumentRepository.findById returns null on error || !data
       mockSupabase.setErrorResponse(dbError('Server error'));
 
       const result = await repo.findById('doc-001');
@@ -141,28 +141,26 @@ describe('DocumentRepository', () => {
         name: 'Lecture 1 - Intro to Algorithms.pdf',
         status: 'ready' as const,
         metadata: { pageCount: 12, size: 204800 },
-        docType: 'lecture',
         courseId: 'course-001',
       };
 
       const result = await repo.create(dto);
 
       expect(result).toEqual(documentEntity);
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('documents');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_documents');
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           user_id: 'user-free-001',
           name: 'Lecture 1 - Intro to Algorithms.pdf',
           status: 'ready',
           metadata: { pageCount: 12, size: 204800 },
-          doc_type: 'lecture',
           course_id: 'course-001',
         }),
       );
     });
 
-    it('should default status to processing when not provided', async () => {
-      mockSupabase.setSingleResponse(processingDocumentRow);
+    it('should default status to draft when not provided', async () => {
+      mockSupabase.setSingleResponse(draftDocumentRow);
 
       const dto = {
         userId: 'user-free-001',
@@ -173,24 +171,10 @@ describe('DocumentRepository', () => {
 
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: 'processing',
+          status: 'draft',
           metadata: {},
         }),
       );
-    });
-
-    it('should not include docType when not provided', async () => {
-      mockSupabase.setSingleResponse(processingDocumentRow);
-
-      const dto = {
-        userId: 'user-free-001',
-        name: 'file.pdf',
-      };
-
-      await repo.create(dto);
-
-      const insertArg = mockSupabase.client._chain.insert.mock.calls[0][0];
-      expect(insertArg).not.toHaveProperty('doc_type');
     });
 
     it('should include courseId when provided (even undefined)', async () => {
@@ -236,15 +220,15 @@ describe('DocumentRepository', () => {
     });
   });
 
-  // ── updateStatus ──
+  // ── publish / unpublish ──
 
-  describe('updateStatus', () => {
-    it('should update status', async () => {
+  describe('publish', () => {
+    it('should set status to ready', async () => {
       mockSupabase.setResponse(null);
 
-      await repo.updateStatus('doc-001', { status: 'ready' });
+      await repo.publish('doc-001');
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('documents');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_documents');
       expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'ready',
@@ -253,40 +237,34 @@ describe('DocumentRepository', () => {
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'doc-001');
     });
 
-    it('should include statusMessage when provided', async () => {
-      mockSupabase.setResponse(null);
-
-      await repo.updateStatus('doc-003', {
-        status: 'error',
-        statusMessage: 'Failed to parse PDF',
-      });
-
-      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'error',
-          status_message: 'Failed to parse PDF',
-        }),
-      );
-    });
-
-    it('should not include status_message when statusMessage is undefined', async () => {
-      mockSupabase.setResponse(null);
-
-      await repo.updateStatus('doc-001', { status: 'ready' });
-
-      const updateArg = mockSupabase.client._chain.update.mock.calls[0][0];
-      expect(updateArg).not.toHaveProperty('status_message');
-    });
-
-    it('should throw DatabaseError on update failure', async () => {
+    it('should throw DatabaseError on failure', async () => {
       mockSupabase.setErrorResponse(dbError('Update failed'));
 
-      await expect(repo.updateStatus('doc-001', { status: 'ready' })).rejects.toThrow(
-        DatabaseError,
+      await expect(repo.publish('doc-001')).rejects.toThrow(DatabaseError);
+      await expect(repo.publish('doc-001')).rejects.toThrow('Failed to publish');
+    });
+  });
+
+  describe('unpublish', () => {
+    it('should set status to draft', async () => {
+      mockSupabase.setResponse(null);
+
+      await repo.unpublish('doc-001');
+
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_documents');
+      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'draft',
+        }),
       );
-      await expect(repo.updateStatus('doc-001', { status: 'ready' })).rejects.toThrow(
-        'Failed to update document status',
-      );
+      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'doc-001');
+    });
+
+    it('should throw DatabaseError on failure', async () => {
+      mockSupabase.setErrorResponse(dbError('Update failed'));
+
+      await expect(repo.unpublish('doc-001')).rejects.toThrow(DatabaseError);
+      await expect(repo.unpublish('doc-001')).rejects.toThrow('Failed to unpublish');
     });
   });
 
@@ -319,32 +297,18 @@ describe('DocumentRepository', () => {
       );
     });
 
-    it('should map docType to doc_type', async () => {
-      mockSupabase.setResponse(null);
-
-      await repo.updateMetadata('doc-001', { docType: 'exam' });
-
-      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          doc_type: 'exam',
-        }),
-      );
-    });
-
     it('should update multiple fields at once', async () => {
       mockSupabase.setResponse(null);
 
       await repo.updateMetadata('doc-001', {
         name: 'New Name.pdf',
         metadata: { page: 1 },
-        docType: 'assignment',
       });
 
       expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'New Name.pdf',
           metadata: { page: 1 },
-          doc_type: 'assignment',
         }),
       );
     });
@@ -369,7 +333,7 @@ describe('DocumentRepository', () => {
 
       await repo.delete('doc-001', 'user-free-001');
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('documents');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_documents');
       expect(mockSupabase.client._chain.delete).toHaveBeenCalled();
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'doc-001');
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('user_id', 'user-free-001');
@@ -427,19 +391,9 @@ describe('DocumentRepository', () => {
 
       expect(result).not.toBeNull();
       expect(result!.userId).toBe(documentRow.user_id);
-      expect(result!.statusMessage).toBe(documentRow.status_message);
-      expect(result!.docType).toBe(documentRow.doc_type);
+      expect(result!.status).toBe(documentRow.status);
       expect(result!.courseId).toBe(documentRow.course_id);
       expect(result!.createdAt).toEqual(new Date(documentRow.created_at));
-    });
-
-    it('should handle null doc_type', async () => {
-      const rowNullDocType = { ...documentRow, doc_type: null };
-      mockSupabase.setSingleResponse(rowNullDocType);
-
-      const result = await repo.findById('doc-001');
-
-      expect(result!.docType).toBeNull();
     });
   });
 });

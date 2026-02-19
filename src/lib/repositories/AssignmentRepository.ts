@@ -28,8 +28,7 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentEntity {
     school: (row.school as string) ?? null,
     course: (row.course as string) ?? null,
     courseId: (row.course_id as string) ?? null,
-    status: row.status as 'draft' | 'parsing' | 'ready' | 'error',
-    statusMessage: (row.status_message as string) ?? null,
+    status: row.status as 'draft' | 'ready',
     createdAt: row.created_at as string,
   };
 }
@@ -57,7 +56,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     school?: string | null;
     course?: string | null;
     courseId?: string;
-    status?: string;
+    status?: 'draft' | 'ready';
   }): Promise<string> {
     const supabase = await createClient();
     const { data: row, error } = await supabase
@@ -68,7 +67,7 @@ export class AssignmentRepository implements IAssignmentRepository {
         school: data.school ?? null,
         course: data.course ?? null,
         course_id: data.courseId ?? null,
-        status: data.status ?? 'parsing',
+        status: data.status ?? 'draft',
       })
       .select('id')
       .single();
@@ -132,15 +131,30 @@ export class AssignmentRepository implements IAssignmentRepository {
     return (data ?? []).map((r: Record<string, unknown>) => mapAssignmentRow(r));
   }
 
-  async updateStatus(id: string, status: string, statusMessage?: string): Promise<void> {
+  async updateStatus(id: string, status: 'draft' | 'ready'): Promise<void> {
     const supabase = await createClient();
-    const updates: Record<string, unknown> = { status };
-    if (statusMessage !== undefined) updates.status_message = statusMessage;
-
-    const { error } = await supabase.from('assignments').update(updates).eq('id', id);
+    const { error } = await supabase.from('assignments').update({ status }).eq('id', id);
     if (error) {
       throw new DatabaseError(`Failed to update assignment status: ${error.message}`, error);
     }
+  }
+
+  async publish(id: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('assignments')
+      .update({ status: 'ready' as const })
+      .eq('id', id);
+    if (error) throw new DatabaseError(`Failed to publish assignment: ${error.message}`, error);
+  }
+
+  async unpublish(id: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('assignments')
+      .update({ status: 'draft' as const })
+      .eq('id', id);
+    if (error) throw new DatabaseError(`Failed to unpublish assignment: ${error.message}`, error);
   }
 
   async delete(id: string): Promise<void> {

@@ -79,6 +79,24 @@ export class AssignmentService {
       embedding,
     });
   }
+
+  /**
+   * Publish an assignment (draft → ready). Requires at least one item.
+   */
+  async publish(assignmentId: string): Promise<void> {
+    const items = await this.repo.findItemsByAssignmentId(assignmentId);
+    if (items.length === 0) {
+      throw new Error('Cannot publish: no items');
+    }
+    await this.repo.publish(assignmentId);
+  }
+
+  /**
+   * Unpublish an assignment (ready → draft).
+   */
+  async unpublish(assignmentId: string): Promise<void> {
+    await this.repo.unpublish(assignmentId);
+  }
 }
 
 // Singleton instance

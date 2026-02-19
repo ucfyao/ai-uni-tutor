@@ -4,13 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import type { SSEEventMap } from '@/lib/sse';
 
-type ParseStatus =
-  | 'idle'
-  | 'parsing_pdf'
-  | 'extracting'
-  | 'embedding'
-  | 'complete'
-  | 'error';
+type ParseStatus = 'idle' | 'parsing_pdf' | 'extracting' | 'embedding' | 'complete' | 'error';
 
 interface ParsedItem {
   index: number;
@@ -19,6 +13,7 @@ interface ParsedItem {
 }
 
 interface ParseMetadata {
+  documentId: string; // record already exists
   docType: string;
   school?: string;
   course?: string;
@@ -77,7 +72,7 @@ export function useStreamingParse(): StreamingParseState {
     setSavedChunkIds(new Set());
     setError(null);
     setErrorCode(null);
-    setDocumentId(null);
+    setDocumentId(metadata.documentId);
     const initialTime = Date.now();
     setStageTimes({ parsing_pdf: { start: initialTime } });
     currentStageRef.current = 'parsing_pdf';
@@ -92,6 +87,7 @@ export function useStreamingParse(): StreamingParseState {
     if (metadata.course) formData.append('course', metadata.course);
     if (metadata.courseId) formData.append('courseId', metadata.courseId);
     if (metadata.hasAnswers) formData.append('has_answers', 'true');
+    formData.append('documentId', metadata.documentId);
 
     (async () => {
       try {
@@ -205,11 +201,6 @@ export function useStreamingParse(): StreamingParseState {
           setStatus('error');
           setError(errorData.message);
           setErrorCode(errorData.code);
-          break;
-        }
-        case 'document_created': {
-          const docData = data as SSEEventMap['document_created'];
-          setDocumentId(docData.documentId);
           break;
         }
       }

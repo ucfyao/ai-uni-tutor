@@ -7,9 +7,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  draftExamPaperRow,
   examPaperEntity,
   examPaperRow,
-  parsingExamPaperRow,
   questionEntity,
   questionRow,
   shortAnswerQuestionRow,
@@ -98,7 +98,7 @@ describe('ExamPaperRepository', () => {
         course_id: null,
         year: null,
         visibility: 'private',
-        status: 'parsing',
+        status: 'draft',
         question_types: [],
       });
     });
@@ -297,46 +297,47 @@ describe('ExamPaperRepository', () => {
     });
   });
 
-  // ── updateStatus ──
+  // ── publish / unpublish ──
 
-  describe('updateStatus', () => {
-    it('should update status only', async () => {
+  describe('publish', () => {
+    it('should set status to ready', async () => {
       mockSupabase.setResponse(null);
 
-      await repo.updateStatus('paper-001', 'ready');
+      await repo.publish('paper-001');
 
       expect(mockSupabase.client.from).toHaveBeenCalledWith('exam_papers');
-      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith({ status: 'ready' });
+      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'ready' }),
+      );
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'paper-001');
     });
 
-    it('should include statusMessage when provided', async () => {
-      mockSupabase.setResponse(null);
-
-      await repo.updateStatus('paper-001', 'error', 'Parse failed');
-
-      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith({
-        status: 'error',
-        status_message: 'Parse failed',
-      });
-    });
-
-    it('should not include status_message when statusMessage is undefined', async () => {
-      mockSupabase.setResponse(null);
-
-      await repo.updateStatus('paper-001', 'ready');
-
-      const updateArg = mockSupabase.client._chain.update.mock.calls[0][0];
-      expect(updateArg).not.toHaveProperty('status_message');
-    });
-
-    it('should throw DatabaseError on update failure', async () => {
+    it('should throw DatabaseError on failure', async () => {
       mockSupabase.setErrorResponse(dbError('Update failed'));
 
-      await expect(repo.updateStatus('paper-001', 'ready')).rejects.toThrow(DatabaseError);
-      await expect(repo.updateStatus('paper-001', 'ready')).rejects.toThrow(
-        'Failed to update paper status',
+      await expect(repo.publish('paper-001')).rejects.toThrow(DatabaseError);
+      await expect(repo.publish('paper-001')).rejects.toThrow('Failed to publish exam');
+    });
+  });
+
+  describe('unpublish', () => {
+    it('should set status to draft', async () => {
+      mockSupabase.setResponse(null);
+
+      await repo.unpublish('paper-001');
+
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('exam_papers');
+      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'draft' }),
       );
+      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'paper-001');
+    });
+
+    it('should throw DatabaseError on failure', async () => {
+      mockSupabase.setErrorResponse(dbError('Update failed'));
+
+      await expect(repo.unpublish('paper-001')).rejects.toThrow(DatabaseError);
+      await expect(repo.unpublish('paper-001')).rejects.toThrow('Failed to unpublish exam');
     });
   });
 
@@ -729,15 +730,14 @@ describe('ExamPaperRepository', () => {
       expect(result).not.toBeNull();
       expect(result!.id).toBe(examPaperRow.id);
       expect(result!.userId).toBe(examPaperRow.user_id);
-      expect(result!.documentId).toBe(examPaperRow.document_id);
       expect(result!.title).toBe(examPaperRow.title);
       expect(result!.visibility).toBe(examPaperRow.visibility);
       expect(result!.school).toBe(examPaperRow.school);
       expect(result!.course).toBe(examPaperRow.course);
+      expect(result!.courseId).toBe(examPaperRow.course_id);
       expect(result!.year).toBe(examPaperRow.year);
       expect(result!.questionTypes).toEqual(examPaperRow.question_types);
       expect(result!.status).toBe(examPaperRow.status);
-      expect(result!.statusMessage).toBe(examPaperRow.status_message);
       expect(result!.createdAt).toBe(examPaperRow.created_at);
     });
 
@@ -761,11 +761,10 @@ describe('ExamPaperRepository', () => {
     it('should handle null optional fields in paper row', async () => {
       const nullFieldsRow = {
         ...examPaperRow,
-        document_id: null,
         school: null,
         course: null,
+        course_id: null,
         year: null,
-        status_message: null,
         question_types: null,
       };
       mockSupabase.setSingleResponse(nullFieldsRow);
@@ -773,11 +772,10 @@ describe('ExamPaperRepository', () => {
       const result = await repo.findById('paper-001');
 
       expect(result).not.toBeNull();
-      expect(result!.documentId).toBeNull();
       expect(result!.school).toBeNull();
       expect(result!.course).toBeNull();
+      expect(result!.courseId).toBeNull();
       expect(result!.year).toBeNull();
-      expect(result!.statusMessage).toBeNull();
       expect(result!.questionTypes).toEqual([]);
     });
   });

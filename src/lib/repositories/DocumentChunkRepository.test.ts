@@ -1,7 +1,7 @@
 /**
- * DocumentChunkRepository Tests
+ * LectureChunkRepository Tests
  *
- * Tests all document chunk database operations including batch insert,
+ * Tests all lecture chunk database operations including batch insert,
  * entity mapping (snake_case -> camelCase), and error handling.
  */
 
@@ -31,13 +31,13 @@ vi.mock('@/lib/supabase/server', () => {
 });
 
 // Import after mocks
-const { DocumentChunkRepository } = await import('./DocumentChunkRepository');
+const { LectureChunkRepository } = await import('./DocumentChunkRepository');
 
-describe('DocumentChunkRepository', () => {
-  let repo: InstanceType<typeof DocumentChunkRepository>;
+describe('LectureChunkRepository', () => {
+  let repo: InstanceType<typeof LectureChunkRepository>;
 
   beforeEach(() => {
-    repo = new DocumentChunkRepository();
+    repo = new LectureChunkRepository();
     mockSupabase.reset();
   });
 
@@ -53,13 +53,13 @@ describe('DocumentChunkRepository', () => {
 
       const chunks = [
         {
-          documentId: 'doc-001',
+          lectureDocumentId: 'doc-001',
           content: 'chunk 1 content',
           embedding: [0.1, 0.2],
           metadata: { page: 1 },
         },
         {
-          documentId: 'doc-001',
+          lectureDocumentId: 'doc-001',
           content: 'chunk 2 content',
           embedding: [0.3, 0.4],
           metadata: { page: 2 },
@@ -68,16 +68,16 @@ describe('DocumentChunkRepository', () => {
 
       await repo.createBatch(chunks);
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_chunks');
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith([
         {
-          document_id: 'doc-001',
+          lecture_document_id: 'doc-001',
           content: 'chunk 1 content',
           embedding: [0.1, 0.2],
           metadata: { page: 1 },
         },
         {
-          document_id: 'doc-001',
+          lecture_document_id: 'doc-001',
           content: 'chunk 2 content',
           embedding: [0.3, 0.4],
           metadata: { page: 2 },
@@ -96,7 +96,7 @@ describe('DocumentChunkRepository', () => {
 
       const chunks = [
         {
-          documentId: 'doc-001',
+          lectureDocumentId: 'doc-001',
           content: 'chunk content',
           embedding: [0.1],
           metadata: {},
@@ -104,7 +104,7 @@ describe('DocumentChunkRepository', () => {
       ];
 
       await expect(repo.createBatch(chunks)).rejects.toThrow(DatabaseError);
-      await expect(repo.createBatch(chunks)).rejects.toThrow('Failed to insert document chunks');
+      await expect(repo.createBatch(chunks)).rejects.toThrow('Failed to insert lecture chunks');
     });
   });
 
@@ -116,13 +116,13 @@ describe('DocumentChunkRepository', () => {
 
       const chunks = [
         {
-          documentId: 'doc-001',
+          lectureDocumentId: 'doc-001',
           content: 'chunk 1',
           embedding: [0.1],
           metadata: { page: 1 },
         },
         {
-          documentId: 'doc-001',
+          lectureDocumentId: 'doc-001',
           content: 'chunk 2',
           embedding: [0.2],
           metadata: { page: 2 },
@@ -136,16 +136,16 @@ describe('DocumentChunkRepository', () => {
       const result = await repo.createBatchAndReturn(chunks);
 
       expect(result).toEqual([{ id: 'chunk-001' }, { id: 'chunk-002' }]);
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_chunks');
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith([
         {
-          document_id: 'doc-001',
+          lecture_document_id: 'doc-001',
           content: 'chunk 1',
           embedding: [0.1],
           metadata: { page: 1 },
         },
         {
-          document_id: 'doc-001',
+          lecture_document_id: 'doc-001',
           content: 'chunk 2',
           embedding: [0.2],
           metadata: { page: 2 },
@@ -166,7 +166,7 @@ describe('DocumentChunkRepository', () => {
 
       const chunks = [
         {
-          documentId: 'doc-001',
+          lectureDocumentId: 'doc-001',
           content: 'chunk 1',
           embedding: [0.1],
           metadata: {},
@@ -183,7 +183,7 @@ describe('DocumentChunkRepository', () => {
 
       const chunks = [
         {
-          documentId: 'doc-001',
+          lectureDocumentId: 'doc-001',
           content: 'chunk content',
           embedding: [0.1],
           metadata: {},
@@ -192,41 +192,41 @@ describe('DocumentChunkRepository', () => {
 
       await expect(repo.createBatchAndReturn(chunks)).rejects.toThrow(DatabaseError);
       await expect(repo.createBatchAndReturn(chunks)).rejects.toThrow(
-        'Failed to insert document chunks',
+        'Failed to insert lecture chunks',
       );
     });
   });
 
-  // ── deleteByDocumentId ──
+  // ── deleteByLectureDocumentId ──
 
-  describe('deleteByDocumentId', () => {
+  describe('deleteByLectureDocumentId', () => {
     it('should delete all chunks for a document', async () => {
       mockSupabase.setResponse(null);
 
-      await repo.deleteByDocumentId('doc-001');
+      await repo.deleteByLectureDocumentId('doc-001');
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_chunks');
       expect(mockSupabase.client._chain.delete).toHaveBeenCalled();
-      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('document_id', 'doc-001');
+      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('lecture_document_id', 'doc-001');
     });
 
     it('should throw DatabaseError on delete failure', async () => {
       mockSupabase.setErrorResponse(dbError('Delete failed'));
 
-      await expect(repo.deleteByDocumentId('doc-001')).rejects.toThrow(DatabaseError);
-      await expect(repo.deleteByDocumentId('doc-001')).rejects.toThrow(
-        'Failed to delete document chunks',
+      await expect(repo.deleteByLectureDocumentId('doc-001')).rejects.toThrow(DatabaseError);
+      await expect(repo.deleteByLectureDocumentId('doc-001')).rejects.toThrow(
+        'Failed to delete lecture chunks',
       );
     });
   });
 
-  // ── findByDocumentId ──
+  // ── findByLectureDocumentId ──
 
-  describe('findByDocumentId', () => {
+  describe('findByLectureDocumentId', () => {
     it('should return mapped chunk entities', async () => {
       mockSupabase.setQueryResponse([chunkRow, chunkRowNoEmbedding]);
 
-      const result = await repo.findByDocumentId('doc-001');
+      const result = await repo.findByLectureDocumentId('doc-001');
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual(chunkEntity);
@@ -236,13 +236,13 @@ describe('DocumentChunkRepository', () => {
     it('should call with correct select fields and ordering', async () => {
       mockSupabase.setQueryResponse([]);
 
-      await repo.findByDocumentId('doc-001');
+      await repo.findByLectureDocumentId('doc-001');
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_chunks');
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith(
-        'id, document_id, content, metadata',
+        'id, lecture_document_id, content, metadata',
       );
-      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('document_id', 'doc-001');
+      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('lecture_document_id', 'doc-001');
       expect(mockSupabase.client._chain.order).toHaveBeenCalledWith('created_at', {
         ascending: true,
       });
@@ -251,7 +251,7 @@ describe('DocumentChunkRepository', () => {
     it('should return empty array when no chunks exist', async () => {
       mockSupabase.setQueryResponse([]);
 
-      const result = await repo.findByDocumentId('doc-001');
+      const result = await repo.findByLectureDocumentId('doc-001');
 
       expect(result).toEqual([]);
     });
@@ -259,7 +259,7 @@ describe('DocumentChunkRepository', () => {
     it('should return empty array when data is null', async () => {
       mockSupabase.setResponse(null);
 
-      const result = await repo.findByDocumentId('doc-001');
+      const result = await repo.findByLectureDocumentId('doc-001');
 
       expect(result).toEqual([]);
     });
@@ -267,8 +267,10 @@ describe('DocumentChunkRepository', () => {
     it('should throw DatabaseError on fetch failure', async () => {
       mockSupabase.setErrorResponse(dbError('Fetch failed'));
 
-      await expect(repo.findByDocumentId('doc-001')).rejects.toThrow(DatabaseError);
-      await expect(repo.findByDocumentId('doc-001')).rejects.toThrow('Failed to fetch chunks');
+      await expect(repo.findByLectureDocumentId('doc-001')).rejects.toThrow(DatabaseError);
+      await expect(repo.findByLectureDocumentId('doc-001')).rejects.toThrow(
+        'Failed to fetch chunks',
+      );
     });
   });
 
@@ -280,7 +282,7 @@ describe('DocumentChunkRepository', () => {
 
       await repo.updateChunk('chunk-001', 'Updated content');
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_chunks');
       expect(mockSupabase.client._chain.update).toHaveBeenCalledWith({
         content: 'Updated content',
       });
@@ -326,7 +328,7 @@ describe('DocumentChunkRepository', () => {
 
       await repo.deleteChunk('chunk-001');
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_chunks');
       expect(mockSupabase.client._chain.delete).toHaveBeenCalled();
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'chunk-001');
     });
@@ -348,7 +350,7 @@ describe('DocumentChunkRepository', () => {
       const embedding = [0.1, 0.2, 0.3];
       await repo.updateEmbedding('chunk-001', embedding);
 
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('document_chunks');
+      expect(mockSupabase.client.from).toHaveBeenCalledWith('lecture_chunks');
       expect(mockSupabase.client._chain.update).toHaveBeenCalledWith({ embedding });
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('id', 'chunk-001');
     });
@@ -369,11 +371,11 @@ describe('DocumentChunkRepository', () => {
     it('should convert snake_case row to camelCase entity', async () => {
       mockSupabase.setQueryResponse([chunkRow]);
 
-      const result = await repo.findByDocumentId('doc-001');
+      const result = await repo.findByLectureDocumentId('doc-001');
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(chunkRow.id);
-      expect(result[0].documentId).toBe(chunkRow.document_id);
+      expect(result[0].lectureDocumentId).toBe(chunkRow.lecture_document_id);
       expect(result[0].content).toBe(chunkRow.content);
       expect(result[0].metadata).toEqual(chunkRow.metadata);
       expect(result[0].embedding).toEqual(chunkRow.embedding);
@@ -382,7 +384,7 @@ describe('DocumentChunkRepository', () => {
     it('should handle null embedding', async () => {
       mockSupabase.setQueryResponse([chunkRowNoEmbedding]);
 
-      const result = await repo.findByDocumentId('doc-001');
+      const result = await repo.findByLectureDocumentId('doc-001');
 
       expect(result[0].embedding).toBeNull();
     });

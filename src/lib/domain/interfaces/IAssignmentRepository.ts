@@ -11,13 +11,15 @@ export interface IAssignmentRepository {
     school?: string | null;
     course?: string | null;
     courseId?: string | null;
-    status?: string;
+    status?: 'draft' | 'ready';
   }): Promise<string>;
 
   findById(id: string): Promise<AssignmentEntity | null>;
   findCourseId(id: string): Promise<string | null>;
   findAllForAdmin(courseIds?: string[]): Promise<AssignmentEntity[]>;
-  updateStatus(id: string, status: string, statusMessage?: string): Promise<void>;
+  updateStatus(id: string, status: 'draft' | 'ready'): Promise<void>;
+  publish(id: string): Promise<void>;
+  unpublish(id: string): Promise<void>;
   delete(id: string): Promise<void>;
 
   insertItems(

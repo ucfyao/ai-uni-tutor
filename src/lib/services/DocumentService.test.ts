@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
-  CreateDocumentChunkDTO,
-  DocumentChunkEntity,
-  DocumentEntity,
+  CreateLectureChunkDTO,
+  LectureChunkEntity,
+  LectureDocumentEntity,
 } from '@/lib/domain/models/Document';
 import { ForbiddenError } from '@/lib/errors';
-import type { DocumentChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
-import type { DocumentRepository } from '@/lib/repositories/DocumentRepository';
-import { DocumentService } from './DocumentService';
+import type { LectureChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
+import type { LectureDocumentRepository } from '@/lib/repositories/DocumentRepository';
+import { LectureDocumentService } from './DocumentService';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -15,15 +15,13 @@ import { DocumentService } from './DocumentService';
 
 const now = new Date('2025-01-15T12:00:00Z');
 
-function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity {
+function makeDocEntity(overrides: Partial<LectureDocumentEntity> = {}): LectureDocumentEntity {
   return {
     id: 'doc-1',
     userId: 'user-1',
     name: 'Lecture Notes.pdf',
     status: 'ready',
-    statusMessage: null,
     metadata: {},
-    docType: 'lecture',
     courseId: 'course-1',
     outline: null,
     createdAt: now,
@@ -31,10 +29,10 @@ function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity 
   };
 }
 
-function makeChunkEntity(overrides: Partial<DocumentChunkEntity> = {}): DocumentChunkEntity {
+function makeChunkEntity(overrides: Partial<LectureChunkEntity> = {}): LectureChunkEntity {
   return {
     id: 'chunk-1',
-    documentId: 'doc-1',
+    lectureDocumentId: 'doc-1',
     content: 'Chunk text content',
     metadata: { page: 1 },
     embedding: null,
@@ -42,33 +40,34 @@ function makeChunkEntity(overrides: Partial<DocumentChunkEntity> = {}): Document
   };
 }
 
-function createMockDocRepo(): Record<keyof DocumentRepository, ReturnType<typeof vi.fn>> {
+function createMockDocRepo(): Record<keyof LectureDocumentRepository, ReturnType<typeof vi.fn>> {
   return {
     findById: vi.fn(),
     findByUserIdAndName: vi.fn(),
     create: vi.fn(),
-    updateStatus: vi.fn(),
+    publish: vi.fn(),
+    unpublish: vi.fn(),
     updateMetadata: vi.fn(),
     delete: vi.fn(),
     verifyOwnership: vi.fn(),
     findByUserId: vi.fn(),
-    findByDocTypeForAdmin: vi.fn(),
+    findForAdmin: vi.fn(),
     deleteById: vi.fn(),
     saveOutline: vi.fn(),
   };
 }
 
-function createMockChunkRepo(): Record<keyof DocumentChunkRepository, ReturnType<typeof vi.fn>> {
+function createMockChunkRepo(): Record<keyof LectureChunkRepository, ReturnType<typeof vi.fn>> {
   return {
     createBatch: vi.fn(),
     createBatchAndReturn: vi.fn(),
-    deleteByDocumentId: vi.fn(),
-    findByDocumentId: vi.fn(),
+    deleteByLectureDocumentId: vi.fn(),
+    findByLectureDocumentId: vi.fn(),
     updateChunk: vi.fn(),
     deleteChunk: vi.fn(),
     updateEmbedding: vi.fn(),
-    verifyChunksBelongToDocument: vi.fn(),
-    findByDocumentIdWithEmbeddings: vi.fn(),
+    verifyChunksBelongToLectureDocument: vi.fn(),
+    findByLectureDocumentIdWithEmbeddings: vi.fn(),
   };
 }
 
@@ -76,18 +75,18 @@ function createMockChunkRepo(): Record<keyof DocumentChunkRepository, ReturnType
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('DocumentService', () => {
+describe('LectureDocumentService', () => {
   let docRepo: ReturnType<typeof createMockDocRepo>;
   let chunkRepo: ReturnType<typeof createMockChunkRepo>;
-  let service: DocumentService;
+  let service: LectureDocumentService;
 
   beforeEach(() => {
     vi.clearAllMocks();
     docRepo = createMockDocRepo();
     chunkRepo = createMockChunkRepo();
-    service = new DocumentService(
-      docRepo as unknown as DocumentRepository,
-      chunkRepo as unknown as DocumentChunkRepository,
+    service = new LectureDocumentService(
+      docRepo as unknown as LectureDocumentRepository,
+      chunkRepo as unknown as LectureChunkRepository,
     );
   });
 
@@ -118,7 +117,7 @@ describe('DocumentService', () => {
   // =========================================================================
   describe('createDocument', () => {
     it('should create a document with required fields', async () => {
-      const created = makeDocEntity({ status: 'processing' });
+      const created = makeDocEntity({ status: 'draft' });
       docRepo.create.mockResolvedValue(created);
 
       const result = await service.createDocument('user-1', 'New Doc.pdf');
@@ -126,9 +125,8 @@ describe('DocumentService', () => {
       expect(docRepo.create).toHaveBeenCalledWith({
         userId: 'user-1',
         name: 'New Doc.pdf',
-        status: 'processing',
+        status: 'draft',
         metadata: undefined,
-        docType: undefined,
         courseId: undefined,
       });
       expect(result.id).toBe('doc-1');
@@ -140,48 +138,19 @@ describe('DocumentService', () => {
 
       const result = await service.createDocument(
         'user-1',
-        'Exam.pdf',
+        'Lecture.pdf',
         { pages: 10 },
-        'exam',
         'course-1',
       );
 
       expect(docRepo.create).toHaveBeenCalledWith({
         userId: 'user-1',
-        name: 'Exam.pdf',
-        status: 'processing',
+        name: 'Lecture.pdf',
+        status: 'draft',
         metadata: { pages: 10 },
-        docType: 'exam',
         courseId: 'course-1',
       });
       expect(result).toEqual(created);
-    });
-  });
-
-  // =========================================================================
-  // updateStatus
-  // =========================================================================
-  describe('updateStatus', () => {
-    it('should update status without message', async () => {
-      docRepo.updateStatus.mockResolvedValue(undefined);
-
-      await service.updateStatus('doc-1', 'ready');
-
-      expect(docRepo.updateStatus).toHaveBeenCalledWith('doc-1', {
-        status: 'ready',
-        statusMessage: undefined,
-      });
-    });
-
-    it('should update status with message', async () => {
-      docRepo.updateStatus.mockResolvedValue(undefined);
-
-      await service.updateStatus('doc-1', 'error', 'Failed to parse');
-
-      expect(docRepo.updateStatus).toHaveBeenCalledWith('doc-1', {
-        status: 'error',
-        statusMessage: 'Failed to parse',
-      });
     });
   });
 
@@ -192,9 +161,9 @@ describe('DocumentService', () => {
     it('should delegate to chunkRepo.createBatch', async () => {
       chunkRepo.createBatch.mockResolvedValue(undefined);
 
-      const chunks: CreateDocumentChunkDTO[] = [
-        { documentId: 'doc-1', content: 'Chunk 1' },
-        { documentId: 'doc-1', content: 'Chunk 2' },
+      const chunks: CreateLectureChunkDTO[] = [
+        { lectureDocumentId: 'doc-1', content: 'Chunk 1' },
+        { lectureDocumentId: 'doc-1', content: 'Chunk 2' },
       ];
 
       await service.saveChunks(chunks);
@@ -211,9 +180,9 @@ describe('DocumentService', () => {
       const ids = [{ id: 'chunk-1' }, { id: 'chunk-2' }];
       chunkRepo.createBatchAndReturn.mockResolvedValue(ids);
 
-      const chunks: CreateDocumentChunkDTO[] = [
-        { documentId: 'doc-1', content: 'Chunk 1' },
-        { documentId: 'doc-1', content: 'Chunk 2' },
+      const chunks: CreateLectureChunkDTO[] = [
+        { lectureDocumentId: 'doc-1', content: 'Chunk 1' },
+        { lectureDocumentId: 'doc-1', content: 'Chunk 2' },
       ];
 
       const result = await service.saveChunksAndReturn(chunks);
@@ -277,16 +246,16 @@ describe('DocumentService', () => {
   describe('getChunks', () => {
     it('should return chunks for a document', async () => {
       const chunks = [makeChunkEntity(), makeChunkEntity({ id: 'chunk-2' })];
-      chunkRepo.findByDocumentId.mockResolvedValue(chunks);
+      chunkRepo.findByLectureDocumentId.mockResolvedValue(chunks);
 
       const result = await service.getChunks('doc-1');
 
       expect(result).toEqual(chunks);
-      expect(chunkRepo.findByDocumentId).toHaveBeenCalledWith('doc-1');
+      expect(chunkRepo.findByLectureDocumentId).toHaveBeenCalledWith('doc-1');
     });
 
     it('should return empty array when no chunks exist', async () => {
-      chunkRepo.findByDocumentId.mockResolvedValue([]);
+      chunkRepo.findByLectureDocumentId.mockResolvedValue([]);
 
       const result = await service.getChunks('doc-empty');
 
@@ -331,15 +300,15 @@ describe('DocumentService', () => {
   });
 
   // =========================================================================
-  // deleteChunksByDocumentId
+  // deleteChunksByLectureDocumentId
   // =========================================================================
-  describe('deleteChunksByDocumentId', () => {
+  describe('deleteChunksByLectureDocumentId', () => {
     it('should delete all chunks for a document', async () => {
-      chunkRepo.deleteByDocumentId.mockResolvedValue(undefined);
+      chunkRepo.deleteByLectureDocumentId.mockResolvedValue(undefined);
 
-      await service.deleteChunksByDocumentId('doc-1');
+      await service.deleteChunksByLectureDocumentId('doc-1');
 
-      expect(chunkRepo.deleteByDocumentId).toHaveBeenCalledWith('doc-1');
+      expect(chunkRepo.deleteByLectureDocumentId).toHaveBeenCalledWith('doc-1');
     });
   });
 
@@ -353,7 +322,7 @@ describe('DocumentService', () => {
       const embedding = [0.1, 0.2, 0.3];
       await service.updateChunkEmbedding('chunk-1', embedding);
 
-      expect(chunkRepo.updateEmbedding).toHaveBeenCalledWith('chunk-1', embedding, undefined);
+      expect(chunkRepo.updateEmbedding).toHaveBeenCalledWith('chunk-1', embedding);
     });
   });
 
@@ -377,21 +346,12 @@ describe('DocumentService', () => {
       expect(docRepo.updateMetadata).toHaveBeenCalledWith('doc-1', { metadata: { pages: 20 } });
     });
 
-    it('should update document type', async () => {
-      docRepo.updateMetadata.mockResolvedValue(undefined);
-
-      await service.updateDocumentMetadata('doc-1', { docType: 'exam' });
-
-      expect(docRepo.updateMetadata).toHaveBeenCalledWith('doc-1', { docType: 'exam' });
-    });
-
     it('should update multiple fields at once', async () => {
       docRepo.updateMetadata.mockResolvedValue(undefined);
 
       const updates = {
         name: 'New Name.pdf',
         metadata: { pages: 5 },
-        docType: 'assignment',
       };
       await service.updateDocumentMetadata('doc-1', updates);
 

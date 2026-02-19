@@ -20,13 +20,17 @@ vi.mock('@/lib/services/QuotaService', () => ({
 }));
 
 const mockDocumentService = {
-  checkDuplicate: vi.fn(),
-  createDocument: vi.fn(),
-  updateStatus: vi.fn(),
+  findById: vi.fn(),
+  getChunks: vi.fn(),
   saveChunksAndReturn: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
-  getDocumentService: () => mockDocumentService,
+  getLectureDocumentService: () => mockDocumentService,
+}));
+
+const mockKnowledgeCardService = { saveFromKnowledgePoints: vi.fn() };
+vi.mock('@/lib/services/KnowledgeCardService', () => ({
+  getKnowledgeCardService: () => mockKnowledgeCardService,
 }));
 
 const mockParsePDF = vi.fn();
@@ -36,16 +40,18 @@ vi.mock('@/lib/pdf', () => ({
 
 const mockGenerateEmbeddingWithRetry = vi.fn();
 const mockGenerateEmbedding = vi.fn();
+const mockGenerateEmbeddingBatch = vi.fn();
 vi.mock('@/lib/rag/embedding', () => ({
   generateEmbeddingWithRetry: (...args: unknown[]) => mockGenerateEmbeddingWithRetry(...args),
   generateEmbedding: (...args: unknown[]) => mockGenerateEmbedding(...args),
+  generateEmbeddingBatch: (...args: unknown[]) => mockGenerateEmbeddingBatch(...args),
 }));
 
 const mockDocumentRepo = {
   saveOutline: vi.fn(),
 };
 vi.mock('@/lib/repositories/DocumentRepository', () => ({
-  getDocumentRepository: () => mockDocumentRepo,
+  getLectureDocumentRepository: () => mockDocumentRepo,
 }));
 
 // Mock parsers that are dynamically imported
@@ -60,8 +66,8 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
 }));
 
 const mockExamPaperRepo = {
-  create: vi.fn(),
-  updateStatus: vi.fn(),
+  findCourseId: vi.fn(),
+  findQuestionsByPaperId: vi.fn(),
   insertQuestions: vi.fn(),
   updatePaper: vi.fn(),
 };
@@ -70,8 +76,8 @@ vi.mock('@/lib/repositories/ExamPaperRepository', () => ({
 }));
 
 const mockAssignmentRepo = {
-  create: vi.fn(),
-  updateStatus: vi.fn(),
+  findCourseId: vi.fn(),
+  findItemsByAssignmentId: vi.fn(),
   insertItems: vi.fn(),
 };
 vi.mock('@/lib/repositories/AssignmentRepository', () => ({
@@ -89,6 +95,7 @@ const { POST } = await import('./route');
 // ---------------------------------------------------------------------------
 
 const MOCK_USER = { id: 'user-1', email: 'test@example.com' };
+const DEFAULT_DOCUMENT_ID = '550e8400-e29b-41d4-a716-446655440000';
 
 const MOCK_KNOWLEDGE_POINT = {
   title: 'Algorithm Basics',
@@ -123,9 +130,7 @@ function makePDFBytes(content = 'some text') {
 function makeRequest(overrides?: {
   file?: File | null;
   doc_type?: string;
-  school?: string;
-  course?: string;
-  courseId?: string;
+  documentId?: string;
   has_answers?: string;
   skipFile?: boolean;
 }): Request {
@@ -137,14 +142,9 @@ function makeRequest(overrides?: {
     formData.append('file', file);
   }
 
-  // Always send school and course (browser forms always include input fields, even if empty)
+  formData.append('documentId', overrides?.documentId ?? DEFAULT_DOCUMENT_ID);
   formData.append('doc_type', overrides?.doc_type ?? 'lecture');
-  formData.append('school', overrides?.school ?? '');
-  formData.append('course', overrides?.course ?? '');
   formData.append('has_answers', overrides?.has_answers ?? 'false');
-  if (overrides?.courseId) {
-    formData.append('courseId', overrides.courseId);
-  }
 
   return new Request('http://localhost/api/documents/parse', {
     method: 'POST',
@@ -210,26 +210,26 @@ function findEvents(events: Array<{ event: string; data: unknown }>, type: strin
 function setupSuccessfulParse() {
   mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
   mockQuotaService.enforce.mockResolvedValue(undefined);
-  mockDocumentService.checkDuplicate.mockResolvedValue(false);
-  mockDocumentService.createDocument.mockResolvedValue({
-    id: 'doc-123',
-    userId: MOCK_USER.id,
-    name: 'lecture.pdf',
-    status: 'processing',
-  });
-  mockDocumentService.updateStatus.mockResolvedValue(undefined);
+  mockDocumentService.findById.mockResolvedValue({ id: DEFAULT_DOCUMENT_ID, courseId: null });
+  mockDocumentService.getChunks.mockResolvedValue([]);
   mockDocumentService.saveChunksAndReturn.mockResolvedValue([{ id: 'chunk-1' }]);
+  mockKnowledgeCardService.saveFromKnowledgePoints.mockResolvedValue(undefined);
   mockParsePDF.mockResolvedValue({
     pages: [{ text: 'Some lecture content about algorithms' }],
   });
   mockGenerateEmbeddingWithRetry.mockResolvedValue(Array.from({ length: 768 }, () => 0.01));
   mockGenerateEmbedding.mockResolvedValue(Array.from({ length: 768 }, () => 0.01));
+  mockGenerateEmbeddingBatch.mockResolvedValue([Array.from({ length: 768 }, () => 0.01)]);
   mockDocumentRepo.saveOutline.mockResolvedValue(undefined);
   mockParseLectureMultiPass.mockResolvedValue({
     knowledgePoints: [MOCK_KNOWLEDGE_POINT],
     outline: undefined,
   });
   mockParseQuestions.mockResolvedValue([MOCK_QUESTION]);
+  mockExamPaperRepo.findCourseId.mockResolvedValue(null);
+  mockExamPaperRepo.findQuestionsByPaperId.mockResolvedValue([]);
+  mockAssignmentRepo.findCourseId.mockResolvedValue(null);
+  mockAssignmentRepo.findItemsByAssignmentId.mockResolvedValue([]);
 }
 
 // ---------------------------------------------------------------------------
@@ -284,8 +284,17 @@ describe('POST /api/documents/parse', () => {
   describe('course permission enforcement', () => {
     it('sends FORBIDDEN when admin role does not provide courseId', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+      mockQuotaService.enforce.mockResolvedValue(undefined);
+      mockParsePDF.mockResolvedValue({
+        pages: [{ text: 'Some lecture content about algorithms' }],
+      });
+      // Document exists but has no courseId
+      mockDocumentService.findById.mockResolvedValue({
+        id: DEFAULT_DOCUMENT_ID,
+        courseId: null,
+      });
 
-      const response = await POST(makeRequest()); // no courseId
+      const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
 
       const errorEvent = findEvent(events, 'error');
@@ -294,25 +303,20 @@ describe('POST /api/documents/parse', () => {
       expect((errorEvent!.data as any).message).toContain('must select a course');
     });
 
-    it('sends VALIDATION_ERROR when courseId is not a valid UUID', async () => {
-      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
-
-      const response = await POST(makeRequest({ courseId: 'not-a-uuid' }));
-      const events = await readSSEEvents(response);
-
-      const errorEvent = findEvent(events, 'error');
-      expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as any).code).toBe('VALIDATION_ERROR');
-      expect((errorEvent!.data as any).message).toContain('Invalid course ID');
-    });
-
     it('sends FORBIDDEN when admin lacks access to the specified course', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
+      mockQuotaService.enforce.mockResolvedValue(undefined);
+      mockParsePDF.mockResolvedValue({
+        pages: [{ text: 'Some lecture content about algorithms' }],
+      });
       mockRequireCourseAdmin.mockRejectedValue(new Error('No access'));
+      // Document exists and has a courseId
+      mockDocumentService.findById.mockResolvedValue({
+        id: DEFAULT_DOCUMENT_ID,
+        courseId: '550e8400-e29b-41d4-a716-446655440001',
+      });
 
-      const response = await POST(
-        makeRequest({ courseId: '550e8400-e29b-41d4-a716-446655440000' }),
-      );
+      const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
 
       const errorEvent = findEvent(events, 'error');
@@ -322,7 +326,7 @@ describe('POST /api/documents/parse', () => {
     });
 
     it('allows super_admin to upload without courseId', async () => {
-      setupSuccessfulParse(); // uses super_admin role, no courseId
+      setupSuccessfulParse(); // uses super_admin role, doc has courseId: null
 
       const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
@@ -345,13 +349,15 @@ describe('POST /api/documents/parse', () => {
     it('sends error event with QUOTA_EXCEEDED code when quota is exceeded', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
       mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
+      mockDocumentService.findById.mockResolvedValue({
+        id: DEFAULT_DOCUMENT_ID,
+        courseId: '550e8400-e29b-41d4-a716-446655440001',
+      });
 
       const { QuotaExceededError } = await import('@/lib/errors');
       mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
 
-      const response = await POST(
-        makeRequest({ courseId: '550e8400-e29b-41d4-a716-446655440000' }),
-      );
+      const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
 
       const errorEvent = findEvent(events, 'error');
@@ -362,11 +368,13 @@ describe('POST /api/documents/parse', () => {
     it('sends error event with QUOTA_ERROR code for generic quota failures', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
       mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
+      mockDocumentService.findById.mockResolvedValue({
+        id: DEFAULT_DOCUMENT_ID,
+        courseId: '550e8400-e29b-41d4-a716-446655440001',
+      });
       mockQuotaService.enforce.mockRejectedValue(new Error('Redis connection failed'));
 
-      const response = await POST(
-        makeRequest({ courseId: '550e8400-e29b-41d4-a716-446655440000' }),
-      );
+      const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
 
       const errorEvent = findEvent(events, 'error');
@@ -425,14 +433,10 @@ describe('POST /api/documents/parse', () => {
     it('sends error event with INVALID_FILE code when PDF has invalid magic bytes', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
       mockQuotaService.enforce.mockResolvedValue(undefined);
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue({
-        id: 'doc-123',
-        userId: MOCK_USER.id,
-        name: 'fake.pdf',
-        status: 'processing',
+      mockDocumentService.findById.mockResolvedValue({
+        id: DEFAULT_DOCUMENT_ID,
+        courseId: null,
       });
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       // File with PDF mime type but invalid content (no %PDF- magic bytes)
       const fakeContent = new TextEncoder().encode('NOT A REAL PDF FILE');
@@ -463,9 +467,8 @@ describe('POST /api/documents/parse', () => {
         'file',
         new File([makePDFBytes()], 'lecture.pdf', { type: 'application/pdf' }),
       );
+      formData.append('documentId', DEFAULT_DOCUMENT_ID);
       formData.append('doc_type', 'invalid_type');
-      formData.append('school', '');
-      formData.append('course', '');
 
       const request = new Request('http://localhost/api/documents/parse', {
         method: 'POST',
@@ -482,41 +485,10 @@ describe('POST /api/documents/parse', () => {
   });
 
   // =========================================================================
-  // Duplicate check
-  // =========================================================================
-
-  describe('duplicate check', () => {
-    it('sends error event with DUPLICATE code when file already exists', async () => {
-      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
-      mockQuotaService.enforce.mockResolvedValue(undefined);
-      mockDocumentService.checkDuplicate.mockResolvedValue(true);
-
-      const response = await POST(makeRequest());
-      const events = await readSSEEvents(response);
-
-      const errorEvent = findEvent(events, 'error');
-      expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as any).code).toBe('DUPLICATE');
-      expect((errorEvent!.data as any).message).toContain('already exists');
-    });
-  });
-
-  // =========================================================================
   // SSE event flow: successful parse
   // =========================================================================
 
   describe('successful parse flow', () => {
-    it('sends document_created event after creating document record', async () => {
-      setupSuccessfulParse();
-
-      const response = await POST(makeRequest());
-      const events = await readSSEEvents(response);
-
-      const docCreated = findEvent(events, 'document_created');
-      expect(docCreated).toBeDefined();
-      expect((docCreated!.data as any).documentId).toBe('doc-123');
-    });
-
     it('sends status events through the full pipeline', async () => {
       setupSuccessfulParse();
 
@@ -590,9 +562,7 @@ describe('POST /api/documents/parse', () => {
   describe('exam doc type', () => {
     it('sends question-type items for exam documents', async () => {
       setupSuccessfulParse();
-      mockExamPaperRepo.create.mockResolvedValue('exam-123');
       mockExamPaperRepo.insertQuestions.mockResolvedValue(undefined);
-      mockExamPaperRepo.updateStatus.mockResolvedValue(undefined);
       mockExamPaperRepo.updatePaper.mockResolvedValue(undefined);
 
       const response = await POST(makeRequest({ doc_type: 'exam' }));
@@ -709,45 +679,6 @@ describe('POST /api/documents/parse', () => {
   // =========================================================================
 
   describe('service interactions', () => {
-    it('calls checkDuplicate with user ID and file name', async () => {
-      setupSuccessfulParse();
-
-      const response = await POST(makeRequest());
-      await readSSEEvents(response);
-
-      expect(mockDocumentService.checkDuplicate).toHaveBeenCalledWith(MOCK_USER.id, 'lecture.pdf');
-    });
-
-    it('calls createDocument with correct params', async () => {
-      setupSuccessfulParse();
-
-      const response = await POST(makeRequest({ school: 'MIT', course: 'CS101' }));
-      await readSSEEvents(response);
-
-      expect(mockDocumentService.createDocument).toHaveBeenCalledWith(
-        MOCK_USER.id,
-        'lecture.pdf',
-        { school: 'MIT', course: 'CS101' },
-        'lecture',
-        undefined,
-      );
-    });
-
-    it('defaults school and course when not provided', async () => {
-      setupSuccessfulParse();
-
-      const response = await POST(makeRequest());
-      await readSSEEvents(response);
-
-      expect(mockDocumentService.createDocument).toHaveBeenCalledWith(
-        MOCK_USER.id,
-        'lecture.pdf',
-        { school: 'Unspecified', course: 'General' },
-        'lecture',
-        undefined,
-      );
-    });
-
     it('calls generateEmbeddingWithRetry for each item', async () => {
       setupSuccessfulParse();
 
@@ -758,19 +689,6 @@ describe('POST /api/documents/parse', () => {
       expect(mockGenerateEmbeddingWithRetry).toHaveBeenCalledWith(
         expect.stringContaining('Algorithm Basics'),
       );
-    });
-
-    it('updates status to ready on successful completion', async () => {
-      setupSuccessfulParse();
-
-      const response = await POST(makeRequest());
-      await readSSEEvents(response);
-
-      // Last updateStatus call should be 'ready'
-      const calls = mockDocumentService.updateStatus.mock.calls;
-      const lastCall = calls[calls.length - 1];
-      expect(lastCall[0]).toBe('doc-123');
-      expect(lastCall[1]).toBe('ready');
     });
   });
 });

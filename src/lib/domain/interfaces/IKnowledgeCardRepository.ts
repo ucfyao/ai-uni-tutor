@@ -3,5 +3,4 @@ import type { CreateKnowledgeCardDTO, KnowledgeCardEntity } from '../models/Know
 export interface IKnowledgeCardRepository {
   searchByEmbedding(embedding: number[], matchCount: number): Promise<KnowledgeCardEntity[]>;
   upsertByTitle(dto: CreateKnowledgeCardDTO): Promise<KnowledgeCardEntity>;
-  deleteByDocumentId(documentId: string): Promise<void>;
 }

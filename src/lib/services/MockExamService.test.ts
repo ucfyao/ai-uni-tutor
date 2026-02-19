@@ -43,7 +43,8 @@ function createMockPaperRepo(): {
     findById: vi.fn(),
     findWithFilters: vi.fn(),
     findOwner: vi.fn(),
-    updateStatus: vi.fn(),
+    publish: vi.fn(),
+    unpublish: vi.fn(),
     updatePaper: vi.fn(),
     delete: vi.fn(),
     insertQuestions: vi.fn(),
@@ -68,7 +69,6 @@ const SESSION_ID = 'session-001';
 const PAPER: ExamPaper = {
   id: PAPER_ID,
   userId: USER_ID,
-  documentId: null,
   title: 'Calculus Final',
   visibility: 'private',
   school: null,
@@ -77,7 +77,7 @@ const PAPER: ExamPaper = {
   year: '2024',
   questionTypes: ['choice', 'short_answer'],
   status: 'ready',
-  statusMessage: null,
+  questionCount: 2,
   createdAt: '2025-01-01T00:00:00Z',
 };
 

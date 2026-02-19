@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DocumentEntity } from '@/lib/domain/models/Document';
-import { ForbiddenError, QuotaExceededError } from '@/lib/errors';
+import type { LectureDocumentEntity } from '@/lib/domain/models/Document';
+import { ForbiddenError } from '@/lib/errors';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -35,10 +35,11 @@ vi.mock('next/cache', () => ({
 const mockDocumentService = {
   checkDuplicate: vi.fn(),
   createDocument: vi.fn(),
-  updateStatus: vi.fn(),
+  publish: vi.fn(),
+  unpublish: vi.fn(),
   saveChunks: vi.fn(),
   deleteByAdmin: vi.fn(),
-  deleteChunksByDocumentId: vi.fn(),
+  deleteChunksByLectureDocumentId: vi.fn(),
   findById: vi.fn(),
   deleteChunk: vi.fn(),
   updateChunk: vi.fn(),
@@ -46,12 +47,12 @@ const mockDocumentService = {
   getChunksWithEmbeddings: vi.fn(),
   updateChunkEmbedding: vi.fn(),
   updateDocumentMetadata: vi.fn(),
-  verifyChunksBelongToDocument: vi.fn(),
+  verifyChunksBelongToLectureDocument: vi.fn(),
   saveChunksAndReturn: vi.fn(),
   getDocumentsForAdmin: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
-  getDocumentService: () => mockDocumentService,
+  getLectureDocumentService: () => mockDocumentService,
 }));
 
 const mockQuotaService = {
@@ -87,11 +88,8 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
   parseQuestions: (...args: unknown[]) => mockParseQuestions(...args),
 }));
 
-const mockKnowledgeCardService = {
-  deleteByDocumentId: vi.fn(),
-};
 vi.mock('@/lib/services/KnowledgeCardService', () => ({
-  getKnowledgeCardService: () => mockKnowledgeCardService,
+  getKnowledgeCardService: () => ({}),
 }));
 
 const mockExamPaperRepo = {
@@ -127,7 +125,6 @@ vi.mock('@/lib/repositories/AssignmentRepository', () => ({
 // ---------------------------------------------------------------------------
 
 const {
-  uploadDocument,
   deleteDocument,
   updateDocumentChunks,
   regenerateEmbeddings,
@@ -139,34 +136,13 @@ const {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makePdfFile(name = 'test.pdf', content = 'dummy pdf content'): File {
-  return new File([content], name, { type: 'application/pdf' });
-}
-
-function makeFormData(overrides: Record<string, string | File> = {}): FormData {
-  const fd = new FormData();
-  fd.set('file', overrides.file || makePdfFile());
-  if (overrides.doc_type) fd.set('doc_type', overrides.doc_type as string);
-  // Must set school/course to empty string (not omit them) because
-  // formData.get() returns null when key is missing, and the Zod schema
-  // preprocessor only handles string->undefined conversion, not null.
-  fd.set('school', (overrides.school as string) || '');
-  fd.set('course', (overrides.course as string) || '');
-  if (overrides.has_answers) fd.set('has_answers', overrides.has_answers as string);
-  return fd;
-}
-
-const INITIAL_STATE = { status: 'idle' as const, message: '' };
-
-function makeDocEntity(overrides: Partial<DocumentEntity> = {}): DocumentEntity {
+function makeDocEntity(overrides: Partial<LectureDocumentEntity> = {}): LectureDocumentEntity {
   return {
     id: 'doc-1',
     userId: 'user-1',
     name: 'test.pdf',
-    status: 'processing',
-    statusMessage: null,
+    status: 'draft',
     metadata: { school: 'MIT', course: 'CS101' },
-    docType: 'lecture',
     courseId: null,
     outline: null,
     createdAt: new Date(),
@@ -187,177 +163,17 @@ describe('Document Actions', () => {
   });
 
   // =========================================================================
-  // uploadDocument
-  // =========================================================================
-  describe('uploadDocument', () => {
-    it('should return error for invalid upload data (no file)', async () => {
-      const fd = new FormData();
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toBe('Invalid upload data');
-    });
-
-    it('should return error for non-PDF file', async () => {
-      const fd = new FormData();
-      fd.set('file', new File(['content'], 'test.txt', { type: 'text/plain' }));
-      fd.set('school', '');
-      fd.set('course', '');
-
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('PDF');
-    });
-
-    it('should return error when user is not admin', async () => {
-      mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
-      const fd = makeFormData();
-
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toBe('Admin access required');
-    });
-
-    it('should return error when quota is exceeded', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
-      const fd = makeFormData();
-
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('exceeded');
-    });
-
-    it('should return error when file is a duplicate', async () => {
-      mockDocumentService.checkDuplicate.mockResolvedValue(true);
-      const fd = makeFormData();
-
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('already exists');
-    });
-
-    it('should return error when PDF parsing fails', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockProcessingService.processWithLLM.mockRejectedValue(new Error('Failed to parse PDF'));
-      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
-      const fd = makeFormData();
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('Failed to parse PDF');
-      expect(mockDocumentService.updateStatus).toHaveBeenCalledWith(
-        'doc-1',
-        'error',
-        'Failed to parse PDF',
-      );
-    });
-
-    it('should return error for empty PDF (no text)', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockProcessingService.processWithLLM.mockRejectedValue(
-        new Error('PDF contains no extractable text'),
-      );
-      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
-      const fd = makeFormData();
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('no extractable text');
-    });
-
-    it('should process lecture document successfully', async () => {
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity({ docType: 'lecture' }));
-      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
-      const fd = makeFormData({ doc_type: 'lecture' });
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('success');
-      expect(result.message).toContain('successfully');
-      expect(mockProcessingService.processWithLLM).toHaveBeenCalledWith(
-        expect.objectContaining({
-          documentId: 'doc-1',
-        }),
-      );
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
-    });
-
-    it('should reject exam document type (must use SSE route)', async () => {
-      const fd = makeFormData({ doc_type: 'exam' });
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('streaming upload');
-    });
-
-    it('should handle content extraction failure and clean up', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockProcessingService.processWithLLM.mockRejectedValue(
-        new Error('Failed to extract content'),
-      );
-      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
-      const fd = makeFormData();
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('Failed to extract content');
-      expect(mockDocumentService.deleteChunksByDocumentId).toHaveBeenCalledWith('doc-1');
-    });
-
-    it('should handle chunk save failure', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockProcessingService.processWithLLM.mockRejectedValue(
-        new Error('Failed to save document chunks'),
-      );
-      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
-      const fd = makeFormData();
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('Failed to save document chunks');
-    });
-
-    it('should reject non-lecture doc types with error', async () => {
-      const fd = makeFormData({ doc_type: 'exam', has_answers: 'true' });
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('streaming upload');
-    });
-  });
-
-  // =========================================================================
   // deleteDocument
   // =========================================================================
   describe('deleteDocument', () => {
     it('should delete lecture document via deleteByAdmin', async () => {
       mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
+      mockDocumentService.deleteChunksByLectureDocumentId.mockResolvedValue(undefined);
       mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
       await deleteDocument('doc-1', 'lecture');
 
+      expect(mockDocumentService.deleteChunksByLectureDocumentId).toHaveBeenCalledWith('doc-1');
       expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
@@ -375,7 +191,7 @@ describe('Document Actions', () => {
   describe('updateDocumentChunks', () => {
     it('should update and delete chunks', async () => {
       mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
-      mockDocumentService.verifyChunksBelongToDocument.mockResolvedValue(true);
+      mockDocumentService.verifyChunksBelongToLectureDocument.mockResolvedValue(true);
       mockDocumentService.deleteChunk.mockResolvedValue(undefined);
       mockDocumentService.updateChunk.mockResolvedValue(undefined);
 
@@ -422,28 +238,13 @@ describe('Document Actions', () => {
         .mockResolvedValueOnce([0.9, 0.8])
         .mockResolvedValueOnce([0.7, 0.6]);
       mockDocumentService.updateChunkEmbedding.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const result = await regenerateEmbeddings('doc-1');
 
       expect(result).toEqual({ status: 'success', message: 'Embeddings regenerated' });
       expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledTimes(2);
-      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith(
-        'chunk-1',
-        [0.9, 0.8],
-        'doc-1',
-      );
-      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith(
-        'chunk-2',
-        [0.7, 0.6],
-        'doc-1',
-      );
-      expect(mockDocumentService.updateStatus).toHaveBeenCalledWith(
-        'doc-1',
-        'processing',
-        'Regenerating embeddings...',
-      );
-      expect(mockDocumentService.updateStatus).toHaveBeenCalledWith('doc-1', 'ready');
+      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith('chunk-1', [0.9, 0.8]);
+      expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith('chunk-2', [0.7, 0.6]);
     });
 
     it('should throw when user is not admin', async () => {
@@ -465,16 +266,10 @@ describe('Document Actions', () => {
         { id: 'chunk-1', content: 'content 1', embedding: [0.1], metadata: {} },
       ]);
       mockGenerateEmbeddingWithRetry.mockRejectedValue(new Error('Embedding API down'));
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
 
       const result = await regenerateEmbeddings('doc-1');
 
       expect(result).toEqual({ status: 'error', message: 'Failed to regenerate embeddings' });
-      expect(mockDocumentService.updateStatus).toHaveBeenCalledWith(
-        'doc-1',
-        'error',
-        'Failed to regenerate embeddings',
-      );
     });
   });
 
@@ -482,16 +277,19 @@ describe('Document Actions', () => {
   // retryDocument
   // =========================================================================
   describe('retryDocument', () => {
-    it('should delete chunks and document, then return success', async () => {
+    it('should clear chunks and unpublish document, then return success', async () => {
       mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
-      mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-      mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
+      mockDocumentService.deleteChunksByLectureDocumentId.mockResolvedValue(undefined);
+      mockDocumentService.unpublish.mockResolvedValue(undefined);
 
       const result = await retryDocument('doc-1', 'lecture');
 
-      expect(result).toEqual({ status: 'success', message: 'Document removed. Please re-upload.' });
-      expect(mockDocumentService.deleteChunksByDocumentId).toHaveBeenCalledWith('doc-1');
-      expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
+      expect(result).toEqual({
+        status: 'success',
+        message: 'Items cleared. Upload a new PDF to re-parse.',
+      });
+      expect(mockDocumentService.deleteChunksByLectureDocumentId).toHaveBeenCalledWith('doc-1');
+      expect(mockDocumentService.unpublish).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
@@ -619,8 +417,7 @@ describe('Document Actions', () => {
       it('should allow super_admin access to document with null courseId', async () => {
         mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
         mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
-        mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-        mockKnowledgeCardService.deleteByDocumentId.mockResolvedValue(undefined);
+        mockDocumentService.deleteChunksByLectureDocumentId.mockResolvedValue(undefined);
         mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
         await deleteDocument('doc-1', 'lecture');
@@ -632,8 +429,7 @@ describe('Document Actions', () => {
         mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
         mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
         mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: 'course-1' }));
-        mockDocumentService.deleteChunksByDocumentId.mockResolvedValue(undefined);
-        mockKnowledgeCardService.deleteByDocumentId.mockResolvedValue(undefined);
+        mockDocumentService.deleteChunksByLectureDocumentId.mockResolvedValue(undefined);
         mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
         await deleteDocument('doc-1', 'lecture');
@@ -747,48 +543,6 @@ describe('Document Actions', () => {
         await expect(deleteDocument('assign-1', 'assignment')).rejects.toThrow(ForbiddenError);
         expect(mockAssignmentRepo.delete).not.toHaveBeenCalled();
       });
-    });
-  });
-
-  // =========================================================================
-  // courseId UUID validation
-  // =========================================================================
-  describe('uploadDocument courseId validation', () => {
-    it('should reject malformed courseId', async () => {
-      const fd = makeFormData();
-      fd.set('courseId', 'not-a-uuid');
-
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toBe('Invalid course ID');
-    });
-
-    it('should accept valid UUID courseId', async () => {
-      mockDocumentService.checkDuplicate.mockResolvedValue(false);
-      mockDocumentService.createDocument.mockResolvedValue(makeDocEntity());
-      mockProcessingService.processWithLLM.mockResolvedValue(undefined);
-      mockDocumentService.updateStatus.mockResolvedValue(undefined);
-
-      const fd = makeFormData();
-      fd.set('courseId', '550e8400-e29b-41d4-a716-446655440000');
-
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('success');
-      expect(mockRequireCourseAdmin).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000');
-    });
-
-    it('should require admin to provide courseId', async () => {
-      mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
-
-      const fd = makeFormData();
-      // no courseId set
-
-      const result = await uploadDocument(INITIAL_STATE, fd);
-
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('must select a course');
     });
   });
 });

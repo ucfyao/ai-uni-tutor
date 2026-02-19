@@ -2,7 +2,7 @@
  * Domain Models - Assignment Entity
  */
 
-type AssignmentStatus = 'draft' | 'parsing' | 'ready' | 'error';
+type AssignmentStatus = 'draft' | 'ready';
 
 export interface AssignmentEntity {
   id: string;
@@ -12,7 +12,6 @@ export interface AssignmentEntity {
   course: string | null;
   courseId: string | null;
   status: AssignmentStatus;
-  statusMessage: string | null;
   createdAt: string;
 }
 

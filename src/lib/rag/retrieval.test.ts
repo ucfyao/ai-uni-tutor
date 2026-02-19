@@ -209,7 +209,7 @@ describe('retrieveOutlineContext', () => {
     };
 
     mockSupabase.client.from.mockImplementation((table: string) => {
-      if (table === 'documents') return docChain;
+      if (table === 'lecture_documents') return docChain;
       if (table === 'courses') return courseChain;
       return {};
     });

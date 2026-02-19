@@ -21,38 +21,35 @@ import type {
 export const examPaperRow = {
   id: 'paper-001',
   user_id: 'user-free-001',
-  document_id: 'doc-001',
   title: 'CS101 Midterm 2025',
   visibility: 'private' as const,
   school: 'School of Computing',
   course: 'CS101',
+  course_id: null as string | null,
   year: '2025',
   question_types: ['mcq', 'short_answer'],
   status: 'ready' as const,
-  status_message: null as string | null,
   created_at: '2025-06-01T09:00:00Z',
 };
 
-export const parsingExamPaperRow = {
+export const draftExamPaperRow = {
   ...examPaperRow,
   id: 'paper-002',
   title: 'CS101 Final 2025',
-  status: 'parsing' as const,
+  status: 'draft' as const,
 };
 
 export const examPaperEntity: ExamPaper = {
   id: examPaperRow.id,
   userId: examPaperRow.user_id,
-  documentId: examPaperRow.document_id,
   title: examPaperRow.title,
   visibility: examPaperRow.visibility,
   school: examPaperRow.school,
   course: examPaperRow.course,
-  courseId: null,
+  courseId: examPaperRow.course_id,
   year: examPaperRow.year,
   questionTypes: examPaperRow.question_types,
   status: examPaperRow.status,
-  statusMessage: examPaperRow.status_message,
   createdAt: examPaperRow.created_at,
 };
 

@@ -42,7 +42,7 @@ export class KnowledgeCardService {
    * Deduplicates by title — existing cards are updated, new ones created.
    * Generates embeddings in batches for performance.
    */
-  async saveFromKnowledgePoints(points: KnowledgePoint[], documentId: string): Promise<void> {
+  async saveFromKnowledgePoints(points: KnowledgePoint[]): Promise<void> {
     if (points.length === 0) return;
 
     const BATCH_SIZE = 5;
@@ -61,20 +61,11 @@ export class KnowledgeCardService {
             keyConcepts: point.keyConcepts,
             examples: point.examples,
             sourcePages: point.sourcePages,
-            documentId,
             embedding: embeddings[j],
           }),
         ),
       );
     }
-  }
-
-  /**
-   * Delete all knowledge cards associated with a document.
-   * Used for cleanup on processing failure.
-   */
-  async deleteByDocumentId(documentId: string): Promise<void> {
-    await this.knowledgeCardRepo.deleteByDocumentId(documentId);
   }
 
   /**

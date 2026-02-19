@@ -69,7 +69,6 @@ function makeExamPaper(overrides: Partial<ExamPaper> = {}): ExamPaper {
   return {
     id: 'paper-1',
     userId: 'user-1',
-    documentId: null,
     title: '2024 Fall Midterm',
     visibility: 'private',
     school: 'MIT',
@@ -78,7 +77,6 @@ function makeExamPaper(overrides: Partial<ExamPaper> = {}): ExamPaper {
     year: '2024',
     questionTypes: ['choice', 'short_answer'],
     status: 'ready',
-    statusMessage: null,
     questionCount: 10,
     createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
