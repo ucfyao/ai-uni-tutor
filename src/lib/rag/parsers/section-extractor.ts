@@ -116,8 +116,7 @@ async function extractFromSection(
 
   const prompt = buildExtractionPrompt(sectionPages, section, structure, prevSection, nextSection);
 
-  const genAI = getGenAI();
-  const response = await genAI.models.generateContent({
+  const response = await getGenAI().models.generateContent({
     model: GEMINI_MODELS.parse,
     contents: prompt,
     config: { responseMimeType: 'application/json', temperature: 0 },
@@ -153,8 +152,7 @@ async function extractLargeSectionInBatches(
     const prompt = buildExtractionPrompt(batch, section, structure, prevSection, nextSection);
 
     try {
-      const genAI = getGenAI();
-      const response = await genAI.models.generateContent({
+      const response = await getGenAI().models.generateContent({
         model: GEMINI_MODELS.parse,
         contents: prompt,
         config: { responseMimeType: 'application/json', temperature: 0 },
@@ -191,6 +189,7 @@ export async function extractSections(
   if (extractableSections.length === 0) return [];
 
   const allResults: KnowledgePoint[] = [];
+  const errors: unknown[] = [];
   const concurrency = RAG_CONFIG.sectionConcurrency;
 
   for (let i = 0; i < extractableSections.length; i += concurrency) {
@@ -207,12 +206,18 @@ export async function extractSections(
       if (result.status === 'fulfilled') {
         allResults.push(...result.value);
       } else {
+        errors.push(result.reason);
         console.warn('Section extraction failed:', result.reason);
       }
     }
 
     const completed = Math.min(i + concurrency, extractableSections.length);
     onProgress?.(completed, extractableSections.length);
+  }
+
+  // If all sections failed, rethrow the first error so the caller can report it
+  if (allResults.length === 0 && errors.length > 0) {
+    throw errors[0];
   }
 
   return allResults;

@@ -1,21 +1,26 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActionIcon, Badge, Box, Collapse, Group, ScrollArea, Stack } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
-  addLectureChunk,
+  addDocumentChunk,
+  deleteDocument,
   publishDocument,
   unpublishDocument,
   updateDocumentMeta,
 } from '@/app/actions/documents';
+import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
+import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentStatus } from '@/lib/domain/models/Document';
 import { showNotification } from '@/lib/notifications';
+import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
 import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
@@ -48,6 +53,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const isMobile = useMediaQuery('(max-width: 48em)', false);
   const { setHeaderContent } = useHeader();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { t } = useLanguage();
 
   const [currentStatus, setCurrentStatus] = useState<DocumentStatus>(doc.status);
@@ -196,15 +202,44 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     }
   }, [doc.id, t]);
 
-  // Add knowledge point handler
-  const handleAddLectureItem = useCallback(
-    async (data: { title: string; definition: string }): Promise<boolean> => {
-      const result = await addLectureChunk({
+  const handleDeleteDoc = useCallback(async () => {
+    try {
+      await deleteDocument(doc.id, 'lecture');
+      // Directly remove from all type caches so the list is immediately correct
+      for (const dt of DOC_TYPES) {
+        queryClient.setQueryData<KnowledgeDocument[]>(
+          queryKeys.documents.byType(dt.value),
+          (prev) => prev?.filter((d) => d.id !== doc.id),
+        );
+      }
+      router.push('/admin/knowledge');
+    } catch (e) {
+      showNotification({
+        title: t.common?.error ?? 'Error',
+        message: e instanceof Error ? e.message : 'Failed to delete',
+        color: 'red',
+      });
+    }
+  }, [doc.id, queryClient, router, t]);
+
+  const handleParseComplete = useCallback(() => {
+    router.refresh();
+    if (uploadCollapseTimer.current) clearTimeout(uploadCollapseTimer.current);
+    uploadCollapseTimer.current = setTimeout(() => {
+      setShowUpload(false);
+    }, 1500);
+  }, [router]);
+
+  // Add knowledge point
+  const handleAddItem = useCallback(
+    async (data: Record<string, unknown>): Promise<boolean> => {
+      const result = await addDocumentChunk({
         documentId: doc.id,
-        ...data,
+        title: (data.title as string) || '',
+        definition: (data.definition as string) || '',
       });
       if (result.success) {
-        showNotification({ message: t.documentDetail?.saved ?? 'Saved', color: 'green' });
+        showNotification({ message: t.toast?.changesSaved ?? 'Saved', color: 'green' });
         router.refresh();
         return true;
       } else {
@@ -218,14 +253,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     },
     [doc.id, router, t],
   );
-
-  const handleParseComplete = useCallback(() => {
-    router.refresh();
-    if (uploadCollapseTimer.current) clearTimeout(uploadCollapseTimer.current);
-    uploadCollapseTimer.current = setTimeout(() => {
-      setShowUpload(false);
-    }, 1500);
-  }, [router]);
 
   // Header node
   const headerNode = useMemo(
@@ -340,7 +367,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}
             onBulkDelete={handleBulkDelete}
-            onAddLectureItem={handleAddLectureItem}
+            onAddItem={handleAddItem}
             hideToolbar
             externalShowAddForm={showAddForm}
             onAddFormClosed={() => setShowAddForm(false)}

@@ -8,6 +8,8 @@ import { useMediaQuery } from '@mantine/hooks';
 import { addAssignmentItem } from '@/app/actions/assignments';
 import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
 import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
+import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
+import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
@@ -153,17 +155,15 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
 
   /* -- add item handler -- */
   const handleAddItem = useCallback(
-    async (data: {
-      type: string;
-      content: string;
-      referenceAnswer: string;
-      explanation: string;
-      points: number;
-      difficulty: string;
-    }): Promise<boolean> => {
+    async (data: Record<string, unknown>): Promise<boolean> => {
       const result = await addAssignmentItem({
         assignmentId: assignment.id,
-        ...data,
+        type: (data.type as string) || '',
+        content: (data.content as string) || '',
+        referenceAnswer: (data.referenceAnswer as string) || '',
+        explanation: (data.explanation as string) || '',
+        points: (data.points as number) || 0,
+        difficulty: (data.difficulty as string) || '',
       });
       if (result.success) {
         showNotification({ message: t.documentDetail.saved, color: 'green' });
@@ -206,7 +206,12 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
   const handleDeleteDoc = useCallback(async () => {
     try {
       await deleteDocument(assignment.id, 'assignment');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+      for (const dt of DOC_TYPES) {
+        queryClient.setQueryData<KnowledgeDocument[]>(
+          queryKeys.documents.byType(dt.value),
+          (prev) => prev?.filter((d) => d.id !== assignment.id),
+        );
+      }
       showNotification({ message: 'Deleted', color: 'green' });
       router.push('/admin/knowledge');
     } catch {
@@ -269,7 +274,6 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
             itemCount={visibleChunks.length}
             onParseComplete={() => router.refresh()}
           />
-
           <ChunkTable
             chunks={visibleChunks}
             docType={docType}
@@ -288,7 +292,6 @@ export function AssignmentDetailClient({ assignment, items }: AssignmentDetailCl
             onBulkDelete={handleBulkDelete}
             onAddItem={handleAddItem}
           />
-
           <ChunkActionBar
             docId={assignment.id}
             docType={docType}
