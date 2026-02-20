@@ -17,7 +17,6 @@ import {
   Switch,
   Text,
   TextInput,
-  SegmentedControl,
   Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
@@ -43,7 +42,6 @@ import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
 import { ChunkEditForm } from '../../knowledge/[id]/ChunkEditForm';
-import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
 import type { Chunk } from '../../knowledge/[id]/types';
 import { metaStr } from '../../knowledge/[id]/types';
 
@@ -84,7 +82,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedAnswers] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'chunks' | 'outline'>('chunks');
   const hasOutline = doc.outline !== null;
 
   // ── Helpers ──
@@ -326,7 +323,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   }, [doc.id, queryClient, router, t]);
 
   const handleParseComplete = useCallback(() => {
-    setShowUpload(false);
     router.refresh();
   }, [router]);
 
@@ -511,45 +507,16 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             />
           </Collapse>
 
-          {/* View toggle */}
-          {hasOutline && chunks.length > 0 && (
-            <SegmentedControl
-              value={viewMode}
-              onChange={(v) => setViewMode(v as 'chunks' | 'outline')}
-              data={[
-                { label: t.knowledge.viewChunks, value: 'chunks' },
-                { label: t.knowledge.viewOutline, value: 'outline' },
-              ]}
-              size="xs"
-            />
-          )}
-
           {/* Content */}
-          {viewMode === 'outline' && hasOutline ? (
+          {hasOutline ? (
             <DocumentOutlineView
               outline={doc.outline as unknown as DocumentOutline}
-              chunks={chunks}
             />
-          ) : (
-            <ChunkTable
-              chunks={chunks}
-              docType="lecture"
-              editingChunkId={null}
-              expandedAnswers={expandedAnswers}
-              selectedIds={selectedIds}
-              getEffectiveContent={getContent}
-              getEffectiveMetadata={getMeta}
-              onStartEdit={(chunk) => setEditingChunk(chunk)}
-              onCancelEdit={() => setEditingChunk(null)}
-              onSaveEdit={handleEditSave}
-              onDelete={(chunkId) => handleDelete(chunkId)}
-              onToggleAnswer={() => {}}
-              onToggleSelect={handleToggleSelect}
-              onToggleSelectAll={handleToggleSelectAll}
-              onBulkDelete={handleBulkDelete}
-              hideToolbar
-            />
-          )}
+          ) : chunks.length > 0 ? (
+            <Text c="dimmed" ta="center" py="xl">
+              {chunks.length} chunks (re-upload to generate outline)
+            </Text>
+          ) : null}
         </Stack>
       </ScrollArea>
 
