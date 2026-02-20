@@ -1,10 +1,18 @@
 export interface KnowledgePoint {
   title: string;
-  definition: string;
-  keyFormulas?: string[];
-  keyConcepts?: string[];
-  examples?: string[];
+  content: string;
   sourcePages: number[];
+}
+
+export interface ExtractedSection {
+  title: string;
+  summary: string;
+  sourcePages: number[];
+  knowledgePoints: KnowledgePoint[];
+}
+
+export interface ExtractionResult {
+  sections: ExtractedSection[];
 }
 
 export interface ParsedQuestion {
@@ -49,6 +57,8 @@ export interface PipelineProgress {
   phaseProgress: number;
   totalProgress: number;
   detail: string;
+  totalPages?: number;
+  knowledgePointCount?: number;
 }
 
 export interface ParseLectureResult {

@@ -2,60 +2,63 @@ import 'server-only';
 import { z } from 'zod';
 import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
-import type { KnowledgePoint } from './types';
+import type { ExtractedSection } from './types';
 
 const knowledgePointSchema = z.object({
   title: z.string().min(1),
-  definition: z.string().min(1),
-  keyFormulas: z.array(z.string()).optional(),
-  keyConcepts: z.array(z.string()).optional(),
-  examples: z.array(z.string()).optional(),
+  content: z.string().min(1),
   sourcePages: z.array(z.number()).default([]),
+});
+
+const sectionSchema = z.object({
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  sourcePages: z.array(z.number()).default([]),
+  knowledgePoints: z.array(knowledgePointSchema).default([]),
+});
+
+const extractionResultSchema = z.object({
+  sections: z.array(sectionSchema).min(1),
 });
 
 function buildExtractionPrompt(pages: PDFPage[]): string {
   const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
 
-  return `You are an academic knowledge extraction expert.
+  return `You are an academic content extraction expert.
 
-Analyze the following document and extract all structured knowledge points.
+Analyze the following lecture document and extract its structure as sections with knowledge points.
 
-A knowledge point IS:
-  - A core concept definition with clear explanation
-  - An important theorem, formula, or derivation with its logic
-  - A key algorithm or methodology with its steps
-  - A classification system or framework
-  - A representative example with solution approach
+For each SECTION:
+- title: The section/chapter heading or topic name
+- summary: One sentence summarizing what this section covers
+- sourcePages: Page numbers this section spans
+- knowledgePoints: Array of knowledge points in this section
 
-A knowledge point IS NOT:
-  - Classroom management info ("homework due next week", "see you Thursday")
-  - Table of contents entries or chapter headings themselves
-  - Overly generic statements ("this concept is important")
-  - Content already implied by another knowledge point
-  - Duplicates — do NOT repeat the same concept even if it appears on multiple pages
-
-For each knowledge point provide:
+For each KNOWLEDGE POINT:
 - title: Precise, searchable title for the concept
-- definition: Complete definition including necessary conditions and context
-- keyFormulas: Related formulas in LaTeX notation (omit if none)
-- keyConcepts: Associated core terms (omit if none)
-- examples: Concrete examples from the text (omit if none)
-- sourcePages: Page numbers where this concept appears
+- content: Complete explanation including definitions, formulas (in LaTeX), conditions, examples — everything a student needs to understand this concept in one place
 
-Return ONLY a valid JSON array. No markdown, no explanation.
+Rules:
+- Organize by the document's natural section/chapter structure
+- Each knowledge point should be self-contained (a student should understand it without reading other points)
+- Do NOT create duplicate knowledge points across sections
+- Do NOT include classroom admin info ("homework due", "see you next week")
+- Do NOT include table-of-contents entries as separate knowledge points
+
+Return ONLY a valid JSON object with a "sections" array. No markdown, no explanation.
 
 Document (${pages.length} pages):
 ${pagesText}`;
 }
 
 /**
- * Single-call knowledge point extraction.
- * Sends all pages to Gemini in one request.
+ * Single-call section + knowledge point extraction.
+ * Sends all pages to Gemini in one request and returns structured sections.
  */
-export async function extractKnowledgePoints(
+export async function extractSections(
   pages: PDFPage[],
   signal?: AbortSignal,
-): Promise<KnowledgePoint[]> {
+): Promise<ExtractedSection[]> {
   if (signal?.aborted) return [];
 
   const prompt = buildExtractionPrompt(pages);
@@ -68,12 +71,7 @@ export async function extractKnowledgePoints(
 
   const text = response.text ?? '';
   const raw = JSON.parse(text);
-  const arr = Array.isArray(raw) ? raw : [];
-
-  const validated: KnowledgePoint[] = [];
-  for (const item of arr) {
-    const result = knowledgePointSchema.safeParse(item);
-    if (result.success) validated.push(result.data);
-  }
-  return validated;
+  const result = extractionResultSchema.safeParse(raw);
+  if (!result.success) return [];
+  return result.data.sections;
 }
