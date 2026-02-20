@@ -12,7 +12,7 @@ vi.mock('./section-extractor', () => ({
 const { parseLecture, parseLectureMultiPass } = await import('./lecture-parser');
 
 function setupDefaultMocks(sections: ExtractedSection[] = []) {
-  mockExtractSections.mockResolvedValue(sections);
+  mockExtractSections.mockResolvedValue({ sections, warnings: [] });
 }
 
 describe('lecture-parser', () => {

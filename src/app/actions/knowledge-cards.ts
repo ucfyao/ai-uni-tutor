@@ -86,6 +86,46 @@ export async function fetchRelatedCards(
   }
 }
 
+/**
+ * Update a knowledge card's fields (admin only).
+ */
+const updateKnowledgeCardSchema = z.object({
+  cardId: z.string().uuid(),
+  title: z.string().min(1).max(500).optional(),
+  definition: z.string().max(10000).optional(),
+  keyFormulas: z.array(z.string()).optional(),
+  keyConcepts: z.array(z.string()).optional(),
+  examples: z.array(z.string()).optional(),
+});
+
+export async function updateKnowledgeCard(data: {
+  cardId: string;
+  title?: string;
+  definition?: string;
+  keyFormulas?: string[];
+  keyConcepts?: string[];
+  examples?: string[];
+}): Promise<ActionResult<{ id: string }>> {
+  try {
+    const parsed = updateKnowledgeCardSchema.safeParse(data);
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid card data.' };
+    }
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    const { cardId, ...fields } = parsed.data;
+    const service = getKnowledgeCardService();
+    const card = await service.updateCard(cardId, fields);
+    return { success: true, data: { id: card.id } };
+  } catch (error) {
+    console.error('updateKnowledgeCard error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to update card';
+    return { success: false, error: message };
+  }
+}
+
 // ============================================================================
 // USER CARD ACTIONS
 // ============================================================================

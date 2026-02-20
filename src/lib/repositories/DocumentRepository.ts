@@ -69,6 +69,26 @@ export class LectureDocumentRepository implements ILectureDocumentRepository {
     return this.mapToEntity(data);
   }
 
+  async findByCourseIdAndName(
+    courseId: string,
+    name: string,
+  ): Promise<LectureDocumentEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('lecture_documents')
+      .select('*')
+      .eq('course_id', courseId)
+      .eq('name', name)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch document: ${error.message}`, error);
+    }
+    if (!data) return null;
+    return this.mapToEntity(data);
+  }
+
   async create(dto: CreateLectureDocumentDTO): Promise<LectureDocumentEntity> {
     const supabase = await createClient();
     const insertData: Database['public']['Tables']['lecture_documents']['Insert'] = {
@@ -158,7 +178,7 @@ export class LectureDocumentRepository implements ILectureDocumentRepository {
     let query = supabase
       .from('lecture_documents')
       .select(
-        'id, user_id, name, status, metadata, course_id, created_at, outline, outline_embedding, lecture_chunks(count)',
+        'id, user_id, name, status, metadata, course_id, created_at, outline, lecture_chunks(count)',
         {
           count: 'exact',
         },
@@ -203,16 +223,37 @@ export class LectureDocumentRepository implements ILectureDocumentRepository {
     return (data ?? []).map((row) => ({ id: row.id, outline: row.outline as Json }));
   }
 
-  async saveOutline(id: string, outline: Json, outlineEmbedding?: number[]): Promise<void> {
+  async findDuplicatesInCourse(
+    courseId: string,
+    fileName: string,
+    fileHash?: string,
+    excludeDocumentId?: string,
+  ): Promise<LectureDocumentEntity[]> {
     const supabase = await createClient();
-    const updateData: Database['public']['Tables']['lecture_documents']['Update'] = {
-      outline,
-    };
-    if (outlineEmbedding) {
-      // [M8] Pass number[] directly — consistent with existing embedding handling
-      updateData.outline_embedding = outlineEmbedding as unknown as string;
-    }
-    const { error } = await supabase.from('lecture_documents').update(updateData).eq('id', id);
+    const { data, error } = await supabase
+      .from('lecture_documents')
+      .select('*')
+      .eq('course_id', courseId);
+
+    if (error) throw new DatabaseError(`Failed to check duplicates: ${error.message}`, error);
+
+    return (data ?? [])
+      .filter((row) => {
+        if (excludeDocumentId && row.id === excludeDocumentId) return false;
+        const nameMatch = row.name === fileName;
+        const meta = row.metadata as Record<string, unknown> | null;
+        const hashMatch = !!fileHash && meta?.file_hash === fileHash;
+        return nameMatch || hashMatch;
+      })
+      .map((row) => this.mapToEntity(row));
+  }
+
+  async saveOutline(id: string, outline: Json): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('lecture_documents')
+      .update({ outline })
+      .eq('id', id);
     if (error) throw new DatabaseError(`Failed to save document outline: ${error.message}`, error);
   }
 }

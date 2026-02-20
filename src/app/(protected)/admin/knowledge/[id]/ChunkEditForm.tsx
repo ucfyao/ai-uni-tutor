@@ -71,6 +71,16 @@ export function ChunkEditForm({
 
 /* -- Lecture Edit -- */
 
+/** Extract raw body text from chunk content (strip "## Title\nSummary\n\n" prefix) */
+function extractBodyText(content: string): string {
+  const lines = content.split('\n');
+  let idx = 0;
+  if (lines[0]?.startsWith('## ')) idx = 1; // skip title line
+  if (lines[idx]?.trim()) idx++; // skip summary line
+  while (idx < lines.length && !lines[idx]?.trim()) idx++; // skip blank lines
+  return lines.slice(idx).join('\n').trim();
+}
+
 function LectureEditForm({
   chunkId,
   meta,
@@ -86,11 +96,14 @@ function LectureEditForm({
 }) {
   const { t } = useLanguage();
   const [title, setTitle] = useState((meta.title as string) || '');
-  const [summary, setSummary] = useState((meta.summary as string) || initialContent);
+  const [summary, setSummary] = useState((meta.summary as string) || '');
+  const [body, setBody] = useState(() => extractBodyText(initialContent));
 
   const handleSave = () => {
     const updated: Record<string, unknown> = { ...meta, title, summary };
-    onSave(chunkId, summary, updated);
+    // Reconstruct full content in same format as parser: "## Title\nSummary\n\nBody"
+    const fullContent = [`## ${title}`, summary, '', body].join('\n');
+    onSave(chunkId, fullContent, updated);
   };
 
   return (
@@ -102,9 +115,17 @@ function LectureEditForm({
           onChange={(e) => setTitle(e.currentTarget.value)}
         />
         <Textarea
-          label={t.documentDetail.content}
+          label="Summary"
           value={summary}
           onChange={(e) => setSummary(e.currentTarget.value)}
+          minRows={2}
+          autosize
+          maxRows={4}
+        />
+        <Textarea
+          label={t.documentDetail.content}
+          value={body}
+          onChange={(e) => setBody(e.currentTarget.value)}
           minRows={4}
           autosize
         />

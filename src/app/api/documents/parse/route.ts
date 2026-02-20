@@ -7,7 +7,6 @@ import type { ParsedQuestion } from '@/lib/rag/parsers/types';
 import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
-import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
@@ -33,6 +32,14 @@ const uploadSchema = z.object({
     (value) => value === 'true' || value === true,
     z.boolean().optional().default(false),
   ),
+  reparse: z.preprocess(
+    (value) => value === 'true' || value === true,
+    z.boolean().optional().default(false),
+  ),
+  append: z.preprocess(
+    (value) => value === 'true' || value === true,
+    z.boolean().optional().default(false),
+  ),
 });
 
 export async function POST(request: Request) {
@@ -42,7 +49,7 @@ export async function POST(request: Request) {
 
   // Start the async pipeline without awaiting (runs in background while streaming)
   const pipeline = (async () => {
-    const documentService = getLectureDocumentService();
+    const lectureService = getLectureDocumentService();
 
     try {
       // ── Auth ──
@@ -75,18 +82,20 @@ export async function POST(request: Request) {
         documentId: formData.get('documentId'),
         doc_type: formData.get('doc_type'),
         has_answers: formData.get('has_answers'),
+        reparse: formData.get('reparse'),
+        append: formData.get('append'),
       });
       if (!parsed.success) {
         send('error', { message: 'Invalid upload data', code: 'VALIDATION_ERROR' });
         return;
       }
-      const { documentId, doc_type, has_answers } = parsed.data;
+      const { documentId, doc_type, has_answers, reparse, append } = parsed.data;
 
       // ── Course-level permission check (look up course from existing record) ──
       let courseId: string | null = null;
       let documentName: string | null = null;
       if (doc_type === 'lecture') {
-        const doc = await documentService.findById(documentId);
+        const doc = await lectureService.findById(documentId);
         if (!doc) {
           send('error', { message: 'Document not found', code: 'NOT_FOUND' });
           return;
@@ -128,14 +137,44 @@ export async function POST(request: Request) {
         return;
       }
 
+      // ── Check existing chunks (skip expensive LLM call if already parsed) ──
+      const existingChunks = await lectureService.getChunks(documentId);
+      if (existingChunks.length > 0 && !reparse && !append) {
+        send('log', {
+          message: `Document already has ${existingChunks.length} sections. Use reparse or append to continue.`,
+          level: 'info',
+        });
+        send('status', { stage: 'complete', message: 'Document already parsed.' });
+        return;
+      }
+      if (existingChunks.length > 0 && reparse) {
+        send('log', { message: `Deleting ${existingChunks.length} existing chunks for re-parse...`, level: 'info' });
+        await lectureService.deleteChunksByLectureDocumentId(documentId);
+        send('log', { message: 'Existing chunks deleted', level: 'success' });
+      }
+
       // ── Parse PDF ──
+      console.log('[parse/route] ========== START document parse ==========');
+      console.log('[parse/route] documentId:', documentId, '| doc_type:', doc_type, '| file:', documentName);
+      send('log', { message: `Start parsing: ${documentName || documentId} (${doc_type})`, level: 'info' });
       send('status', { stage: 'parsing_pdf', message: 'Parsing PDF...' });
+      send('log', { message: 'Reading PDF file...', level: 'info' });
 
       const arrayBuffer = await file.arrayBuffer();
+
+      // Compute SHA-256 file hash for course-level dedup
+      const hashArray = new Uint8Array(
+        await crypto.subtle.digest('SHA-256', arrayBuffer),
+      );
+      const fileHash = Array.from(hashArray)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
       let buffer: Buffer | null = Buffer.from(arrayBuffer);
 
       // [I4] Validate PDF magic bytes before passing to parser
       if (buffer.length < 5 || buffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+        send('log', { message: 'File is not a valid PDF', level: 'error' });
         send('error', { message: 'File is not a valid PDF', code: 'INVALID_FILE' });
         return;
       }
@@ -144,6 +183,7 @@ export async function POST(request: Request) {
       try {
         pdfData = await parsePDF(buffer);
       } catch {
+        send('log', { message: 'Failed to parse PDF content', level: 'error' });
         send('error', { message: 'Failed to parse PDF content', code: 'PDF_PARSE_ERROR' });
         return;
       }
@@ -152,9 +192,15 @@ export async function POST(request: Request) {
 
       const totalText = pdfData.pages.reduce((acc, p) => acc + p.text.trim(), '');
       if (totalText.length === 0) {
+        send('log', { message: 'PDF contains no extractable text', level: 'error' });
         send('error', { message: 'PDF contains no extractable text', code: 'EMPTY_PDF' });
         return;
       }
+
+      send('log', {
+        message: `PDF parsed: ${pdfData.pages.length} pages, ${(totalText.length / 1000).toFixed(1)}k chars`,
+        level: 'success',
+      });
 
       // [C3] Check abort before expensive LLM call
       if (signal.aborted) {
@@ -172,80 +218,158 @@ export async function POST(request: Request) {
           const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
           const parseResult = await parseLectureMultiPass(pdfData.pages, {
             documentId,
-            onProgress: (progress) => send('pipeline_progress', progress),
+            onProgress: (progress) => {
+              send('pipeline_progress', progress);
+              if (progress.detail) send('log', { message: progress.detail, level: 'info' });
+            },
             signal,
           });
 
-          const { sections, knowledgePoints } = parseResult;
+          const { sections, knowledgePoints, warnings = [] } = parseResult;
           documentOutline = parseResult.outline;
 
+          // Surface extraction warnings to user
+          for (const w of warnings) {
+            send('log', { message: w, level: 'warning' });
+          }
+
           if (sections.length === 0) {
+            send('log', { message: 'No structured content extracted', level: 'warning' });
             send('progress', { current: 0, total: 0 });
             send('status', { stage: 'complete', message: 'No content extracted' });
             return;
           }
+
+          send('log', {
+            message: `Extracted ${sections.length} sections, ${knowledgePoints.length} knowledge points`,
+            level: 'success',
+          });
 
           // Send item events for frontend display
           for (let i = 0; i < knowledgePoints.length; i++) {
             send('item', { index: i, type: 'knowledge_point', data: knowledgePoints[i] });
           }
 
-          // Save knowledge cards (non-fatal)
-          try {
-            await getKnowledgeCardService().saveFromKnowledgePoints(knowledgePoints);
-          } catch (cardError) {
-            console.error('Knowledge card save error (non-fatal):', cardError);
-          }
+          // ── Enter saving stage ──
+          send('status', { stage: 'embedding', message: 'Saving...' });
 
-          // Save document outline
+          // Save document outline (JSON only, no embedding)
           if (documentOutline) {
+            send('log', { message: 'Saving document outline...', level: 'info' });
             try {
               const { getLectureDocumentRepository } =
                 await import('@/lib/repositories/DocumentRepository');
-              const { generateEmbedding } = await import('@/lib/rag/embedding');
-              const outlineText = JSON.stringify(documentOutline);
-              const embedding = await generateEmbedding(outlineText.slice(0, 2000));
               await getLectureDocumentRepository().saveOutline(
                 documentId,
                 documentOutline as unknown as Json,
-                embedding,
               );
+              send('log', { message: 'Document outline saved', level: 'success' });
             } catch (outlineError) {
               console.warn('Failed to save document outline (non-fatal):', outlineError);
+              send('log', { message: 'Outline save failed (non-fatal)', level: 'warning' });
             }
           }
 
-          // Build section chunks
-          send('status', { stage: 'embedding', message: 'Generating embeddings & saving...' });
+          // Dedup against existing chunks by title + embedding similarity
+          send('log', { message: 'Checking for duplicate sections...', level: 'info' });
 
           const { buildSectionChunkContent } = await import('@/lib/rag/build-chunk-content');
 
-          // Dedup against existing chunks by section title
-          const existingChunks = await documentService.getChunks(documentId);
+          const existingChunksForDedup = await lectureService.getChunksWithEmbeddings(documentId);
           const existingTitles = new Set(
-            existingChunks.map((c) => {
+            existingChunksForDedup.map((c) => {
               const meta = c.metadata as Record<string, unknown>;
               return ((meta.title as string) || '').trim().toLowerCase();
             }),
           );
 
-          const newSections = sections.filter(
+          // Pass 1: title-based dedup (fast, no cost)
+          let candidateSections = sections.filter(
             (s) => !existingTitles.has(s.title.trim().toLowerCase()),
           );
+          const titleSkipped = sections.length - candidateSections.length;
 
-          if (newSections.length === 0) {
+          if (candidateSections.length === 0) {
+            send('log', { message: 'All sections are duplicates (title match)', level: 'info' });
             send('status', { stage: 'complete', message: 'No new sections to add (all duplicates).' });
             return;
           }
 
-          const allContents = newSections.map((s) => buildSectionChunkContent(s, pdfData.pages));
+          const candidateContents = candidateSections.map((s) => buildSectionChunkContent(s, pdfData.pages));
 
-          send('progress', { current: 0, total: newSections.length });
+          send('progress', { current: 0, total: candidateSections.length });
 
-          // Batch embed
+          // Generate embeddings for candidate sections
           if (signal.aborted) return;
+          send('log', { message: `Generating embeddings for ${candidateSections.length} sections...`, level: 'info' });
           const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
-          const allEmbeddings = await generateEmbeddingBatch(allContents);
+          const candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
+
+          send('log', { message: 'Embeddings generated', level: 'success' });
+
+          // Pass 2: embedding similarity dedup (catches same content with different titles)
+          const SIMILARITY_THRESHOLD = 0.92;
+          // pgvector columns may come back as string "[0.1,0.2,...]" from Supabase
+          const existingEmbeddings = existingChunksForDedup
+            .map((c) => {
+              if (Array.isArray(c.embedding)) return c.embedding as number[];
+              if (typeof c.embedding === 'string') {
+                try { return JSON.parse(c.embedding) as number[]; } catch { return null; }
+              }
+              return null;
+            })
+            .filter((e): e is number[] => Array.isArray(e) && e.length > 0);
+
+          send('log', {
+            message: `Dedup: ${existingEmbeddings.length} existing embeddings found for comparison`,
+            level: 'info',
+          });
+
+          let embeddingSkipped = 0;
+          const keepIndices: number[] = [];
+          if (existingEmbeddings.length > 0) {
+            for (let i = 0; i < candidateEmbeddings.length; i++) {
+              const emb = candidateEmbeddings[i];
+              let maxSim = 0;
+              for (const existing of existingEmbeddings) {
+                let dot = 0;
+                for (let d = 0; d < emb.length; d++) dot += emb[d] * existing[d];
+                if (dot > maxSim) maxSim = dot;
+              }
+              if (maxSim < SIMILARITY_THRESHOLD) {
+                keepIndices.push(i);
+              }
+            }
+            embeddingSkipped = candidateSections.length - keepIndices.length;
+            if (embeddingSkipped > 0) {
+              send('log', {
+                message: `${embeddingSkipped} sections skipped (embedding similarity > ${SIMILARITY_THRESHOLD})`,
+                level: 'info',
+              });
+            }
+          } else {
+            // No existing embeddings to compare — keep all candidates
+            for (let i = 0; i < candidateSections.length; i++) keepIndices.push(i);
+          }
+
+          const totalSkipped = titleSkipped + embeddingSkipped;
+          if (keepIndices.length === 0) {
+            send('log', { message: 'All sections are duplicates', level: 'info' });
+            send('status', { stage: 'complete', message: 'No new sections to add (all duplicates).' });
+            return;
+          }
+
+          // Filter all arrays by keepIndices
+          const newSections = keepIndices.map((i) => candidateSections[i]);
+          const allContents = keepIndices.map((i) => candidateContents[i]);
+          const allEmbeddings = keepIndices.map((i) => candidateEmbeddings[i]);
+
+          send('log', {
+            message: totalSkipped > 0
+              ? `${newSections.length} new sections (${totalSkipped} duplicates skipped)`
+              : `${newSections.length} sections to save`,
+            level: 'success',
+          });
 
           // Assemble DTOs
           const allChunks: CreateLectureChunkDTO[] = newSections.map((section, i) => ({
@@ -257,7 +381,11 @@ export async function POST(request: Request) {
               title: section.title,
               summary: section.summary,
               sourcePages: section.sourcePages,
-              knowledgePointTitles: section.knowledgePoints.map((kp) => kp.title),
+              knowledgePoints: section.knowledgePoints.map((kp) => ({
+                title: kp.title,
+                content: kp.content,
+                sourcePages: kp.sourcePages,
+              })),
               ...(documentName && { documentName }),
             },
           }));
@@ -266,10 +394,28 @@ export async function POST(request: Request) {
           const SAVE_BATCH = 20;
           for (let i = 0; i < allChunks.length; i += SAVE_BATCH) {
             if (signal.aborted) break;
+            const batchIdx = Math.floor(i / SAVE_BATCH);
             const batch = allChunks.slice(i, i + SAVE_BATCH);
-            const saved = await documentService.saveChunksAndReturn(batch);
-            send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: Math.floor(i / SAVE_BATCH) });
-            send('progress', { current: Math.min(i + SAVE_BATCH, allChunks.length), total: allChunks.length });
+            const batchEnd = Math.min(i + SAVE_BATCH, allChunks.length);
+
+            send('log', { message: `Saving chunks ${i + 1}-${batchEnd} of ${allChunks.length}...`, level: 'info' });
+
+            const saved = await lectureService.saveChunksAndReturn(batch);
+            send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
+            send('progress', { current: batchEnd, total: allChunks.length });
+          }
+
+          send('log', { message: `Saved ${allChunks.length} chunks`, level: 'success' });
+
+          // Store file hash in document metadata for future course-level dedup
+          try {
+            const currentDoc = await lectureService.findById(documentId);
+            const existingMeta = (currentDoc?.metadata as Record<string, unknown>) ?? {};
+            await lectureService.updateDocumentMetadata(documentId, {
+              metadata: { ...existingMeta, file_hash: fileHash } as Json,
+            });
+          } catch (hashErr) {
+            console.warn('Failed to store file hash (non-fatal):', hashErr);
           }
         } catch (e) {
           console.error('LLM extraction error:', e);
@@ -282,11 +428,13 @@ export async function POST(request: Request) {
               (e as { status: number }).status === 429);
 
           if (isQuotaError) {
+            send('log', { message: 'AI service quota exceeded', level: 'error' });
             send('error', {
               message: 'AI service quota exceeded. Please contact your administrator.',
               code: 'LLM_QUOTA_EXCEEDED',
             });
           } else {
+            send('log', { message: 'Failed to extract content from PDF', level: 'error' });
             send('error', {
               message: 'Failed to extract content from PDF',
               code: 'EXTRACTION_ERROR',

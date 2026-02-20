@@ -34,6 +34,20 @@ export class LectureDocumentService {
     return existing !== null;
   }
 
+  async checkDuplicateInCourse(courseId: string, name: string): Promise<boolean> {
+    const existing = await this.docRepo.findByCourseIdAndName(courseId, name);
+    return existing !== null;
+  }
+
+  async findDuplicatesInCourse(
+    courseId: string,
+    fileName: string,
+    fileHash?: string,
+    excludeDocumentId?: string,
+  ): Promise<LectureDocumentEntity[]> {
+    return this.docRepo.findDuplicatesInCourse(courseId, fileName, fileHash, excludeDocumentId);
+  }
+
   async createDocument(
     userId: string,
     name: string,

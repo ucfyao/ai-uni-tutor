@@ -9,7 +9,7 @@ import type {
   CardConversationEntity,
   CreateCardConversationDTO,
 } from '@/lib/domain/models/CardConversation';
-import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
+import type { KnowledgeCardEntity, KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
 import type { CreateUserCardDTO, UserCardEntity } from '@/lib/domain/models/UserCard';
 import { generateEmbeddingBatch } from '@/lib/rag/embedding';
 import type { KnowledgePoint } from '@/lib/rag/parsers/types';
@@ -41,9 +41,13 @@ export class KnowledgeCardService {
    * Save extracted knowledge points as cards (called during document upload).
    * Deduplicates by title — existing cards are updated, new ones created.
    * Generates embeddings in batches for performance.
+   * Returns a map from KP title → card ID for linking in chunk metadata.
    */
-  async saveFromKnowledgePoints(points: KnowledgePoint[]): Promise<void> {
-    if (points.length === 0) return;
+  async saveFromKnowledgePoints(
+    points: KnowledgePoint[],
+  ): Promise<Map<string, string>> {
+    const titleToCardId = new Map<string, string>();
+    if (points.length === 0) return titleToCardId;
 
     const BATCH_SIZE = 5;
 
@@ -52,7 +56,7 @@ export class KnowledgeCardService {
       const texts = batch.map((p) => [p.title, p.content].join('\n'));
       const embeddings = await generateEmbeddingBatch(texts, BATCH_SIZE);
 
-      await Promise.all(
+      const cards = await Promise.all(
         batch.map((point, j) =>
           this.knowledgeCardRepo.upsertByTitle({
             title: point.title,
@@ -62,7 +66,20 @@ export class KnowledgeCardService {
           }),
         ),
       );
+
+      for (const card of cards) {
+        titleToCardId.set(card.title, card.id);
+      }
     }
+
+    return titleToCardId;
+  }
+
+  /**
+   * Find knowledge cards by their IDs.
+   */
+  async findByIds(ids: string[]): Promise<KnowledgeCardEntity[]> {
+    return this.knowledgeCardRepo.findByIds(ids);
   }
 
   /**
@@ -78,6 +95,28 @@ export class KnowledgeCardService {
       definition: c.definition,
       keyConcepts: c.keyConcepts,
     }));
+  }
+
+  /**
+   * Update a knowledge card's fields (called from admin UI).
+   */
+  async updateCard(
+    cardId: string,
+    data: {
+      title?: string;
+      definition?: string;
+      keyFormulas?: string[];
+      keyConcepts?: string[];
+      examples?: string[];
+    },
+  ): Promise<KnowledgeCardEntity> {
+    return this.knowledgeCardRepo.updateCard(cardId, {
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.definition !== undefined && { definition: data.definition }),
+      ...(data.keyFormulas !== undefined && { key_formulas: data.keyFormulas }),
+      ...(data.keyConcepts !== undefined && { key_concepts: data.keyConcepts }),
+      ...(data.examples !== undefined && { examples: data.examples }),
+    });
   }
 
   // ---- User card CRUD ----

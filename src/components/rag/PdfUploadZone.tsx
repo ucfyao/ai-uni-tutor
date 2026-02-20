@@ -1,9 +1,12 @@
 'use client';
 
-import { AlertTriangle, Check, FileText, Loader2, Upload } from 'lucide-react';
+import { AlertTriangle, Check, CircleAlert, FileText, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Button, Group, Progress, Stack, Text } from '@mantine/core';
+import { Badge, Box, Button, Group, Progress, ScrollArea, Stack, Text } from '@mantine/core';
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
+import { modals } from '@mantine/modals';
+import { checkDuplicateDocuments, type DuplicateMatch } from '@/app/actions/documents';
+import type { PipelineLogEntry } from '@/hooks/useStreamingParse';
 import { useStreamingParse } from '@/hooks/useStreamingParse';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -45,12 +48,6 @@ function getProgressPercent(
   }
   return 0;
 }
-
-const ITEM_LABEL: Record<string, 'knowledgePoints' | 'questions'> = {
-  lecture: 'knowledgePoints',
-  exam: 'questions',
-  assignment: 'questions',
-};
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -135,6 +132,122 @@ function StepIndicator({
   );
 }
 
+/* ── Pipeline log ── */
+
+const LOG_ICON_SIZE = 10;
+const LOG_COLORS: Record<PipelineLogEntry['level'], string> = {
+  info: 'var(--mantine-color-indigo-5)',
+  success: 'var(--mantine-color-teal-5)',
+  warning: 'var(--mantine-color-yellow-6)',
+  error: 'var(--mantine-color-red-5)',
+};
+
+function LogIcon({ level }: { level: PipelineLogEntry['level'] }) {
+  if (level === 'success') return <Check size={LOG_ICON_SIZE} color={LOG_COLORS.success} strokeWidth={3} />;
+  if (level === 'warning') return <CircleAlert size={LOG_ICON_SIZE} color={LOG_COLORS.warning} strokeWidth={2.5} />;
+  if (level === 'error') return <AlertTriangle size={LOG_ICON_SIZE} color={LOG_COLORS.error} strokeWidth={2.5} />;
+  return (
+    <Box
+      style={{
+        width: 5,
+        height: 5,
+        borderRadius: '50%',
+        background: LOG_COLORS.info,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+function formatElapsed(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function PipelineLog({
+  logs,
+  isBusy,
+}: {
+  logs: PipelineLogEntry[];
+  isBusy: boolean;
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight, behavior: 'smooth' });
+  }, [logs.length]);
+
+  if (logs.length === 0) return null;
+
+  return (
+    <ScrollArea.Autosize
+      mah={120}
+      viewportRef={viewportRef}
+      style={{
+        borderRadius: 'var(--mantine-radius-sm)',
+        background: 'var(--mantine-color-dark-8, var(--mantine-color-gray-0))',
+        border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+      }}
+    >
+      <Stack gap={1} px={8} py={6}>
+        {logs.map((entry) => (
+          <Group key={entry.id} gap={6} wrap="nowrap" align="flex-start">
+            <Box mt={3} style={{ flexShrink: 0 }}>
+              <LogIcon level={entry.level} />
+            </Box>
+            <Text
+              size="xs"
+              c={entry.level === 'error' ? 'red' : entry.level === 'warning' ? 'yellow' : 'dimmed'}
+              style={{ fontFamily: 'var(--mantine-font-family-monospace)', fontSize: 11, lineHeight: 1.5 }}
+            >
+              <Text span c="dimmed" style={{ fontSize: 10 }}>
+                {formatElapsed(entry.timestamp)}
+              </Text>{' '}
+              {entry.message}
+            </Text>
+          </Group>
+        ))}
+        {isBusy && logs.length > 0 && (
+          <Group gap={6} wrap="nowrap">
+            <Box mt={3} style={{ flexShrink: 0 }}>
+              <Loader2
+                size={LOG_ICON_SIZE}
+                color={LOG_COLORS.info}
+                strokeWidth={2.5}
+                style={{ animation: 'spin 1s linear infinite' }}
+              />
+            </Box>
+            <Text size="xs" c="dimmed" style={{ fontSize: 11 }}>...</Text>
+          </Group>
+        )}
+      </Stack>
+    </ScrollArea.Autosize>
+  );
+}
+
+async function computeFileHash(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function getDuplicateMatchLabel(
+  matchType: DuplicateMatch['matchType'],
+  t: ReturnType<typeof useLanguage>['t'],
+): string {
+  if (matchType === 'both') return t.knowledge.duplicateMatchBoth;
+  if (matchType === 'name') return t.knowledge.duplicateMatchName;
+  return t.knowledge.duplicateMatchHash;
+}
+
+function getDuplicateMatchColor(matchType: DuplicateMatch['matchType']): string {
+  if (matchType === 'both') return 'red';
+  if (matchType === 'name') return 'yellow';
+  return 'orange';
+}
+
 export function PdfUploadZone({
   documentId,
   docType,
@@ -146,11 +259,10 @@ export function PdfUploadZone({
   const { t } = useLanguage();
   const parseState = useStreamingParse();
   const completeFiredRef = useRef(false);
-  const lastProgressTextRef = useRef<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   const isActive = parseState.status !== 'idle';
-  const itemLabel = ITEM_LABEL[docType] ?? 'knowledgePoints';
 
   // Fire onParseComplete once when status transitions to 'complete'
   useEffect(() => {
@@ -160,25 +272,149 @@ export function PdfUploadZone({
     }
     if (parseState.status === 'idle') {
       completeFiredRef.current = false;
-      lastProgressTextRef.current = null;
       setSelectedFile(null);
     }
   }, [parseState.status, onParseComplete]);
 
-  const handleDrop = useCallback(
-    (files: File[]) => {
-      const file = files[0];
-      if (!file) return;
-
+  const startParseFile = useCallback(
+    (file: File, opts?: { reparse?: boolean; append?: boolean }) => {
       setSelectedFile({ name: file.name, size: file.size });
       completeFiredRef.current = false;
       parseState.startParse(file, {
         documentId,
         docType,
         courseId,
+        reparse: opts?.reparse || undefined,
+        append: opts?.append || undefined,
       });
     },
     [parseState, documentId, docType, courseId],
+  );
+
+  const proceedWithUpload = useCallback(
+    (file: File) => {
+      if (existingItemCount > 0) {
+        modals.open({
+          title: t.knowledge.reparseConfirm,
+          children: (
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">
+                {t.knowledge.reparseConfirmBody.replace('{count}', String(existingItemCount))}
+              </Text>
+              <Stack gap="xs">
+                <Button
+                  variant="light"
+                  color="red"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<RefreshCw size={16} />}
+                  styles={{ label: { flex: 1 } }}
+                  onClick={() => {
+                    modals.closeAll();
+                    startParseFile(file, { reparse: true });
+                  }}
+                >
+                  <Stack gap={0} align="flex-start">
+                    <Text size="sm" fw={600}>{t.knowledge.reparseReplaceAll}</Text>
+                    <Text size="xs" c="dimmed" fw={400}>{t.knowledge.reparseReplaceAllDesc}</Text>
+                  </Stack>
+                </Button>
+                <Button
+                  variant="light"
+                  color="indigo"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<Upload size={16} />}
+                  styles={{ label: { flex: 1 } }}
+                  onClick={() => {
+                    modals.closeAll();
+                    startParseFile(file, { append: true });
+                  }}
+                >
+                  <Stack gap={0} align="flex-start">
+                    <Text size="sm" fw={600}>{t.knowledge.reparseAppend}</Text>
+                    <Text size="xs" c="dimmed" fw={400}>{t.knowledge.reparseAppendDesc}</Text>
+                  </Stack>
+                </Button>
+              </Stack>
+            </Stack>
+          ),
+        });
+      } else {
+        startParseFile(file);
+      }
+    },
+    [existingItemCount, startParseFile, t],
+  );
+
+  const handleDrop = useCallback(
+    async (files: File[]) => {
+      const file = files[0];
+      if (!file) return;
+
+      // Course-level duplicate check before parsing
+      if (courseId) {
+        setCheckingDuplicate(true);
+        try {
+          const fileHash = await computeFileHash(file);
+          const { duplicates } = await checkDuplicateDocuments({
+            courseId,
+            fileName: file.name,
+            fileHash,
+            excludeDocumentId: documentId,
+          });
+
+          if (duplicates.length > 0) {
+            modals.open({
+              title: t.knowledge.duplicateDetected,
+              children: (
+                <Stack gap="md">
+                  <Text size="sm" c="dimmed">
+                    {t.knowledge.duplicateWarning}
+                  </Text>
+                  <Stack gap={4}>
+                    {duplicates.map((d) => (
+                      <Group key={d.id} gap="xs" wrap="nowrap">
+                        <FileText size={14} style={{ flexShrink: 0 }} color="var(--mantine-color-dimmed)" />
+                        <Text size="sm" truncate style={{ minWidth: 0 }}>
+                          {d.name}
+                        </Text>
+                        <Badge size="xs" color={getDuplicateMatchColor(d.matchType)} variant="light">
+                          {getDuplicateMatchLabel(d.matchType, t)}
+                        </Badge>
+                      </Group>
+                    ))}
+                  </Stack>
+                  <Group justify="flex-end" gap="xs">
+                    <Button variant="default" size="sm" onClick={() => modals.closeAll()}>
+                      {t.documentDetail.cancel}
+                    </Button>
+                    <Button
+                      color="indigo"
+                      size="sm"
+                      onClick={() => {
+                        modals.closeAll();
+                        proceedWithUpload(file);
+                      }}
+                    >
+                      {t.knowledge.continueUpload}
+                    </Button>
+                  </Group>
+                </Stack>
+              ),
+            });
+            return;
+          }
+        } catch (err) {
+          console.warn('Duplicate check failed (non-fatal):', err);
+        } finally {
+          setCheckingDuplicate(false);
+        }
+      }
+
+      proceedWithUpload(file);
+    },
+    [courseId, documentId, proceedWithUpload, t],
   );
 
   const handleReject = useCallback(() => {
@@ -213,44 +449,6 @@ export function PdfUploadZone({
       : STAGE_INDEX[stage] ?? 0;
 
     const progressColor = isError ? 'red' : isComplete ? 'teal' : 'indigo';
-
-    // Progress text (persisted across error transitions)
-    const progressText = (() => {
-      if (stage === 'parsing_pdf') {
-        return t.knowledge.parseStepReading;
-      }
-      if (stage === 'extracting') {
-        if (parseState.items.length > 0) {
-          return `${parseState.items.length} ${t.documentDetail[itemLabel]}`;
-        }
-        const pages = parseState.pipelineDetail?.totalPages;
-        if (pages) {
-          return `${t.knowledge.parseDetailExtracting} (${pages} ${t.knowledge.parseStepPages})`;
-        }
-        return t.knowledge.parseDetailExtracting;
-      }
-      if (stage === 'embedding') {
-        const { current, total } = parseState.progress;
-        if (total > 0) {
-          return `${t.knowledge.parseDetailEmbedding} ${current}/${total}`;
-        }
-        return t.knowledge.parseDetailEmbedding;
-      }
-      if (isComplete) {
-        return `${parseState.items.length} ${t.documentDetail[itemLabel]}`;
-      }
-      if (isError) {
-        return lastProgressTextRef.current;
-      }
-      return null;
-    })();
-
-    // Keep the ref up-to-date with the latest non-error progress text
-    if (!isError && progressText) {
-      lastProgressTextRef.current = progressText;
-    }
-
-    const errorText = isError ? (parseState.error || t.knowledge.parseFailed) : null;
 
     return (
       <Box
@@ -309,40 +507,31 @@ export function PdfUploadZone({
             striped={stage === 'extracting' && parseState.items.length === 0}
           />
 
-          {/* Row 4: detail text + actions */}
-          <Group gap="xs" justify="space-between" wrap="nowrap">
-            {progressText && (
-              <Text size="xs" c={isError ? 'dimmed' : isComplete ? 'teal.7' : 'dimmed'} fw={500}>
-                {progressText}
-              </Text>
-            )}
-            {(isError || isComplete) && (
-              <Group gap="xs" style={{ flexShrink: 0 }}>
-                {isError && (
-                  <Button
-                    variant="light"
-                    color="indigo"
-                    size="compact-xs"
-                    onClick={() => parseState.retry()}
-                  >
-                    {t.knowledge.retryProcessing}
-                  </Button>
-                )}
+          {/* Row 4: pipeline log */}
+          <PipelineLog logs={parseState.pipelineLogs} isBusy={isBusy} />
+
+          {/* Row 5: actions */}
+          {(isError || isComplete) && (
+            <Group gap="xs" justify="flex-end">
+              {isError && (
                 <Button
-                  variant="subtle"
-                  color="gray"
+                  variant="light"
+                  color="indigo"
                   size="compact-xs"
-                  onClick={() => parseState.reset()}
+                  onClick={() => parseState.retry()}
                 >
-                  {t.knowledge.uploadAnother}
+                  {t.knowledge.retryProcessing}
                 </Button>
-              </Group>
-            )}
-          </Group>
-          {errorText && (
-            <Text size="xs" c="red" fw={500}>
-              {errorText}
-            </Text>
+              )}
+              <Button
+                variant="subtle"
+                color="gray"
+                size="compact-xs"
+                onClick={() => parseState.reset()}
+              >
+                {t.knowledge.uploadAnother}
+              </Button>
+            </Group>
           )}
         </Stack>
       </Box>
@@ -357,7 +546,7 @@ export function PdfUploadZone({
       maxSize={MAX_FILE_SIZE}
       accept={PDF_MIME_TYPE}
       multiple={false}
-      disabled={disabled || isBusy}
+      disabled={disabled || isBusy || checkingDuplicate}
       radius="md"
       py="xl"
       style={{
@@ -365,25 +554,40 @@ export function PdfUploadZone({
         borderStyle: 'dashed',
         borderWidth: 1,
         background: 'var(--mantine-color-indigo-0)',
-        cursor: 'pointer',
+        cursor: checkingDuplicate ? 'wait' : 'pointer',
       }}
     >
       <Stack align="center" gap={6} style={{ pointerEvents: 'none' }}>
-        <Dropzone.Accept>
-          <Upload size={28} color="var(--mantine-color-indigo-6)" />
-        </Dropzone.Accept>
-        <Dropzone.Reject>
-          <FileText size={28} color="var(--mantine-color-red-6)" />
-        </Dropzone.Reject>
-        <Dropzone.Idle>
-          <Upload size={28} color="var(--mantine-color-indigo-4)" />
-        </Dropzone.Idle>
-        <Text size="sm" c="dimmed" ta="center">
-          {t.knowledge.dropPdfHere}
-        </Text>
-        <Text size="xs" c="dimmed">
-          PDF, max 20MB
-        </Text>
+        {checkingDuplicate ? (
+          <>
+            <Loader2
+              size={28}
+              color="var(--mantine-color-indigo-4)"
+              style={{ animation: 'spin 1s linear infinite' }}
+            />
+            <Text size="sm" c="dimmed" ta="center">
+              {t.knowledge.checkingDuplicate}
+            </Text>
+          </>
+        ) : (
+          <>
+            <Dropzone.Accept>
+              <Upload size={28} color="var(--mantine-color-indigo-6)" />
+            </Dropzone.Accept>
+            <Dropzone.Reject>
+              <FileText size={28} color="var(--mantine-color-red-6)" />
+            </Dropzone.Reject>
+            <Dropzone.Idle>
+              <Upload size={28} color="var(--mantine-color-indigo-4)" />
+            </Dropzone.Idle>
+            <Text size="sm" c="dimmed" ta="center">
+              {t.knowledge.dropPdfHere}
+            </Text>
+            <Text size="xs" c="dimmed">
+              PDF, max 20MB
+            </Text>
+          </>
+        )}
       </Stack>
     </Dropzone>
   );

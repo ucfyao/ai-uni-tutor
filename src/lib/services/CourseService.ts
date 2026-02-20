@@ -77,7 +77,6 @@ export class CourseService {
    */
   async regenerateCourseOutline(courseId: string): Promise<void> {
     const { getLectureDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
-    const { generateEmbedding } = await import('@/lib/rag/embedding');
 
     const docRepo = getLectureDocumentRepository();
     const docs = await docRepo.findOutlinesByCourseId(courseId);
@@ -120,16 +119,9 @@ export class CourseService {
       lastUpdated: new Date().toISOString(),
     };
 
-    const outlineText = courseOutline.topics
-      .map((t) => `${t.topic}: ${t.subtopics.join(', ')}`)
-      .join('\n')
-      .slice(0, 2000);
-
-    const embedding = await generateEmbedding(outlineText);
     await this.courseRepo.saveKnowledgeOutline(
       courseId,
       courseOutline as unknown as import('@/types/database').Json,
-      embedding,
     );
   }
 }

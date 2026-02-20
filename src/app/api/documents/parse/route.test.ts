@@ -22,15 +22,11 @@ vi.mock('@/lib/services/QuotaService', () => ({
 const mockDocumentService = {
   findById: vi.fn(),
   getChunks: vi.fn(),
+  getChunksWithEmbeddings: vi.fn(),
   saveChunksAndReturn: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
   getLectureDocumentService: () => mockDocumentService,
-}));
-
-const mockKnowledgeCardService = { saveFromKnowledgePoints: vi.fn() };
-vi.mock('@/lib/services/KnowledgeCardService', () => ({
-  getKnowledgeCardService: () => mockKnowledgeCardService,
 }));
 
 const mockParsePDF = vi.fn();
@@ -216,8 +212,8 @@ function setupSuccessfulParse() {
   mockQuotaService.enforce.mockResolvedValue(undefined);
   mockDocumentService.findById.mockResolvedValue({ id: DEFAULT_DOCUMENT_ID, courseId: null });
   mockDocumentService.getChunks.mockResolvedValue([]);
+  mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([]);
   mockDocumentService.saveChunksAndReturn.mockResolvedValue([{ id: 'chunk-1' }]);
-  mockKnowledgeCardService.saveFromKnowledgePoints.mockResolvedValue(undefined);
   mockParsePDF.mockResolvedValue({
     pages: [{ text: 'Some lecture content about algorithms' }],
   });
@@ -229,6 +225,7 @@ function setupSuccessfulParse() {
     sections: [MOCK_SECTION],
     knowledgePoints: [MOCK_KNOWLEDGE_POINT],
     outline: undefined,
+    warnings: [],
   });
   mockParseQuestions.mockResolvedValue([MOCK_QUESTION]);
   mockExamPaperRepo.findCourseId.mockResolvedValue(null);

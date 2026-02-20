@@ -10,6 +10,7 @@ export default async function LectureDetailPage({ params }: { params: Promise<{ 
   const doc = await service.findById(id);
   if (!doc) notFound();
   const chunks = await service.getChunks(id);
+
   return (
     <LectureDetailClient
       document={{ ...doc, createdAt: doc.createdAt.toISOString() }}

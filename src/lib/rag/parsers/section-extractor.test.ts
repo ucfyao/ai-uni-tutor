@@ -47,12 +47,12 @@ describe('section-extractor', () => {
       text: `Page ${i + 1} content about data structures`,
     }));
 
-    const result = await extractSections(pages);
+    const { sections } = await extractSections(pages);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].title).toBe('Binary Search Trees');
-    expect(result[0].knowledgePoints).toHaveLength(1);
-    expect(result[0].knowledgePoints[0].title).toBe('Binary Search Tree');
+    expect(sections).toHaveLength(1);
+    expect(sections[0].title).toBe('Binary Search Trees');
+    expect(sections[0].knowledgePoints).toHaveLength(1);
+    expect(sections[0].knowledgePoints[0].title).toBe('Binary Search Tree');
     // Always exactly 1 Gemini call, even for 100 pages
     expect(mockGemini.client.models.generateContent).toHaveBeenCalledTimes(1);
   });
@@ -71,24 +71,25 @@ describe('section-extractor', () => {
 
     const pages = [{ page: 1, text: 'Content' }];
 
-    const result = await extractSections(pages, controller.signal);
+    const { sections, warnings } = await extractSections(pages, controller.signal);
 
-    expect(result).toEqual([]);
+    expect(sections).toEqual([]);
+    expect(warnings).toEqual([]);
     expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
   });
 
-  it('returns empty array when Gemini returns no valid sections', async () => {
+  it('returns empty sections with warnings when Gemini returns invalid data', async () => {
     mockGemini.setGenerateJSON({ sections: [{ invalid: 'not a section' }] });
 
     const pages = [{ page: 1, text: 'Content' }];
-    const result = await extractSections(pages);
+    const { sections, warnings } = await extractSections(pages);
 
-    expect(result).toEqual([]);
+    expect(sections).toEqual([]);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.some((w) => w.includes('validation failed'))).toBe(true);
   });
 
-  it('validates sections with Zod and rejects invalid structures', async () => {
-    // The outer schema requires sections array with min(1) valid items.
-    // If sections contain invalid items, the whole parse fails and returns [].
+  it('validates sections with Zod and returns valid ones', async () => {
     mockGemini.setGenerateJSON({
       sections: [
         {
@@ -103,9 +104,35 @@ describe('section-extractor', () => {
     });
 
     const pages = [{ page: 1, text: 'Content' }];
-    const result = await extractSections(pages);
+    const { sections, warnings } = await extractSections(pages);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].title).toBe('Valid Section');
+    expect(sections).toHaveLength(1);
+    expect(sections[0].title).toBe('Valid Section');
+    expect(warnings).toEqual([]);
+  });
+
+  it('coerces string sourcePages to arrays', async () => {
+    mockGemini.setGenerateJSON({
+      sections: [
+        {
+          title: 'Section with string pages',
+          summary: 'Gemini returned sourcePages as string',
+          sourcePages: '4-8',
+          knowledgePoints: [
+            { title: 'KP One', content: 'Content here', sourcePages: '4, 5' },
+            { title: 'KP Two', content: 'More content', sourcePages: '7' },
+          ],
+        },
+      ],
+    });
+
+    const pages = [{ page: 1, text: 'Content' }];
+    const { sections, warnings } = await extractSections(pages);
+
+    expect(sections).toHaveLength(1);
+    expect(warnings).toEqual([]);
+    expect(sections[0].sourcePages).toEqual([4, 5, 6, 7, 8]);
+    expect(sections[0].knowledgePoints[0].sourcePages).toEqual([4, 5]);
+    expect(sections[0].knowledgePoints[1].sourcePages).toEqual([7]);
   });
 });

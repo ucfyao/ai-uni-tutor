@@ -202,6 +202,9 @@ export async function updateDocumentChunks(
   }
   for (const update of updates) {
     await documentService.updateChunk(update.id, update.content, update.metadata as Json);
+    // Regenerate embedding when content changes
+    const embedding = await generateEmbeddingWithRetry(update.content);
+    await documentService.updateChunkEmbedding(update.id, embedding);
   }
 
   revalidatePath(`/admin/knowledge/${documentId}`);
@@ -436,6 +439,12 @@ export async function createLecture(
     const uni = await getUniversityRepository().findById(parsed.universityId);
 
     const service = getLectureDocumentService();
+
+    const isDuplicate = await service.checkDuplicateInCourse(parsed.courseId, parsed.title);
+    if (isDuplicate) {
+      return { success: false, error: 'A lecture with this title already exists in the course' };
+    }
+
     const doc = await service.createDocument(
       user.id,
       parsed.title,
@@ -551,15 +560,62 @@ export async function unpublishDocument(
   }
 }
 
+// ── Duplicate check ──
+
+const checkDuplicateSchema = z.object({
+  courseId: z.string().uuid(),
+  fileName: z.string().min(1),
+  fileHash: z.string().optional(),
+  excludeDocumentId: z.string().uuid().optional(),
+});
+
+export interface DuplicateMatch {
+  id: string;
+  name: string;
+  createdAt: string;
+  matchType: 'name' | 'hash' | 'both';
+}
+
+export async function checkDuplicateDocuments(
+  input: z.infer<typeof checkDuplicateSchema>,
+): Promise<{ duplicates: DuplicateMatch[] }> {
+  await requireAnyAdmin();
+
+  const parsed = checkDuplicateSchema.parse(input);
+  await requireCourseAdmin(parsed.courseId);
+
+  const service = getLectureDocumentService();
+  const dupes = await service.findDuplicatesInCourse(
+    parsed.courseId,
+    parsed.fileName,
+    parsed.fileHash,
+    parsed.excludeDocumentId,
+  );
+
+  return {
+    duplicates: dupes.map((doc) => {
+      const meta = doc.metadata as Record<string, unknown> | null;
+      const nameMatch = doc.name === parsed.fileName;
+      const hashMatch = !!parsed.fileHash && meta?.file_hash === parsed.fileHash;
+      const matchType: DuplicateMatch['matchType'] =
+        nameMatch && hashMatch ? 'both' : nameMatch ? 'name' : 'hash';
+      return {
+        id: doc.id,
+        name: doc.name,
+        createdAt: doc.createdAt.toISOString(),
+        matchType,
+      };
+    }),
+  };
+}
+
 // ── Add individual items ──
 
 const addChunkSchema = z.object({
   documentId: z.string().uuid(),
   title: z.string().min(1),
-  definition: z.string().min(1),
-  keyFormulas: z.array(z.string()).optional(),
-  keyConcepts: z.array(z.string()).optional(),
-  examples: z.array(z.string()).optional(),
+  content: z.string().min(1),
+  summary: z.string().optional().default(''),
 });
 
 export async function addDocumentChunk(
@@ -572,17 +628,21 @@ export async function addDocumentChunk(
     await requireLectureAccess(parsed.documentId, user.id, role);
 
     const service = getLectureDocumentService();
-    const metadata: Record<string, unknown> = {
-      title: parsed.title,
-      definition: parsed.definition,
-    };
-    if (parsed.keyFormulas?.length) metadata.keyFormulas = parsed.keyFormulas;
-    if (parsed.keyConcepts?.length) metadata.keyConcepts = parsed.keyConcepts;
-    if (parsed.examples?.length) metadata.examples = parsed.examples;
 
-    const content = `${parsed.title}\n\n${parsed.definition}`;
+    // Use the same format as parsed sections
+    const metadata: Record<string, unknown> = {
+      type: 'section',
+      title: parsed.title,
+      summary: parsed.summary,
+      sourcePages: [],
+      knowledgePoints: [],
+    };
+
+    const content = [`## ${parsed.title}`, parsed.summary, '', parsed.content].join('\n');
+    const embedding = await generateEmbeddingWithRetry(content);
+
     const ids = await service.saveChunksAndReturn([
-      { lectureDocumentId: parsed.documentId, content, metadata: metadata as Json },
+      { lectureDocumentId: parsed.documentId, content, embedding, metadata: metadata as Json },
     ]);
 
     revalidatePath(`/admin/lectures/${parsed.documentId}`);
@@ -591,7 +651,7 @@ export async function addDocumentChunk(
     if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
     if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
     console.error('addDocumentChunk error:', error);
-    return { success: false, error: 'Failed to add knowledge point' };
+    return { success: false, error: 'Failed to add section' };
   }
 }
 

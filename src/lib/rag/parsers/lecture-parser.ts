@@ -16,18 +16,14 @@ interface ParseLectureOptions {
 
 function reportProgress(
   options: ParseLectureOptions | undefined,
-  phase: PipelineProgress['phase'],
   phaseProgress: number,
   detail: string,
   extra?: { totalPages?: number; knowledgePointCount?: number },
 ) {
   if (!options?.onProgress) return;
-  const phaseWeights: Record<PipelineProgress['phase'], { start: number; weight: number }> = {
-    extraction: { start: 0, weight: 100 },
-  };
-  const { start, weight } = phaseWeights[phase];
-  const totalProgress = Math.round(start + (phaseProgress / 100) * weight);
-  options.onProgress({ phase, phaseProgress, totalProgress, detail, ...extra });
+  // lecture-parser only reports extraction phase; route.ts sends the other phases directly
+  const totalProgress = Math.round((phaseProgress / 100) * 30); // extraction = 0-30% of total
+  options.onProgress({ phase: 'extraction', phaseProgress, totalProgress, detail, ...extra });
 }
 
 function buildOutlineFromSections(
@@ -48,6 +44,7 @@ function buildOutlineFromSections(
       knowledgePointDetails: s.knowledgePoints.map((kp) => ({
         title: kp.title,
         content: kp.content,
+        sourcePages: kp.sourcePages,
       })),
     })),
     summary: `${sections.length} sections, ${totalKP} knowledge points.`,
@@ -62,22 +59,23 @@ export async function parseLectureMultiPass(
   pages: PDFPage[],
   options?: ParseLectureOptions,
 ): Promise<ParseLectureResult> {
-  reportProgress(options, 'extraction', 0, 'Extracting sections...', {
+  reportProgress(options, 0, `Sending ${pages.length} pages to AI...`, {
     totalPages: pages.length,
   });
 
-  const sections = await extractSections(pages, options?.signal);
+  const extraction = await extractSections(pages, options?.signal);
+  const { sections, warnings } = extraction;
 
   const totalKP = sections.reduce((sum, s) => sum + s.knowledgePoints.length, 0);
   if (sections.length === 0) {
-    reportProgress(options, 'extraction', 100, 'No content found', {
+    reportProgress(options, 100, 'No content found', {
       totalPages: pages.length,
       knowledgePointCount: 0,
     });
-    return { sections: [], knowledgePoints: [] };
+    return { sections: [], knowledgePoints: [], warnings };
   }
 
-  reportProgress(options, 'extraction', 100, `Extracted ${totalKP} knowledge points`, {
+  reportProgress(options, 100, `Extracted ${sections.length} sections, ${totalKP} knowledge points`, {
     totalPages: pages.length,
     knowledgePointCount: totalKP,
   });
@@ -95,7 +93,7 @@ export async function parseLectureMultiPass(
     })),
   );
 
-  return { sections, knowledgePoints, outline };
+  return { sections, knowledgePoints, outline, warnings };
 }
 
 export async function parseLecture(

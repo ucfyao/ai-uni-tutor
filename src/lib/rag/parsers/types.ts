@@ -32,6 +32,7 @@ export interface OutlineSection {
   knowledgePointDetails?: {
     title: string;
     content: string;
+    sourcePages?: number[];
   }[];
 }
 
@@ -70,4 +71,5 @@ export interface ParseLectureResult {
   sections: ExtractedSection[];
   knowledgePoints: KnowledgePoint[];
   outline?: DocumentOutline;
+  warnings: string[];
 }
