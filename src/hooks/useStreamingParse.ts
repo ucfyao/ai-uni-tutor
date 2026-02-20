@@ -26,6 +26,13 @@ interface StageTime {
   end?: number;
 }
 
+interface PipelineDetail {
+  phase: string;
+  totalPages?: number;
+  knowledgePointCount?: number;
+  detail?: string;
+}
+
 interface StreamingParseState {
   startParse: (file: File, metadata: ParseMetadata) => void;
   retry: () => void;
@@ -36,6 +43,7 @@ interface StreamingParseState {
   error: string | null;
   errorCode: string | null;
   documentId: string | null;
+  pipelineDetail: PipelineDetail | null;
   stageTimes: Record<string, StageTime>;
   reset: () => void;
 }
@@ -48,6 +56,7 @@ export function useStreamingParse(): StreamingParseState {
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
+  const [pipelineDetail, setPipelineDetail] = useState<PipelineDetail | null>(null);
   const [stageTimes, setStageTimes] = useState<Record<string, StageTime>>({});
   const abortRef = useRef<AbortController | null>(null);
   const currentStageRef = useRef<string | null>(null);
@@ -63,6 +72,7 @@ export function useStreamingParse(): StreamingParseState {
     setError(null);
     setErrorCode(null);
     setDocumentId(null);
+    setPipelineDetail(null);
     setStageTimes({});
     currentStageRef.current = null;
   }, []);
@@ -79,6 +89,7 @@ export function useStreamingParse(): StreamingParseState {
     setError(null);
     setErrorCode(null);
     setDocumentId(metadata.documentId);
+    setPipelineDetail(null);
     const initialTime = Date.now();
     setStageTimes({ parsing_pdf: { start: initialTime } });
     currentStageRef.current = 'parsing_pdf';
@@ -202,6 +213,16 @@ export function useStreamingParse(): StreamingParseState {
           setProgress(progressData);
           break;
         }
+        case 'pipeline_progress': {
+          const detail = data as Record<string, unknown>;
+          setPipelineDetail({
+            phase: detail.phase as string,
+            totalPages: detail.totalPages as number | undefined,
+            knowledgePointCount: detail.knowledgePointCount as number | undefined,
+            detail: detail.detail as string | undefined,
+          });
+          break;
+        }
         case 'error': {
           const errorData = data as SSEEventMap['error'];
           setStatus('error');
@@ -229,6 +250,7 @@ export function useStreamingParse(): StreamingParseState {
     error,
     errorCode,
     documentId,
+    pipelineDetail,
     stageTimes,
     reset,
   };
