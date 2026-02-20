@@ -1,15 +1,15 @@
 'use client';
 
+import { Check, RefreshCw, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, ScrollArea, Stack } from '@mantine/core';
+import { Box, Button, Card, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { addAssignmentItem } from '@/app/actions/assignments';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { updateDocumentMeta } from '@/app/actions/documents';
+import { regenerateEmbeddings, updateDocumentChunks, updateDocumentMeta } from '@/app/actions/documents';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
-import { ChunkActionBar } from './ChunkActionBar';
 import { ChunkTable } from './ChunkTable';
 import { DocumentDetailHeader } from './DocumentDetailHeader';
 import type { Chunk, DocType, SerializedDocument } from './types';
@@ -127,11 +127,63 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
     setSelectedIds(new Set());
   }, [selectedIds]);
 
-  const handleSaved = useCallback(() => {
-    setEditedChunks(new Map());
-    setDeletedChunkIds(new Set());
-    setSelectedIds(new Set());
-  }, []);
+  /* -- save & regenerate -- */
+  const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const updates = Array.from(editedChunks.entries()).map(([id, data]) => ({
+        id,
+        content: data.content,
+        metadata: data.metadata,
+      }));
+      const deletedArr = Array.from(deletedChunkIds);
+      const result = await updateDocumentChunks(doc.id, updates, deletedArr);
+      if (result.status === 'success') {
+        showNotification({
+          message: t.toast.changesSaved,
+          color: 'green',
+          icon: <Check size={16} />,
+          autoClose: 3000,
+        });
+        setEditedChunks(new Map());
+        setDeletedChunkIds(new Set());
+        setSelectedIds(new Set());
+      } else {
+        showNotification({ title: t.knowledge.error, message: result.message, color: 'red' });
+      }
+    } catch {
+      showNotification({
+        title: t.knowledge.error,
+        message: t.documentDetail.failedToSave,
+        color: 'red',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [doc.id, editedChunks, deletedChunkIds, t]);
+
+  const handleRegenerate = useCallback(async () => {
+    setRegenerating(true);
+    try {
+      const result = await regenerateEmbeddings(doc.id);
+      if (result.status === 'success') {
+        showNotification({ title: t.knowledge.success, message: result.message, color: 'green' });
+      } else {
+        showNotification({ title: t.knowledge.error, message: result.message, color: 'red' });
+      }
+    } catch {
+      showNotification({
+        title: t.knowledge.error,
+        message: t.documentDetail.failedToRegenerate,
+        color: 'red',
+      });
+    } finally {
+      setRegenerating(false);
+    }
+  }, [doc.id, t]);
 
   /* -- add item handler (assignment only) -- */
   const handleAddItem = useCallback(
@@ -234,14 +286,46 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
           />
 
           {/* Sticky footer */}
-          <ChunkActionBar
-            docId={doc.id}
-            docType={docType}
-            pendingChanges={pendingChanges}
-            editedChunks={editedChunks}
-            deletedChunkIds={deletedChunkIds}
-            onSaved={handleSaved}
-          />
+          <Card
+            withBorder
+            radius="lg"
+            p="md"
+            style={{ position: 'sticky', bottom: 0, zIndex: 10 }}
+            bg="var(--mantine-color-body)"
+          >
+            <Group justify="space-between">
+              <Text size="sm" c="dimmed">
+                {pendingChanges > 0
+                  ? `${pendingChanges} ${t.documentDetail.pendingChanges}`
+                  : t.documentDetail.noChanges}
+              </Text>
+              <Group gap="sm">
+                {docType === 'lecture' && (
+                  <Button
+                    variant="light"
+                    color="gray"
+                    leftSection={<RefreshCw size={16} />}
+                    loading={regenerating}
+                    disabled={regenerating}
+                    onClick={handleRegenerate}
+                    radius="md"
+                  >
+                    {t.documentDetail.regenerateEmbeddings}
+                  </Button>
+                )}
+                <Button
+                  color="indigo"
+                  leftSection={<Save size={16} />}
+                  loading={saving}
+                  disabled={pendingChanges === 0 || saving}
+                  onClick={handleSave}
+                  radius="md"
+                >
+                  {t.documentDetail.saveChanges}
+                </Button>
+              </Group>
+            </Group>
+          </Card>
         </Stack>
       </ScrollArea>
     </Box>

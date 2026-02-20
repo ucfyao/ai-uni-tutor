@@ -1,25 +1,26 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { Check, Save, Send, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, ScrollArea, Stack } from '@mantine/core';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Box, Button, Card, Group, Modal, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import {
   addExamQuestion,
   deleteDocument,
   publishDocument,
   unpublishDocument,
+  updateExamQuestions,
 } from '@/app/actions/documents';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { ExamPaper, ExamQuestion } from '@/types/exam';
-import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
 import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
 import type { Chunk, DocType } from '../../knowledge/[id]/types';
@@ -156,11 +157,43 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
     setSelectedIds(new Set());
   }, [selectedIds]);
 
-  const handleSaved = useCallback(() => {
-    setEditedChunks(new Map());
-    setDeletedChunkIds(new Set());
-    setSelectedIds(new Set());
-  }, []);
+  /* -- save -- */
+  const [saving, setSaving] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const updates = Array.from(editedChunks.entries()).map(([id, data]) => ({
+        id,
+        content: data.content,
+        metadata: data.metadata,
+      }));
+      const deletedArr = Array.from(deletedChunkIds);
+      const result = await updateExamQuestions(paper.id, updates, deletedArr);
+      if (result.status === 'success') {
+        showNotification({
+          message: t.toast.changesSaved,
+          color: 'green',
+          icon: <Check size={16} />,
+          autoClose: 3000,
+        });
+        setEditedChunks(new Map());
+        setDeletedChunkIds(new Set());
+        setSelectedIds(new Set());
+      } else {
+        showNotification({ title: t.knowledge.error, message: result.message, color: 'red' });
+      }
+    } catch {
+      showNotification({
+        title: t.knowledge.error,
+        message: t.documentDetail.failedToSave,
+        color: 'red',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [paper.id, editedChunks, deletedChunkIds, t]);
 
   /* -- publish / unpublish / delete handlers -- */
   const handlePublish = useCallback(async () => {
@@ -297,20 +330,118 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
             onBulkDelete={handleBulkDelete}
             onAddItem={handleAddItem}
           />
-          <ChunkActionBar
-            docId={paper.id}
-            docType={docType}
-            pendingChanges={pendingChanges}
-            editedChunks={editedChunks}
-            deletedChunkIds={deletedChunkIds}
-            onSaved={handleSaved}
-            status={paper.status}
-            itemCount={visibleChunks.length}
-            onPublish={handlePublish}
-            onUnpublish={handleUnpublish}
-            onDelete={handleDeleteDoc}
-            isPublishing={isPublishing}
-          />
+          <Card
+            withBorder
+            radius="lg"
+            p="md"
+            style={{ position: 'sticky', bottom: 0, zIndex: 10 }}
+            bg="var(--mantine-color-body)"
+          >
+            <Group justify="space-between">
+              <Group gap="sm">
+                {paper.status === 'draft' && (
+                  <Tooltip
+                    label={
+                      visibleChunks.length === 0 ? t.knowledge.publishDisabledTooltip : undefined
+                    }
+                    disabled={visibleChunks.length !== 0}
+                  >
+                    <Button
+                      variant="light"
+                      color="green"
+                      size="compact-sm"
+                      leftSection={<Send size={14} />}
+                      loading={isPublishing}
+                      disabled={visibleChunks.length === 0}
+                      onClick={handlePublish}
+                      radius="md"
+                    >
+                      {t.documentDetail.publish}
+                    </Button>
+                  </Tooltip>
+                )}
+                {paper.status === 'ready' && (
+                  <Button
+                    variant="light"
+                    color="yellow"
+                    size="compact-sm"
+                    onClick={handleUnpublish}
+                    radius="md"
+                  >
+                    {t.documentDetail.unpublish}
+                  </Button>
+                )}
+                <Button
+                  variant="light"
+                  color="red"
+                  size="compact-sm"
+                  onClick={() => setDeleteModalOpen(true)}
+                  radius="md"
+                >
+                  <Trash2 size={14} />
+                </Button>
+                <Text size="sm" c="dimmed">
+                  {pendingChanges > 0
+                    ? `${pendingChanges} ${t.documentDetail.pendingChanges}`
+                    : t.documentDetail.noChanges}
+                </Text>
+              </Group>
+              <Button
+                color="indigo"
+                leftSection={<Save size={16} />}
+                loading={saving}
+                disabled={pendingChanges === 0 || saving}
+                onClick={handleSave}
+                radius="md"
+              >
+                {t.documentDetail.saveChanges}
+              </Button>
+            </Group>
+          </Card>
+
+          {/* Delete confirmation modal */}
+          <Modal
+            opened={deleteModalOpen}
+            onClose={() => setDeleteModalOpen(false)}
+            title={t.documentDetail.deleteDocument}
+            centered
+            size="sm"
+            radius="lg"
+          >
+            <Stack align="center" gap="md">
+              <Box
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: 'var(--mantine-color-red-0)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Trash2 size={22} color="var(--mantine-color-red-5)" />
+              </Box>
+              <Text fz="sm" ta="center">
+                {t.documentDetail.deleteDocConfirm}
+              </Text>
+            </Stack>
+            <Group justify="flex-end" mt="lg" gap="sm">
+              <Button variant="default" onClick={() => setDeleteModalOpen(false)} radius="md">
+                {t.common.cancel}
+              </Button>
+              <Button
+                color="red"
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  handleDeleteDoc();
+                }}
+                radius="md"
+              >
+                {t.common.delete}
+              </Button>
+            </Group>
+          </Modal>
         </Stack>
       </ScrollArea>
     </Box>

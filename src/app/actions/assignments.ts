@@ -1,10 +1,10 @@
 'use server';
 
 import { z } from 'zod';
+import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { ForbiddenError } from '@/lib/errors';
 import { getAssignmentService } from '@/lib/services/AssignmentService';
 import { requireAnyAdmin, requireAssignmentAccess } from '@/lib/supabase/server';
-import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import type { ActionResult } from '@/types/actions';
 
 // ── Schemas ──
@@ -103,11 +103,6 @@ const renameSchema = z.object({
   title: z.string().min(1).max(255),
 });
 
-const reorderSchema = z.object({
-  assignmentId: z.string().uuid(),
-  orderedIds: z.array(z.string().uuid()).min(1),
-});
-
 const fetchItemsSchema = z.object({
   assignmentId: z.string().uuid(),
 });
@@ -142,25 +137,6 @@ export async function renameAssignment(
     if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
     console.error('renameAssignment error:', error);
     return { success: false, error: 'Failed to rename assignment' };
-  }
-}
-
-export async function reorderAssignmentItems(
-  input: z.infer<typeof reorderSchema>,
-): Promise<ActionResult<null>> {
-  try {
-    const { user, role } = await requireAnyAdmin();
-    const parsed = reorderSchema.parse(input);
-    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
-
-    const service = getAssignmentService();
-    await service.reorder(parsed.assignmentId, parsed.orderedIds);
-    return { success: true, data: null };
-  } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
-    console.error('reorderAssignmentItems error:', error);
-    return { success: false, error: 'Failed to reorder items' };
   }
 }
 
@@ -204,9 +180,15 @@ export async function updateAssignmentItems(
     }
 
     for (const update of parsed.updates) {
+      const meta = update.metadata;
       await service.updateItem(update.id, {
         content: update.content,
-        metadata: update.metadata,
+        referenceAnswer: (meta.referenceAnswer as string) || undefined,
+        explanation: (meta.explanation as string) || undefined,
+        points: meta.points != null ? Number(meta.points) : undefined,
+        difficulty: (meta.difficulty as string) || undefined,
+        type: (meta.type as string) || undefined,
+        metadata: meta,
       });
       try {
         const { generateEmbeddingWithRetry } = await import('@/lib/rag/embedding');
@@ -225,6 +207,20 @@ export async function updateAssignmentItems(
   }
 }
 
+/**
+ * Save assignment item changes (3-arg signature, { status, message } return).
+ * Delegates to updateAssignmentItems internally.
+ */
+export async function saveAssignmentChanges(
+  assignmentId: string,
+  updates: { id: string; content: string; metadata: Record<string, unknown> }[],
+  deletedIds: string[],
+): Promise<{ status: 'success' | 'error'; message: string }> {
+  const result = await updateAssignmentItems({ assignmentId, updates, deletedIds });
+  if (result.success) return { status: 'success', message: 'Changes saved' };
+  return { status: 'error', message: result.error ?? 'Failed to save changes' };
+}
+
 export async function deleteAssignment(assignmentId: string): Promise<ActionResult<null>> {
   try {
     const { user, role } = await requireAnyAdmin();
@@ -236,5 +232,33 @@ export async function deleteAssignment(assignmentId: string): Promise<ActionResu
     if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
     console.error('deleteAssignment error:', error);
     return { success: false, error: 'Failed to delete assignment' };
+  }
+}
+
+export async function publishAssignment(assignmentId: string): Promise<ActionResult<null>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    await requireAssignmentAccess(assignmentId, user.id, role);
+    const service = getAssignmentService();
+    await service.publish(assignmentId);
+    return { success: true, data: null };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    console.error('publishAssignment error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to publish' };
+  }
+}
+
+export async function unpublishAssignment(assignmentId: string): Promise<ActionResult<null>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    await requireAssignmentAccess(assignmentId, user.id, role);
+    const service = getAssignmentService();
+    await service.unpublish(assignmentId);
+    return { success: true, data: null };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    console.error('unpublishAssignment error:', error);
+    return { success: false, error: 'Failed to unpublish' };
   }
 }
