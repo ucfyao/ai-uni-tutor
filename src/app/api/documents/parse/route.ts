@@ -137,35 +137,66 @@ export async function POST(request: Request) {
         return;
       }
 
-      // ── Check existing chunks (skip expensive LLM call if already parsed) ──
-      const existingChunks = await lectureService.getChunks(documentId);
-      if (existingChunks.length > 0 && !reparse && !append) {
+      // ── Check existing items (skip expensive LLM call if already parsed) ──
+      // Each doc_type checks its own table; exam/assignment have internal dedup so
+      // this gate is mainly for lectures to avoid redundant LLM calls.
+      let existingCount = 0;
+      if (doc_type === 'assignment') {
+        const { getAssignmentService } = await import('@/lib/services/AssignmentService');
+        const items = await getAssignmentService().getItems(documentId);
+        existingCount = items.length;
+      } else if (doc_type === 'exam') {
+        const questions = await getExamPaperRepository().findQuestionsByPaperId(documentId);
+        existingCount = questions.length;
+      } else {
+        const chunks = await lectureService.getChunks(documentId);
+        existingCount = chunks.length;
+      }
+
+      if (existingCount > 0 && !reparse && !append) {
         send('log', {
-          message: `Document already has ${existingChunks.length} sections. Use reparse or append to continue.`,
+          message: `Document already has ${existingCount} items. Use reparse or append to continue.`,
           level: 'info',
         });
         send('status', { stage: 'complete', message: 'Document already parsed.' });
         return;
       }
-      if (existingChunks.length > 0 && reparse) {
-        send('log', { message: `Deleting ${existingChunks.length} existing chunks for re-parse...`, level: 'info' });
-        await lectureService.deleteChunksByLectureDocumentId(documentId);
-        send('log', { message: 'Existing chunks deleted', level: 'success' });
+      if (existingCount > 0 && reparse) {
+        send('log', {
+          message: `Deleting ${existingCount} existing items for re-parse...`,
+          level: 'info',
+        });
+        if (doc_type === 'assignment') {
+          const { getAssignmentService } = await import('@/lib/services/AssignmentService');
+          await getAssignmentService().deleteItemsByAssignmentId(documentId);
+        } else if (doc_type === 'lecture') {
+          await lectureService.deleteChunksByLectureDocumentId(documentId);
+        }
+        // exam: no bulk-delete method — exam/assignment branches do content-based dedup internally
+        send('log', { message: 'Existing items deleted', level: 'success' });
       }
 
       // ── Parse PDF ──
       console.log('[parse/route] ========== START document parse ==========');
-      console.log('[parse/route] documentId:', documentId, '| doc_type:', doc_type, '| file:', documentName);
-      send('log', { message: `Start parsing: ${documentName || documentId} (${doc_type})`, level: 'info' });
+      console.log(
+        '[parse/route] documentId:',
+        documentId,
+        '| doc_type:',
+        doc_type,
+        '| file:',
+        documentName,
+      );
+      send('log', {
+        message: `Start parsing: ${documentName || documentId} (${doc_type})`,
+        level: 'info',
+      });
       send('status', { stage: 'parsing_pdf', message: 'Parsing PDF...' });
       send('log', { message: 'Reading PDF file...', level: 'info' });
 
       const arrayBuffer = await file.arrayBuffer();
 
       // Compute SHA-256 file hash for course-level dedup
-      const hashArray = new Uint8Array(
-        await crypto.subtle.digest('SHA-256', arrayBuffer),
-      );
+      const hashArray = new Uint8Array(await crypto.subtle.digest('SHA-256', arrayBuffer));
       const fileHash = Array.from(hashArray)
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
@@ -291,17 +322,25 @@ export async function POST(request: Request) {
 
           if (candidateSections.length === 0) {
             send('log', { message: 'All sections are duplicates (title match)', level: 'info' });
-            send('status', { stage: 'complete', message: 'No new sections to add (all duplicates).' });
+            send('status', {
+              stage: 'complete',
+              message: 'No new sections to add (all duplicates).',
+            });
             return;
           }
 
-          const candidateContents = candidateSections.map((s) => buildSectionChunkContent(s, pdfData.pages));
+          const candidateContents = candidateSections.map((s) =>
+            buildSectionChunkContent(s, pdfData.pages),
+          );
 
           send('progress', { current: 0, total: candidateSections.length });
 
           // Generate embeddings for candidate sections
           if (signal.aborted) return;
-          send('log', { message: `Generating embeddings for ${candidateSections.length} sections...`, level: 'info' });
+          send('log', {
+            message: `Generating embeddings for ${candidateSections.length} sections...`,
+            level: 'info',
+          });
           const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
           const candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
 
@@ -314,7 +353,11 @@ export async function POST(request: Request) {
             .map((c) => {
               if (Array.isArray(c.embedding)) return c.embedding as number[];
               if (typeof c.embedding === 'string') {
-                try { return JSON.parse(c.embedding) as number[]; } catch { return null; }
+                try {
+                  return JSON.parse(c.embedding) as number[];
+                } catch {
+                  return null;
+                }
               }
               return null;
             })
@@ -355,7 +398,10 @@ export async function POST(request: Request) {
           const totalSkipped = titleSkipped + embeddingSkipped;
           if (keepIndices.length === 0) {
             send('log', { message: 'All sections are duplicates', level: 'info' });
-            send('status', { stage: 'complete', message: 'No new sections to add (all duplicates).' });
+            send('status', {
+              stage: 'complete',
+              message: 'No new sections to add (all duplicates).',
+            });
             return;
           }
 
@@ -365,9 +411,10 @@ export async function POST(request: Request) {
           const allEmbeddings = keepIndices.map((i) => candidateEmbeddings[i]);
 
           send('log', {
-            message: totalSkipped > 0
-              ? `${newSections.length} new sections (${totalSkipped} duplicates skipped)`
-              : `${newSections.length} sections to save`,
+            message:
+              totalSkipped > 0
+                ? `${newSections.length} new sections (${totalSkipped} duplicates skipped)`
+                : `${newSections.length} sections to save`,
             level: 'success',
           });
 
@@ -398,7 +445,10 @@ export async function POST(request: Request) {
             const batch = allChunks.slice(i, i + SAVE_BATCH);
             const batchEnd = Math.min(i + SAVE_BATCH, allChunks.length);
 
-            send('log', { message: `Saving chunks ${i + 1}-${batchEnd} of ${allChunks.length}...`, level: 'info' });
+            send('log', {
+              message: `Saving chunks ${i + 1}-${batchEnd} of ${allChunks.length}...`,
+              level: 'info',
+            });
 
             const saved = await lectureService.saveChunksAndReturn(batch);
             send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
@@ -497,7 +547,9 @@ export async function POST(request: Request) {
             existingQuestions.map((q) => q.content.trim().toLowerCase()),
           );
           const maxOrderNum =
-            existingQuestions.length > 0 ? Math.max(...existingQuestions.map((q) => q.orderNum)) : 0;
+            existingQuestions.length > 0
+              ? Math.max(...existingQuestions.map((q) => q.orderNum))
+              : 0;
 
           const newItems = items.filter((item) => {
             const q = item.data;
@@ -550,13 +602,45 @@ export async function POST(request: Request) {
           const { getAssignmentService } = await import('@/lib/services/AssignmentService');
           const assignmentService = getAssignmentService();
 
-          const parseResult = await parseAssignment(pdfData.pages, {
-            assignmentId: documentId,
-            signal,
-            onProgress: (p) => send('pipeline_progress', p),
-          });
+          // Stage 1: AI extraction
+          let parsedItems: Awaited<ReturnType<typeof parseAssignment>>['items'];
+          let warnings: string[];
+          try {
+            const parseResult = await parseAssignment(pdfData.pages, {
+              assignmentId: documentId,
+              signal,
+              onProgress: (p) => send('pipeline_progress', p),
+            });
+            parsedItems = parseResult.items;
+            warnings = parseResult.warnings;
+          } catch (e) {
+            console.error('Assignment extraction error:', e);
+            const isQuotaError =
+              (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
+              (typeof e === 'object' &&
+                e !== null &&
+                'status' in e &&
+                (e as { status: number }).status === 429);
 
-          const { items: parsedItems, warnings } = parseResult;
+            if (isQuotaError) {
+              send('log', { message: 'AI service quota exceeded', level: 'error' });
+              send('error', {
+                message: 'AI service quota exceeded. Please contact your administrator.',
+                code: 'LLM_QUOTA_EXCEEDED',
+              });
+            } else {
+              send('log', {
+                message: `Extraction failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
+                level: 'error',
+              });
+              send('error', {
+                message: 'Failed to extract questions from PDF',
+                code: 'EXTRACTION_ERROR',
+              });
+            }
+            return;
+          }
+
           for (const w of warnings) send('log', { message: w, level: 'warning' });
 
           if (parsedItems.length === 0) {
@@ -570,10 +654,27 @@ export async function POST(request: Request) {
             send('progress', { current: i + 1, total: parsedItems.length });
           }
 
-          // ── Two-pass dedup ──
+          // Stage 2: Dedup — fetch existing items
           send('log', { message: 'Checking for duplicate questions...', level: 'info' });
 
-          const existingItemsForDedup = await assignmentService.getItemsWithEmbeddings(documentId);
+          let existingItemsForDedup: Awaited<
+            ReturnType<typeof assignmentService.getItemsWithEmbeddings>
+          >;
+          try {
+            existingItemsForDedup = await assignmentService.getItemsWithEmbeddings(documentId);
+          } catch (e) {
+            console.error('Failed to fetch existing items for dedup:', e);
+            send('log', {
+              message: `Failed to load existing items: ${e instanceof Error ? e.message : 'Unknown error'}`,
+              level: 'error',
+            });
+            send('error', {
+              message: 'Failed to check for duplicates. Please try again.',
+              code: 'DEDUP_FETCH_ERROR',
+            });
+            return;
+          }
+
           const existingContents = new Set(
             existingItemsForDedup.map((item) => item.content.trim().toLowerCase()),
           );
@@ -584,22 +685,61 @@ export async function POST(request: Request) {
           );
           const contentSkipped = parsedItems.length - candidateItems.length;
           if (contentSkipped > 0) {
-            send('log', { message: `Pass 1: ${contentSkipped} duplicates skipped (content match)`, level: 'info' });
+            send('log', {
+              message: `Pass 1: ${contentSkipped} duplicates skipped (content match)`,
+              level: 'info',
+            });
           }
 
           if (candidateItems.length === 0) {
-            send('status', { stage: 'complete', message: 'No new questions to add (all duplicates).' });
+            send('status', {
+              stage: 'complete',
+              message: 'No new questions to add (all duplicates).',
+            });
             return;
           }
 
           // Build enriched content for embedding
           const candidateContents = candidateItems.map((item) => buildAssignmentItemContent(item));
 
-          send('log', { message: `Generating embeddings for ${candidateItems.length} questions...`, level: 'info' });
+          send('log', {
+            message: `Generating embeddings for ${candidateItems.length} questions...`,
+            level: 'info',
+          });
           if (signal.aborted) return;
 
-          const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
-          const candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
+          // Stage 3: Generate embeddings
+          let candidateEmbeddings: number[][];
+          try {
+            const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+            candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
+          } catch (e) {
+            console.error('Embedding generation error:', e);
+            const isQuotaError =
+              (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
+              (typeof e === 'object' &&
+                e !== null &&
+                'status' in e &&
+                (e as { status: number }).status === 429);
+
+            if (isQuotaError) {
+              send('log', { message: 'Embedding service quota exceeded', level: 'error' });
+              send('error', {
+                message: 'Embedding service quota exceeded. Please try again later.',
+                code: 'EMBEDDING_QUOTA_EXCEEDED',
+              });
+            } else {
+              send('log', {
+                message: `Embedding failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
+                level: 'error',
+              });
+              send('error', {
+                message: 'Failed to generate embeddings for questions',
+                code: 'EMBEDDING_ERROR',
+              });
+            }
+            return;
+          }
           send('log', { message: 'Embeddings generated', level: 'success' });
 
           // Pass 2: Embedding similarity dedup
@@ -608,7 +748,11 @@ export async function POST(request: Request) {
             .map((c) => {
               if (Array.isArray(c.embedding)) return c.embedding;
               if (typeof c.embedding === 'string') {
-                try { return JSON.parse(c.embedding) as number[]; } catch { return null; }
+                try {
+                  return JSON.parse(c.embedding) as number[];
+                } catch {
+                  return null;
+                }
               }
               return null;
             })
@@ -629,14 +773,20 @@ export async function POST(request: Request) {
             }
             embeddingSkipped = candidateItems.length - keepIndices.length;
             if (embeddingSkipped > 0) {
-              send('log', { message: `Pass 2: ${embeddingSkipped} duplicates skipped (embedding similarity > ${SIMILARITY_THRESHOLD})`, level: 'info' });
+              send('log', {
+                message: `Pass 2: ${embeddingSkipped} duplicates skipped (embedding similarity > ${SIMILARITY_THRESHOLD})`,
+                level: 'info',
+              });
             }
           } else {
             for (let i = 0; i < candidateItems.length; i++) keepIndices.push(i);
           }
 
           if (keepIndices.length === 0) {
-            send('status', { stage: 'complete', message: 'No new questions to add (all duplicates).' });
+            send('status', {
+              stage: 'complete',
+              message: 'No new questions to add (all duplicates).',
+            });
             return;
           }
 
@@ -647,17 +797,31 @@ export async function POST(request: Request) {
 
           const totalSkipped = contentSkipped + embeddingSkipped;
           send('log', {
-            message: totalSkipped > 0
-              ? `${newItems.length} new questions (${totalSkipped} duplicates skipped)`
-              : `${newItems.length} questions to save`,
+            message:
+              totalSkipped > 0
+                ? `${newItems.length} new questions (${totalSkipped} duplicates skipped)`
+                : `${newItems.length} questions to save`,
             level: 'success',
           });
 
-          // Get max order_num for appending
-          const existingItems = await assignmentService.getItems(documentId);
-          const maxOrderNum = existingItems.length > 0
-            ? Math.max(...existingItems.map((item) => item.orderNum))
-            : 0;
+          // Stage 4: Save to database
+          let existingItems: Awaited<ReturnType<typeof assignmentService.getItems>>;
+          try {
+            existingItems = await assignmentService.getItems(documentId);
+          } catch (e) {
+            console.error('Failed to fetch existing items for ordering:', e);
+            send('log', {
+              message: `Failed to load existing items: ${e instanceof Error ? e.message : 'Unknown error'}`,
+              level: 'error',
+            });
+            send('error', {
+              message: 'Failed to prepare save. Please try again.',
+              code: 'SAVE_PREP_ERROR',
+            });
+            return;
+          }
+          const maxOrderNum =
+            existingItems.length > 0 ? Math.max(...existingItems.map((item) => item.orderNum)) : 0;
 
           // Assemble DTOs
           const allItemDTOs = newItems.map((item, i) => ({
@@ -686,10 +850,26 @@ export async function POST(request: Request) {
             const batchIdx = Math.floor(i / SAVE_BATCH);
             const batch = allItemDTOs.slice(i, i + SAVE_BATCH);
             const batchEnd = Math.min(i + SAVE_BATCH, allItemDTOs.length);
-            send('log', { message: `Saving questions ${i + 1}-${batchEnd} of ${allItemDTOs.length}...`, level: 'info' });
-            const saved = await assignmentService.saveItemsAndReturn(batch);
-            send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
-            send('progress', { current: batchEnd, total: allItemDTOs.length });
+            send('log', {
+              message: `Saving questions ${i + 1}-${batchEnd} of ${allItemDTOs.length}...`,
+              level: 'info',
+            });
+            try {
+              const saved = await assignmentService.saveItemsAndReturn(batch);
+              send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
+              send('progress', { current: batchEnd, total: allItemDTOs.length });
+            } catch (e) {
+              console.error(`Batch save error (batch ${batchIdx}):`, e);
+              send('log', {
+                message: `Failed to save questions ${i + 1}-${batchEnd}: ${e instanceof Error ? e.message : 'Unknown error'}`,
+                level: 'error',
+              });
+              send('error', {
+                message: `Failed to save questions (batch ${batchIdx + 1}). ${i > 0 ? `${i} questions were saved successfully.` : 'No questions were saved.'}`,
+                code: 'SAVE_ERROR',
+              });
+              return;
+            }
           }
 
           send('log', { message: `Saved ${allItemDTOs.length} questions`, level: 'success' });
