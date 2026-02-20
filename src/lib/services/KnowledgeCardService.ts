@@ -49,17 +49,14 @@ export class KnowledgeCardService {
 
     for (let i = 0; i < points.length; i += BATCH_SIZE) {
       const batch = points.slice(i, i + BATCH_SIZE);
-      const texts = batch.map((p) => [p.title, p.definition].join('\n'));
+      const texts = batch.map((p) => [p.title, p.content].join('\n'));
       const embeddings = await generateEmbeddingBatch(texts, BATCH_SIZE);
 
       await Promise.all(
         batch.map((point, j) =>
           this.knowledgeCardRepo.upsertByTitle({
             title: point.title,
-            definition: point.definition,
-            keyFormulas: point.keyFormulas,
-            keyConcepts: point.keyConcepts,
-            examples: point.examples,
+            definition: point.content, // content -> definition column
             sourcePages: point.sourcePages,
             embedding: embeddings[j],
           }),

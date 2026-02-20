@@ -3,9 +3,7 @@ import type { CreateLectureChunkDTO } from '@/lib/domain/models/Document';
 import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
-import { buildChunkContent } from '@/lib/rag/build-chunk-content';
-
-import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
+import type { ParsedQuestion } from '@/lib/rag/parsers/types';
 import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
@@ -166,263 +164,302 @@ export async function POST(request: Request) {
       // ── LLM Extraction ──
       send('status', { stage: 'extracting', message: 'AI extracting content...' });
 
-      let items: Array<{
-        type: 'knowledge_point' | 'question';
-        data: KnowledgePoint | ParsedQuestion;
-      }>;
       let documentOutline: import('@/lib/rag/parsers/types').DocumentOutline | undefined;
 
-      try {
-        if (doc_type === 'lecture') {
+      if (doc_type === 'lecture') {
+        // ── LECTURE: section-level chunks ──
+        try {
           const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
           const parseResult = await parseLectureMultiPass(pdfData.pages, {
             documentId,
             onProgress: (progress) => send('pipeline_progress', progress),
             signal,
           });
-          const knowledgePoints = parseResult.knowledgePoints;
-          items = knowledgePoints.map((kp) => ({ type: 'knowledge_point' as const, data: kp }));
+
+          const { sections, knowledgePoints } = parseResult;
           documentOutline = parseResult.outline;
-        } else {
+
+          if (sections.length === 0) {
+            send('progress', { current: 0, total: 0 });
+            send('status', { stage: 'complete', message: 'No content extracted' });
+            return;
+          }
+
+          // Send item events for frontend display
+          for (let i = 0; i < knowledgePoints.length; i++) {
+            send('item', { index: i, type: 'knowledge_point', data: knowledgePoints[i] });
+          }
+
+          // Save knowledge cards (non-fatal)
+          try {
+            await getKnowledgeCardService().saveFromKnowledgePoints(knowledgePoints);
+          } catch (cardError) {
+            console.error('Knowledge card save error (non-fatal):', cardError);
+          }
+
+          // Save document outline
+          if (documentOutline) {
+            try {
+              const { getLectureDocumentRepository } =
+                await import('@/lib/repositories/DocumentRepository');
+              const { generateEmbedding } = await import('@/lib/rag/embedding');
+              const outlineText = JSON.stringify(documentOutline);
+              const embedding = await generateEmbedding(outlineText.slice(0, 2000));
+              await getLectureDocumentRepository().saveOutline(
+                documentId,
+                documentOutline as unknown as Json,
+                embedding,
+              );
+            } catch (outlineError) {
+              console.warn('Failed to save document outline (non-fatal):', outlineError);
+            }
+          }
+
+          // Build section chunks
+          send('status', { stage: 'embedding', message: 'Generating embeddings & saving...' });
+
+          const { buildSectionChunkContent } = await import('@/lib/rag/build-chunk-content');
+
+          // Dedup against existing chunks by section title
+          const existingChunks = await documentService.getChunks(documentId);
+          const existingTitles = new Set(
+            existingChunks.map((c) => {
+              const meta = c.metadata as Record<string, unknown>;
+              return ((meta.title as string) || '').trim().toLowerCase();
+            }),
+          );
+
+          const newSections = sections.filter(
+            (s) => !existingTitles.has(s.title.trim().toLowerCase()),
+          );
+
+          if (newSections.length === 0) {
+            send('status', { stage: 'complete', message: 'No new sections to add (all duplicates).' });
+            return;
+          }
+
+          const allContents = newSections.map((s) => buildSectionChunkContent(s, pdfData.pages));
+
+          send('progress', { current: 0, total: newSections.length });
+
+          // Batch embed
+          if (signal.aborted) return;
+          const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+          const allEmbeddings = await generateEmbeddingBatch(allContents);
+
+          // Assemble DTOs
+          const allChunks: CreateLectureChunkDTO[] = newSections.map((section, i) => ({
+            lectureDocumentId: documentId,
+            content: allContents[i],
+            embedding: allEmbeddings[i],
+            metadata: {
+              type: 'section',
+              title: section.title,
+              summary: section.summary,
+              sourcePages: section.sourcePages,
+              knowledgePointTitles: section.knowledgePoints.map((kp) => kp.title),
+              ...(documentName && { documentName }),
+            },
+          }));
+
+          // Batch save (groups of 20)
+          const SAVE_BATCH = 20;
+          for (let i = 0; i < allChunks.length; i += SAVE_BATCH) {
+            if (signal.aborted) break;
+            const batch = allChunks.slice(i, i + SAVE_BATCH);
+            const saved = await documentService.saveChunksAndReturn(batch);
+            send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: Math.floor(i / SAVE_BATCH) });
+            send('progress', { current: Math.min(i + SAVE_BATCH, allChunks.length), total: allChunks.length });
+          }
+        } catch (e) {
+          console.error('LLM extraction error:', e);
+
+          const isQuotaError =
+            (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
+            (typeof e === 'object' &&
+              e !== null &&
+              'status' in e &&
+              (e as { status: number }).status === 429);
+
+          if (isQuotaError) {
+            send('error', {
+              message: 'AI service quota exceeded. Please contact your administrator.',
+              code: 'LLM_QUOTA_EXCEEDED',
+            });
+          } else {
+            send('error', {
+              message: 'Failed to extract content from PDF',
+              code: 'EXTRACTION_ERROR',
+            });
+          }
+          return;
+        }
+      } else {
+        // ── EXAM / ASSIGNMENT: question extraction ──
+        let items: Array<{
+          type: 'question';
+          data: ParsedQuestion;
+        }>;
+
+        try {
           const onBatchProgress = (current: number, total: number) => {
             send('progress', { current, total });
           };
           const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
           const questions = await parseQuestions(pdfData.pages, has_answers, onBatchProgress);
           items = questions.map((q) => ({ type: 'question' as const, data: q }));
-        }
-      } catch (e) {
-        console.error('LLM extraction error:', e);
-
-        // Detect quota / rate-limit errors from the LLM provider
-        const isQuotaError =
-          (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-          (typeof e === 'object' &&
-            e !== null &&
-            'status' in e &&
-            (e as { status: number }).status === 429);
-
-        if (isQuotaError) {
-          send('error', {
-            message: 'AI service quota exceeded. Please contact your administrator.',
-            code: 'LLM_QUOTA_EXCEEDED',
-          });
-        } else {
-          send('error', {
-            message: 'Failed to extract content from PDF',
-            code: 'EXTRACTION_ERROR',
-          });
-        }
-        return;
-      }
-
-      const totalItems = items.length;
-      if (totalItems === 0) {
-        send('progress', { current: 0, total: 0 });
-        send('status', { stage: 'complete', message: 'No content extracted' });
-        return;
-      }
-
-      if (doc_type === 'lecture') {
-        // ── LECTURE: dedup, save knowledge cards, batch-embed, batch-save ──
-        const existingChunks = await documentService.getChunks(documentId);
-        const existingTitles = new Set(
-          existingChunks.map((c) => {
-            const meta = c.metadata as Record<string, unknown>;
-            return ((meta.title as string) || '').trim().toLowerCase();
-          }),
-        );
-        const newItems = items.filter((item) => {
-          const kp = item.data as KnowledgePoint;
-          return !existingTitles.has(kp.title.trim().toLowerCase());
-        });
-
-        if (newItems.length === 0) {
-          send('status', { stage: 'complete', message: 'No new items to add (all duplicates).' });
-          return;
-        }
-
-        // Save knowledge cards (non-fatal)
-        const knowledgePoints = newItems.map((item) => item.data as KnowledgePoint);
-        try {
-          await getKnowledgeCardService().saveFromKnowledgePoints(knowledgePoints);
-        } catch (cardError) {
-          console.error('Knowledge card save error (non-fatal):', cardError);
-        }
-
-        // Save document outline if generated
-        if (documentOutline) {
-          try {
-            const { getLectureDocumentRepository } =
-              await import('@/lib/repositories/DocumentRepository');
-            const { generateEmbedding } = await import('@/lib/rag/embedding');
-            const outlineText = JSON.stringify(documentOutline);
-            const embedding = await generateEmbedding(outlineText.slice(0, 2000));
-            await getLectureDocumentRepository().saveOutline(
-              documentId,
-              documentOutline as unknown as Json,
-              embedding,
-            );
-          } catch (outlineError) {
-            console.warn('Failed to save document outline (non-fatal):', outlineError);
-          }
-        }
-
-        // ── Batch embed + save ──
-        send('status', { stage: 'embedding', message: 'Generating embeddings & saving...' });
-
-        // 1. Collect all chunk contents
-        const allContents = newItems.map(({ type, data }) => buildChunkContent(type, data));
-
-        // Send item events for frontend display
-        for (let i = 0; i < newItems.length; i++) {
-          send('item', { index: i, type: newItems[i].type, data: newItems[i].data });
-        }
-        send('progress', { current: 0, total: newItems.length });
-
-        // 2. Batch embed (10 concurrent via generateEmbeddingBatch)
-        if (signal.aborted) return;
-        const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
-        const allEmbeddings = await generateEmbeddingBatch(allContents);
-
-        // 3. Assemble DTOs
-        const allChunks: CreateLectureChunkDTO[] = newItems.map(({ type, data }, i) => ({
-          lectureDocumentId: documentId,
-          content: allContents[i],
-          embedding: allEmbeddings[i],
-          metadata: { type, ...data, ...(documentName && { documentName }) },
-        }));
-
-        // 4. Batch save (groups of 20)
-        const SAVE_BATCH = 20;
-        for (let i = 0; i < allChunks.length; i += SAVE_BATCH) {
-          if (signal.aborted) break;
-          const batch = allChunks.slice(i, i + SAVE_BATCH);
-          const saved = await documentService.saveChunksAndReturn(batch);
-          send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: Math.floor(i / SAVE_BATCH) });
-          send('progress', { current: Math.min(i + SAVE_BATCH, allChunks.length), total: allChunks.length });
-        }
-      } else if (doc_type === 'exam') {
-        // ── EXAM: Content-based dedup, then save questions ──
-        send('status', { stage: 'embedding', message: 'Saving questions...' });
-        const examRepo = getExamPaperRepository();
-
-        // Query existing questions for content-based dedup
-        const existingQuestions = await examRepo.findQuestionsByPaperId(documentId);
-        const existingContents = new Set(
-          existingQuestions.map((q) => q.content.trim().toLowerCase()),
-        );
-        const maxOrderNum =
-          existingQuestions.length > 0 ? Math.max(...existingQuestions.map((q) => q.orderNum)) : 0;
-
-        const newItems = items.filter((item) => {
-          const q = item.data as ParsedQuestion;
-          return !existingContents.has(q.content.trim().toLowerCase());
-        });
-
-        if (newItems.length === 0) {
-          send('status', {
-            stage: 'complete',
-            message: 'No new questions to add (all duplicates).',
-          });
-          return;
-        }
-
-        for (let i = 0; i < newItems.length; i++) {
-          send('item', { index: i, type: newItems[i].type, data: newItems[i].data });
-          send('progress', { current: i + 1, total: newItems.length });
-        }
-
-        const questions = newItems.map((item, idx) => {
-          const q = item.data as ParsedQuestion;
-          return {
-            paperId: documentId,
-            orderNum: maxOrderNum + idx + 1,
-            type: '',
-            content: q.content,
-            options: q.options
-              ? Object.fromEntries(q.options.map((opt, j) => [String.fromCharCode(65 + j), opt]))
-              : null,
-            answer: q.referenceAnswer || '',
-            explanation: '',
-            points: q.score || 0,
-            metadata: { sourcePage: q.sourcePage },
-          };
-        });
-
-        await examRepo.insertQuestions(questions);
-        send('batch_saved', { chunkIds: questions.map((_, i) => `q-${i}`), batchIndex: 0 });
-
-        const questionTypes = [...new Set(questions.map((q) => q.type).filter(Boolean))];
-        if (questionTypes.length > 0) {
-          await examRepo.updatePaper(documentId, { questionTypes });
-        }
-      } else {
-        // ── ASSIGNMENT: Content-based dedup + embeddings (existing logic) ──
-        send('status', { stage: 'embedding', message: 'Generating embeddings...' });
-        const assignmentRepo = getAssignmentRepository();
-
-        // Query existing items for content-based dedup
-        const existingItems = await assignmentRepo.findItemsByAssignmentId(documentId);
-        const existingContents = new Set(
-          existingItems.map((item) => item.content.trim().toLowerCase()),
-        );
-        const maxOrderNum =
-          existingItems.length > 0 ? Math.max(...existingItems.map((item) => item.orderNum)) : 0;
-
-        for (let i = 0; i < items.length; i++) {
-          send('item', { index: i, type: items[i].type, data: items[i].data });
-          send('progress', { current: i + 1, total: totalItems });
-        }
-
-        // Filter out duplicates based on content
-        const newItems = items.filter((item) => {
-          const q = item.data as ParsedQuestion;
-          return !existingContents.has(q.content.trim().toLowerCase());
-        });
-
-        if (newItems.length === 0) {
-          send('status', { stage: 'complete', message: 'No new items to add (all duplicates).' });
-          return;
-        }
-
-        const assignmentItems = newItems.map((item, idx) => {
-          const q = item.data as ParsedQuestion;
-          return {
-            assignmentId: documentId,
-            orderNum: maxOrderNum + idx + 1,
-            type: '',
-            content: q.content,
-            referenceAnswer: q.referenceAnswer || '',
-            explanation: '',
-            points: q.score || 0,
-            difficulty: '',
-            metadata: { sourcePage: q.sourcePage },
-          };
-        });
-
-        // Generate embeddings for assignment items
-        const embeddingTexts = assignmentItems.map(
-          (item) => `Question ${item.orderNum}: ${item.content}`,
-        );
-
-        let embeddings: number[][] = [];
-        try {
-          const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
-          embeddings = await generateEmbeddingBatch(embeddingTexts);
-          send('status', { stage: 'embedding', message: 'Embeddings generated' });
         } catch (e) {
-          console.error('Assignment embedding generation failed:', e);
-          // Continue without embeddings — items still save, just no RAG
+          console.error('LLM extraction error:', e);
+
+          const isQuotaError =
+            (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
+            (typeof e === 'object' &&
+              e !== null &&
+              'status' in e &&
+              (e as { status: number }).status === 429);
+
+          if (isQuotaError) {
+            send('error', {
+              message: 'AI service quota exceeded. Please contact your administrator.',
+              code: 'LLM_QUOTA_EXCEEDED',
+            });
+          } else {
+            send('error', {
+              message: 'Failed to extract content from PDF',
+              code: 'EXTRACTION_ERROR',
+            });
+          }
+          return;
         }
 
-        const itemsWithEmbeddings = assignmentItems.map((item, idx) => ({
-          ...item,
-          embedding: embeddings[idx] ?? null,
-        }));
+        if (items.length === 0) {
+          send('progress', { current: 0, total: 0 });
+          send('status', { stage: 'complete', message: 'No content extracted' });
+          return;
+        }
 
-        await assignmentRepo.insertItems(itemsWithEmbeddings);
-        send('batch_saved', { chunkIds: assignmentItems.map((_, i) => `a-${i}`), batchIndex: 0 });
+        if (doc_type === 'exam') {
+          // ── EXAM: Content-based dedup, then save questions ──
+          send('status', { stage: 'embedding', message: 'Saving questions...' });
+          const examRepo = getExamPaperRepository();
+
+          // Query existing questions for content-based dedup
+          const existingQuestions = await examRepo.findQuestionsByPaperId(documentId);
+          const existingContents = new Set(
+            existingQuestions.map((q) => q.content.trim().toLowerCase()),
+          );
+          const maxOrderNum =
+            existingQuestions.length > 0 ? Math.max(...existingQuestions.map((q) => q.orderNum)) : 0;
+
+          const newItems = items.filter((item) => {
+            const q = item.data;
+            return !existingContents.has(q.content.trim().toLowerCase());
+          });
+
+          if (newItems.length === 0) {
+            send('status', {
+              stage: 'complete',
+              message: 'No new questions to add (all duplicates).',
+            });
+            return;
+          }
+
+          for (let i = 0; i < newItems.length; i++) {
+            send('item', { index: i, type: newItems[i].type, data: newItems[i].data });
+            send('progress', { current: i + 1, total: newItems.length });
+          }
+
+          const questions = newItems.map((item, idx) => {
+            const q = item.data;
+            return {
+              paperId: documentId,
+              orderNum: maxOrderNum + idx + 1,
+              type: '',
+              content: q.content,
+              options: q.options
+                ? Object.fromEntries(q.options.map((opt, j) => [String.fromCharCode(65 + j), opt]))
+                : null,
+              answer: q.referenceAnswer || '',
+              explanation: '',
+              points: q.score || 0,
+              metadata: { sourcePage: q.sourcePage },
+            };
+          });
+
+          await examRepo.insertQuestions(questions);
+          send('batch_saved', { chunkIds: questions.map((_, i) => `q-${i}`), batchIndex: 0 });
+
+          const questionTypes = [...new Set(questions.map((q) => q.type).filter(Boolean))];
+          if (questionTypes.length > 0) {
+            await examRepo.updatePaper(documentId, { questionTypes });
+          }
+        } else {
+          // ── ASSIGNMENT: Content-based dedup + embeddings (existing logic) ──
+          send('status', { stage: 'embedding', message: 'Generating embeddings...' });
+          const assignmentRepo = getAssignmentRepository();
+
+          // Query existing items for content-based dedup
+          const existingItems = await assignmentRepo.findItemsByAssignmentId(documentId);
+          const existingContents = new Set(
+            existingItems.map((item) => item.content.trim().toLowerCase()),
+          );
+          const maxOrderNum =
+            existingItems.length > 0 ? Math.max(...existingItems.map((item) => item.orderNum)) : 0;
+
+          for (let i = 0; i < items.length; i++) {
+            send('item', { index: i, type: items[i].type, data: items[i].data });
+            send('progress', { current: i + 1, total: items.length });
+          }
+
+          // Filter out duplicates based on content
+          const newItems = items.filter((item) => {
+            const q = item.data;
+            return !existingContents.has(q.content.trim().toLowerCase());
+          });
+
+          if (newItems.length === 0) {
+            send('status', { stage: 'complete', message: 'No new items to add (all duplicates).' });
+            return;
+          }
+
+          const assignmentItems = newItems.map((item, idx) => {
+            const q = item.data;
+            return {
+              assignmentId: documentId,
+              orderNum: maxOrderNum + idx + 1,
+              type: '',
+              content: q.content,
+              referenceAnswer: q.referenceAnswer || '',
+              explanation: '',
+              points: q.score || 0,
+              difficulty: '',
+              metadata: { sourcePage: q.sourcePage },
+            };
+          });
+
+          // Generate embeddings for assignment items
+          const embeddingTexts = assignmentItems.map(
+            (item) => `Question ${item.orderNum}: ${item.content}`,
+          );
+
+          let embeddings: number[][] = [];
+          try {
+            const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+            embeddings = await generateEmbeddingBatch(embeddingTexts);
+            send('status', { stage: 'embedding', message: 'Embeddings generated' });
+          } catch (e) {
+            console.error('Assignment embedding generation failed:', e);
+            // Continue without embeddings -- items still save, just no RAG
+          }
+
+          const itemsWithEmbeddings = assignmentItems.map((item, idx) => ({
+            ...item,
+            embedding: embeddings[idx] ?? null,
+          }));
+
+          await assignmentRepo.insertItems(itemsWithEmbeddings);
+          send('batch_saved', { chunkIds: assignmentItems.map((_, i) => `a-${i}`), batchIndex: 0 });
+        }
       }
 
       // Fire-and-forget: regenerate course outline after lecture upload
@@ -434,7 +471,7 @@ export async function POST(request: Request) {
         );
       }
 
-      send('status', { stage: 'complete', message: `Done! ${totalItems} items extracted.` });
+      send('status', { stage: 'complete', message: 'Done!' });
     } catch (error) {
       console.error('Parse pipeline error:', error);
       send('error', { message: 'Internal server error', code: 'INTERNAL_ERROR' });

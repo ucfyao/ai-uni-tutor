@@ -1,26 +1,26 @@
-import type { KnowledgePoint, ParsedQuestion } from './parsers/types';
+import type { PDFPage } from '@/lib/pdf';
+import type { ExtractedSection, ParsedQuestion } from './parsers/types';
 
 /**
- * Build a text representation of a knowledge point or question for embedding.
- * Shared by the SSE route and DocumentProcessingService.
+ * Build section chunk content for embedding and RAG retrieval.
+ * Format: "## Section Title\nSummary\n\nRaw PDF text from source pages"
  */
-export function buildChunkContent(
-  type: 'knowledge_point' | 'question',
-  item: KnowledgePoint | ParsedQuestion,
+export function buildSectionChunkContent(
+  section: ExtractedSection,
+  pages: PDFPage[],
 ): string {
-  if (type === 'knowledge_point') {
-    const kp = item as KnowledgePoint;
-    return [
-      kp.title,
-      kp.definition,
-      kp.keyFormulas?.length ? `Formulas: ${kp.keyFormulas.join('; ')}` : '',
-      kp.keyConcepts?.length ? `Concepts: ${kp.keyConcepts.join(', ')}` : '',
-      kp.examples?.length ? `Examples: ${kp.examples.join('; ')}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
-  }
-  const q = item as ParsedQuestion;
+  const rawText = section.sourcePages
+    .map((p) => pages[p - 1]?.text)
+    .filter(Boolean)
+    .join('\n');
+
+  return [`## ${section.title}`, section.summary, '', rawText].join('\n');
+}
+
+/**
+ * Build question chunk content for embedding (exam/assignment -- unchanged).
+ */
+export function buildQuestionChunkContent(q: ParsedQuestion): string {
   return [
     `Q${q.questionNumber}: ${q.content}`,
     q.options?.length ? `Options: ${q.options.join(' | ')}` : '',
