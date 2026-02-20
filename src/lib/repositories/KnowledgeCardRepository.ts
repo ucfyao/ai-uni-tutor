@@ -58,10 +58,7 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
   async findByIds(ids: string[]): Promise<KnowledgeCardEntity[]> {
     if (ids.length === 0) return [];
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('knowledge_cards')
-      .select()
-      .in('id', ids);
+    const { data, error } = await supabase.from('knowledge_cards').select().in('id', ids);
 
     if (error) throw new DatabaseError(`Failed to find knowledge cards: ${error.message}`, error);
     return (data ?? []).map((row) => this.mapToEntity(row));

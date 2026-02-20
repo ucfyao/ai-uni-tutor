@@ -96,9 +96,7 @@ describe('section-extractor', () => {
           title: 'Valid Section',
           summary: 'A real section',
           sourcePages: [1],
-          knowledgePoints: [
-            { title: 'Valid', content: 'A real point', sourcePages: [1] },
-          ],
+          knowledgePoints: [{ title: 'Valid', content: 'A real point', sourcePages: [1] }],
         },
       ],
     });

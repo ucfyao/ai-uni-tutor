@@ -352,7 +352,8 @@ export class AssignmentRepository implements IAssignmentRepository {
   async updateTitle(id: string, title: string): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('assignments').update({ title }).eq('id', id);
-    if (error) throw new DatabaseError(`Failed to update assignment title: ${error.message}`, error);
+    if (error)
+      throw new DatabaseError(`Failed to update assignment title: ${error.message}`, error);
   }
 
   async bulkUpdateOrder(assignmentId: string, orderedIds: string[]): Promise<void> {
@@ -417,7 +418,8 @@ export class AssignmentRepository implements IAssignmentRepository {
     }));
 
     const { data, error } = await supabase.from('assignment_items').insert(rows).select('id');
-    if (error) throw new DatabaseError(`Failed to insert assignment items: ${error.message}`, error);
+    if (error)
+      throw new DatabaseError(`Failed to insert assignment items: ${error.message}`, error);
     return (data ?? []).map((r) => ({ id: r.id as string }));
   }
 
@@ -431,10 +433,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       throw new DatabaseError(`Failed to delete assignment items: ${error.message}`, error);
   }
 
-  async verifyItemsBelongToAssignment(
-    itemIds: string[],
-    assignmentId: string,
-  ): Promise<boolean> {
+  async verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean> {
     if (itemIds.length === 0) return true;
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -452,8 +451,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       .from('assignment_items')
       .update({ embedding })
       .eq('id', itemId);
-    if (error)
-      throw new DatabaseError(`Failed to update item embedding: ${error.message}`, error);
+    if (error) throw new DatabaseError(`Failed to update item embedding: ${error.message}`, error);
   }
 }
 

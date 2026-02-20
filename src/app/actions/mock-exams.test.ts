@@ -396,5 +396,4 @@ describe('Mock Exam Actions', () => {
       expect(result).toBeNull();
     });
   });
-
 });

@@ -145,6 +145,8 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
 export async function deleteDocument(documentId: string, docType: string) {
   const parsedType = docTypeSchema.safeParse(docType);
   if (!parsedType.success) throw new Error('Invalid document type');
+  // Assignments use deleteAssignment from assignments.ts
+  if (parsedType.data === 'assignment') throw new Error('Use deleteAssignment action instead');
 
   const { user, role } = await requireAnyAdmin();
 
@@ -152,10 +154,6 @@ export async function deleteDocument(documentId: string, docType: string) {
     await requireExamAccess(documentId, user.id, role);
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
     await getExamPaperRepository().delete(documentId);
-  } else if (parsedType.data === 'assignment') {
-    await requireAssignmentAccess(documentId, user.id, role);
-    const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-    await getAssignmentRepository().delete(documentId);
   } else {
     // Lecture (documents table) — enforce course-level or ownership permission
     const doc = await requireLectureAccess(documentId, user.id, role);
@@ -373,50 +371,6 @@ export async function updateExamQuestions(
   return { status: 'success', message: 'Changes saved' };
 }
 
-export async function updateAssignmentItems(
-  assignmentId: string,
-  updates: { id: string; content: string; metadata: Record<string, unknown> }[],
-  deletedIds: string[],
-): Promise<{ status: 'success' | 'error'; message: string }> {
-  const { user, role } = await requireAnyAdmin();
-
-  await requireAssignmentAccess(assignmentId, user.id, role);
-
-  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-  const assignmentRepo = getAssignmentRepository();
-
-  // Verify all item IDs belong to this assignment (IDOR protection)
-  const allIds = [...deletedIds, ...updates.map((u) => u.id)];
-  if (allIds.length > 0) {
-    const assignmentItems = await assignmentRepo.findItemsByAssignmentId(assignmentId);
-    const validIds = new Set(assignmentItems.map((item) => item.id));
-    if (allIds.some((id) => !validIds.has(id))) {
-      return { status: 'error', message: 'Invalid item IDs' };
-    }
-  }
-
-  for (const id of deletedIds) {
-    await assignmentRepo.deleteItem(id);
-  }
-
-  for (const update of updates) {
-    const meta = update.metadata;
-    await assignmentRepo.updateItem(update.id, {
-      content: (meta.content as string) || update.content,
-      referenceAnswer: (meta.referenceAnswer as string) || undefined,
-      explanation: (meta.explanation as string) || undefined,
-      points: meta.points != null ? Number(meta.points) : undefined,
-      difficulty: (meta.difficulty as string) || undefined,
-      type: (meta.type as string) || undefined,
-    });
-  }
-
-  revalidatePath(`/admin/knowledge/${assignmentId}`);
-  revalidatePath(`/admin/assignments/${assignmentId}`);
-  revalidatePath('/admin/knowledge');
-  return { status: 'success', message: 'Changes saved' };
-}
-
 // --- New actions ---
 
 const createLectureSchema = z.object({
@@ -503,6 +457,9 @@ export async function publishDocument(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const parsed = docTypeSchema.safeParse(docType);
   if (!parsed.success) return { success: false, error: 'Invalid document type' };
+  // Assignments use publishAssignment from assignments.ts
+  if (parsed.data === 'assignment')
+    return { success: false, error: 'Use publishAssignment action' };
 
   const { user, role } = await requireAnyAdmin();
 
@@ -510,14 +467,10 @@ export async function publishDocument(
     if (parsed.data === 'lecture') {
       await requireLectureAccess(id, user.id, role);
       await getLectureDocumentService().publish(id);
-    } else if (parsed.data === 'exam') {
+    } else {
       await requireExamAccess(id, user.id, role);
       const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
       await getExamPaperRepository().publish(id);
-    } else {
-      await requireAssignmentAccess(id, user.id, role);
-      const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-      await getAssignmentRepository().publish(id);
     }
 
     revalidatePath('/admin/knowledge');
@@ -533,6 +486,9 @@ export async function unpublishDocument(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const parsed = docTypeSchema.safeParse(docType);
   if (!parsed.success) return { success: false, error: 'Invalid document type' };
+  // Assignments use unpublishAssignment from assignments.ts
+  if (parsed.data === 'assignment')
+    return { success: false, error: 'Use unpublishAssignment action' };
 
   const { user, role } = await requireAnyAdmin();
 
@@ -540,14 +496,10 @@ export async function unpublishDocument(
     if (parsed.data === 'lecture') {
       await requireLectureAccess(id, user.id, role);
       await getLectureDocumentService().unpublish(id);
-    } else if (parsed.data === 'exam') {
+    } else {
       await requireExamAccess(id, user.id, role);
       const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
       await getExamPaperRepository().unpublish(id);
-    } else {
-      await requireAssignmentAccess(id, user.id, role);
-      const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-      await getAssignmentRepository().unpublish(id);
     }
 
     revalidatePath('/admin/knowledge');

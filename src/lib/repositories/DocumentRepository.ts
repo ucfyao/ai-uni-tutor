@@ -250,10 +250,7 @@ export class LectureDocumentRepository implements ILectureDocumentRepository {
 
   async saveOutline(id: string, outline: Json): Promise<void> {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from('lecture_documents')
-      .update({ outline })
-      .eq('id', id);
+    const { error } = await supabase.from('lecture_documents').update({ outline }).eq('id', id);
     if (error) throw new DatabaseError(`Failed to save document outline: ${error.message}`, error);
   }
 }

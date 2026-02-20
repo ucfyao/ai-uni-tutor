@@ -1,10 +1,30 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Check, Pencil, Plus, Save, Send, Trash2, Upload } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, ScrollArea, Stack } from '@mantine/core';
-import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Divider,
+  Group,
+  Modal,
+  ScrollArea,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
+import {
+  deleteAssignment,
+  publishAssignment,
+  saveAssignmentChanges,
+  unpublishAssignment,
+} from '@/app/actions/assignments';
 import { AssignmentOutlineView } from '@/components/rag/AssignmentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
@@ -16,26 +36,38 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
-import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
-import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
-import type { DocType } from '../../knowledge/[id]/types';
+
+/* ── helpers ── */
+
+function statusColor(status: string): string {
+  switch (status) {
+    case 'ready':
+      return 'green';
+    case 'processing':
+      return 'yellow';
+    case 'error':
+      return 'red';
+    case 'draft':
+      return 'blue';
+    default:
+      return 'gray';
+  }
+}
+
+/* ── Component ── */
 
 interface AssignmentDetailClientProps {
   assignment: AssignmentEntity;
   initialItems: AssignmentItemEntity[];
 }
 
-export function AssignmentDetailClient({
-  assignment,
-  initialItems,
-}: AssignmentDetailClientProps) {
+export function AssignmentDetailClient({ assignment, initialItems }: AssignmentDetailClientProps) {
   const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useLanguage();
 
-  const docType: DocType = 'assignment';
   const school = assignment.school || '';
   const course = assignment.course || '';
   const courseId = assignment.courseId || '';
@@ -54,6 +86,14 @@ export function AssignmentDetailClient({
   const [deletedChunkIds, setDeletedChunkIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [showUploadZone, setShowUploadZone] = useState(initialItems.length === 0);
+  const [addFormOpen, setAddFormOpen] = useState(false);
+
+  /* -- inline name editing -- */
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(assignment.title);
 
   /* -- derived -- */
   const visibleItems = useMemo(
@@ -156,12 +196,42 @@ export function AssignmentDetailClient({
     [selectedIds, items],
   );
 
-  const handleSaved = useCallback(() => {
-    setEditedChunks(new Map());
-    setDeletedChunkIds(new Set());
-    setSelectedIds(new Set());
-    invalidateItems();
-  }, [invalidateItems]);
+  /* -- save changes handler -- */
+  const handleSaveChanges = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      const updates = Array.from(editedChunks.entries()).map(([id, data]) => ({
+        id,
+        content: data.content,
+        metadata: data.metadata,
+      }));
+      const deletedArr = Array.from(deletedChunkIds);
+
+      const result = await saveAssignmentChanges(assignment.id, updates, deletedArr);
+      if (result.status === 'success') {
+        showNotification({
+          message: t.toast.changesSaved,
+          color: 'green',
+          icon: <Check size={16} />,
+          autoClose: 3000,
+        });
+        setEditedChunks(new Map());
+        setDeletedChunkIds(new Set());
+        setSelectedIds(new Set());
+        invalidateItems();
+      } else {
+        showNotification({ title: t.common.error, message: result.message, color: 'red' });
+      }
+    } catch {
+      showNotification({
+        title: t.common.error,
+        message: t.documentDetail.failedToSave,
+        color: 'red',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [assignment.id, editedChunks, deletedChunkIds, invalidateItems, t]);
 
   /* -- add item handler -- */
   const handleAddItem = useCallback(
@@ -187,9 +257,9 @@ export function AssignmentDetailClient({
   const handlePublish = useCallback(async () => {
     setIsPublishing(true);
     try {
-      const result = await publishDocument(assignment.id, 'assignment');
+      const result = await publishAssignment(assignment.id);
       if (result.success) {
-        showNotification({ message: 'Published', color: 'green' });
+        showNotification({ message: t.documentDetail.publish, color: 'green' });
         router.refresh();
       } else {
         showNotification({ title: t.common.error, message: result.error, color: 'red' });
@@ -200,9 +270,9 @@ export function AssignmentDetailClient({
   }, [assignment.id, router, t]);
 
   const handleUnpublish = useCallback(async () => {
-    const result = await unpublishDocument(assignment.id, 'assignment');
+    const result = await unpublishAssignment(assignment.id);
     if (result.success) {
-      showNotification({ message: 'Unpublished', color: 'green' });
+      showNotification({ message: t.documentDetail.unpublish, color: 'green' });
       router.refresh();
     } else {
       showNotification({ title: t.common.error, message: result.error, color: 'red' });
@@ -211,43 +281,208 @@ export function AssignmentDetailClient({
 
   const handleDeleteDoc = useCallback(async () => {
     try {
-      await deleteDocument(assignment.id, 'assignment');
-      for (const dt of DOC_TYPES) {
-        queryClient.setQueryData<KnowledgeDocument[]>(
-          queryKeys.documents.byType(dt.value),
-          (prev) => prev?.filter((d) => d.id !== assignment.id),
-        );
+      const result = await deleteAssignment(assignment.id);
+      if (result.success) {
+        for (const dt of DOC_TYPES) {
+          queryClient.setQueryData<KnowledgeDocument[]>(
+            queryKeys.documents.byType(dt.value),
+            (prev) => prev?.filter((d) => d.id !== assignment.id),
+          );
+        }
+        showNotification({ message: t.knowledge.deleted, color: 'green' });
+        router.push('/admin/knowledge');
+      } else {
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
       }
-      showNotification({ message: 'Deleted', color: 'green' });
-      router.push('/admin/knowledge');
     } catch {
-      showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
+      showNotification({
+        title: t.common.error,
+        message: t.knowledge.failedToDelete,
+        color: 'red',
+      });
     }
   }, [assignment.id, queryClient, router, t]);
 
   /* -- rename handler -- */
-  const handleSaveName = useCallback(
-    async (newName: string) => {
-      await rename(newName);
-    },
-    [rename],
+  const handleSaveName = useCallback(async () => {
+    const trimmed = nameValue.trim();
+    if (trimmed && trimmed !== assignment.title) {
+      await rename(trimmed);
+    }
+    setEditingName(false);
+  }, [nameValue, assignment.title, rename]);
+
+  /* -- header action buttons (right side) -- */
+  const headerActions = useMemo(
+    () => (
+      <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+        {/* ── Group 1: Content creation ── */}
+        <Tooltip label={t.documentDetail.uploadPdf}>
+          <ActionIcon
+            variant={showUploadZone ? 'filled' : 'default'}
+            color={showUploadZone ? 'indigo' : 'gray'}
+            size="md"
+            onClick={() => setShowUploadZone((v) => !v)}
+          >
+            <Upload size={16} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label={t.documentDetail.addManually}>
+          <ActionIcon variant="default" color="gray" size="md" onClick={() => setAddFormOpen(true)}>
+            <Plus size={16} />
+          </ActionIcon>
+        </Tooltip>
+
+        {/* ── Group 2: Save / Publish ── */}
+        {(pendingChanges > 0 || assignment.status === 'draft' || assignment.status === 'ready') && (
+          <>
+            <Divider orientation="vertical" size="xs" h={20} style={{ alignSelf: 'center' }} />
+            {pendingChanges > 0 && (
+              <Tooltip label={`${t.documentDetail.saveChanges} (${pendingChanges})`}>
+                <ActionIcon
+                  variant="filled"
+                  color="indigo"
+                  size="md"
+                  loading={isSaving}
+                  onClick={handleSaveChanges}
+                >
+                  <Save size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+            {assignment.status === 'draft' && (
+              <Tooltip
+                label={
+                  visibleItems.length === 0
+                    ? t.knowledge.publishDisabledTooltip
+                    : t.documentDetail.publish
+                }
+              >
+                <ActionIcon
+                  variant="light"
+                  color="green"
+                  size="md"
+                  loading={isPublishing}
+                  disabled={visibleItems.length === 0}
+                  onClick={handlePublish}
+                >
+                  <Send size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+            {assignment.status === 'ready' && (
+              <Tooltip label={t.documentDetail.unpublish}>
+                <ActionIcon variant="light" color="yellow" size="md" onClick={handleUnpublish}>
+                  <Send size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </>
+        )}
+
+        {/* ── Group 3: Destructive ── */}
+        <Divider orientation="vertical" size="xs" h={20} style={{ alignSelf: 'center' }} />
+        <Tooltip label={t.documentDetail.deleteDocument}>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="md"
+            onClick={() => setDeleteModalOpen(true)}
+          >
+            <Trash2 size={16} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+    ),
+    [
+      showUploadZone,
+      pendingChanges,
+      isSaving,
+      handleSaveChanges,
+      assignment.status,
+      visibleItems.length,
+      isPublishing,
+      handlePublish,
+      handleUnpublish,
+      t,
+    ],
   );
 
-  /* -- header -- */
+  /* -- header: left = info, right = actions -- */
   const headerNode = useMemo(
     () => (
-      <DocumentDetailHeader
-        docId={assignment.id}
-        initialName={assignment.title}
-        docType="assignment"
-        school={school}
-        course={course}
-        status={assignment.status}
-        backHref="/admin/knowledge"
-        onSaveName={handleSaveName}
-      />
+      <Group justify="space-between" align="center" wrap="nowrap" w="100%">
+        {/* Left: back + name + badges */}
+        <Group gap="sm" wrap="nowrap" style={{ flex: 1, overflow: 'hidden' }}>
+          <Button
+            component={Link}
+            href="/admin/knowledge"
+            variant="subtle"
+            color="gray"
+            size="compact-sm"
+            px={4}
+          >
+            <ArrowLeft size={16} />
+          </Button>
+
+          {editingName ? (
+            <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
+              <TextInput
+                value={nameValue}
+                onChange={(e) => setNameValue(e.currentTarget.value)}
+                size="sm"
+                style={{ flex: 1 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName();
+                  if (e.key === 'Escape') setEditingName(false);
+                }}
+                autoFocus
+              />
+              <Button size="compact-sm" onClick={handleSaveName}>
+                {t.documentDetail.done}
+              </Button>
+            </Group>
+          ) : (
+            <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
+              <Text fw={600} size="sm" truncate>
+                {nameValue}
+              </Text>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={() => setEditingName(true)}
+              >
+                <Pencil size={14} />
+              </ActionIcon>
+            </Group>
+          )}
+
+          <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+            <Badge variant="light" color="indigo" size="sm">
+              {(t.knowledge.docTypeLabel as Record<string, string>)?.assignment ?? 'Assignment'}
+            </Badge>
+            {school && (
+              <Badge variant="light" color="gray" size="sm">
+                {school}
+              </Badge>
+            )}
+            {course && (
+              <Badge variant="light" color="gray" size="sm">
+                {course}
+              </Badge>
+            )}
+            <Badge variant="light" color={statusColor(assignment.status)} size="sm">
+              {assignment.status}
+            </Badge>
+          </Group>
+        </Group>
+
+        {/* Right: actions */}
+        {headerActions}
+      </Group>
     ),
-    [assignment.id, assignment.title, assignment.status, school, course, handleSaveName],
+    [editingName, nameValue, handleSaveName, school, course, assignment.status, headerActions, t],
   );
 
   useEffect(() => {
@@ -277,17 +512,20 @@ export function AssignmentDetailClient({
       )}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="md" p="lg" maw={900} mx="auto">
-          {/* Upload zone */}
-          <PdfUploadZone
-            documentId={assignment.id}
-            docType="assignment"
-            existingItemCount={visibleItems.length}
-            courseId={courseId || undefined}
-            onParseComplete={() => {
-              invalidateItems();
-              router.refresh();
-            }}
-          />
+          {/* Upload zone (shown by default when empty, toggled via header) */}
+          {showUploadZone && (
+            <PdfUploadZone
+              documentId={assignment.id}
+              docType="assignment"
+              existingItemCount={visibleItems.length}
+              courseId={courseId || undefined}
+              onParseComplete={() => {
+                invalidateItems();
+                router.refresh();
+                setShowUploadZone(false);
+              }}
+            />
+          )}
 
           {/* Assignment outline view */}
           <AssignmentOutlineView
@@ -306,25 +544,55 @@ export function AssignmentDetailClient({
             onBulkSetDifficulty={handleBulkSetDifficulty}
             onBulkSetPoints={handleBulkSetPoints}
             onAddItem={handleAddItem}
-          />
-
-          {/* Action bar */}
-          <ChunkActionBar
-            docId={assignment.id}
-            docType={docType}
-            pendingChanges={pendingChanges}
-            editedChunks={editedChunks}
-            deletedChunkIds={deletedChunkIds}
-            onSaved={handleSaved}
-            status={assignment.status}
-            itemCount={visibleItems.length}
-            onPublish={handlePublish}
-            onUnpublish={handleUnpublish}
-            onDelete={handleDeleteDoc}
-            isPublishing={isPublishing}
+            addFormOpen={addFormOpen}
+            onAddFormOpenChange={setAddFormOpen}
           />
         </Stack>
       </ScrollArea>
+
+      {/* Delete confirmation modal */}
+      <Modal
+        opened={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title={t.documentDetail.deleteDocument}
+        centered
+        size="sm"
+        radius="lg"
+      >
+        <Stack align="center" gap="md">
+          <Box
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              background: 'var(--mantine-color-red-0)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Trash2 size={22} color="var(--mantine-color-red-5)" />
+          </Box>
+          <Text fz="sm" ta="center">
+            {t.documentDetail.deleteDocConfirm}
+          </Text>
+        </Stack>
+        <Group justify="flex-end" mt="lg" gap="sm">
+          <Button variant="default" onClick={() => setDeleteModalOpen(false)} radius="md">
+            {t.common.cancel}
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              setDeleteModalOpen(false);
+              handleDeleteDoc();
+            }}
+            radius="md"
+          >
+            {t.common.delete}
+          </Button>
+        </Group>
+      </Modal>
     </Box>
   );
 }

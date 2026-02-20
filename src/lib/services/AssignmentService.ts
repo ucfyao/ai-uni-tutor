@@ -113,10 +113,7 @@ export class AssignmentService {
     return this.repo.deleteItemsByAssignmentId(assignmentId);
   }
 
-  async verifyItemsBelongToAssignment(
-    itemIds: string[],
-    assignmentId: string,
-  ): Promise<boolean> {
+  async verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean> {
     return this.repo.verifyItemsBelongToAssignment(itemIds, assignmentId);
   }
 

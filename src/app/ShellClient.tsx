@@ -4,7 +4,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
 import { getMockExamIdBySessionId } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
@@ -18,6 +17,7 @@ import { MODES_METADATA } from '@/constants/modes';
 import { useHeader } from '@/context/HeaderContext';
 import { useSessions } from '@/context/SessionContext';
 import { useSidebar } from '@/context/SidebarContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { showNotification } from '@/lib/notifications';
 import { TutoringMode } from '@/types/index';
 

@@ -23,8 +23,8 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { useHeader } from '@/context/HeaderContext';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useProfile } from '@/context/ProfileContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Language } from '@/i18n/translations';
 import { showNotification } from '@/lib/notifications';

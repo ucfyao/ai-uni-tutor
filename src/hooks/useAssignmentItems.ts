@@ -7,8 +7,6 @@ import {
   addAssignmentItem,
   fetchAssignmentItems,
   renameAssignment,
-  reorderAssignmentItems,
-  updateAssignmentItems,
 } from '@/app/actions/assignments';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
@@ -65,57 +63,6 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     },
   });
 
-  const saveChangesMutation = useMutation({
-    mutationFn: async (data: {
-      updates: { id: string; content: string; metadata: Record<string, unknown> }[];
-      deletedIds: string[];
-    }) => {
-      const result = await updateAssignmentItems({
-        assignmentId,
-        updates: data.updates,
-        deletedIds: data.deletedIds,
-      });
-      if (!result.success) throw new Error(result.error);
-    },
-    onSuccess: () => {
-      showNotification({ message: t.documentDetail.saved, color: 'green' });
-      invalidateItems();
-    },
-    onError: (error: Error) => {
-      showNotification({ title: t.common.error, message: error.message, color: 'red' });
-    },
-  });
-
-  const reorderMutation = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      const result = await reorderAssignmentItems({ assignmentId, orderedIds });
-      if (!result.success) throw new Error(result.error);
-    },
-    onMutate: async (orderedIds: string[]) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.assignments.items(assignmentId) });
-      const previous = queryClient.getQueryData<AssignmentItemEntity[]>(
-        queryKeys.assignments.items(assignmentId),
-      );
-      if (previous) {
-        const itemMap = new Map(previous.map((item) => [item.id, item]));
-        const reordered = orderedIds
-          .map((id, idx) => {
-            const item = itemMap.get(id);
-            return item ? { ...item, orderNum: idx + 1 } : null;
-          })
-          .filter(Boolean) as AssignmentItemEntity[];
-        queryClient.setQueryData(queryKeys.assignments.items(assignmentId), reordered);
-      }
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKeys.assignments.items(assignmentId), context.previous);
-      }
-      showNotification({ title: t.common.error, message: 'Failed to reorder', color: 'red' });
-    },
-  });
-
   const renameMutation = useMutation({
     mutationFn: async (title: string) => {
       const result = await renameAssignment({ assignmentId, title });
@@ -135,10 +82,6 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     isLoading: query.isLoading,
     addItem: addItemMutation.mutateAsync,
     isAddingItem: addItemMutation.isPending,
-    saveChanges: saveChangesMutation.mutateAsync,
-    isSaving: saveChangesMutation.isPending,
-    reorder: reorderMutation.mutateAsync,
-    isReordering: reorderMutation.isPending,
     rename: renameMutation.mutateAsync,
     isRenaming: renameMutation.isPending,
     invalidateItems,

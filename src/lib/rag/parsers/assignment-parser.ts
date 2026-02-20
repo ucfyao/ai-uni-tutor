@@ -64,11 +64,7 @@ export async function parseAssignment(
     };
   }
 
-  reportProgress(
-    options,
-    100,
-    `Extracted ${sections.length} sections, ${items.length} questions`,
-  );
+  reportProgress(options, 100, `Extracted ${sections.length} sections, ${items.length} questions`);
 
   const outline = buildOutline(options?.assignmentId ?? '', sections, items);
   return { sections, items, outline, warnings };

@@ -5,10 +5,7 @@ import type { EnrichedAssignmentItem, ExtractedSection, ParsedQuestion } from '.
  * Build section chunk content for embedding and RAG retrieval.
  * Format: "## Section Title\nSummary\n\nRaw PDF text from source pages"
  */
-export function buildSectionChunkContent(
-  section: ExtractedSection,
-  pages: PDFPage[],
-): string {
+export function buildSectionChunkContent(section: ExtractedSection, pages: PDFPage[]): string {
   const rawText = section.sourcePages
     .map((p) => pages[p - 1]?.text)
     .filter(Boolean)

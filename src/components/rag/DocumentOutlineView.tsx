@@ -83,9 +83,11 @@ function pageRangeLabel(pages?: number[]): string {
 }
 
 function getChunkMeta(chunk: SectionChunk) {
-  const m = (chunk.metadata && typeof chunk.metadata === 'object' && !Array.isArray(chunk.metadata)
-    ? chunk.metadata
-    : {}) as Record<string, unknown>;
+  const m = (
+    chunk.metadata && typeof chunk.metadata === 'object' && !Array.isArray(chunk.metadata)
+      ? chunk.metadata
+      : {}
+  ) as Record<string, unknown>;
 
   const title = (m.title as string) || '';
   const summary = (m.summary as string) || '';
@@ -144,9 +146,7 @@ function SectionEditView({
   const [title, setTitle] = useState(initialTitle);
   const [summary, setSummary] = useState(initialSummary);
   const [content, setContent] = useState(initialContent);
-  const [kps, setKps] = useState<KPItem[]>(() =>
-    initialKPs.map((kp) => ({ ...kp })),
-  );
+  const [kps, setKps] = useState<KPItem[]>(() => initialKPs.map((kp) => ({ ...kp })));
   const [saving, setSaving] = useState(false);
 
   const addKP = () => setKps((prev) => [...prev, { title: '', content: '' }]);
@@ -511,27 +511,34 @@ function SectionCard({
             style={{ width: '100%', cursor: editing ? undefined : 'pointer' }}
             role="button"
             tabIndex={editing ? undefined : 0}
-            onKeyDown={editing ? undefined : (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onToggleExpand();
-              }
-            }}
+            onKeyDown={
+              editing
+                ? undefined
+                : (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onToggleExpand();
+                    }
+                  }
+            }
           >
             <Group gap="xs" justify="space-between" wrap="nowrap">
               <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-                {!editing && (expanded ? (
-                  <ChevronDown size={14} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
-                ) : (
-                  <ChevronRight size={14} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
-                ))}
-                <Badge
-                  size="sm"
-                  variant="filled"
-                  color="indigo"
-                  circle
-                  style={{ flexShrink: 0 }}
-                >
+                {!editing &&
+                  (expanded ? (
+                    <ChevronDown
+                      size={14}
+                      color="var(--mantine-color-dimmed)"
+                      style={{ flexShrink: 0 }}
+                    />
+                  ) : (
+                    <ChevronRight
+                      size={14}
+                      color="var(--mantine-color-dimmed)"
+                      style={{ flexShrink: 0 }}
+                    />
+                  ))}
+                <Badge size="sm" variant="filled" color="indigo" circle style={{ flexShrink: 0 }}>
                   {index + 1}
                 </Badge>
                 {editing ? (
@@ -651,7 +658,8 @@ function SectionCard({
                           style={{
                             borderRadius: 'var(--mantine-radius-sm)',
                             background: 'var(--mantine-color-dark-8, var(--mantine-color-gray-0))',
-                            border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+                            border:
+                              '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
                           }}
                         >
                           <Text
@@ -774,9 +782,7 @@ export function DocumentOutlineView({
             border: hasSelection
               ? '1px solid var(--mantine-color-indigo-2)'
               : '1px solid transparent',
-            background: hasSelection
-              ? 'var(--mantine-color-indigo-0)'
-              : 'transparent',
+            background: hasSelection ? 'var(--mantine-color-indigo-0)' : 'transparent',
             transition: 'background 0.2s ease, border-color 0.2s ease',
           }}
         >
@@ -897,13 +903,10 @@ export function DocumentOutlineView({
       })}
 
       {/* Add Section: inline form or placeholder button */}
-      {onAddSection && (
-        addSectionOpen ? (
+      {onAddSection &&
+        (addSectionOpen ? (
           <div ref={addSectionRef}>
-            <InlineSectionForm
-              onSave={onAddSection}
-              onCancel={() => onToggleAddSection?.()}
-            />
+            <InlineSectionForm onSave={onAddSection} onCancel={() => onToggleAddSection?.()} />
           </div>
         ) : (
           <UnstyledButton onClick={onToggleAddSection} style={{ width: '100%' }}>
@@ -925,8 +928,7 @@ export function DocumentOutlineView({
               </Group>
             </Card>
           </UnstyledButton>
-        )
-      )}
+        ))}
     </Stack>
   );
 }
