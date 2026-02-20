@@ -20,13 +20,13 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { createEmptyAssignment } from '@/app/actions/assignments';
 import { createExam, createLecture, fetchDocuments } from '@/app/actions/documents';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -227,7 +227,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
 
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="lg" p="lg" maw={1100} mx="auto">
+        <Stack gap="lg" p="lg" maw={900} mx="auto">
           {/* ── Toolbar: SegmentedControl + Search + Create ── */}
           <Group gap="sm" justify="space-between" wrap="nowrap">
             <SegmentedControl
