@@ -1,7 +1,11 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
+import type {
+  EnrichedAssignmentItem,
+  KnowledgePoint,
+  ParsedQuestion,
+} from '@/lib/rag/parsers/types';
 import type { SSEEventMap } from '@/lib/sse';
 
 type ParseStatus = 'idle' | 'parsing_pdf' | 'extracting' | 'embedding' | 'complete' | 'error';
@@ -9,7 +13,7 @@ type ParseStatus = 'idle' | 'parsing_pdf' | 'extracting' | 'embedding' | 'comple
 interface ParsedItem {
   index: number;
   type: 'knowledge_point' | 'question';
-  data: KnowledgePoint | ParsedQuestion;
+  data: KnowledgePoint | ParsedQuestion | EnrichedAssignmentItem;
 }
 
 interface ParseMetadata {

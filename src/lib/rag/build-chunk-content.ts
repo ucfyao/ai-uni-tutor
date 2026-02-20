@@ -1,5 +1,5 @@
 import type { PDFPage } from '@/lib/pdf';
-import type { ExtractedSection, ParsedQuestion } from './parsers/types';
+import type { EnrichedAssignmentItem, ExtractedSection, ParsedQuestion } from './parsers/types';
 
 /**
  * Build section chunk content for embedding and RAG retrieval.
@@ -28,4 +28,29 @@ export function buildQuestionChunkContent(q: ParsedQuestion): string {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+/**
+ * Build assignment item content for embedding and RAG retrieval.
+ * Includes question + options + answer + explanation for comprehensive matching.
+ */
+export function buildAssignmentItemContent(item: EnrichedAssignmentItem): string {
+  const parts: string[] = [`## Q${item.orderNum}: ${item.content}`];
+
+  if (item.options && item.options.length > 0) {
+    parts.push(
+      '\nOptions:\n' +
+        item.options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n'),
+    );
+  }
+
+  if (item.referenceAnswer) {
+    parts.push(`\nReference Answer: ${item.referenceAnswer}`);
+  }
+
+  if (item.explanation) {
+    parts.push(`\nExplanation: ${item.explanation}`);
+  }
+
+  return parts.join('\n');
 }

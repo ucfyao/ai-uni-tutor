@@ -1,4 +1,9 @@
-import type { KnowledgePoint, ParsedQuestion, PipelineProgress } from '@/lib/rag/parsers/types';
+import type {
+  EnrichedAssignmentItem,
+  KnowledgePoint,
+  ParsedQuestion,
+  PipelineProgress,
+} from '@/lib/rag/parsers/types';
 
 // ─── SSE Event Payloads ───
 
@@ -10,7 +15,7 @@ interface SSEStatusEvent {
 interface SSEItemEvent {
   index: number;
   type: 'knowledge_point' | 'question';
-  data: KnowledgePoint | ParsedQuestion;
+  data: KnowledgePoint | ParsedQuestion | EnrichedAssignmentItem;
 }
 
 interface SSEBatchSavedEvent {
