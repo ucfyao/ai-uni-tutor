@@ -250,21 +250,21 @@ function ItemEditForm({
         maxRows={8}
         autoFocus
       />
-      <Textarea
+      <MarkdownToggleField
         label={t.documentDetail.answer}
         value={refAnswer}
-        onChange={(e) => setRefAnswer(e.currentTarget.value)}
+        onChange={setRefAnswer}
         minRows={2}
-        autosize
         maxRows={6}
+        t={t}
       />
-      <Textarea
+      <MarkdownToggleField
         label={t.documentDetail.explanation}
         value={explanation}
-        onChange={(e) => setExplanation(e.currentTarget.value)}
+        onChange={setExplanation}
         minRows={1}
-        autosize
         maxRows={4}
+        t={t}
       />
       <Group grow>
         <Select
@@ -378,23 +378,23 @@ function AddItemForm({
             }
           }}
         />
-        <Textarea
+        <MarkdownToggleField
           label={t.documentDetail.answer}
           placeholder={t.knowledge.referenceAnswerPlaceholder}
           value={refAnswer}
-          onChange={(e) => setRefAnswer(e.currentTarget.value)}
+          onChange={setRefAnswer}
           minRows={2}
-          autosize
           maxRows={6}
+          t={t}
         />
-        <Textarea
+        <MarkdownToggleField
           label={t.documentDetail.explanation}
           placeholder={t.knowledge.explanationPlaceholder}
           value={explanation}
-          onChange={(e) => setExplanation(e.currentTarget.value)}
+          onChange={setExplanation}
           minRows={1}
-          autosize
           maxRows={4}
+          t={t}
         />
         <Group grow>
           <Select
