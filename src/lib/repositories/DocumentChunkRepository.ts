@@ -12,6 +12,16 @@ import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 
 export class LectureChunkRepository implements ILectureChunkRepository {
+  private sortBySourcePages(chunks: LectureChunkEntity[]): LectureChunkEntity[] {
+    return chunks.sort((a, b) => {
+      const metaA = a.metadata as Record<string, unknown>;
+      const metaB = b.metadata as Record<string, unknown>;
+      const pageA = Array.isArray(metaA.sourcePages) ? (metaA.sourcePages[0] as number) : Infinity;
+      const pageB = Array.isArray(metaB.sourcePages) ? (metaB.sourcePages[0] as number) : Infinity;
+      return pageA - pageB;
+    });
+  }
+
   private mapToEntity(row: {
     id: string;
     lecture_document_id: string;
@@ -79,7 +89,7 @@ export class LectureChunkRepository implements ILectureChunkRepository {
       .eq('lecture_document_id', lectureDocumentId)
       .order('created_at', { ascending: true });
     if (error) throw new DatabaseError(`Failed to fetch chunks: ${error.message}`, error);
-    return (data ?? []).map((row) => this.mapToEntity(row));
+    return this.sortBySourcePages((data ?? []).map((row) => this.mapToEntity(row)));
   }
 
   async updateChunk(id: string, content: string, metadata?: Json): Promise<void> {
@@ -113,7 +123,7 @@ export class LectureChunkRepository implements ILectureChunkRepository {
       .eq('lecture_document_id', lectureDocumentId)
       .order('created_at', { ascending: true });
     if (error) throw new DatabaseError('Failed to fetch chunks: ' + error.message, error);
-    return (data ?? []).map((row) => this.mapToEntity(row));
+    return this.sortBySourcePages((data ?? []).map((row) => this.mapToEntity(row)));
   }
 
   async verifyChunksBelongToLectureDocument(
