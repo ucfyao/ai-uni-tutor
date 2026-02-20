@@ -6,7 +6,6 @@ import { Box, ScrollArea, Stack } from '@mantine/core';
 import { addAssignmentItem } from '@/app/actions/assignments';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { updateDocumentMeta } from '@/app/actions/documents';
-import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -31,7 +30,6 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
   const docType: DocType = doc.docType;
   const school = metaStr(doc.metadata, 'school');
   const course = metaStr(doc.metadata, 'course');
-  const courseId = metaStr(doc.metadata, 'courseId');
 
   /* -- document name -- */
   const [currentName, setCurrentName] = useState(doc.name);
@@ -216,19 +214,6 @@ export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailCl
       {/* Scrollable Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <Stack gap="md" p="lg" maw={900} mx="auto">
-          {/* Assignment: collapsible upload area */}
-          {docType === 'assignment' && (
-            <AssignmentUploadArea
-              assignmentId={doc.id}
-              universityId={null}
-              courseId={courseId || null}
-              school={school}
-              course={course}
-              itemCount={visibleChunks.length}
-              onParseComplete={() => router.refresh()}
-            />
-          )}
-
           <ChunkTable
             chunks={visibleChunks}
             docType={docType}

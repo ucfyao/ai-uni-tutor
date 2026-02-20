@@ -126,7 +126,7 @@ export function ChunkActionBar({
           <Group gap="sm">
             {status === 'draft' && onPublish && (
               <Tooltip
-                label={itemCount === 0 ? 'Upload and parse a PDF first' : undefined}
+                label={itemCount === 0 ? t.knowledge.publishDisabledTooltip : undefined}
                 disabled={itemCount !== 0}
               >
                 <Button
@@ -139,7 +139,7 @@ export function ChunkActionBar({
                   onClick={onPublish}
                   radius="md"
                 >
-                  Publish
+                  {t.documentDetail.publish}
                 </Button>
               </Tooltip>
             )}
@@ -151,7 +151,7 @@ export function ChunkActionBar({
                 onClick={onUnpublish}
                 radius="md"
               >
-                Unpublish
+                {t.documentDetail.unpublish}
               </Button>
             )}
 
@@ -204,7 +204,7 @@ export function ChunkActionBar({
       <Modal
         opened={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        title="Delete Document"
+        title={t.documentDetail.deleteDocument}
         centered
         size="sm"
         radius="lg"
@@ -224,12 +224,12 @@ export function ChunkActionBar({
             <Trash2 size={22} color="var(--mantine-color-red-5)" />
           </Box>
           <Text fz="sm" ta="center">
-            Are you sure you want to delete this document? This action cannot be undone.
+            {t.documentDetail.deleteDocConfirm}
           </Text>
         </Stack>
         <Group justify="flex-end" mt="lg" gap="sm">
           <Button variant="default" onClick={() => setDeleteModalOpen(false)} radius="md">
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button
             color="red"
@@ -239,7 +239,7 @@ export function ChunkActionBar({
             }}
             radius="md"
           >
-            Delete
+            {t.common.delete}
           </Button>
         </Group>
       </Modal>
