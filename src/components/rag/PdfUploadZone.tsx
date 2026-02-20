@@ -146,6 +146,7 @@ export function PdfUploadZone({
   const { t } = useLanguage();
   const parseState = useStreamingParse();
   const completeFiredRef = useRef(false);
+  const lastProgressTextRef = useRef<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
 
   const isActive = parseState.status !== 'idle';
@@ -159,6 +160,7 @@ export function PdfUploadZone({
     }
     if (parseState.status === 'idle') {
       completeFiredRef.current = false;
+      lastProgressTextRef.current = null;
       setSelectedFile(null);
     }
   }, [parseState.status, onParseComplete]);
@@ -212,11 +214,18 @@ export function PdfUploadZone({
 
     const progressColor = isError ? 'red' : isComplete ? 'teal' : 'indigo';
 
-    // Detail text under progress bar
-    const detailText = (() => {
+    // Progress text (persisted across error transitions)
+    const progressText = (() => {
+      if (stage === 'parsing_pdf') {
+        return t.knowledge.parseStepReading;
+      }
       if (stage === 'extracting') {
         if (parseState.items.length > 0) {
           return `${parseState.items.length} ${t.documentDetail[itemLabel]}`;
+        }
+        const pages = parseState.pipelineDetail?.totalPages;
+        if (pages) {
+          return `${t.knowledge.parseDetailExtracting} (${pages} ${t.knowledge.parseStepPages})`;
         }
         return t.knowledge.parseDetailExtracting;
       }
@@ -231,10 +240,17 @@ export function PdfUploadZone({
         return `${parseState.items.length} ${t.documentDetail[itemLabel]}`;
       }
       if (isError) {
-        return parseState.error || t.knowledge.parseFailed;
+        return lastProgressTextRef.current;
       }
       return null;
     })();
+
+    // Keep the ref up-to-date with the latest non-error progress text
+    if (!isError && progressText) {
+      lastProgressTextRef.current = progressText;
+    }
+
+    const errorText = isError ? (parseState.error || t.knowledge.parseFailed) : null;
 
     return (
       <Box
@@ -285,7 +301,7 @@ export function PdfUploadZone({
 
           {/* Row 3: progress bar */}
           <Progress
-            value={stage === 'extracting' && parseState.items.length === 0 ? 100 : progressPct}
+            value={progressPct}
             color={progressColor}
             size={4}
             radius="xl"
@@ -295,21 +311,23 @@ export function PdfUploadZone({
 
           {/* Row 4: detail text + actions */}
           <Group gap="xs" justify="space-between" wrap="nowrap">
-            {detailText && (
-              <Text size="xs" c={isError ? 'red' : isComplete ? 'teal.7' : 'dimmed'} fw={500}>
-                {detailText}
+            {progressText && (
+              <Text size="xs" c={isError ? 'dimmed' : isComplete ? 'teal.7' : 'dimmed'} fw={500}>
+                {progressText}
               </Text>
             )}
-            {isError && (
+            {(isError || isComplete) && (
               <Group gap="xs" style={{ flexShrink: 0 }}>
-                <Button
-                  variant="light"
-                  color="indigo"
-                  size="compact-xs"
-                  onClick={() => parseState.retry()}
-                >
-                  {t.knowledge.retryProcessing}
-                </Button>
+                {isError && (
+                  <Button
+                    variant="light"
+                    color="indigo"
+                    size="compact-xs"
+                    onClick={() => parseState.retry()}
+                  >
+                    {t.knowledge.retryProcessing}
+                  </Button>
+                )}
                 <Button
                   variant="subtle"
                   color="gray"
@@ -321,6 +339,11 @@ export function PdfUploadZone({
               </Group>
             )}
           </Group>
+          {errorText && (
+            <Text size="xs" c="red" fw={500}>
+              {errorText}
+            </Text>
+          )}
         </Stack>
       </Box>
     );

@@ -86,36 +86,11 @@ function LectureEditForm({
 }) {
   const { t } = useLanguage();
   const [title, setTitle] = useState((meta.title as string) || '');
-  const [definition, setDefinition] = useState((meta.definition as string) || initialContent);
-  const [formulas, setFormulas] = useState(
-    Array.isArray(meta.keyFormulas) ? (meta.keyFormulas as string[]).join('\n') : '',
-  );
-  const [concepts, setConcepts] = useState(
-    Array.isArray(meta.keyConcepts) ? (meta.keyConcepts as string[]).join('\n') : '',
-  );
-  const [examples, setExamples] = useState(
-    Array.isArray(meta.examples) ? (meta.examples as string[]).join('\n') : '',
-  );
+  const [summary, setSummary] = useState((meta.summary as string) || initialContent);
 
   const handleSave = () => {
-    const updated: Record<string, unknown> = {
-      ...meta,
-      title,
-      definition,
-      keyFormulas: formulas
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      keyConcepts: concepts
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      examples: examples
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    };
-    onSave(chunkId, definition, updated);
+    const updated: Record<string, unknown> = { ...meta, title, summary };
+    onSave(chunkId, summary, updated);
   };
 
   return (
@@ -127,31 +102,10 @@ function LectureEditForm({
           onChange={(e) => setTitle(e.currentTarget.value)}
         />
         <Textarea
-          label={t.documentDetail.definition}
-          value={definition}
-          onChange={(e) => setDefinition(e.currentTarget.value)}
-          minRows={3}
-          autosize
-        />
-        <Textarea
-          label={`${t.documentDetail.keyFormulas} (${t.documentDetail.onePerLine})`}
-          value={formulas}
-          onChange={(e) => setFormulas(e.currentTarget.value)}
-          minRows={2}
-          autosize
-        />
-        <Textarea
-          label={`${t.documentDetail.keyConcepts} (${t.documentDetail.onePerLine})`}
-          value={concepts}
-          onChange={(e) => setConcepts(e.currentTarget.value)}
-          minRows={2}
-          autosize
-        />
-        <Textarea
-          label={`${t.documentDetail.examples} (${t.documentDetail.onePerLine})`}
-          value={examples}
-          onChange={(e) => setExamples(e.currentTarget.value)}
-          minRows={2}
+          label={t.documentDetail.content}
+          value={summary}
+          onChange={(e) => setSummary(e.currentTarget.value)}
+          minRows={4}
           autosize
         />
         <Group justify="flex-end" gap="sm">

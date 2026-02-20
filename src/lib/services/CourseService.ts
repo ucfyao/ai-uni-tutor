@@ -73,10 +73,10 @@ export class CourseService {
   /**
    * Regenerate the course-level knowledge outline from all lecture document outlines.
    * Called after lecture upload completes or after lecture deletion.
+   * Builds the outline locally by aggregating document section data.
    */
   async regenerateCourseOutline(courseId: string): Promise<void> {
     const { getLectureDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
-    const { generateCourseOutline } = await import('@/lib/rag/parsers/outline-generator');
     const { generateEmbedding } = await import('@/lib/rag/embedding');
 
     const docRepo = getLectureDocumentRepository();
@@ -87,24 +87,38 @@ export class CourseService {
       return;
     }
 
-    const documentOutlines = docs.map((doc) => {
-      const outline = doc.outline as Record<string, unknown>;
-      return {
-        documentId: doc.id,
-        title: (outline.title as string) || 'Untitled',
-        subject: (outline.subject as string) || '',
-        totalKnowledgePoints: (outline.totalKnowledgePoints as number) || 0,
-        sections:
-          (outline.sections as Array<{
-            title: string;
-            knowledgePoints: string[];
-            briefDescription: string;
-          }>) || [],
-        summary: (outline.summary as string) || '',
-      };
-    });
+    // Build course outline locally from document outlines
+    const topics: Array<{
+      topic: string;
+      subtopics: string[];
+      relatedDocuments: string[];
+      knowledgePointCount: number;
+    }> = [];
 
-    const courseOutline = await generateCourseOutline(courseId, documentOutlines);
+    for (const doc of docs) {
+      const outline = doc.outline as Record<string, unknown>;
+      const sections =
+        (outline?.sections as Array<{
+          title: string;
+          knowledgePoints: string[];
+          briefDescription: string;
+        }>) || [];
+
+      for (const section of sections) {
+        topics.push({
+          topic: section.title,
+          subtopics: section.knowledgePoints || [],
+          relatedDocuments: [doc.id],
+          knowledgePointCount: section.knowledgePoints?.length || 0,
+        });
+      }
+    }
+
+    const courseOutline = {
+      courseId,
+      topics,
+      lastUpdated: new Date().toISOString(),
+    };
 
     const outlineText = courseOutline.topics
       .map((t) => `${t.topic}: ${t.subtopics.join(', ')}`)

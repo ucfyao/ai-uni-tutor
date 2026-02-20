@@ -1,36 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { KnowledgePoint, PipelineProgress } from './types';
+import type { ExtractedSection, PipelineProgress } from './types';
 
 vi.mock('server-only', () => ({}));
 
-const mockExtractKnowledgePoints = vi.fn();
-const mockBuildOutlineFromPoints = vi.fn();
+const mockExtractSections = vi.fn();
 
 vi.mock('./section-extractor', () => ({
-  extractKnowledgePoints: (...args: unknown[]) => mockExtractKnowledgePoints(...args),
-}));
-vi.mock('./outline-generator', () => ({
-  buildOutlineFromPoints: (...args: unknown[]) => mockBuildOutlineFromPoints(...args),
+  extractSections: (...args: unknown[]) => mockExtractSections(...args),
 }));
 
 const { parseLecture, parseLectureMultiPass } = await import('./lecture-parser');
 
-function setupDefaultMocks(points: KnowledgePoint[] = []) {
-  mockExtractKnowledgePoints.mockResolvedValue(points);
-  mockBuildOutlineFromPoints.mockReturnValue({
-    documentId: 'doc-1',
-    title: 'Test',
-    subject: '',
-    totalKnowledgePoints: points.length,
-    sections: [],
-    summary: 'Test',
-  });
+function setupDefaultMocks(sections: ExtractedSection[] = []) {
+  mockExtractSections.mockResolvedValue(sections);
 }
 
 describe('lecture-parser', () => {
   beforeEach(() => {
-    mockExtractKnowledgePoints.mockReset();
-    mockBuildOutlineFromPoints.mockReset();
+    mockExtractSections.mockReset();
   });
 
   afterEach(() => {
@@ -38,11 +25,18 @@ describe('lecture-parser', () => {
   });
 
   describe('parseLectureMultiPass', () => {
-    it('extracts knowledge points and builds local outline', async () => {
-      const kp: KnowledgePoint[] = [
-        { title: 'BST', definition: 'Binary search tree', sourcePages: [5] },
+    it('extracts sections and builds local outline', async () => {
+      const sections: ExtractedSection[] = [
+        {
+          title: 'Binary Search Trees',
+          summary: 'Introduction to BST',
+          sourcePages: [5],
+          knowledgePoints: [
+            { title: 'BST', content: 'Binary search tree', sourcePages: [5] },
+          ],
+        },
       ];
-      setupDefaultMocks(kp);
+      setupDefaultMocks(sections);
 
       const pages = Array.from({ length: 10 }, (_, i) => ({ page: i + 1, text: `P${i + 1}` }));
       const result = await parseLectureMultiPass(pages, { documentId: 'doc-1' });
@@ -50,13 +44,19 @@ describe('lecture-parser', () => {
       expect(result.knowledgePoints).toHaveLength(1);
       expect(result.outline).toBeDefined();
       expect(result.outline?.documentId).toBe('doc-1');
-      expect(mockExtractKnowledgePoints).toHaveBeenCalledWith(pages, undefined);
-      expect(mockBuildOutlineFromPoints).toHaveBeenCalledWith('doc-1', kp);
+      expect(mockExtractSections).toHaveBeenCalledWith(pages, undefined);
     });
 
-    it('reports progress through extraction and outline phases', async () => {
-      const kp = [{ title: 'X', definition: 'Y', sourcePages: [1] }];
-      setupDefaultMocks(kp);
+    it('reports progress through extraction phase', async () => {
+      const sections: ExtractedSection[] = [
+        {
+          title: 'Section 1',
+          summary: 'Summary',
+          sourcePages: [1],
+          knowledgePoints: [{ title: 'X', content: 'Y', sourcePages: [1] }],
+        },
+      ];
+      setupDefaultMocks(sections);
 
       const pages = [{ page: 1, text: 'Page 1' }];
       const progressEvents: PipelineProgress[] = [];
@@ -68,41 +68,55 @@ describe('lecture-parser', () => {
 
       const phases = progressEvents.map((e) => e.phase);
       expect(phases).toContain('extraction');
-      expect(phases).toContain('outline_generation');
     });
 
     it('passes signal to extractor', async () => {
-      const kp = [{ title: 'A', definition: 'B', sourcePages: [1] }];
-      setupDefaultMocks(kp);
+      const sections: ExtractedSection[] = [
+        {
+          title: 'Section 1',
+          summary: 'Summary',
+          sourcePages: [1],
+          knowledgePoints: [{ title: 'A', content: 'B', sourcePages: [1] }],
+        },
+      ];
+      setupDefaultMocks(sections);
 
       const controller = new AbortController();
       const pages = [{ page: 1, text: 'P1' }];
 
       await parseLectureMultiPass(pages, { signal: controller.signal });
 
-      expect(mockExtractKnowledgePoints).toHaveBeenCalledWith(pages, controller.signal);
+      expect(mockExtractSections).toHaveBeenCalledWith(pages, controller.signal);
     });
 
     it('skips outline when no documentId provided', async () => {
-      setupDefaultMocks([{ title: 'A', definition: 'B', sourcePages: [1] }]);
+      const sections: ExtractedSection[] = [
+        {
+          title: 'Section 1',
+          summary: 'Summary',
+          sourcePages: [1],
+          knowledgePoints: [{ title: 'A', content: 'B', sourcePages: [1] }],
+        },
+      ];
+      setupDefaultMocks(sections);
 
       const result = await parseLectureMultiPass([{ page: 1, text: 'P1' }]);
 
       expect(result.outline).toBeUndefined();
-      expect(mockBuildOutlineFromPoints).not.toHaveBeenCalled();
     });
 
-    it('returns empty result when no knowledge points extracted', async () => {
+    it('returns empty result when no sections extracted', async () => {
       setupDefaultMocks([]);
 
       const result = await parseLectureMultiPass([{ page: 1, text: 'P1' }]);
 
       expect(result.knowledgePoints).toHaveLength(0);
+      expect(result.sections).toHaveLength(0);
     });
   });
 
   describe('parseLecture (backward compat)', () => {
-    it('returns KnowledgePoint[] directly', async () => {
+    it('returns ExtractedSection[] directly', async () => {
       setupDefaultMocks([]);
 
       const result = await parseLecture([{ page: 1, text: 'P1' }]);

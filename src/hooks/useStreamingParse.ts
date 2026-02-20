@@ -214,12 +214,12 @@ export function useStreamingParse(): StreamingParseState {
           break;
         }
         case 'pipeline_progress': {
-          const detail = data as Record<string, unknown>;
+          const pd = data as SSEEventMap['pipeline_progress'];
           setPipelineDetail({
-            phase: detail.phase as string,
-            totalPages: detail.totalPages as number | undefined,
-            knowledgePointCount: detail.knowledgePointCount as number | undefined,
-            detail: detail.detail as string | undefined,
+            phase: pd.phase,
+            totalPages: pd.totalPages,
+            knowledgePointCount: pd.knowledgePointCount,
+            detail: pd.detail,
           });
           break;
         }
