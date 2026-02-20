@@ -28,6 +28,11 @@ export interface OutlineSection {
   title: string;
   knowledgePoints: string[];
   briefDescription: string;
+  sourcePages?: number[];
+  knowledgePointDetails?: {
+    title: string;
+    content: string;
+  }[];
 }
 
 export interface DocumentOutline {
@@ -53,7 +58,7 @@ export interface CourseOutline {
 }
 
 export interface PipelineProgress {
-  phase: 'extraction' | 'outline_generation';
+  phase: 'extraction';
   phaseProgress: number;
   totalProgress: number;
   detail: string;
@@ -62,6 +67,7 @@ export interface PipelineProgress {
 }
 
 export interface ParseLectureResult {
+  sections: ExtractedSection[];
   knowledgePoints: KnowledgePoint[];
   outline?: DocumentOutline;
 }
