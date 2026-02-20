@@ -16,30 +16,6 @@ export interface ParsedQuestion {
   sourcePage: number;
 }
 
-// --- Multi-Pass Pipeline Types ---
-
-export type ContentType =
-  | 'definitions'
-  | 'theorems'
-  | 'examples'
-  | 'exercises'
-  | 'overview'
-  | 'mixed';
-
-export interface SectionInfo {
-  title: string;
-  startPage: number;
-  endPage: number;
-  contentType: ContentType;
-  parentSection?: string;
-}
-
-export interface DocumentStructure {
-  subject: string;
-  documentType: string;
-  sections: SectionInfo[];
-}
-
 export interface OutlineSection {
   title: string;
   knowledgePoints: string[];
