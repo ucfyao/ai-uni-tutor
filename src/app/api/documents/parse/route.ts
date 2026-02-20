@@ -4,7 +4,7 @@ import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
 import { buildChunkContent } from '@/lib/rag/build-chunk-content';
-import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
+
 import type { KnowledgePoint, ParsedQuestion } from '@/lib/rag/parsers/types';
 import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
@@ -18,8 +18,6 @@ import type { Json } from '@/types/database';
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const BATCH_SIZE = 3;
 
 // [C1] Server-side file size limit (bytes) — lazy to avoid running getEnv() during next build
 let _maxFileSize: number | undefined;
@@ -175,15 +173,10 @@ export async function POST(request: Request) {
       let documentOutline: import('@/lib/rag/parsers/types').DocumentOutline | undefined;
 
       try {
-        const onBatchProgress = (current: number, total: number) => {
-          send('progress', { current, total });
-        };
-
         if (doc_type === 'lecture') {
           const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
           const parseResult = await parseLectureMultiPass(pdfData.pages, {
             documentId,
-            onBatchProgress,
             onProgress: (progress) => send('pipeline_progress', progress),
             signal,
           });
@@ -191,6 +184,9 @@ export async function POST(request: Request) {
           items = knowledgePoints.map((kp) => ({ type: 'knowledge_point' as const, data: kp }));
           documentOutline = parseResult.outline;
         } else {
+          const onBatchProgress = (current: number, total: number) => {
+            send('progress', { current, total });
+          };
           const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
           const questions = await parseQuestions(pdfData.pages, has_answers, onBatchProgress);
           items = questions.map((q) => ({ type: 'question' as const, data: q }));
@@ -228,7 +224,7 @@ export async function POST(request: Request) {
       }
 
       if (doc_type === 'lecture') {
-        // ── LECTURE: Content-based dedup, save knowledge cards, then embed + save chunks ──
+        // ── LECTURE: dedup, save knowledge cards, batch-embed, batch-save ──
         const existingChunks = await documentService.getChunks(documentId);
         const existingTitles = new Set(
           existingChunks.map((c) => {
@@ -246,6 +242,7 @@ export async function POST(request: Request) {
           return;
         }
 
+        // Save knowledge cards (non-fatal)
         const knowledgePoints = newItems.map((item) => item.data as KnowledgePoint);
         try {
           await getKnowledgeCardService().saveFromKnowledgePoints(knowledgePoints);
@@ -271,36 +268,39 @@ export async function POST(request: Request) {
           }
         }
 
+        // ── Batch embed + save ──
         send('status', { stage: 'embedding', message: 'Generating embeddings & saving...' });
 
-        let batch: CreateLectureChunkDTO[] = [];
-        let batchIndex = 0;
+        // 1. Collect all chunk contents
+        const allContents = newItems.map(({ type, data }) => buildChunkContent(type, data));
 
+        // Send item events for frontend display
         for (let i = 0; i < newItems.length; i++) {
-          if (signal.aborted) {
-            if (batch.length > 0) await documentService.saveChunksAndReturn(batch);
-            return;
-          }
+          send('item', { index: i, type: newItems[i].type, data: newItems[i].data });
+        }
+        send('progress', { current: 0, total: newItems.length });
 
-          const { type, data } = newItems[i];
-          send('item', { index: i, type, data });
-          send('progress', { current: i + 1, total: newItems.length });
+        // 2. Batch embed (10 concurrent via generateEmbeddingBatch)
+        if (signal.aborted) return;
+        const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+        const allEmbeddings = await generateEmbeddingBatch(allContents);
 
-          const content = buildChunkContent(type, data);
-          const embedding = await generateEmbeddingWithRetry(content);
-          batch.push({
-            lectureDocumentId: documentId,
-            content,
-            embedding,
-            metadata: { type, ...data, ...(documentName && { documentName }) },
-          });
+        // 3. Assemble DTOs
+        const allChunks: CreateLectureChunkDTO[] = newItems.map(({ type, data }, i) => ({
+          lectureDocumentId: documentId,
+          content: allContents[i],
+          embedding: allEmbeddings[i],
+          metadata: { type, ...data, ...(documentName && { documentName }) },
+        }));
 
-          if (batch.length >= BATCH_SIZE || i === newItems.length - 1) {
-            const savedChunks = await documentService.saveChunksAndReturn(batch);
-            send('batch_saved', { chunkIds: savedChunks.map((c) => c.id), batchIndex });
-            batch = [];
-            batchIndex++;
-          }
+        // 4. Batch save (groups of 20)
+        const SAVE_BATCH = 20;
+        for (let i = 0; i < allChunks.length; i += SAVE_BATCH) {
+          if (signal.aborted) break;
+          const batch = allChunks.slice(i, i + SAVE_BATCH);
+          const saved = await documentService.saveChunksAndReturn(batch);
+          send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: Math.floor(i / SAVE_BATCH) });
+          send('progress', { current: Math.min(i + SAVE_BATCH, allChunks.length), total: allChunks.length });
         }
       } else if (doc_type === 'exam') {
         // ── EXAM: Content-based dedup, then save questions ──
