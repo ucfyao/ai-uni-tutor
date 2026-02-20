@@ -1,5 +1,16 @@
 'use client';
 
+import {
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  FilterX,
+  GripVertical,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActionIcon,
@@ -20,17 +31,7 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
-import {
-  ChevronDown,
-  ChevronRight,
-  Filter,
-  FilterX,
-  GripVertical,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-} from 'lucide-react';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 
@@ -52,30 +53,44 @@ interface AssignmentOutlineViewProps {
   onBulkSetDifficulty: (difficulty: string) => void;
   onBulkSetPoints: (points: number) => void;
   onAddItem: (data: Record<string, unknown>) => Promise<boolean>;
+  /** Controlled add-form visibility (from parent header button). */
+  addFormOpen?: boolean;
+  onAddFormOpenChange?: (open: boolean) => void;
 }
 
 /* ── Constants ── */
 
-const QUESTION_TYPES = [
-  { value: 'choice', label: 'Multiple Choice' },
-  { value: 'fill_blank', label: 'Fill in the Blank' },
-  { value: 'short_answer', label: 'Short Answer' },
-  { value: 'calculation', label: 'Calculation' },
-  { value: 'proof', label: 'Proof' },
-  { value: 'essay', label: 'Essay' },
-];
-
-const DIFFICULTIES = [
-  { value: 'easy', label: 'Easy' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'hard', label: 'Hard' },
-];
+const QUESTION_TYPE_KEYS = [
+  'choice',
+  'fill_blank',
+  'short_answer',
+  'calculation',
+  'proof',
+  'essay',
+] as const;
+const DIFFICULTY_KEYS = ['easy', 'medium', 'hard'] as const;
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   easy: 'green',
   medium: 'yellow',
   hard: 'red',
 };
+
+type TranslationMap = Record<string, string>;
+
+function getQuestionTypes(t: { knowledge: { questionTypes: TranslationMap } }) {
+  return QUESTION_TYPE_KEYS.map((key) => ({
+    value: key,
+    label: t.knowledge.questionTypes[key] ?? key,
+  }));
+}
+
+function getDifficulties(t: { knowledge: { difficulties: TranslationMap } }) {
+  return DIFFICULTY_KEYS.map((key) => ({
+    value: key,
+    label: t.knowledge.difficulties[key] ?? key,
+  }));
+}
 
 /* ── Helpers ── */
 
@@ -104,6 +119,83 @@ function truncate(str: string, max: number): string {
   return str.slice(0, max) + '...';
 }
 
+/* ── Markdown Toggle Field ── */
+
+function MarkdownToggleField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  minRows = 2,
+  maxRows = 6,
+  t,
+}: {
+  label: string;
+  placeholder?: string;
+  value: string;
+  onChange: (val: string) => void;
+  minRows?: number;
+  maxRows?: number;
+  t: ReturnType<typeof useLanguage>['t'];
+}) {
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
+
+  return (
+    <Stack gap={4}>
+      <Group justify="space-between" align="center">
+        <Text size="sm" fw={500}>
+          {label}
+        </Text>
+        <Button.Group>
+          <Button
+            variant={mode === 'edit' ? 'filled' : 'default'}
+            color="indigo"
+            size="compact-xs"
+            onClick={() => setMode('edit')}
+          >
+            {t.documentDetail.editMode}
+          </Button>
+          <Button
+            variant={mode === 'preview' ? 'filled' : 'default'}
+            color="indigo"
+            size="compact-xs"
+            onClick={() => setMode('preview')}
+          >
+            {t.documentDetail.preview}
+          </Button>
+        </Button.Group>
+      </Group>
+      {mode === 'edit' ? (
+        <Textarea
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.currentTarget.value)}
+          minRows={minRows}
+          autosize
+          maxRows={maxRows}
+        />
+      ) : (
+        <Box
+          p="sm"
+          style={{
+            border: '1px solid var(--mantine-color-gray-3)',
+            borderRadius: 'var(--mantine-radius-sm)',
+            minHeight: 60,
+          }}
+        >
+          {value.trim() ? (
+            <MarkdownRenderer content={value} compact />
+          ) : (
+            <Text size="sm" c="dimmed" fs="italic">
+              {placeholder}
+            </Text>
+          )}
+        </Box>
+      )}
+    </Stack>
+  );
+}
+
 /* ── Inline Edit Form ── */
 
 function ItemEditForm({
@@ -111,11 +203,13 @@ function ItemEditForm({
   editedItems,
   onSave,
   onCancel,
+  t,
 }: {
   item: AssignmentItemEntity;
   editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
   onSave: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onCancel: () => void;
+  t: ReturnType<typeof useLanguage>['t'];
 }) {
   const edited = editedItems.get(item.id);
   const initMeta = edited?.metadata ?? item.metadata ?? {};
@@ -148,7 +242,7 @@ function ItemEditForm({
   return (
     <Stack gap="sm" p="sm">
       <Textarea
-        label="Content"
+        label={t.documentDetail.content}
         value={content}
         onChange={(e) => setContent(e.currentTarget.value)}
         minRows={2}
@@ -157,7 +251,7 @@ function ItemEditForm({
         autoFocus
       />
       <Textarea
-        label="Reference Answer"
+        label={t.documentDetail.answer}
         value={refAnswer}
         onChange={(e) => setRefAnswer(e.currentTarget.value)}
         minRows={2}
@@ -165,7 +259,7 @@ function ItemEditForm({
         maxRows={6}
       />
       <Textarea
-        label="Explanation"
+        label={t.documentDetail.explanation}
         value={explanation}
         onChange={(e) => setExplanation(e.currentTarget.value)}
         minRows={1}
@@ -174,21 +268,21 @@ function ItemEditForm({
       />
       <Group grow>
         <Select
-          label="Type"
-          data={QUESTION_TYPES}
+          label={t.knowledge.questionType}
+          data={getQuestionTypes(t)}
           value={type}
           onChange={(v) => setType(v ?? '')}
           clearable
         />
         <Select
-          label="Difficulty"
-          data={DIFFICULTIES}
+          label={t.documentDetail.difficulty}
+          data={getDifficulties(t)}
           value={difficulty}
           onChange={(v) => setDifficulty(v ?? '')}
           clearable
         />
         <NumberInput
-          label="Points"
+          label={t.documentDetail.score}
           value={points}
           onChange={(v) => setPoints(v)}
           min={0}
@@ -197,10 +291,10 @@ function ItemEditForm({
       </Group>
       <Group justify="flex-end" gap="sm">
         <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button color="indigo" size="compact-sm" onClick={handleSave} disabled={!content.trim()}>
-          Save
+          {t.common.save}
         </Button>
       </Group>
     </Stack>
@@ -209,7 +303,15 @@ function ItemEditForm({
 
 /* ── Add Item Form ── */
 
-function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown>) => Promise<boolean>; onCancel: () => void }) {
+function AddItemForm({
+  onAdd,
+  onCancel,
+  t,
+}: {
+  onAdd: (data: Record<string, unknown>) => Promise<boolean>;
+  onCancel: () => void;
+  t: ReturnType<typeof useLanguage>['t'];
+}) {
   const [content, setContent] = useState('');
   const [refAnswer, setRefAnswer] = useState('');
   const [explanation, setExplanation] = useState('');
@@ -257,11 +359,11 @@ function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown
     >
       <Stack gap="sm">
         <Text size="sm" fw={600} c="indigo">
-          New Question
+          {t.knowledge.newQuestion}
         </Text>
         <Textarea
-          label="Content"
-          placeholder="Question content..."
+          label={t.documentDetail.content}
+          placeholder={t.knowledge.questionContentPlaceholder}
           value={content}
           onChange={(e) => setContent(e.currentTarget.value)}
           minRows={2}
@@ -277,8 +379,8 @@ function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown
           }}
         />
         <Textarea
-          label="Reference Answer"
-          placeholder="Reference answer (optional)"
+          label={t.documentDetail.answer}
+          placeholder={t.knowledge.referenceAnswerPlaceholder}
           value={refAnswer}
           onChange={(e) => setRefAnswer(e.currentTarget.value)}
           minRows={2}
@@ -286,8 +388,8 @@ function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown
           maxRows={6}
         />
         <Textarea
-          label="Explanation"
-          placeholder="Explanation (optional)"
+          label={t.documentDetail.explanation}
+          placeholder={t.knowledge.explanationPlaceholder}
           value={explanation}
           onChange={(e) => setExplanation(e.currentTarget.value)}
           minRows={1}
@@ -296,19 +398,19 @@ function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown
         />
         <Group grow>
           <Select
-            label="Type"
-            data={QUESTION_TYPES}
+            label={t.knowledge.questionType}
+            data={getQuestionTypes(t)}
             value={type}
             onChange={(v) => setType(v ?? 'short_answer')}
           />
           <Select
-            label="Difficulty"
-            data={DIFFICULTIES}
+            label={t.documentDetail.difficulty}
+            data={getDifficulties(t)}
             value={difficulty}
             onChange={(v) => setDifficulty(v ?? 'medium')}
           />
           <NumberInput
-            label="Points"
+            label={t.documentDetail.score}
             value={points}
             onChange={(v) => setPoints(v)}
             min={0}
@@ -317,7 +419,7 @@ function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown
         </Group>
         <Group justify="flex-end" gap="sm">
           <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button
             color="indigo"
@@ -326,7 +428,7 @@ function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown
             loading={saving}
             disabled={!content.trim()}
           >
-            Add Question
+            {t.knowledge.addQuestion}
           </Button>
         </Group>
       </Stack>
@@ -334,9 +436,9 @@ function AddItemForm({ onAdd, onCancel }: { onAdd: (data: Record<string, unknown
   );
 }
 
-/* ── Item Row ── */
+/* ── Item Card ── */
 
-function ItemRow({
+function ItemCard({
   item,
   isSelected,
   isDeleted,
@@ -347,6 +449,7 @@ function ItemRow({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  t,
 }: {
   item: AssignmentItemEntity;
   isSelected: boolean;
@@ -358,22 +461,33 @@ function ItemRow({
   onCancelEdit: () => void;
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
+  t: ReturnType<typeof useLanguage>['t'];
 }) {
   if (isDeleted) return null;
 
   const difficulty = getDifficulty(item);
+  const qType = getType(item);
   const edited = editedItems.get(item.id);
   const displayContent = edited?.content ?? item.content;
+  const displayAnswer =
+    (edited?.metadata?.referenceAnswer as string) ?? item.referenceAnswer ?? '';
+  const displayExplanation =
+    (edited?.metadata?.explanation as string) ?? item.explanation ?? '';
+
+  const [expanded, setExpanded] = useState(false);
+  const contentTruncated = displayContent.length > 200;
+  const shownContent = expanded ? displayContent : truncate(displayContent, 200);
 
   return (
     <Box
       px="sm"
-      py="xs"
+      py="sm"
       style={{
-        borderRadius: 'var(--mantine-radius-sm)',
-        background: isSelected ? 'var(--mantine-color-indigo-0)' : 'var(--mantine-color-gray-0)',
+        borderRadius: 'var(--mantine-radius-md)',
+        background: isSelected
+          ? 'var(--mantine-color-indigo-0)'
+          : 'var(--mantine-color-gray-0)',
         border: `1px solid ${isSelected ? 'var(--mantine-color-indigo-2)' : 'var(--mantine-color-gray-2)'}`,
-        opacity: isDeleted ? 0.4 : 1,
         transition: 'all 0.15s ease',
       }}
     >
@@ -383,56 +497,106 @@ function ItemRow({
           editedItems={editedItems}
           onSave={onSaveEdit}
           onCancel={onCancelEdit}
+          t={t}
         />
       ) : (
-        <Group gap="sm" wrap="nowrap" align="center">
-          <Checkbox
-            checked={isSelected}
-            onChange={() => onToggleSelect(item.id)}
-            size="sm"
-            color="indigo"
-            style={{ flexShrink: 0 }}
-          />
-          <Badge size="sm" variant="filled" color="indigo" circle style={{ flexShrink: 0 }}>
-            {item.orderNum}
-          </Badge>
-          <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>
-            {truncate(displayContent, 100)}
-          </Text>
-          {difficulty && (
-            <Badge
-              size="xs"
-              variant="light"
-              color={DIFFICULTY_COLORS[difficulty] ?? 'gray'}
+        <Stack gap="xs">
+          {/* Header: checkbox, order, badges, actions */}
+          <Group gap="sm" wrap="nowrap" align="center">
+            <Checkbox
+              checked={isSelected}
+              onChange={() => onToggleSelect(item.id)}
+              size="sm"
+              color="indigo"
               style={{ flexShrink: 0 }}
-            >
-              {difficulty}
+            />
+            <Badge size="sm" variant="filled" color="indigo" circle style={{ flexShrink: 0 }}>
+              {item.orderNum}
             </Badge>
-          )}
-          {item.points > 0 && (
-            <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-              {item.points} pts
+            {qType && (
+              <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                {(t.knowledge.questionTypes as TranslationMap)[qType] ?? qType}
+              </Badge>
+            )}
+            {difficulty && (
+              <Badge
+                size="xs"
+                variant="light"
+                color={DIFFICULTY_COLORS[difficulty] ?? 'gray'}
+                style={{ flexShrink: 0 }}
+              >
+                {(t.knowledge.difficulties as TranslationMap)[difficulty] ?? difficulty}
+              </Badge>
+            )}
+            {item.points > 0 && (
+              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                {item.points} pts
+              </Text>
+            )}
+            <Box style={{ flex: 1 }} />
+            <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="xs"
+                onClick={() => onStartEdit(item.id)}
+              >
+                <Pencil size={14} />
+              </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                size="xs"
+                onClick={() => onDelete(item.id)}
+              >
+                <Trash2 size={14} />
+              </ActionIcon>
+            </Group>
+          </Group>
+
+          {/* Content */}
+          <Text size="sm" style={{ lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+            {shownContent}
+          </Text>
+          {contentTruncated && (
+            <Text
+              size="xs"
+              c="indigo"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? t.documentDetail.showLess : t.documentDetail.showMore}
             </Text>
           )}
-          <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="xs"
-              onClick={() => onStartEdit(item.id)}
+
+          {/* Answer */}
+          {displayAnswer.trim() && (
+            <Box
+              mt={4}
+              pt={4}
+              style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}
             >
-              <Pencil size={14} />
-            </ActionIcon>
-            <ActionIcon
-              variant="subtle"
-              color="red"
-              size="xs"
-              onClick={() => onDelete(item.id)}
+              <Text size="xs" fw={600} c="dimmed" mb={2}>
+                {t.documentDetail.answer}
+              </Text>
+              <MarkdownRenderer content={displayAnswer} compact />
+            </Box>
+          )}
+
+          {/* Explanation */}
+          {displayExplanation.trim() && (
+            <Box
+              mt={2}
+              pt={4}
+              style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}
             >
-              <Trash2 size={14} />
-            </ActionIcon>
-          </Group>
-        </Group>
+              <Text size="xs" fw={600} c="dimmed" mb={2}>
+                {t.documentDetail.explanation}
+              </Text>
+              <MarkdownRenderer content={displayExplanation} compact />
+            </Box>
+          )}
+        </Stack>
       )}
     </Box>
   );
@@ -454,6 +618,7 @@ function SectionCard({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  t,
 }: {
   sectionName: string;
   sectionItems: AssignmentItemEntity[];
@@ -468,6 +633,7 @@ function SectionCard({
   onCancelEdit: () => void;
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
+  t: ReturnType<typeof useLanguage>['t'];
 }) {
   const visibleCount = sectionItems.filter((i) => !deletedItemIds.has(i.id)).length;
 
@@ -497,9 +663,17 @@ function SectionCard({
         <Group gap="xs" justify="space-between" wrap="nowrap">
           <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
             {expanded ? (
-              <ChevronDown size={14} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
+              <ChevronDown
+                size={14}
+                color="var(--mantine-color-dimmed)"
+                style={{ flexShrink: 0 }}
+              />
             ) : (
-              <ChevronRight size={14} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
+              <ChevronRight
+                size={14}
+                color="var(--mantine-color-dimmed)"
+                style={{ flexShrink: 0 }}
+              />
             )}
             <Text fw={600} size="sm" truncate style={{ minWidth: 0 }}>
               {sectionName}
@@ -514,7 +688,7 @@ function SectionCard({
       <Collapse in={expanded}>
         <Stack gap="xs" mt="sm">
           {sectionItems.map((item) => (
-            <ItemRow
+            <ItemCard
               key={item.id}
               item={item}
               isSelected={selectedIds.has(item.id)}
@@ -526,6 +700,7 @@ function SectionCard({
               onCancelEdit={onCancelEdit}
               onSaveEdit={onSaveEdit}
               onDelete={onDelete}
+              t={t}
             />
           ))}
         </Stack>
@@ -552,6 +727,8 @@ export function AssignmentOutlineView({
   onBulkSetDifficulty,
   onBulkSetPoints,
   onAddItem,
+  addFormOpen,
+  onAddFormOpenChange,
 }: AssignmentOutlineViewProps) {
   const { t } = useLanguage();
 
@@ -559,7 +736,11 @@ export function AssignmentOutlineView({
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [internalAddForm, setInternalAddForm] = useState(false);
+
+  // Use controlled state from parent when provided, otherwise internal
+  const showAddForm = addFormOpen ?? internalAddForm;
+  const setShowAddForm = onAddFormOpenChange ?? setInternalAddForm;
   const [bulkPoints, setBulkPoints] = useState<number | string>(10);
 
   // Filter out deleted items for computations
@@ -598,7 +779,8 @@ export function AssignmentOutlineView({
     return result;
   }, [liveItems, search, difficultyFilter, typeFilter]);
 
-  const hasActiveFilters = search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0;
+  const hasActiveFilters =
+    search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0;
 
   // Group by section
   const sections = useMemo(() => {
@@ -615,7 +797,9 @@ export function AssignmentOutlineView({
   const sectionNames = useMemo(() => Array.from(sections.keys()), [sections]);
 
   // Expand/collapse state
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => new Set(sectionNames));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    () => new Set(sectionNames),
+  );
 
   // Keep expanded set in sync when sections change
   const allExpanded = sectionNames.length > 0 && sectionNames.every((s) => expandedSections.has(s));
@@ -704,7 +888,7 @@ export function AssignmentOutlineView({
                 </Menu.Target>
                 <Menu.Dropdown>
                   <Menu.Label>{t.knowledge.setDifficulty}</Menu.Label>
-                  {DIFFICULTIES.map((d) => (
+                  {getDifficulties(t).map((d) => (
                     <Menu.Item
                       key={d.value}
                       onClick={() => onBulkSetDifficulty(d.value)}
@@ -745,23 +929,14 @@ export function AssignmentOutlineView({
                     </Group>
                   </Box>
                   <Menu.Divider />
-                  <Menu.Item
-                    color="red"
-                    leftSection={<Trash2 size={14} />}
-                    onClick={onBulkDelete}
-                  >
+                  <Menu.Item color="red" leftSection={<Trash2 size={14} />} onClick={onBulkDelete}>
                     {t.common.delete} ({selectedCount})
                   </Menu.Item>
                 </Menu.Dropdown>
               </Menu>
             </Group>
           ) : (
-            <Button
-              variant="subtle"
-              color="gray"
-              size="compact-sm"
-              onClick={toggleAllSections}
-            >
+            <Button variant="subtle" color="gray" size="compact-sm" onClick={toggleAllSections}>
               {allExpanded ? t.knowledge.collapseAll : t.knowledge.expandAll}
             </Button>
           )}
@@ -794,8 +969,8 @@ export function AssignmentOutlineView({
           </Group>
           <Group gap="sm">
             <MultiSelect
-              placeholder="Difficulty"
-              data={DIFFICULTIES}
+              placeholder={t.documentDetail.difficulty}
+              data={getDifficulties(t)}
               value={difficultyFilter}
               onChange={setDifficultyFilter}
               size="xs"
@@ -805,7 +980,7 @@ export function AssignmentOutlineView({
             />
             {availableTypes.length > 0 && (
               <MultiSelect
-                placeholder="Type"
+                placeholder={t.knowledge.questionType}
                 data={availableTypes}
                 value={typeFilter}
                 onChange={setTypeFilter}
@@ -848,13 +1023,14 @@ export function AssignmentOutlineView({
           onCancelEdit={onCancelEdit}
           onSaveEdit={onSaveEdit}
           onDelete={onDelete}
+          t={t}
         />
       ))}
 
       {/* No filter results */}
       {liveItems.length > 0 && filteredItems.length === 0 && hasActiveFilters && (
         <Text c="dimmed" ta="center" py="md" size="sm">
-          No matching questions found.
+          {t.knowledge.noMatchingResults}
         </Text>
       )}
 
@@ -862,7 +1038,7 @@ export function AssignmentOutlineView({
 
       {/* Add item form or button */}
       {showAddForm ? (
-        <AddItemForm onAdd={onAddItem} onCancel={() => setShowAddForm(false)} />
+        <AddItemForm onAdd={onAddItem} onCancel={() => setShowAddForm(false)} t={t} />
       ) : (
         <Button
           variant="light"
