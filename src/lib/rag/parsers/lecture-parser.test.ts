@@ -8,7 +8,6 @@ const mockBuildOutlineFromPoints = vi.fn();
 
 vi.mock('./section-extractor', () => ({
   extractKnowledgePoints: (...args: unknown[]) => mockExtractKnowledgePoints(...args),
-  deduplicateByTitle: (pts: KnowledgePoint[]) => pts, // passthrough for tests
 }));
 vi.mock('./outline-generator', () => ({
   buildOutlineFromPoints: (...args: unknown[]) => mockBuildOutlineFromPoints(...args),
@@ -28,7 +27,7 @@ function setupDefaultMocks(points: KnowledgePoint[] = []) {
   });
 }
 
-describe('lecture-parser (single-pass)', () => {
+describe('lecture-parser', () => {
   beforeEach(() => {
     mockExtractKnowledgePoints.mockReset();
     mockBuildOutlineFromPoints.mockReset();
@@ -51,11 +50,7 @@ describe('lecture-parser (single-pass)', () => {
       expect(result.knowledgePoints).toHaveLength(1);
       expect(result.outline).toBeDefined();
       expect(result.outline?.documentId).toBe('doc-1');
-      expect(mockExtractKnowledgePoints).toHaveBeenCalledWith(
-        pages,
-        expect.any(Function),
-        undefined,
-      );
+      expect(mockExtractKnowledgePoints).toHaveBeenCalledWith(pages, undefined);
       expect(mockBuildOutlineFromPoints).toHaveBeenCalledWith('doc-1', kp);
     });
 
@@ -74,9 +69,18 @@ describe('lecture-parser (single-pass)', () => {
       const phases = progressEvents.map((e) => e.phase);
       expect(phases).toContain('extraction');
       expect(phases).toContain('outline_generation');
-      // Old phases should NOT appear
-      expect(phases).not.toContain('structure_analysis');
-      expect(phases).not.toContain('quality_gate');
+    });
+
+    it('passes signal to extractor', async () => {
+      const kp = [{ title: 'A', definition: 'B', sourcePages: [1] }];
+      setupDefaultMocks(kp);
+
+      const controller = new AbortController();
+      const pages = [{ page: 1, text: 'P1' }];
+
+      await parseLectureMultiPass(pages, { signal: controller.signal });
+
+      expect(mockExtractKnowledgePoints).toHaveBeenCalledWith(pages, controller.signal);
     });
 
     it('skips outline when no documentId provided', async () => {
@@ -104,24 +108,6 @@ describe('lecture-parser (single-pass)', () => {
       const result = await parseLecture([{ page: 1, text: 'P1' }]);
 
       expect(Array.isArray(result)).toBe(true);
-    });
-
-    it('[C2] accepts a function as second argument', async () => {
-      setupDefaultMocks([{ title: 'X', definition: 'Y', sourcePages: [1] }]);
-
-      const batchCb = vi.fn();
-      await parseLecture([{ page: 1, text: 'P1' }], batchCb);
-
-      expect(batchCb).toHaveBeenCalled();
-    });
-
-    it('accepts ParseLectureOptions as second argument', async () => {
-      setupDefaultMocks([{ title: 'X', definition: 'Y', sourcePages: [1] }]);
-
-      const batchCb = vi.fn();
-      await parseLecture([{ page: 1, text: 'P1' }], { onBatchProgress: batchCb });
-
-      expect(batchCb).toHaveBeenCalled();
     });
   });
 });
