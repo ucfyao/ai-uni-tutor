@@ -69,7 +69,7 @@ export interface CourseOutline {
 }
 
 export interface PipelineProgress {
-  phase: 'structure_analysis' | 'extraction' | 'quality_gate' | 'outline_generation';
+  phase: 'extraction' | 'outline_generation';
   phaseProgress: number;
   totalProgress: number;
   detail: string;
