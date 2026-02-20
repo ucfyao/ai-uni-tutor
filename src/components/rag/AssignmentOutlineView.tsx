@@ -469,10 +469,8 @@ function ItemCard({
   const qType = getType(item);
   const edited = editedItems.get(item.id);
   const displayContent = edited?.content ?? item.content;
-  const displayAnswer =
-    (edited?.metadata?.referenceAnswer as string) ?? item.referenceAnswer ?? '';
-  const displayExplanation =
-    (edited?.metadata?.explanation as string) ?? item.explanation ?? '';
+  const displayAnswer = (edited?.metadata?.referenceAnswer as string) ?? item.referenceAnswer ?? '';
+  const displayExplanation = (edited?.metadata?.explanation as string) ?? item.explanation ?? '';
 
   const [expanded, setExpanded] = useState(false);
   const contentTruncated = displayContent.length > 200;
@@ -484,9 +482,7 @@ function ItemCard({
       py="sm"
       style={{
         borderRadius: 'var(--mantine-radius-md)',
-        background: isSelected
-          ? 'var(--mantine-color-indigo-0)'
-          : 'var(--mantine-color-gray-0)',
+        background: isSelected ? 'var(--mantine-color-indigo-0)' : 'var(--mantine-color-gray-0)',
         border: `1px solid ${isSelected ? 'var(--mantine-color-indigo-2)' : 'var(--mantine-color-gray-2)'}`,
         transition: 'all 0.15s ease',
       }}
@@ -543,12 +539,7 @@ function ItemCard({
               >
                 <Pencil size={14} />
               </ActionIcon>
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                size="xs"
-                onClick={() => onDelete(item.id)}
-              >
+              <ActionIcon variant="subtle" color="red" size="xs" onClick={() => onDelete(item.id)}>
                 <Trash2 size={14} />
               </ActionIcon>
             </Group>
@@ -571,11 +562,7 @@ function ItemCard({
 
           {/* Answer */}
           {displayAnswer.trim() && (
-            <Box
-              mt={4}
-              pt={4}
-              style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}
-            >
+            <Box mt={4} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
               <Text size="xs" fw={600} c="dimmed" mb={2}>
                 {t.documentDetail.answer}
               </Text>
@@ -585,11 +572,7 @@ function ItemCard({
 
           {/* Explanation */}
           {displayExplanation.trim() && (
-            <Box
-              mt={2}
-              pt={4}
-              style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}
-            >
+            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
               <Text size="xs" fw={600} c="dimmed" mb={2}>
                 {t.documentDetail.explanation}
               </Text>
