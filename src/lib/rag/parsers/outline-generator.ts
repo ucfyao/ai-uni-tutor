@@ -5,22 +5,9 @@ import type {
   CourseOutline,
   CourseTopic,
   DocumentOutline,
-  DocumentStructure,
   KnowledgePoint,
   OutlineSection,
 } from './types';
-
-const outlineSectionSchema = z.object({
-  title: z.string().min(1),
-  knowledgePoints: z.array(z.string()),
-  briefDescription: z.string().min(1),
-});
-
-const documentOutlineResponseSchema = z.object({
-  title: z.string().min(1),
-  summary: z.string().min(1),
-  sections: z.array(outlineSectionSchema).min(1),
-});
 
 const courseTopicSchema = z.object({
   topic: z.string().min(1),
@@ -33,35 +20,68 @@ const courseOutlineResponseSchema = z.object({
   topics: z.array(courseTopicSchema).min(1),
 });
 
-/** Threshold: if KP count is <= this, skip the LLM and build locally. */
-const LOCAL_OUTLINE_THRESHOLD = 10;
+/** Group pages into ~10-page sections for outline structure. */
+const SECTION_PAGE_SIZE = 10;
 
-function buildLocalOutline(
+/**
+ * Build a document outline locally from knowledge points (no LLM call).
+ * Groups knowledge points by page ranges into logical sections.
+ */
+export function buildOutlineFromPoints(
   documentId: string,
-  structure: DocumentStructure,
   points: KnowledgePoint[],
 ): DocumentOutline {
-  // [m3] Skip overview sections for title selection
-  const contentSections = structure.sections.filter((s) => s.contentType !== 'overview');
-
-  const sections: OutlineSection[] = contentSections.map((s) => {
-    const sectionPoints = points.filter((p) =>
-      p.sourcePages.some((pg) => pg >= s.startPage && pg <= s.endPage),
-    );
+  if (points.length === 0) {
     return {
-      title: s.title,
-      knowledgePoints: sectionPoints.map((p) => p.title),
-      briefDescription:
-        sectionPoints.length > 0
-          ? `Covers ${sectionPoints.map((p) => p.title).join(', ')}.`
-          : `${s.contentType} content.`,
+      documentId,
+      title: 'Untitled Document',
+      subject: '',
+      totalKnowledgePoints: 0,
+      sections: [],
+      summary: 'Empty document.',
     };
-  });
+  }
+
+  // Determine page range
+  const allPages = points.flatMap((p) => p.sourcePages).filter((p) => p > 0);
+  const minPage = allPages.length > 0 ? Math.min(...allPages) : 1;
+  const maxPage = allPages.length > 0 ? Math.max(...allPages) : 1;
+
+  // Build sections by page ranges
+  const sections: OutlineSection[] = [];
+  for (let start = minPage; start <= maxPage; start += SECTION_PAGE_SIZE) {
+    const end = Math.min(start + SECTION_PAGE_SIZE - 1, maxPage);
+    const sectionPoints = points.filter((p) =>
+      p.sourcePages.some((pg) => pg >= start && pg <= end),
+    );
+
+    if (sectionPoints.length === 0) continue;
+
+    sections.push({
+      title: sectionPoints.length === 1
+        ? sectionPoints[0].title
+        : `Pages ${start}-${end}`,
+      knowledgePoints: sectionPoints.map((p) => p.title),
+      briefDescription: `Covers ${sectionPoints.map((p) => p.title).join(', ')}.`,
+    });
+  }
+
+  // Catch any points with no sourcePages (page 0 or empty)
+  const orphanPoints = points.filter(
+    (p) => p.sourcePages.length === 0 || p.sourcePages.every((pg) => pg <= 0),
+  );
+  if (orphanPoints.length > 0) {
+    sections.push({
+      title: 'Additional Concepts',
+      knowledgePoints: orphanPoints.map((p) => p.title),
+      briefDescription: `Covers ${orphanPoints.map((p) => p.title).join(', ')}.`,
+    });
+  }
 
   return {
     documentId,
-    title: contentSections[0]?.title ?? 'Untitled Document', // [m3] skip overview
-    subject: structure.subject,
+    title: points[0].title,
+    subject: '',
     totalKnowledgePoints: points.length,
     sections,
     summary: `Document covering ${points.length} knowledge points across ${sections.length} sections.`,
@@ -69,90 +89,8 @@ function buildLocalOutline(
 }
 
 /**
- * Generates a document outline from structure and knowledge points.
- * Uses LLM for large KP sets, local builder for small ones.
- */
-export async function generateDocumentOutline(
-  documentId: string,
-  structure: DocumentStructure,
-  points: KnowledgePoint[],
-): Promise<DocumentOutline> {
-  // Small KP sets: build locally without LLM
-  if (points.length <= LOCAL_OUTLINE_THRESHOLD) {
-    return buildLocalOutline(documentId, structure, points);
-  }
-
-  const pointsSummary = points
-    .map((p) => `- "${p.title}": ${p.definition.slice(0, 150)}`)
-    .join('\n');
-
-  const structureSummary = structure.sections
-    .map((s) => `- "${s.title}" (pages ${s.startPage}-${s.endPage}, ${s.contentType})`)
-    .join('\n');
-
-  const prompt = `You are an academic document outline generator. Create a structured outline for this document.
-
-Subject: ${structure.subject}
-Document type: ${structure.documentType}
-
-Document sections:
-${structureSummary}
-
-Knowledge points extracted (${points.length} total):
-${pointsSummary}
-
-Generate an outline with:
-- title: A descriptive title for the document
-- summary: A 1-2 sentence summary of the document content
-- sections: Group knowledge points into logical sections, each with:
-  - title: Section heading
-  - knowledgePoints: Array of knowledge point titles belonging to this section
-  - briefDescription: One sentence describing the section
-
-Rules:
-- Every knowledge point must appear in exactly one section
-- Section titles should reflect the academic content
-- Order sections logically (introduction → core concepts → advanced topics → exercises)
-
-Return ONLY valid JSON. No markdown, no explanation.`;
-
-  try {
-    const genAI = getGenAI();
-    const response = await genAI.models.generateContent({
-      model: GEMINI_MODELS.parse,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0 },
-    });
-
-    const text = response.text ?? '';
-    const raw = JSON.parse(text);
-    const result = documentOutlineResponseSchema.safeParse(raw);
-
-    if (result.success) {
-      return {
-        documentId,
-        title: result.data.title,
-        subject: structure.subject,
-        totalKnowledgePoints: points.length,
-        sections: result.data.sections,
-        summary: result.data.summary,
-      };
-    }
-
-    console.warn('Outline validation failed, using local builder:', result.error.message);
-    return buildLocalOutline(documentId, structure, points);
-  } catch (error) {
-    console.warn('Outline generation failed, using local builder:', error);
-    return buildLocalOutline(documentId, structure, points);
-  }
-}
-
-/**
  * Merges multiple document outlines into a course-level outline.
  * Uses LLM to identify cross-document topics and relationships.
- *
- * Note [M1]: Implemented but not wired into any trigger in this PR.
- * Course outline regeneration on document add/delete is deferred to a follow-up PR.
  */
 export async function generateCourseOutline(
   courseId: string,
