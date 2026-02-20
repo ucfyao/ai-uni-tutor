@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useState, type CSSProperties } from 'react';
 import {
   ActionIcon,
@@ -18,8 +18,8 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { showNotification } from '@/lib/notifications';
 import { ChunkEditForm } from './ChunkEditForm';
 import type { Chunk, DocType } from './types';
@@ -48,6 +48,8 @@ interface ChunkTableProps {
   externalShowAddForm?: boolean;
   /** Called when the add form is closed (cancel or successful submit). */
   onAddFormClosed?: () => void;
+  /** Renders a "+" row at the bottom of the table. Clicking it triggers this callback. */
+  onAddNew?: () => void;
 }
 
 const thStyle: CSSProperties = {
@@ -78,9 +80,10 @@ export function ChunkTable({
   hideToolbar,
   externalShowAddForm,
   onAddFormClosed,
+  onAddNew,
 }: ChunkTableProps) {
   const { t } = useLanguage();
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const [internalShowAddForm, setInternalShowAddForm] = useState(false);
   // Note: once parent opts into external control by passing externalShowAddForm, it should keep the prop defined.
   const effectiveShowAddForm = externalShowAddForm ?? internalShowAddForm;
@@ -106,39 +109,6 @@ export function ChunkTable({
       : docType === 'exam'
         ? t.knowledge.addQuestion
         : t.knowledge.addItem;
-
-  // Empty state
-  if (chunks.length === 0 && !effectiveShowAddForm) {
-    return onAddItem ? (
-      <Stack align="center" gap="md" py="xl">
-        <Button
-          leftSection={<Plus size={14} />}
-          variant="light"
-          color="indigo"
-          size="sm"
-          onClick={() => setEffectiveShowAddForm(true)}
-        >
-          {addButtonLabel}
-        </Button>
-      </Stack>
-    ) : null;
-  }
-
-  // Show just the add form when no chunks exist yet
-  if (chunks.length === 0 && effectiveShowAddForm && onAddItem) {
-    return (
-      <Stack gap="md">
-        <AddForm
-          docType={docType}
-          onSubmit={async (data) => {
-            const success = await onAddItem(data);
-            if (success) setEffectiveShowAddForm(false);
-          }}
-          onCancel={() => setEffectiveShowAddForm(false)}
-        />
-      </Stack>
-    );
-  }
 
   if (isMobile) {
     return (
@@ -182,6 +152,19 @@ export function ChunkTable({
             }}
             onCancel={() => setEffectiveShowAddForm(false)}
           />
+        )}
+        {chunks.length === 0 && (
+          <Card withBorder radius="lg" p="xl">
+            <Stack align="center" gap={8}>
+              <FileText size={32} color="var(--mantine-color-dimmed)" strokeWidth={1.5} />
+              <Text size="sm" c="dimmed">
+                {t.documentDetail.emptyTableTitle}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {t.documentDetail.emptyTableHint}
+              </Text>
+            </Stack>
+          </Card>
         )}
         {chunks.map((chunk, index) => (
           <MobileChunkRow
@@ -350,6 +333,25 @@ export function ChunkTable({
                 />
               );
             })}
+            {chunks.length === 0 && (
+              <Table.Tr>
+                <Table.Td
+                  colSpan={docType === 'lecture' ? 9 : 6}
+                  py={48}
+                  style={{ textAlign: 'center' }}
+                >
+                  <Stack align="center" gap={8}>
+                    <FileText size={32} color="var(--mantine-color-dimmed)" strokeWidth={1.5} />
+                    <Text size="sm" c="dimmed">
+                      {t.documentDetail.emptyTableTitle}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {t.documentDetail.emptyTableHint}
+                    </Text>
+                  </Stack>
+                </Table.Td>
+              </Table.Tr>
+            )}
           </Table.Tbody>
         </Table>
       </Card>
@@ -498,14 +500,32 @@ function DesktopChunkRows({
         <Table.Td>
           <Group gap={4}>
             {(docType === 'exam' || docType === 'assignment') && answer && (
-              <ActionIcon variant="subtle" color="gray" size="sm" onClick={onToggleAnswer}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={onToggleAnswer}
+                aria-label={isExpanded ? t.documentDetail.collapseAnswer : t.documentDetail.expandAnswer}
+              >
                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </ActionIcon>
             )}
-            <ActionIcon variant="subtle" color="gray" size="sm" onClick={onEdit}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={onEdit}
+              aria-label={t.documentDetail.editChunk}
+            >
               <Pencil size={14} />
             </ActionIcon>
-            <ActionIcon variant="subtle" color="red" size="sm" onClick={onDelete}>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="sm"
+              onClick={onDelete}
+              aria-label={t.documentDetail.deleteChunk}
+            >
               <Trash2 size={14} />
             </ActionIcon>
           </Group>
@@ -626,14 +646,32 @@ function MobileChunkRow({
           </Group>
           <Group gap={4} wrap="nowrap">
             {(docType === 'exam' || docType === 'assignment') && answer && (
-              <ActionIcon variant="subtle" color="gray" size="sm" onClick={onToggleAnswer}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={onToggleAnswer}
+                aria-label={isExpanded ? t.documentDetail.collapseAnswer : t.documentDetail.expandAnswer}
+              >
                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </ActionIcon>
             )}
-            <ActionIcon variant="subtle" color="gray" size="sm" onClick={onEdit}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={onEdit}
+              aria-label={t.documentDetail.editChunk}
+            >
               <Pencil size={14} />
             </ActionIcon>
-            <ActionIcon variant="subtle" color="red" size="sm" onClick={onDelete}>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="sm"
+              onClick={onDelete}
+              aria-label={t.documentDetail.deleteChunk}
+            >
               <Trash2 size={14} />
             </ActionIcon>
           </Group>
@@ -691,11 +729,15 @@ function AddForm({
   onCancel: () => void;
 }) {
   if (docType === 'lecture')
-    return <AddKnowledgePointForm onSubmit={onSubmit} onCancel={onCancel} />;
+    return (
+      <Card withBorder radius="lg" p="md">
+        <AddKnowledgePointForm onSubmit={onSubmit} onCancel={onCancel} />
+      </Card>
+    );
   return <AddQuestionForm onSubmit={onSubmit} onCancel={onCancel} />;
 }
 
-function AddKnowledgePointForm({
+export function AddKnowledgePointForm({
   onSubmit,
   onCancel,
 }: {
@@ -725,46 +767,44 @@ function AddKnowledgePointForm({
   }, [title, definition, onSubmit, t]);
 
   return (
-    <Card withBorder radius="lg" p="md">
-      <Stack gap="sm">
-        <Text fw={600} size="sm">
-          {t.knowledge.addKnowledgePoint}
-        </Text>
-        <TextInput
-          label={t.documentDetail.title}
-          value={title}
-          onChange={(e) => setTitle(e.currentTarget.value)}
-          required
+    <Stack gap="sm">
+      <Text fw={600} size="sm">
+        {t.knowledge.addKnowledgePoint}
+      </Text>
+      <TextInput
+        label={t.documentDetail.title}
+        value={title}
+        onChange={(e) => setTitle(e.currentTarget.value)}
+        required
+        size="sm"
+        radius="md"
+      />
+      <Textarea
+        label={t.documentDetail.definition}
+        value={definition}
+        onChange={(e) => setDefinition(e.currentTarget.value)}
+        autosize
+        minRows={2}
+        maxRows={6}
+        required
+        size="sm"
+        radius="md"
+      />
+      <Group justify="flex-end" gap="sm">
+        <Button variant="subtle" color="gray" size="sm" onClick={onCancel}>
+          {t.documentDetail.cancel}
+        </Button>
+        <Button
+          color="indigo"
           size="sm"
-          radius="md"
-        />
-        <Textarea
-          label={t.documentDetail.definition}
-          value={definition}
-          onChange={(e) => setDefinition(e.currentTarget.value)}
-          autosize
-          minRows={2}
-          maxRows={6}
-          required
-          size="sm"
-          radius="md"
-        />
-        <Group justify="flex-end" gap="sm">
-          <Button variant="subtle" color="gray" size="sm" onClick={onCancel}>
-            {t.documentDetail.cancel}
-          </Button>
-          <Button
-            color="indigo"
-            size="sm"
-            onClick={handleSubmit}
-            loading={isSaving}
-            disabled={!title.trim() || !definition.trim()}
-          >
-            {t.documentDetail.save}
-          </Button>
-        </Group>
-      </Stack>
-    </Card>
+          onClick={handleSubmit}
+          loading={isSaving}
+          disabled={!title.trim() || !definition.trim()}
+        >
+          {t.documentDetail.save}
+        </Button>
+      </Group>
+    </Stack>
   );
 }
 

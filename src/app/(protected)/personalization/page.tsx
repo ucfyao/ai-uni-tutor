@@ -17,8 +17,8 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useHeader } from '@/context/HeaderContext';
 import { useProfile } from '@/context/ProfileContext';
@@ -29,7 +29,7 @@ export default function PersonalizationPage() {
   const { profile, loading, updateProfile } = useProfile();
   const { t } = useLanguage();
   const { setHeaderContent } = useHeader();
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const [fullName, setFullName] = useState('');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);

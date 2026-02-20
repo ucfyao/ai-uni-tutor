@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   addExamQuestion,
   deleteDocument,
@@ -30,7 +30,7 @@ interface ExamDetailClientProps {
 }
 
 export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
   const router = useRouter();
   const queryClient = useQueryClient();

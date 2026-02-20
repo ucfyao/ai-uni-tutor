@@ -1,18 +1,35 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Upload } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Plus, Upload } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActionIcon, Badge, Box, Collapse, Group, ScrollArea, Stack } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Collapse,
+  Group,
+  ScrollArea,
+  Stack,
+  Switch,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
+import { modals } from '@mantine/modals';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   addDocumentChunk,
   deleteDocument,
   publishDocument,
   unpublishDocument,
+  updateDocumentChunks,
   updateDocumentMeta,
 } from '@/app/actions/documents';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES } from '@/constants/doc-types';
@@ -22,9 +39,10 @@ import type { DocumentStatus } from '@/lib/domain/models/Document';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
-import { ChunkActionBar } from '../../knowledge/[id]/ChunkActionBar';
+import { ChunkEditForm } from '../../knowledge/[id]/ChunkEditForm';
 import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
-import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
+import type { Chunk } from '../../knowledge/[id]/types';
+import { metaStr } from '../../knowledge/[id]/types';
 
 interface SerializedLectureDocument {
   id: string;
@@ -37,20 +55,13 @@ interface SerializedLectureDocument {
   createdAt: string;
 }
 
-interface Chunk {
-  id: string;
-  content: string;
-  metadata: Json;
-  embedding: number[] | null;
-}
-
 interface LectureDetailClientProps {
   document: SerializedLectureDocument;
   chunks: Chunk[];
 }
 
 export function LectureDetailClient({ document: doc, chunks }: LectureDetailClientProps) {
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -58,86 +69,181 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
 
   const [currentStatus, setCurrentStatus] = useState<DocumentStatus>(doc.status);
   const [currentName, setCurrentName] = useState(doc.name);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(doc.name);
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // Chunk editing state (mirrors DocumentDetailClient)
-  const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
-  const [editedChunks, setEditedChunks] = useState<
-    Map<string, { content: string; metadata: Record<string, unknown> }>
-  >(new Map());
-  const [deletedChunkIds, setDeletedChunkIds] = useState<Set<string>>(new Set());
-  const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showUpload, setShowUpload] = useState(false);
+  const school = metaStr(doc.metadata, 'school');
+  const course = metaStr(doc.metadata, 'course');
+
+  const [showUpload, setShowUpload] = useState(chunks.length === 0);
+  const [editingChunk, setEditingChunk] = useState<Chunk | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const uploadCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedAnswers] = useState<Set<string>>(new Set());
 
-  const visibleChunks = chunks.filter((c) => !deletedChunkIds.has(c.id));
-  const pendingChanges = editedChunks.size + deletedChunkIds.size;
+  // ── Helpers ──
 
-  // Metadata helpers
-  const school =
-    doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
-      ? (((doc.metadata as Record<string, unknown>).school as string) ?? '')
-      : '';
-  const course =
-    doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
-      ? (((doc.metadata as Record<string, unknown>).course as string) ?? '')
-      : '';
+  const getMeta = useCallback((chunk: Chunk): Record<string, unknown> => {
+    if (chunk.metadata && typeof chunk.metadata === 'object' && !Array.isArray(chunk.metadata)) {
+      return chunk.metadata as Record<string, unknown>;
+    }
+    return {};
+  }, []);
 
-  // Handlers (same pattern as DocumentDetailClient)
-  const getEffectiveMetadata = useCallback(
-    (chunk: Chunk): Record<string, unknown> => {
-      const edited = editedChunks.get(chunk.id);
-      if (edited) return edited.metadata;
-      if (chunk.metadata && typeof chunk.metadata === 'object' && !Array.isArray(chunk.metadata)) {
-        return chunk.metadata as Record<string, unknown>;
+  const getContent = useCallback((chunk: Chunk): string => chunk.content, []);
+
+  // ── Name editing ──
+
+  const handleSaveName = useCallback(async () => {
+    const trimmed = nameValue.trim();
+    if (trimmed && trimmed !== currentName) {
+      const result = await updateDocumentMeta(doc.id, { name: trimmed });
+      if (result.status === 'success') setCurrentName(trimmed);
+    }
+    setEditingName(false);
+  }, [doc.id, nameValue, currentName]);
+
+  // ── CRUD ──
+
+  const handleEditSave = useCallback(
+    async (chunkId: string, content: string, metadata: Record<string, unknown>) => {
+      try {
+        const result = await updateDocumentChunks(doc.id, [{ id: chunkId, content, metadata }], []);
+        if (result.status === 'success') {
+          showNotification({
+            message: t.toast.changesSaved,
+            color: 'green',
+            icon: <Check size={16} />,
+          });
+          setEditingChunk(null);
+          router.refresh();
+        } else {
+          showNotification({ title: t.common.error, message: result.message, color: 'red' });
+        }
+      } catch {
+        showNotification({
+          title: t.common.error,
+          message: t.documentDetail.failedToSave,
+          color: 'red',
+        });
       }
-      return {};
     },
-    [editedChunks],
-  );
-
-  const getEffectiveContent = useCallback(
-    (chunk: Chunk): string => {
-      const edited = editedChunks.get(chunk.id);
-      return edited ? edited.content : chunk.content;
-    },
-    [editedChunks],
-  );
-
-  const handleSaveEdit = useCallback(
-    (chunkId: string, content: string, metadata: Record<string, unknown>) => {
-      setEditedChunks((prev) => {
-        const next = new Map(prev);
-        next.set(chunkId, { content, metadata });
-        return next;
-      });
-      setEditingChunkId(null);
-    },
-    [],
+    [doc.id, router, t],
   );
 
   const handleDelete = useCallback(
     (chunkId: string) => {
-      setDeletedChunkIds((prev) => {
-        const next = new Set(prev);
-        next.add(chunkId);
-        return next;
+      modals.openConfirmModal({
+        title: t.knowledge.deleteConfirm,
+        children: <Text size="sm">{t.knowledge.deleteDocConfirm}</Text>,
+        labels: { confirm: t.documentDetail.deleteChunk, cancel: t.documentDetail.cancel },
+        confirmProps: { color: 'red' },
+        onConfirm: async () => {
+          try {
+            const result = await updateDocumentChunks(doc.id, [], [chunkId]);
+            if (result.status === 'success') {
+              showNotification({
+                message: t.toast.deletedSuccessfully,
+                color: 'green',
+                icon: <Check size={16} />,
+              });
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                next.delete(chunkId);
+                return next;
+              });
+              router.refresh();
+            } else {
+              showNotification({ title: t.common.error, message: result.message, color: 'red' });
+            }
+          } catch {
+            showNotification({
+              title: t.common.error,
+              message: t.documentDetail.failedToSave,
+              color: 'red',
+            });
+          }
+        },
       });
-      if (editingChunkId === chunkId) setEditingChunkId(null);
     },
-    [editingChunkId],
+    [doc.id, router, t],
   );
 
-  const handleToggleAnswer = useCallback((chunkId: string) => {
-    setExpandedAnswers((prev) => {
-      const next = new Set(prev);
-      if (next.has(chunkId)) next.delete(chunkId);
-      else next.add(chunkId);
-      return next;
+  const handleBulkDelete = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    modals.openConfirmModal({
+      title: t.knowledge.deleteConfirm,
+      children: (
+        <Text size="sm">
+          {selectedIds.size} {t.documentDetail.knowledgePoints}
+        </Text>
+      ),
+      labels: { confirm: t.documentDetail.deleteChunk, cancel: t.documentDetail.cancel },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          const ids = Array.from(selectedIds);
+          const result = await updateDocumentChunks(doc.id, [], ids);
+          if (result.status === 'success') {
+            showNotification({
+              message: t.toast.deletedSuccessfully,
+              color: 'green',
+              icon: <Check size={16} />,
+            });
+            setSelectedIds(new Set());
+            router.refresh();
+          } else {
+            showNotification({ title: t.common.error, message: result.message, color: 'red' });
+          }
+        } catch {
+          showNotification({
+            title: t.common.error,
+            message: t.documentDetail.failedToSave,
+            color: 'red',
+          });
+        }
+      },
     });
-  }, []);
+  }, [doc.id, selectedIds, router, t]);
+
+  const handleAddItem = useCallback(
+    async (_chunkId: string, content: string, metadata: Record<string, unknown>) => {
+      const title = (metadata.title as string) || '';
+      const definition = (metadata.definition as string) || content;
+      const keyFormulas = Array.isArray(metadata.keyFormulas)
+        ? (metadata.keyFormulas as string[]).filter(Boolean)
+        : undefined;
+      const keyConcepts = Array.isArray(metadata.keyConcepts)
+        ? (metadata.keyConcepts as string[]).filter(Boolean)
+        : undefined;
+      const examples = Array.isArray(metadata.examples)
+        ? (metadata.examples as string[]).filter(Boolean)
+        : undefined;
+      const result = await addDocumentChunk({
+        documentId: doc.id,
+        title,
+        definition,
+        keyFormulas,
+        keyConcepts,
+        examples,
+      });
+      if (result.success) {
+        showNotification({
+          message: t.toast.changesSaved,
+          color: 'green',
+          icon: <Check size={16} />,
+        });
+        setShowAddForm(false);
+        router.refresh();
+      } else {
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
+      }
+    },
+    [doc.id, router, t],
+  );
+
+  // ── Selection ──
 
   const handleToggleSelect = useCallback((chunkId: string) => {
     setSelectedIds((prev) => {
@@ -149,37 +255,22 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   }, []);
 
   const handleToggleSelectAll = useCallback(() => {
-    setSelectedIds((prev) => {
-      if (prev.size === visibleChunks.length) return new Set();
-      return new Set(visibleChunks.map((c) => c.id));
-    });
-  }, [visibleChunks]);
+    setSelectedIds((prev) =>
+      prev.size === chunks.length ? new Set() : new Set(chunks.map((c) => c.id)),
+    );
+  }, [chunks]);
 
-  const handleBulkDelete = useCallback(() => {
-    setDeletedChunkIds((prev) => {
-      const next = new Set(prev);
-      for (const id of selectedIds) next.add(id);
-      return next;
-    });
-    setSelectedIds(new Set());
-  }, [selectedIds]);
+  // ── Publish / Unpublish ──
 
-  const handleSaved = useCallback(() => {
-    setEditedChunks(new Map());
-    setDeletedChunkIds(new Set());
-    setSelectedIds(new Set());
-  }, []);
-
-  // Publish/unpublish/delete
   const handlePublish = useCallback(async () => {
     setIsPublishing(true);
     try {
       await publishDocument(doc.id, 'lecture');
       setCurrentStatus('ready');
-      showNotification({ message: 'Published', color: 'green' });
+      showNotification({ message: t.toast.published, color: 'green', icon: <Check size={16} /> });
     } catch (e) {
       showNotification({
-        title: t.common?.error ?? 'Error',
+        title: t.common.error,
         message: e instanceof Error ? e.message : 'Failed',
         color: 'red',
       });
@@ -192,10 +283,10 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     try {
       await unpublishDocument(doc.id, 'lecture');
       setCurrentStatus('draft');
-      showNotification({ message: 'Unpublished', color: 'blue' });
+      showNotification({ message: t.toast.unpublished, color: 'blue', icon: <Check size={16} /> });
     } catch (e) {
       showNotification({
-        title: t.common?.error ?? 'Error',
+        title: t.common.error,
         message: e instanceof Error ? e.message : 'Failed',
         color: 'red',
       });
@@ -203,77 +294,174 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   }, [doc.id, t]);
 
   const handleDeleteDoc = useCallback(async () => {
-    try {
-      await deleteDocument(doc.id, 'lecture');
-      // Directly remove from all type caches so the list is immediately correct
-      for (const dt of DOC_TYPES) {
-        queryClient.setQueryData<KnowledgeDocument[]>(
-          queryKeys.documents.byType(dt.value),
-          (prev) => prev?.filter((d) => d.id !== doc.id),
-        );
-      }
-      router.push('/admin/knowledge');
-    } catch (e) {
-      showNotification({
-        title: t.common?.error ?? 'Error',
-        message: e instanceof Error ? e.message : 'Failed to delete',
-        color: 'red',
-      });
-    }
+    modals.openConfirmModal({
+      title: t.knowledge.deleteConfirm,
+      children: <Text size="sm">{t.knowledge.deleteDocConfirm}</Text>,
+      labels: { confirm: t.documentDetail.deleteChunk, cancel: t.documentDetail.cancel },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          await deleteDocument(doc.id, 'lecture');
+          for (const dt of DOC_TYPES) {
+            queryClient.setQueryData<KnowledgeDocument[]>(
+              queryKeys.documents.byType(dt.value),
+              (prev) => prev?.filter((d) => d.id !== doc.id),
+            );
+          }
+          router.push('/admin/knowledge');
+        } catch (e) {
+          showNotification({
+            title: t.common.error,
+            message: e instanceof Error ? e.message : t.knowledge.failedToDelete,
+            color: 'red',
+          });
+        }
+      },
+    });
   }, [doc.id, queryClient, router, t]);
 
   const handleParseComplete = useCallback(() => {
+    setShowUpload(false);
     router.refresh();
-    if (uploadCollapseTimer.current) clearTimeout(uploadCollapseTimer.current);
-    uploadCollapseTimer.current = setTimeout(() => {
-      setShowUpload(false);
-    }, 1500);
   }, [router]);
 
-  // Add knowledge point
-  const handleAddItem = useCallback(
-    async (data: Record<string, unknown>): Promise<boolean> => {
-      const result = await addDocumentChunk({
-        documentId: doc.id,
-        title: (data.title as string) || '',
-        definition: (data.definition as string) || '',
-      });
-      if (result.success) {
-        showNotification({ message: t.toast?.changesSaved ?? 'Saved', color: 'green' });
-        router.refresh();
-        return true;
-      } else {
-        showNotification({
-          title: t.common?.error ?? 'Error',
-          message: result.error,
-          color: 'red',
-        });
-        return false;
-      }
-    },
-    [doc.id, router, t],
-  );
+  // ── Header ──
 
-  // Header node
+  const canPublish = chunks.length > 0;
+  const publishAction =
+    canPublish && currentStatus === 'draft'
+      ? handlePublish
+      : canPublish && currentStatus === 'ready'
+        ? handleUnpublish
+        : undefined;
+
   const headerNode = useMemo(
     () => (
-      <DocumentDetailHeader
-        docId={doc.id}
-        initialName={currentName}
-        docType="lecture"
-        school={school}
-        course={course}
-        status={currentStatus}
-        backHref="/admin/knowledge"
-        onSaveName={async (newName) => {
-          const result = await updateDocumentMeta(doc.id, { name: newName });
-          if (result.status === 'success') {
-            setCurrentName(newName);
-          }
-        }}
-      />
+      <Group justify="space-between" align="center" wrap="nowrap" style={{ width: '100%' }}>
+        {/* Left: back + name */}
+        <Group gap="sm" wrap="nowrap" style={{ flex: 1, overflow: 'hidden' }}>
+          <Button
+            component={Link}
+            href="/admin/knowledge"
+            variant="subtle"
+            color="gray"
+            size="compact-sm"
+            px={4}
+          >
+            <ArrowLeft size={16} />
+          </Button>
+          {editingName ? (
+            <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
+              <TextInput
+                value={nameValue}
+                onChange={(e) => setNameValue(e.currentTarget.value)}
+                size="sm"
+                style={{ flex: 1 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName();
+                  if (e.key === 'Escape') setEditingName(false);
+                }}
+                autoFocus
+              />
+              <Button size="compact-sm" onClick={handleSaveName}>
+                {t.documentDetail.done}
+              </Button>
+            </Group>
+          ) : (
+            <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
+              <Text fw={600} size="sm" truncate>
+                {currentName}
+              </Text>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={() => {
+                  setNameValue(currentName);
+                  setEditingName(true);
+                }}
+                aria-label={t.documentDetail.editName}
+              >
+                <Pencil size={14} />
+              </ActionIcon>
+              {school && (
+                <Badge variant="light" color="gray" size="xs">
+                  {school}
+                </Badge>
+              )}
+              {course && (
+                <Badge variant="light" color="gray" size="xs">
+                  {course}
+                </Badge>
+              )}
+              <Badge variant="light" color="gray" size="xs">
+                {(t.knowledge.docTypeLabel as Record<string, string>)?.lecture ?? 'Lecture'}
+              </Badge>
+              <Badge variant="filled" color="indigo" size="sm">
+                {chunks.length} {t.documentDetail.knowledgePoints}
+              </Badge>
+            </Group>
+          )}
+        </Group>
+
+        {/* Right: actions + status */}
+        <Group gap={12} wrap="nowrap" style={{ flexShrink: 0 }}>
+          <Group gap={4} wrap="nowrap">
+            <Tooltip label={t.knowledge.addKnowledgePoint}>
+              <ActionIcon
+                variant="subtle"
+                color="indigo"
+                size="md"
+                onClick={() => setShowAddForm(true)}
+              >
+                <Plus size={16} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label={t.knowledge.upload}>
+              <ActionIcon
+                variant={showUpload ? 'filled' : 'subtle'}
+                color="indigo"
+                size="md"
+                onClick={() => setShowUpload((v) => !v)}
+              >
+                <Upload size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+          <Box
+            style={{
+              width: 1,
+              height: 20,
+              background: 'var(--mantine-color-default-border)',
+              flexShrink: 0,
+            }}
+          />
+          <Tooltip label={currentStatus === 'ready' ? t.knowledge.unpublish : t.knowledge.publish}>
+            <Box>
+              <Switch
+                checked={currentStatus === 'ready'}
+                onChange={() => publishAction?.()}
+                disabled={!canPublish || isPublishing}
+                size="xs"
+                color="indigo"
+              />
+            </Box>
+          </Tooltip>
+        </Group>
+      </Group>
     ),
-    [doc.id, currentName, school, course, currentStatus],
+    [
+      editingName,
+      nameValue,
+      currentName,
+      currentStatus,
+      publishAction,
+      isPublishing,
+      handleSaveName,
+      chunks.length,
+      showUpload,
+      t,
+    ],
   );
 
   useEffect(() => {
@@ -285,14 +473,11 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     return () => setHeaderContent(null);
   }, [isMobile, headerNode, setHeaderContent]);
 
-  useEffect(() => {
-    return () => {
-      if (uploadCollapseTimer.current) clearTimeout(uploadCollapseTimer.current);
-    };
-  }, []);
+  // ── Render ──
 
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Desktop header */}
       {!isMobile && (
         <Box
           px="md"
@@ -307,88 +492,75 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
           {headerNode}
         </Box>
       )}
-      <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="md" p="lg" maw={900} mx="auto">
-          {/* Toolbar */}
-          <Group justify="space-between" align="center">
-            <Badge variant="filled" color="indigo" size="lg">
-              {visibleChunks.length} {t.documentDetail.knowledgePoints}
-            </Badge>
-            <Group gap="xs">
-              <ActionIcon
-                variant={showUpload ? 'filled' : 'light'}
-                color="indigo"
-                size="lg"
-                radius="xl"
-                onClick={() => setShowUpload((v) => !v)}
-                aria-label={t.knowledge.dropPdfHere}
-              >
-                <Upload size={18} />
-              </ActionIcon>
-              <ActionIcon
-                variant="light"
-                color="indigo"
-                size="lg"
-                radius="xl"
-                onClick={() => setShowAddForm(true)}
-                aria-label={t.knowledge.addKnowledgePoint}
-              >
-                <Plus size={18} />
-              </ActionIcon>
-            </Group>
-          </Group>
 
-          {/* Collapsible upload zone */}
+      <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
+        <Stack gap="md" p="lg">
+          {/* Upload zone */}
           <Collapse in={showUpload}>
             <PdfUploadZone
               documentId={doc.id}
               docType="lecture"
-              existingItemCount={visibleChunks.length}
+              existingItemCount={chunks.length}
               courseId={doc.courseId ?? undefined}
               onParseComplete={handleParseComplete}
-              prominent={visibleChunks.length === 0}
             />
           </Collapse>
 
-          {/* Content table */}
+          {/* Table */}
           <ChunkTable
-            chunks={visibleChunks}
+            chunks={chunks}
             docType="lecture"
-            editingChunkId={editingChunkId}
+            editingChunkId={null}
             expandedAnswers={expandedAnswers}
             selectedIds={selectedIds}
-            getEffectiveContent={getEffectiveContent}
-            getEffectiveMetadata={getEffectiveMetadata}
-            onStartEdit={(chunk) => setEditingChunkId(chunk.id)}
-            onCancelEdit={() => setEditingChunkId(null)}
-            onSaveEdit={handleSaveEdit}
-            onDelete={handleDelete}
-            onToggleAnswer={handleToggleAnswer}
+            getEffectiveContent={getContent}
+            getEffectiveMetadata={getMeta}
+            onStartEdit={(chunk) => setEditingChunk(chunk)}
+            onCancelEdit={() => setEditingChunk(null)}
+            onSaveEdit={handleEditSave}
+            onDelete={(chunkId) => handleDelete(chunkId)}
+            onToggleAnswer={() => {}}
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}
             onBulkDelete={handleBulkDelete}
-            onAddItem={handleAddItem}
             hideToolbar
-            externalShowAddForm={showAddForm}
-            onAddFormClosed={() => setShowAddForm(false)}
-          />
-
-          {/* Action bar */}
-          <ChunkActionBar
-            docId={doc.id}
-            docType="lecture"
-            pendingChanges={pendingChanges}
-            editedChunks={editedChunks}
-            deletedChunkIds={deletedChunkIds}
-            onSaved={handleSaved}
-            status={currentStatus}
-            itemCount={visibleChunks.length}
-            onPublish={handlePublish}
-            onUnpublish={handleUnpublish}
-            isPublishing={isPublishing}
           />
         </Stack>
       </ScrollArea>
+
+      {/* Edit modal */}
+      <FullScreenModal
+        opened={editingChunk !== null}
+        onClose={() => setEditingChunk(null)}
+        title={t.documentDetail.editChunk}
+      >
+        {editingChunk && (
+          <ChunkEditForm
+            chunk={editingChunk}
+            docType="lecture"
+            content={editingChunk.content}
+            metadata={getMeta(editingChunk)}
+            onSave={handleEditSave}
+            onCancel={() => setEditingChunk(null)}
+          />
+        )}
+      </FullScreenModal>
+
+      {/* Add modal */}
+      <FullScreenModal
+        opened={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        title={t.knowledge.addKnowledgePoint}
+      >
+        <ChunkEditForm
+          chunk={{ id: '', content: '', metadata: {}, embedding: null }}
+          docType="lecture"
+          content=""
+          metadata={{}}
+          onSave={handleAddItem}
+          onCancel={() => setShowAddForm(false)}
+        />
+      </FullScreenModal>
     </Box>
   );
 }

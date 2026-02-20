@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { addAssignmentItem } from '@/app/actions/assignments';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { updateDocumentMeta } from '@/app/actions/documents';
 import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
 import { useHeader } from '@/context/HeaderContext';
@@ -22,7 +22,7 @@ interface DocumentDetailClientProps {
 }
 
 export function DocumentDetailClient({ document: doc, chunks }: DocumentDetailClientProps) {
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
   const router = useRouter();
   const { t } = useLanguage();

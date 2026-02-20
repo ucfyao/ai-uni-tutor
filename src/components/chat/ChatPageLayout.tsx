@@ -3,6 +3,7 @@ import React, { ReactNode, useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Box, Group, Menu, Text, ThemeIcon } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { MODES_METADATA } from '@/constants/modes';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatSession } from '@/types';
@@ -33,7 +34,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
   children,
 }) => {
   const { t } = useLanguage();
-  const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
+  const isMobile = useIsMobile();
   const isCompact = useMediaQuery('(max-width: 75em)', false); // 1200px (lg breakpoint)
   const { setHeaderContent } = useHeader();
   const [mobileKnowledgeOpened, setMobileKnowledgeOpened] = useState(false);

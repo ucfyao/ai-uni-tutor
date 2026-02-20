@@ -23,7 +23,8 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
+import { useDebouncedValue } from '@mantine/hooks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   createCourse,
   createUniversity,
@@ -68,7 +69,7 @@ export function AdminCoursesClient({
 }: AdminCoursesClientProps) {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
 
   // ── State ──

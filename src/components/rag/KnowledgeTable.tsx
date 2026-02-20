@@ -18,8 +18,8 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { deleteDocument } from '@/app/actions/documents';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import classes from './KnowledgeTable.module.css';
@@ -80,7 +80,7 @@ function TableSkeleton({ rows = 4 }: { rows?: number }) {
 
 export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: KnowledgeTableProps) {
   const { t } = useLanguage();
-  const isMobile = useMediaQuery('(max-width: 48em)', false); // 768px
+  const isMobile = useIsMobile();
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeDocument | null>(null);
 

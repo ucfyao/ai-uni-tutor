@@ -3,7 +3,7 @@
 import { ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Group, Text, TextInput } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Text, TextInput, Tooltip } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { statusColor } from './types';
 
@@ -16,6 +16,10 @@ interface DocumentDetailHeaderProps {
   status: string;
   backHref?: string;
   onSaveName: (newName: string) => Promise<void>;
+  /** When provided, status badge becomes clickable (e.g. publish/unpublish toggle). */
+  onStatusClick?: () => void;
+  /** Loading state for status action. */
+  statusLoading?: boolean;
 }
 
 export function DocumentDetailHeader({
@@ -27,6 +31,8 @@ export function DocumentDetailHeader({
   status,
   backHref,
   onSaveName,
+  onStatusClick,
+  statusLoading,
 }: DocumentDetailHeaderProps) {
   const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
@@ -77,7 +83,13 @@ export function DocumentDetailHeader({
             <Text fw={600} size="sm" truncate>
               {value}
             </Text>
-            <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => setEditing(true)}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={() => setEditing(true)}
+              aria-label={t.documentDetail.editName ?? 'Edit name'}
+            >
               <Pencil size={14} />
             </ActionIcon>
           </Group>
@@ -87,7 +99,7 @@ export function DocumentDetailHeader({
       {/* Right: badges */}
       <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
         <Badge variant="light" color="indigo" size="sm">
-          {docType}
+          {(t.knowledge.docTypeLabel as Record<string, string>)?.[docType] ?? docType}
         </Badge>
         {school && (
           <Badge variant="light" color="gray" size="sm">
@@ -99,9 +111,32 @@ export function DocumentDetailHeader({
             {course}
           </Badge>
         )}
-        <Badge variant="light" color={statusColor(status)} size="sm">
-          {status}
-        </Badge>
+        <Tooltip
+          label={
+            status === 'draft'
+              ? t.documentDetail.clickToPublish
+              : t.documentDetail.clickToUnpublish
+          }
+          disabled={!onStatusClick}
+        >
+          <Badge
+            variant="light"
+            color={statusColor(status)}
+            size="sm"
+            style={
+              onStatusClick
+                ? {
+                    cursor: 'pointer',
+                    textDecoration: 'underline dotted',
+                    textUnderlineOffset: 2,
+                  }
+                : undefined
+            }
+            onClick={onStatusClick}
+          >
+            {statusLoading ? '...' : status}
+          </Badge>
+        </Tooltip>
       </Group>
     </Group>
   );

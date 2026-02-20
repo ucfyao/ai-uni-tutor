@@ -2,8 +2,8 @@
 
 import { ReactNode, useEffect, useMemo } from 'react';
 import { Box, Container, Stack, Text, Title } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PageShellProps {
   title: string;
@@ -13,7 +13,7 @@ interface PageShellProps {
 }
 
 export function PageShell({ title, subtitle, mobileTitle, children }: PageShellProps) {
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
 
   const headerNode = useMemo(
