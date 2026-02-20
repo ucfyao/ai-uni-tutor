@@ -23,4 +23,9 @@ export const queryKeys = {
     all: ['courses'] as const,
     byUniversity: (uniId: string) => ['courses', uniId] as const,
   },
+  assignments: {
+    all: ['assignments'] as const,
+    items: (assignmentId: string) => ['assignments', assignmentId, 'items'] as const,
+    detail: (assignmentId: string) => ['assignments', assignmentId] as const,
+  },
 } as const;
