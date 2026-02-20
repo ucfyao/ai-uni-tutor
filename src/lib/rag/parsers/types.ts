@@ -1,10 +1,18 @@
 export interface KnowledgePoint {
   title: string;
-  definition: string;
-  keyFormulas?: string[];
-  keyConcepts?: string[];
-  examples?: string[];
+  content: string;
   sourcePages: number[];
+}
+
+export interface ExtractedSection {
+  title: string;
+  summary: string;
+  sourcePages: number[];
+  knowledgePoints: KnowledgePoint[];
+}
+
+export interface ExtractionResult {
+  sections: ExtractedSection[];
 }
 
 export interface ParsedQuestion {
@@ -20,6 +28,12 @@ export interface OutlineSection {
   title: string;
   knowledgePoints: string[];
   briefDescription: string;
+  sourcePages?: number[];
+  knowledgePointDetails?: {
+    title: string;
+    content: string;
+    sourcePages?: number[];
+  }[];
 }
 
 export interface DocumentOutline {
@@ -45,13 +59,17 @@ export interface CourseOutline {
 }
 
 export interface PipelineProgress {
-  phase: 'extraction' | 'outline_generation';
+  phase: 'extraction';
   phaseProgress: number;
   totalProgress: number;
   detail: string;
+  totalPages?: number;
+  knowledgePointCount?: number;
 }
 
 export interface ParseLectureResult {
+  sections: ExtractedSection[];
   knowledgePoints: KnowledgePoint[];
   outline?: DocumentOutline;
+  warnings: string[];
 }

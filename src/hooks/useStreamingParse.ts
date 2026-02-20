@@ -19,6 +19,8 @@ interface ParseMetadata {
   course?: string;
   courseId?: string;
   hasAnswers?: boolean;
+  reparse?: boolean;
+  append?: boolean;
 }
 
 interface StageTime {
@@ -33,6 +35,13 @@ interface PipelineDetail {
   detail?: string;
 }
 
+export interface PipelineLogEntry {
+  id: number;
+  timestamp: number;
+  message: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+}
+
 interface StreamingParseState {
   startParse: (file: File, metadata: ParseMetadata) => void;
   retry: () => void;
@@ -44,6 +53,7 @@ interface StreamingParseState {
   errorCode: string | null;
   documentId: string | null;
   pipelineDetail: PipelineDetail | null;
+  pipelineLogs: PipelineLogEntry[];
   stageTimes: Record<string, StageTime>;
   reset: () => void;
 }
@@ -57,11 +67,24 @@ export function useStreamingParse(): StreamingParseState {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [pipelineDetail, setPipelineDetail] = useState<PipelineDetail | null>(null);
+  const [pipelineLogs, setPipelineLogs] = useState<PipelineLogEntry[]>([]);
   const [stageTimes, setStageTimes] = useState<Record<string, StageTime>>({});
   const abortRef = useRef<AbortController | null>(null);
   const currentStageRef = useRef<string | null>(null);
   const lastFileRef = useRef<File | null>(null);
   const lastMetadataRef = useRef<ParseMetadata | null>(null);
+  const logIdRef = useRef(0);
+  const pipelineStartRef = useRef(0);
+
+  function addLog(message: string, level: PipelineLogEntry['level']) {
+    const entry: PipelineLogEntry = {
+      id: ++logIdRef.current,
+      timestamp: Date.now() - pipelineStartRef.current,
+      message,
+      level,
+    };
+    setPipelineLogs((prev) => [...prev, entry]);
+  }
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -73,6 +96,7 @@ export function useStreamingParse(): StreamingParseState {
     setErrorCode(null);
     setDocumentId(null);
     setPipelineDetail(null);
+    setPipelineLogs([]);
     setStageTimes({});
     currentStageRef.current = null;
   }, []);
@@ -90,7 +114,10 @@ export function useStreamingParse(): StreamingParseState {
     setErrorCode(null);
     setDocumentId(metadata.documentId);
     setPipelineDetail(null);
+    setPipelineLogs([]);
+    logIdRef.current = 0;
     const initialTime = Date.now();
+    pipelineStartRef.current = initialTime;
     setStageTimes({ parsing_pdf: { start: initialTime } });
     currentStageRef.current = 'parsing_pdf';
 
@@ -104,6 +131,8 @@ export function useStreamingParse(): StreamingParseState {
     if (metadata.course) formData.append('course', metadata.course);
     if (metadata.courseId) formData.append('courseId', metadata.courseId);
     if (metadata.hasAnswers) formData.append('has_answers', 'true');
+    if (metadata.reparse) formData.append('reparse', 'true');
+    if (metadata.append) formData.append('append', 'true');
     formData.append('documentId', metadata.documentId);
 
     (async () => {
@@ -214,13 +243,18 @@ export function useStreamingParse(): StreamingParseState {
           break;
         }
         case 'pipeline_progress': {
-          const detail = data as Record<string, unknown>;
+          const pd = data as SSEEventMap['pipeline_progress'];
           setPipelineDetail({
-            phase: detail.phase as string,
-            totalPages: detail.totalPages as number | undefined,
-            knowledgePointCount: detail.knowledgePointCount as number | undefined,
-            detail: detail.detail as string | undefined,
+            phase: pd.phase,
+            totalPages: pd.totalPages,
+            knowledgePointCount: pd.knowledgePointCount,
+            detail: pd.detail,
           });
+          break;
+        }
+        case 'log': {
+          const logData = data as SSEEventMap['log'];
+          addLog(logData.message, logData.level);
           break;
         }
         case 'error': {
@@ -251,6 +285,7 @@ export function useStreamingParse(): StreamingParseState {
     errorCode,
     documentId,
     pipelineDetail,
+    pipelineLogs,
     stageTimes,
     reset,
   };

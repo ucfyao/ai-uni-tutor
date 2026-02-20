@@ -22,15 +22,11 @@ vi.mock('@/lib/services/QuotaService', () => ({
 const mockDocumentService = {
   findById: vi.fn(),
   getChunks: vi.fn(),
+  getChunksWithEmbeddings: vi.fn(),
   saveChunksAndReturn: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
   getLectureDocumentService: () => mockDocumentService,
-}));
-
-const mockKnowledgeCardService = { saveFromKnowledgePoints: vi.fn() };
-vi.mock('@/lib/services/KnowledgeCardService', () => ({
-  getKnowledgeCardService: () => mockKnowledgeCardService,
 }));
 
 const mockParsePDF = vi.fn();
@@ -99,11 +95,15 @@ const DEFAULT_DOCUMENT_ID = '550e8400-e29b-41d4-a716-446655440000';
 
 const MOCK_KNOWLEDGE_POINT = {
   title: 'Algorithm Basics',
-  definition: 'A step-by-step procedure',
+  content: 'A step-by-step procedure',
   sourcePages: [1],
-  keyFormulas: ['O(n)'],
-  keyConcepts: ['complexity'],
-  examples: ['sorting'],
+};
+
+const MOCK_SECTION = {
+  title: 'Introduction to Algorithms',
+  summary: 'Overview of algorithm basics',
+  sourcePages: [1],
+  knowledgePoints: [MOCK_KNOWLEDGE_POINT],
 };
 
 const MOCK_QUESTION = {
@@ -212,8 +212,8 @@ function setupSuccessfulParse() {
   mockQuotaService.enforce.mockResolvedValue(undefined);
   mockDocumentService.findById.mockResolvedValue({ id: DEFAULT_DOCUMENT_ID, courseId: null });
   mockDocumentService.getChunks.mockResolvedValue([]);
+  mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([]);
   mockDocumentService.saveChunksAndReturn.mockResolvedValue([{ id: 'chunk-1' }]);
-  mockKnowledgeCardService.saveFromKnowledgePoints.mockResolvedValue(undefined);
   mockParsePDF.mockResolvedValue({
     pages: [{ text: 'Some lecture content about algorithms' }],
   });
@@ -222,8 +222,10 @@ function setupSuccessfulParse() {
   mockGenerateEmbeddingBatch.mockResolvedValue([Array.from({ length: 768 }, () => 0.01)]);
   mockDocumentRepo.saveOutline.mockResolvedValue(undefined);
   mockParseLectureMultiPass.mockResolvedValue({
+    sections: [MOCK_SECTION],
     knowledgePoints: [MOCK_KNOWLEDGE_POINT],
     outline: undefined,
+    warnings: [],
   });
   mockParseQuestions.mockResolvedValue([MOCK_QUESTION]);
   mockExamPaperRepo.findCourseId.mockResolvedValue(null);
@@ -636,6 +638,7 @@ describe('POST /api/documents/parse', () => {
     it('sends progress 0/0 and complete status when no items are extracted', async () => {
       setupSuccessfulParse();
       mockParseLectureMultiPass.mockResolvedValue({
+        sections: [],
         knowledgePoints: [],
         outline: undefined,
       });
@@ -660,9 +663,9 @@ describe('POST /api/documents/parse', () => {
   // =========================================================================
 
   describe('unexpected pipeline error', () => {
-    it('sends INTERNAL_ERROR when an unexpected error occurs after doc creation', async () => {
+    it('sends EXTRACTION_ERROR when an unexpected error occurs during lecture pipeline', async () => {
       setupSuccessfulParse();
-      // Make saveChunksAndReturn throw to simulate unexpected error
+      // Make saveChunksAndReturn throw to simulate unexpected error during pipeline
       mockDocumentService.saveChunksAndReturn.mockRejectedValue(new Error('DB write failure'));
 
       const response = await POST(makeRequest());
@@ -670,7 +673,7 @@ describe('POST /api/documents/parse', () => {
 
       const errorEvent = findEvent(events, 'error');
       expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as any).code).toBe('INTERNAL_ERROR');
+      expect((errorEvent!.data as any).code).toBe('EXTRACTION_ERROR');
     });
   });
 
@@ -687,7 +690,7 @@ describe('POST /api/documents/parse', () => {
 
       expect(mockGenerateEmbeddingBatch).toHaveBeenCalledTimes(1);
       expect(mockGenerateEmbeddingBatch).toHaveBeenCalledWith(
-        expect.arrayContaining([expect.stringContaining('Algorithm Basics')]),
+        expect.arrayContaining([expect.stringContaining('Introduction to Algorithms')]),
       );
     });
   });

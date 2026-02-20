@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Pencil, Plus, Upload } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Lightbulb, Pencil, Plus, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,7 +17,6 @@ import {
   Switch,
   Text,
   TextInput,
-  SegmentedControl,
   Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
@@ -30,8 +29,7 @@ import {
   updateDocumentChunks,
   updateDocumentMeta,
 } from '@/app/actions/documents';
-import { FullScreenModal } from '@/components/FullScreenModal';
-import { DocumentOutlineView } from '@/components/rag/DocumentOutlineView';
+import { DocumentOutlineView, type SectionEditData } from '@/components/rag/DocumentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES } from '@/constants/doc-types';
@@ -42,8 +40,6 @@ import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
-import { ChunkEditForm } from '../../knowledge/[id]/ChunkEditForm';
-import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
 import type { Chunk } from '../../knowledge/[id]/types';
 import { metaStr } from '../../knowledge/[id]/types';
 
@@ -80,12 +76,20 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const course = metaStr(doc.metadata, 'course');
 
   const [showUpload, setShowUpload] = useState(chunks.length === 0);
-  const [editingChunk, setEditingChunk] = useState<Chunk | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [expandedAnswers] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'chunks' | 'outline'>('chunks');
-  const hasOutline = doc.outline !== null;
+  const outline = doc.outline
+    ? (doc.outline as unknown as DocumentOutline)
+    : null;
+
+  const totalKPs = useMemo(() => {
+    let count = 0;
+    for (const chunk of chunks) {
+      const m = chunk.metadata as Record<string, unknown> | null;
+      if (m && Array.isArray(m.knowledgePoints)) count += m.knowledgePoints.length;
+    }
+    return count;
+  }, [chunks]);
 
   // ── Helpers ──
 
@@ -95,8 +99,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     }
     return {};
   }, []);
-
-  const getContent = useCallback((chunk: Chunk): string => chunk.content, []);
 
   // ── Name editing ──
 
@@ -110,32 +112,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   }, [doc.id, nameValue, currentName]);
 
   // ── CRUD ──
-
-  const handleEditSave = useCallback(
-    async (chunkId: string, content: string, metadata: Record<string, unknown>) => {
-      try {
-        const result = await updateDocumentChunks(doc.id, [{ id: chunkId, content, metadata }], []);
-        if (result.status === 'success') {
-          showNotification({
-            message: t.toast.changesSaved,
-            color: 'green',
-            icon: <Check size={16} />,
-          });
-          setEditingChunk(null);
-          router.refresh();
-        } else {
-          showNotification({ title: t.common.error, message: result.message, color: 'red' });
-        }
-      } catch {
-        showNotification({
-          title: t.common.error,
-          message: t.documentDetail.failedToSave,
-          color: 'red',
-        });
-      }
-    },
-    [doc.id, router, t],
-  );
 
   const handleDelete = useCallback(
     (chunkId: string) => {
@@ -212,26 +188,13 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     });
   }, [doc.id, selectedIds, router, t]);
 
-  const handleAddItem = useCallback(
-    async (_chunkId: string, content: string, metadata: Record<string, unknown>) => {
-      const title = (metadata.title as string) || '';
-      const definition = (metadata.definition as string) || content;
-      const keyFormulas = Array.isArray(metadata.keyFormulas)
-        ? (metadata.keyFormulas as string[]).filter(Boolean)
-        : undefined;
-      const keyConcepts = Array.isArray(metadata.keyConcepts)
-        ? (metadata.keyConcepts as string[]).filter(Boolean)
-        : undefined;
-      const examples = Array.isArray(metadata.examples)
-        ? (metadata.examples as string[]).filter(Boolean)
-        : undefined;
+  const handleAddSection = useCallback(
+    async (title: string, content: string, summary: string) => {
       const result = await addDocumentChunk({
         documentId: doc.id,
         title,
-        definition,
-        keyFormulas,
-        keyConcepts,
-        examples,
+        content,
+        summary,
       });
       if (result.success) {
         showNotification({
@@ -239,13 +202,38 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
           color: 'green',
           icon: <Check size={16} />,
         });
-        setShowAddForm(false);
+        setAddSectionOpen(false);
         router.refresh();
       } else {
         showNotification({ title: t.common.error, message: result.error, color: 'red' });
+        throw new Error(result.error);
       }
     },
     [doc.id, router, t],
+  );
+
+  const handleSaveSection = useCallback(
+    async (chunkId: string, data: SectionEditData) => {
+      const chunk = chunks.find((c) => c.id === chunkId);
+      if (!chunk) return;
+      const existingMeta = getMeta(chunk);
+      const metadata: Record<string, unknown> = {
+        ...existingMeta,
+        title: data.title,
+        summary: data.summary,
+        knowledgePoints: data.knowledgePoints,
+      };
+      const fullContent = [`## ${data.title}`, data.summary, '', data.content].join('\n');
+      const result = await updateDocumentChunks(doc.id, [{ id: chunkId, content: fullContent, metadata }], []);
+      if (result.status === 'success') {
+        showNotification({ message: t.toast.changesSaved, color: 'green', icon: <Check size={16} /> });
+        router.refresh();
+      } else {
+        showNotification({ title: t.common.error, message: result.message, color: 'red' });
+        throw new Error(result.message);
+      }
+    },
+    [chunks, getMeta, doc.id, router, t],
   );
 
   // ── Selection ──
@@ -264,6 +252,10 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       prev.size === chunks.length ? new Set() : new Set(chunks.map((c) => c.id)),
     );
   }, [chunks]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
 
   // ── Publish / Unpublish ──
 
@@ -326,7 +318,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   }, [doc.id, queryClient, router, t]);
 
   const handleParseComplete = useCallback(() => {
-    setShowUpload(false);
     router.refresh();
   }, [router]);
 
@@ -402,9 +393,28 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
               <Badge variant="light" color="gray" size="xs">
                 {(t.knowledge.docTypeLabel as Record<string, string>)?.lecture ?? 'Lecture'}
               </Badge>
-              <Badge variant="filled" color="indigo" size="sm">
-                {chunks.length} {t.documentDetail.knowledgePoints}
-              </Badge>
+              <Box
+                style={{
+                  width: 1,
+                  height: 14,
+                  background: 'var(--mantine-color-default-border)',
+                  flexShrink: 0,
+                }}
+              />
+              <Tooltip label={`${chunks.length} sections`} withArrow>
+                <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
+                  <BookOpen size={12} color="var(--mantine-color-indigo-5)" />
+                  <Text size="xs" c="dimmed">{chunks.length}</Text>
+                </Group>
+              </Tooltip>
+              {totalKPs > 0 && (
+                <Tooltip label={`${totalKPs} knowledge points`} withArrow>
+                  <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
+                    <Lightbulb size={12} color="var(--mantine-color-yellow-6)" />
+                    <Text size="xs" c="dimmed">{totalKPs}</Text>
+                  </Group>
+                </Tooltip>
+              )}
             </Group>
           )}
         </Group>
@@ -412,12 +422,12 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         {/* Right: actions + status */}
         <Group gap={12} wrap="nowrap" style={{ flexShrink: 0 }}>
           <Group gap={4} wrap="nowrap">
-            <Tooltip label={t.knowledge.addKnowledgePoint}>
+            <Tooltip label="Add Section">
               <ActionIcon
                 variant="subtle"
                 color="indigo"
                 size="md"
-                onClick={() => setShowAddForm(true)}
+                onClick={() => setAddSectionOpen(true)}
               >
                 <Plus size={16} />
               </ActionIcon>
@@ -464,6 +474,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       isPublishing,
       handleSaveName,
       chunks.length,
+      totalKPs,
       showUpload,
       t,
     ],
@@ -511,81 +522,24 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             />
           </Collapse>
 
-          {/* View toggle */}
-          {hasOutline && chunks.length > 0 && (
-            <SegmentedControl
-              value={viewMode}
-              onChange={(v) => setViewMode(v as 'chunks' | 'outline')}
-              data={[
-                { label: t.knowledge.viewChunks, value: 'chunks' },
-                { label: t.knowledge.viewOutline, value: 'outline' },
-              ]}
-              size="xs"
-            />
-          )}
-
-          {/* Content */}
-          {viewMode === 'outline' && hasOutline ? (
-            <DocumentOutlineView
-              outline={doc.outline as unknown as DocumentOutline}
-              chunks={chunks}
-            />
-          ) : (
-            <ChunkTable
-              chunks={chunks}
-              docType="lecture"
-              editingChunkId={null}
-              expandedAnswers={expandedAnswers}
-              selectedIds={selectedIds}
-              getEffectiveContent={getContent}
-              getEffectiveMetadata={getMeta}
-              onStartEdit={(chunk) => setEditingChunk(chunk)}
-              onCancelEdit={() => setEditingChunk(null)}
-              onSaveEdit={handleEditSave}
-              onDelete={(chunkId) => handleDelete(chunkId)}
-              onToggleAnswer={() => {}}
-              onToggleSelect={handleToggleSelect}
-              onToggleSelectAll={handleToggleSelectAll}
-              onBulkDelete={handleBulkDelete}
-              hideToolbar
-            />
-          )}
+          {/* Content: section list */}
+          <DocumentOutlineView
+            outline={outline}
+            chunks={chunks}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleToggleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onBulkDelete={handleBulkDelete}
+            onDelete={handleDelete}
+            onSaveSection={handleSaveSection}
+            addSectionOpen={addSectionOpen}
+            onToggleAddSection={() => setAddSectionOpen((v) => !v)}
+            onAddSection={handleAddSection}
+          />
         </Stack>
       </ScrollArea>
 
-      {/* Edit modal */}
-      <FullScreenModal
-        opened={editingChunk !== null}
-        onClose={() => setEditingChunk(null)}
-        title={t.documentDetail.editChunk}
-      >
-        {editingChunk && (
-          <ChunkEditForm
-            chunk={editingChunk}
-            docType="lecture"
-            content={editingChunk.content}
-            metadata={getMeta(editingChunk)}
-            onSave={handleEditSave}
-            onCancel={() => setEditingChunk(null)}
-          />
-        )}
-      </FullScreenModal>
-
-      {/* Add modal */}
-      <FullScreenModal
-        opened={showAddForm}
-        onClose={() => setShowAddForm(false)}
-        title={t.knowledge.addKnowledgePoint}
-      >
-        <ChunkEditForm
-          chunk={{ id: '', content: '', metadata: {}, embedding: null }}
-          docType="lecture"
-          content=""
-          metadata={{}}
-          onSave={handleAddItem}
-          onCancel={() => setShowAddForm(false)}
-        />
-      </FullScreenModal>
     </Box>
   );
 }

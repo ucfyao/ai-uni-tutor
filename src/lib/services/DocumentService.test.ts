@@ -44,6 +44,7 @@ function createMockDocRepo(): Record<keyof LectureDocumentRepository, ReturnType
   return {
     findById: vi.fn(),
     findByUserIdAndName: vi.fn(),
+    findByCourseIdAndName: vi.fn(),
     create: vi.fn(),
     publish: vi.fn(),
     unpublish: vi.fn(),
@@ -55,6 +56,7 @@ function createMockDocRepo(): Record<keyof LectureDocumentRepository, ReturnType
     deleteById: vi.fn(),
     findOutlinesByCourseId: vi.fn(),
     saveOutline: vi.fn(),
+    findDuplicatesInCourse: vi.fn(),
   };
 }
 

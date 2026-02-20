@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
-import type { KnowledgePoint } from './types';
 
 vi.mock('server-only', () => ({}));
 
@@ -12,7 +11,7 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
   return { ...actual, genAI: mockGemini.client, getGenAI: () => mockGemini.client };
 });
 
-const { extractKnowledgePoints } = await import('./section-extractor');
+const { extractSections } = await import('./section-extractor');
 
 describe('section-extractor', () => {
   beforeEach(() => {
@@ -23,27 +22,37 @@ describe('section-extractor', () => {
     vi.restoreAllMocks();
   });
 
-  it('extracts knowledge points in a single Gemini call regardless of page count', async () => {
-    const mockKPs: KnowledgePoint[] = [
-      {
-        title: 'Binary Search Tree',
-        definition: 'A binary tree where left < root < right',
-        keyConcepts: ['BST', 'ordering'],
-        sourcePages: [4, 5],
-      },
-    ];
+  it('extracts sections in a single Gemini call regardless of page count', async () => {
+    const mockResponse = {
+      sections: [
+        {
+          title: 'Binary Search Trees',
+          summary: 'Introduction to BST data structure',
+          sourcePages: [4, 5],
+          knowledgePoints: [
+            {
+              title: 'Binary Search Tree',
+              content: 'A binary tree where left < root < right',
+              sourcePages: [4, 5],
+            },
+          ],
+        },
+      ],
+    };
 
-    mockGemini.setGenerateJSON(mockKPs);
+    mockGemini.setGenerateJSON(mockResponse);
 
     const pages = Array.from({ length: 100 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1} content about data structures`,
     }));
 
-    const result = await extractKnowledgePoints(pages);
+    const { sections } = await extractSections(pages);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].title).toBe('Binary Search Tree');
+    expect(sections).toHaveLength(1);
+    expect(sections[0].title).toBe('Binary Search Trees');
+    expect(sections[0].knowledgePoints).toHaveLength(1);
+    expect(sections[0].knowledgePoints[0].title).toBe('Binary Search Tree');
     // Always exactly 1 Gemini call, even for 100 pages
     expect(mockGemini.client.models.generateContent).toHaveBeenCalledTimes(1);
   });
@@ -53,7 +62,7 @@ describe('section-extractor', () => {
 
     const pages = [{ page: 1, text: 'Content' }];
 
-    await expect(extractKnowledgePoints(pages)).rejects.toThrow('429 RESOURCE_EXHAUSTED');
+    await expect(extractSections(pages)).rejects.toThrow('429 RESOURCE_EXHAUSTED');
   });
 
   it('respects abort signal', async () => {
@@ -62,32 +71,68 @@ describe('section-extractor', () => {
 
     const pages = [{ page: 1, text: 'Content' }];
 
-    const result = await extractKnowledgePoints(pages, controller.signal);
+    const { sections, warnings } = await extractSections(pages, controller.signal);
 
-    expect(result).toEqual([]);
+    expect(sections).toEqual([]);
+    expect(warnings).toEqual([]);
     expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
   });
 
-  it('returns empty array when Gemini returns no valid items', async () => {
-    mockGemini.setGenerateJSON([{ invalid: 'not a knowledge point' }]);
+  it('returns empty sections with warnings when Gemini returns invalid data', async () => {
+    mockGemini.setGenerateJSON({ sections: [{ invalid: 'not a section' }] });
 
     const pages = [{ page: 1, text: 'Content' }];
-    const result = await extractKnowledgePoints(pages);
+    const { sections, warnings } = await extractSections(pages);
 
-    expect(result).toEqual([]);
+    expect(sections).toEqual([]);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.some((w) => w.includes('validation failed'))).toBe(true);
   });
 
-  it('validates each item with Zod and skips invalid ones', async () => {
-    mockGemini.setGenerateJSON([
-      { title: 'Valid', definition: 'A real point', sourcePages: [1] },
-      { title: '', definition: 'Missing title' },
-      { noTitle: true },
-    ]);
+  it('validates sections with Zod and returns valid ones', async () => {
+    mockGemini.setGenerateJSON({
+      sections: [
+        {
+          title: 'Valid Section',
+          summary: 'A real section',
+          sourcePages: [1],
+          knowledgePoints: [
+            { title: 'Valid', content: 'A real point', sourcePages: [1] },
+          ],
+        },
+      ],
+    });
 
     const pages = [{ page: 1, text: 'Content' }];
-    const result = await extractKnowledgePoints(pages);
+    const { sections, warnings } = await extractSections(pages);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].title).toBe('Valid');
+    expect(sections).toHaveLength(1);
+    expect(sections[0].title).toBe('Valid Section');
+    expect(warnings).toEqual([]);
+  });
+
+  it('coerces string sourcePages to arrays', async () => {
+    mockGemini.setGenerateJSON({
+      sections: [
+        {
+          title: 'Section with string pages',
+          summary: 'Gemini returned sourcePages as string',
+          sourcePages: '4-8',
+          knowledgePoints: [
+            { title: 'KP One', content: 'Content here', sourcePages: '4, 5' },
+            { title: 'KP Two', content: 'More content', sourcePages: '7' },
+          ],
+        },
+      ],
+    });
+
+    const pages = [{ page: 1, text: 'Content' }];
+    const { sections, warnings } = await extractSections(pages);
+
+    expect(sections).toHaveLength(1);
+    expect(warnings).toEqual([]);
+    expect(sections[0].sourcePages).toEqual([4, 5, 6, 7, 8]);
+    expect(sections[0].knowledgePoints[0].sourcePages).toEqual([4, 5]);
+    expect(sections[0].knowledgePoints[1].sourcePages).toEqual([7]);
   });
 });

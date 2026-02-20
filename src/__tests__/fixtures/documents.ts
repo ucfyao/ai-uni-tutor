@@ -17,7 +17,6 @@ export const documentRow = {
   course_id: 'course-001',
   metadata: { pageCount: 12, size: 204800 },
   outline: null,
-  outline_embedding: null,
   created_at: '2025-06-01T08:00:00Z',
 };
 

@@ -32,6 +32,11 @@ interface SSEDocumentCreatedEvent {
   documentId: string;
 }
 
+interface SSELogEvent {
+  message: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+}
+
 export type SSEEventMap = {
   status: SSEStatusEvent;
   item: SSEItemEvent;
@@ -40,6 +45,7 @@ export type SSEEventMap = {
   error: SSEErrorEvent;
   document_created: SSEDocumentCreatedEvent;
   pipeline_progress: PipelineProgress;
+  log: SSELogEvent;
 };
 
 // ─── SSE Formatting ───

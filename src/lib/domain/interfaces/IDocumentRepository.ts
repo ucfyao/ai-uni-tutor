@@ -11,6 +11,7 @@ import type { PaginatedResult, PaginationOptions } from '../models/Pagination';
 export interface ILectureDocumentRepository {
   findByUserId(userId: string): Promise<LectureDocumentEntity[]>;
   findByUserIdAndName(userId: string, name: string): Promise<LectureDocumentEntity | null>;
+  findByCourseIdAndName(courseId: string, name: string): Promise<LectureDocumentEntity | null>;
   findById(id: string): Promise<LectureDocumentEntity | null>;
   create(data: CreateLectureDocumentDTO): Promise<LectureDocumentEntity>;
   publish(id: string): Promise<void>;
@@ -23,4 +24,10 @@ export interface ILectureDocumentRepository {
     pagination?: PaginationOptions,
   ): Promise<PaginatedResult<LectureDocumentEntity>>;
   deleteById(id: string): Promise<void>;
+  findDuplicatesInCourse(
+    courseId: string,
+    fileName: string,
+    fileHash?: string,
+    excludeDocumentId?: string,
+  ): Promise<LectureDocumentEntity[]>;
 }

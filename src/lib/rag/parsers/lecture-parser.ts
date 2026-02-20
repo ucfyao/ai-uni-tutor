@@ -1,10 +1,9 @@
 import 'server-only';
 import type { PDFPage } from '@/lib/pdf';
-import { buildOutlineFromPoints } from './outline-generator';
-import { extractKnowledgePoints } from './section-extractor';
+import { extractSections } from './section-extractor';
 import type {
   DocumentOutline,
-  KnowledgePoint,
+  ExtractedSection,
   ParseLectureResult,
   PipelineProgress,
 } from './types';
@@ -17,20 +16,39 @@ interface ParseLectureOptions {
 
 function reportProgress(
   options: ParseLectureOptions | undefined,
-  phase: PipelineProgress['phase'],
   phaseProgress: number,
   detail: string,
+  extra?: { totalPages?: number; knowledgePointCount?: number },
 ) {
   if (!options?.onProgress) return;
+  // lecture-parser only reports extraction phase; route.ts sends the other phases directly
+  const totalProgress = Math.round((phaseProgress / 100) * 30); // extraction = 0-30% of total
+  options.onProgress({ phase: 'extraction', phaseProgress, totalProgress, detail, ...extra });
+}
 
-  const phaseWeights: Record<PipelineProgress['phase'], { start: number; weight: number }> = {
-    extraction: { start: 0, weight: 90 },
-    outline_generation: { start: 90, weight: 10 },
+function buildOutlineFromSections(
+  documentId: string,
+  sections: ExtractedSection[],
+): DocumentOutline {
+  const totalKP = sections.reduce((sum, s) => sum + s.knowledgePoints.length, 0);
+  return {
+    documentId,
+    title: sections[0]?.title ?? 'Untitled',
+    subject: '',
+    totalKnowledgePoints: totalKP,
+    sections: sections.map((s) => ({
+      title: s.title,
+      knowledgePoints: s.knowledgePoints.map((kp) => kp.title),
+      briefDescription: s.summary,
+      sourcePages: s.sourcePages,
+      knowledgePointDetails: s.knowledgePoints.map((kp) => ({
+        title: kp.title,
+        content: kp.content,
+        sourcePages: kp.sourcePages,
+      })),
+    })),
+    summary: `${sections.length} sections, ${totalKP} knowledge points.`,
   };
-
-  const { start, weight } = phaseWeights[phase];
-  const totalProgress = Math.round(start + (phaseProgress / 100) * weight);
-  options.onProgress({ phase, phaseProgress, totalProgress, detail });
 }
 
 /**
@@ -41,40 +59,47 @@ export async function parseLectureMultiPass(
   pages: PDFPage[],
   options?: ParseLectureOptions,
 ): Promise<ParseLectureResult> {
-  // === Extraction (single Gemini call) ===
-  reportProgress(options, 'extraction', 0, 'Extracting knowledge points...');
+  reportProgress(options, 0, `Sending ${pages.length} pages to AI...`, {
+    totalPages: pages.length,
+  });
 
-  const knowledgePoints = await extractKnowledgePoints(pages, options?.signal);
+  const extraction = await extractSections(pages, options?.signal);
+  const { sections, warnings } = extraction;
 
-  if (knowledgePoints.length === 0) {
-    reportProgress(options, 'extraction', 100, 'No knowledge points found');
-    return { knowledgePoints: [] };
+  const totalKP = sections.reduce((sum, s) => sum + s.knowledgePoints.length, 0);
+  if (sections.length === 0) {
+    reportProgress(options, 100, 'No content found', {
+      totalPages: pages.length,
+      knowledgePointCount: 0,
+    });
+    return { sections: [], knowledgePoints: [], warnings };
   }
-  reportProgress(
-    options,
-    'extraction',
-    100,
-    `Extracted ${knowledgePoints.length} knowledge points`,
-  );
 
-  // === Local Outline Generation ===
+  reportProgress(options, 100, `Extracted ${sections.length} sections, ${totalKP} knowledge points`, {
+    totalPages: pages.length,
+    knowledgePointCount: totalKP,
+  });
+
   let outline: DocumentOutline | undefined;
   if (options?.documentId) {
-    reportProgress(options, 'outline_generation', 0, 'Generating document outline...');
-    outline = buildOutlineFromPoints(options.documentId, knowledgePoints);
-    reportProgress(options, 'outline_generation', 100, 'Outline generated');
+    outline = buildOutlineFromSections(options.documentId, sections);
   }
 
-  return { knowledgePoints, outline };
+  // Flatten knowledge points with sourcePages from parent section
+  const knowledgePoints = sections.flatMap((s) =>
+    s.knowledgePoints.map((kp) => ({
+      ...kp,
+      sourcePages: kp.sourcePages?.length ? kp.sourcePages : s.sourcePages,
+    })),
+  );
+
+  return { sections, knowledgePoints, outline, warnings };
 }
 
-/**
- * Backward-compatible wrapper — returns KnowledgePoint[] directly.
- */
 export async function parseLecture(
   pages: PDFPage[],
   options?: ParseLectureOptions,
-): Promise<KnowledgePoint[]> {
+): Promise<ExtractedSection[]> {
   const result = await parseLectureMultiPass(pages, options);
-  return result.knowledgePoints;
+  return result.sections;
 }
