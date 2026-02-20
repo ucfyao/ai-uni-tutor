@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
-import type { DocumentStructure, KnowledgePoint } from './types';
+import type { KnowledgePoint } from './types';
 
 vi.mock('server-only', () => ({}));
 
@@ -12,9 +12,9 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
   return { ...actual, genAI: mockGemini.client, getGenAI: () => mockGemini.client };
 });
 
-const { extractSections } = await import('./section-extractor');
+const { extractKnowledgePoints, deduplicateByTitle } = await import('./section-extractor');
 
-describe('section-extractor', () => {
+describe('section-extractor (single-pass)', () => {
   beforeEach(() => {
     mockGemini.reset();
   });
@@ -23,7 +23,7 @@ describe('section-extractor', () => {
     vi.restoreAllMocks();
   });
 
-  it('extracts knowledge points per section, skipping overview', async () => {
+  it('extracts knowledge points from all pages in a single Gemini call', async () => {
     const mockKPs: KnowledgePoint[] = [
       {
         title: 'Binary Search Tree',
@@ -35,75 +35,113 @@ describe('section-extractor', () => {
 
     mockGemini.setGenerateJSON(mockKPs);
 
-    const pages = Array.from({ length: 15 }, (_, i) => ({
+    const pages = Array.from({ length: 10 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1} content about data structures`,
     }));
 
-    const structure: DocumentStructure = {
-      subject: 'Computer Science',
-      documentType: 'lecture slides',
-      sections: [
-        { title: 'Intro', startPage: 1, endPage: 3, contentType: 'overview' },
-        { title: 'Binary Trees', startPage: 4, endPage: 12, contentType: 'definitions' },
-      ],
-    };
+    const result = await extractKnowledgePoints(pages);
 
-    const result = await extractSections(pages, structure);
-
-    expect(result.length).toBeGreaterThan(0);
+    expect(result).toHaveLength(1);
     expect(result[0].title).toBe('Binary Search Tree');
-    // LLM should only be called for non-overview sections
     expect(mockGemini.client.models.generateContent).toHaveBeenCalledTimes(1);
   });
 
-  it('returns empty array when all sections are overview', async () => {
-    const structure: DocumentStructure = {
-      subject: 'Math',
-      documentType: 'textbook',
-      sections: [
-        { title: 'Table of Contents', startPage: 1, endPage: 2, contentType: 'overview' },
-        { title: 'References', startPage: 3, endPage: 4, contentType: 'overview' },
-      ],
-    };
+  it('batches long documents (>singlePassMaxPages) into page ranges', async () => {
+    // With default singlePassMaxPages=50, batchPages=30, overlap=3 → step=27
+    // a 60-page doc makes 3 calls (pages 1-30, 28-57, 55-60)
+    const kpsBatch1: KnowledgePoint[] = [
+      { title: 'Concept A', definition: 'Def A', sourcePages: [5] },
+    ];
+    const kpsBatch2: KnowledgePoint[] = [
+      { title: 'Concept B', definition: 'Def B', sourcePages: [45] },
+    ];
 
-    const pages = Array.from({ length: 4 }, (_, i) => ({
+    mockGemini.client.models.generateContent
+      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch1) })
+      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch2) })
+      .mockResolvedValueOnce({ text: JSON.stringify([]) });
+
+    const pages = Array.from({ length: 60 }, (_, i) => ({
+      page: i + 1,
+      text: `Page ${i + 1} content`,
+    }));
+
+    const result = await extractKnowledgePoints(pages);
+
+    expect(result).toHaveLength(2);
+    expect(mockGemini.client.models.generateContent).toHaveBeenCalledTimes(3);
+  });
+
+  it('deduplicates by title across batches', async () => {
+    const kpsBatch1: KnowledgePoint[] = [
+      { title: 'Same Concept', definition: 'Short def', sourcePages: [5] },
+    ];
+    const kpsBatch2: KnowledgePoint[] = [
+      { title: 'Same Concept', definition: 'A much longer and better definition', sourcePages: [35] },
+    ];
+
+    mockGemini.client.models.generateContent
+      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch1) })
+      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch2) })
+      .mockResolvedValueOnce({ text: JSON.stringify([]) });
+
+    const pages = Array.from({ length: 60 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1}`,
     }));
 
-    const result = await extractSections(pages, structure);
+    const result = await extractKnowledgePoints(pages);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].definition).toBe('A much longer and better definition');
+    expect(result[0].sourcePages).toEqual([5, 35]);
+  });
+
+  it('handles Gemini API failure by throwing', async () => {
+    mockGemini.setGenerateError(new Error('429 RESOURCE_EXHAUSTED'));
+
+    const pages = [{ page: 1, text: 'Content' }];
+
+    await expect(extractKnowledgePoints(pages)).rejects.toThrow('429 RESOURCE_EXHAUSTED');
+  });
+
+  it('respects abort signal', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const pages = Array.from({ length: 60 }, (_, i) => ({
+      page: i + 1,
+      text: `Page ${i + 1}`,
+    }));
+
+    const result = await extractKnowledgePoints(pages, undefined, controller.signal);
 
     expect(result).toEqual([]);
     expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
   });
 
-  it('handles LLM failure for one section gracefully', async () => {
-    // First call fails, second succeeds
-    mockGemini.client.models.generateContent
-      .mockRejectedValueOnce(new Error('API error'))
-      .mockResolvedValueOnce({
-        text: JSON.stringify([{ title: 'Concept B', definition: 'Def B', sourcePages: [15] }]),
-      });
+  it('returns empty array when Gemini returns no valid items', async () => {
+    mockGemini.setGenerateJSON([{ invalid: 'not a knowledge point' }]);
 
-    const pages = Array.from({ length: 20 }, (_, i) => ({
-      page: i + 1,
-      text: `Page ${i + 1} content`,
-    }));
+    const pages = [{ page: 1, text: 'Content' }];
+    const result = await extractKnowledgePoints(pages);
 
-    const structure: DocumentStructure = {
-      subject: 'Physics',
-      documentType: 'lecture',
-      sections: [
-        { title: 'Section A', startPage: 1, endPage: 10, contentType: 'definitions' },
-        { title: 'Section B', startPage: 11, endPage: 20, contentType: 'theorems' },
-      ],
-    };
+    expect(result).toEqual([]);
+  });
+});
 
-    // With concurrency=3, both sections process in same batch
-    const result = await extractSections(pages, structure);
+describe('deduplicateByTitle', () => {
+  it('keeps the longer definition and merges sourcePages', () => {
+    const points: KnowledgePoint[] = [
+      { title: 'BST', definition: 'Short', sourcePages: [1] },
+      { title: 'bst', definition: 'A much longer definition', sourcePages: [5, 6] },
+    ];
 
-    expect(result.length).toBe(1);
-    expect(result[0].title).toBe('Concept B');
+    const result = deduplicateByTitle(points);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].definition).toBe('A much longer definition');
+    expect(result[0].sourcePages).toEqual([1, 5, 6]);
   });
 });

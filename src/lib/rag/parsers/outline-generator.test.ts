@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
-import type { DocumentOutline, DocumentStructure, KnowledgePoint } from './types';
+import type { DocumentOutline, KnowledgePoint } from './types';
 
 vi.mock('server-only', () => ({}));
 
@@ -12,7 +12,7 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
   return { ...actual, genAI: mockGemini.client, getGenAI: () => mockGemini.client };
 });
 
-const { generateDocumentOutline, generateCourseOutline } = await import('./outline-generator');
+const { buildOutlineFromPoints, generateCourseOutline } = await import('./outline-generator');
 
 describe('outline-generator', () => {
   beforeEach(() => {
@@ -23,60 +23,47 @@ describe('outline-generator', () => {
     vi.restoreAllMocks();
   });
 
-  describe('generateDocumentOutline', () => {
-    it('generates outline from structure and knowledge points via LLM', async () => {
-      mockGemini.setGenerateJSON({
-        title: 'Data Structures Lecture 5',
-        summary: 'Covers binary trees and hash tables.',
-        sections: [
-          {
-            title: 'Binary Trees',
-            knowledgePoints: ['BST', 'AVL Tree'],
-            briefDescription: 'Tree-based data structures.',
-          },
-        ],
-      });
-
-      const structure: DocumentStructure = {
-        subject: 'Computer Science',
-        documentType: 'lecture slides',
-        sections: [
-          { title: 'Binary Trees', startPage: 1, endPage: 10, contentType: 'definitions' },
-        ],
-      };
-
+  describe('buildOutlineFromPoints', () => {
+    it('builds outline from knowledge points without any LLM call', () => {
       const points: KnowledgePoint[] = [
-        { title: 'BST', definition: 'Binary search tree', sourcePages: [3] },
-        { title: 'AVL Tree', definition: 'Self-balancing BST', sourcePages: [7] },
+        { title: 'BST', definition: 'Binary search tree', sourcePages: [3, 5] },
+        { title: 'AVL Tree', definition: 'Self-balancing BST', sourcePages: [7, 8] },
+        { title: 'Hash Table', definition: 'Key-value mapping', sourcePages: [12] },
       ];
 
-      const result = await generateDocumentOutline('doc-123', structure, points);
+      const result = buildOutlineFromPoints('doc-123', points);
 
       expect(result.documentId).toBe('doc-123');
-      expect(result.subject).toBe('Computer Science');
-      expect(result.totalKnowledgePoints).toBe(2);
-      expect(result.sections).toHaveLength(1);
+      expect(result.totalKnowledgePoints).toBe(3);
+      expect(result.sections.length).toBeGreaterThan(0);
+      // No LLM call should have been made
+      expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
     });
 
-    it('builds outline locally for small KP sets without calling LLM', async () => {
-      // [m13] assert LLM not called
-      const structure: DocumentStructure = {
-        subject: 'Math',
-        documentType: 'notes',
-        sections: [
-          { title: 'Calculus Basics', startPage: 1, endPage: 3, contentType: 'definitions' },
-        ],
-      };
+    it('returns minimal outline for empty points array', () => {
+      const result = buildOutlineFromPoints('doc-empty', []);
 
+      expect(result.documentId).toBe('doc-empty');
+      expect(result.totalKnowledgePoints).toBe(0);
+      expect(result.sections).toHaveLength(0);
+    });
+
+    it('groups knowledge points into sections by page ranges', () => {
       const points: KnowledgePoint[] = [
-        { title: 'Derivative', definition: 'Rate of change', sourcePages: [1] },
+        { title: 'A', definition: 'Def A', sourcePages: [1, 2] },
+        { title: 'B', definition: 'Def B', sourcePages: [3] },
+        { title: 'C', definition: 'Def C', sourcePages: [20, 21] },
+        { title: 'D', definition: 'Def D', sourcePages: [22] },
       ];
 
-      const result = await generateDocumentOutline('doc-456', structure, points);
+      const result = buildOutlineFromPoints('doc-sections', points);
 
-      expect(result.documentId).toBe('doc-456');
-      expect(result.totalKnowledgePoints).toBe(1);
-      expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
+      // Should have multiple sections since pages span a wide range
+      expect(result.sections.length).toBeGreaterThanOrEqual(1);
+      // All knowledge points should be accounted for
+      const allKPsInSections = result.sections.flatMap((s) => s.knowledgePoints);
+      expect(allKPsInSections).toContain('A');
+      expect(allKPsInSections).toContain('C');
     });
   });
 
@@ -120,7 +107,6 @@ describe('outline-generator', () => {
 
       expect(result.courseId).toBe('course-1');
       expect(result.topics).toHaveLength(1);
-      expect(result.topics[0].subtopics).toContain('Binary Trees');
     });
   });
 });

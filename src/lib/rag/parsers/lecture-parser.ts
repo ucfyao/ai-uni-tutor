@@ -1,9 +1,7 @@
 import 'server-only';
 import type { PDFPage } from '@/lib/pdf';
-import { generateDocumentOutline } from './outline-generator';
-import { qualityGate } from './quality-gate';
-import { extractSections } from './section-extractor';
-import { analyzeStructure } from './structure-analyzer';
+import { buildOutlineFromPoints } from './outline-generator';
+import { extractKnowledgePoints } from './section-extractor';
 import type {
   DocumentOutline,
   KnowledgePoint,
@@ -15,7 +13,7 @@ interface ParseLectureOptions {
   documentId?: string;
   onProgress?: (progress: PipelineProgress) => void;
   onBatchProgress?: (current: number, total: number) => void;
-  signal?: AbortSignal; // [m5]
+  signal?: AbortSignal;
 }
 
 function reportProgress(
@@ -27,10 +25,8 @@ function reportProgress(
   if (!options?.onProgress) return;
 
   const phaseWeights: Record<PipelineProgress['phase'], { start: number; weight: number }> = {
-    structure_analysis: { start: 0, weight: 10 },
-    extraction: { start: 10, weight: 50 },
-    quality_gate: { start: 60, weight: 25 },
-    outline_generation: { start: 85, weight: 15 },
+    extraction: { start: 0, weight: 90 },
+    outline_generation: { start: 90, weight: 10 },
   };
 
   const { start, weight } = phaseWeights[phase];
@@ -39,71 +35,48 @@ function reportProgress(
 }
 
 /**
- * Multi-pass lecture parsing pipeline.
+ * Single-pass lecture parsing pipeline.
  * Returns both knowledge points and optional document outline.
  */
 export async function parseLectureMultiPass(
   pages: PDFPage[],
   options?: ParseLectureOptions,
 ): Promise<ParseLectureResult> {
-  // === Pass 1: Structure Analysis ===
-  reportProgress(options, 'structure_analysis', 0, 'Analyzing document structure...');
-  const structure = await analyzeStructure(pages);
-  reportProgress(
-    options,
-    'structure_analysis',
-    100,
-    `Identified ${structure.sections.length} sections`,
-  );
-  options?.onBatchProgress?.(0, 4);
-
-  // === Pass 2: Knowledge Extraction ===
+  // === Extraction ===
   reportProgress(options, 'extraction', 0, 'Extracting knowledge points...');
-  const rawPoints = await extractSections(
-    pages,
-    structure,
-    (completed, total) => {
-      const pct = Math.round((completed / total) * 100);
-      reportProgress(options, 'extraction', pct, `Processing section ${completed}/${total}...`);
-    },
-    options?.signal, // [m5]
-  );
-  options?.onBatchProgress?.(1, 4);
 
-  if (rawPoints.length === 0) {
+  const knowledgePoints = await extractKnowledgePoints(
+    pages,
+    (current, total) => {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      reportProgress(options, 'extraction', pct, `Processing batch ${current}/${total}...`);
+      options?.onBatchProgress?.(current, total + 1); // +1 for outline step
+    },
+    options?.signal,
+  );
+
+  if (knowledgePoints.length === 0) {
     reportProgress(options, 'extraction', 100, 'No knowledge points found');
     return { knowledgePoints: [] };
   }
-  reportProgress(options, 'extraction', 100, `Extracted ${rawPoints.length} raw knowledge points`);
-
-  // === Pass 3: Quality Gate ===
-  reportProgress(options, 'quality_gate', 0, 'Reviewing extraction quality...');
-  const qualityPoints = await qualityGate(
-    rawPoints,
-    (reviewed, total) => {
-      const pct = Math.round((reviewed / total) * 100);
-      reportProgress(options, 'quality_gate', pct, `Reviewed ${reviewed}/${total} points...`);
-    },
-    options?.signal, // [m5]
-  );
   reportProgress(
     options,
-    'quality_gate',
+    'extraction',
     100,
-    `${qualityPoints.length}/${rawPoints.length} passed`,
+    `Extracted ${knowledgePoints.length} knowledge points`,
   );
-  options?.onBatchProgress?.(2, 4);
 
-  // === Pass 4: Outline Generation ===
+  // === Local Outline Generation ===
   let outline: DocumentOutline | undefined;
   if (options?.documentId) {
     reportProgress(options, 'outline_generation', 0, 'Generating document outline...');
-    outline = await generateDocumentOutline(options.documentId, structure, qualityPoints);
+    outline = buildOutlineFromPoints(options.documentId, knowledgePoints);
     reportProgress(options, 'outline_generation', 100, 'Outline generated');
   }
-  options?.onBatchProgress?.(3, 4);
 
-  return { knowledgePoints: qualityPoints, outline };
+  options?.onBatchProgress?.(1, 1); // signal completion
+
+  return { knowledgePoints, outline };
 }
 
 /**
@@ -117,7 +90,6 @@ export async function parseLecture(
   pages: PDFPage[],
   optionsOrCallback?: ParseLectureOptions | ((current: number, total: number) => void),
 ): Promise<KnowledgePoint[]> {
-  // [C2] Runtime detection: if second arg is a function, wrap it
   let options: ParseLectureOptions | undefined;
   if (typeof optionsOrCallback === 'function') {
     options = { onBatchProgress: optionsOrCallback };
