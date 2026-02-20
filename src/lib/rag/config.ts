@@ -23,11 +23,6 @@ export const RAG_CONFIG = {
   matchCount: safeInt(process.env.RAG_MATCH_COUNT, 5),
   rrfK: safeInt(process.env.RAG_RRF_K, 60),
 
-  // Single-pass lecture extraction config
-  singlePassMaxPages: safeInt(process.env.RAG_SINGLE_PASS_MAX_PAGES, 50),
-  singlePassBatchPages: safeInt(process.env.RAG_SINGLE_PASS_BATCH_PAGES, 30),
-  singlePassBatchOverlap: safeInt(process.env.RAG_SINGLE_PASS_BATCH_OVERLAP, 3),
-
   // Reranking config
   rerankEnabled: process.env.RAG_RERANK_ENABLED !== 'false',
   rerankCandidateMultiplier: safeInt(process.env.RAG_RERANK_MULTIPLIER, 2),

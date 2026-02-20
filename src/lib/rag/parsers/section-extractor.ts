@@ -2,7 +2,6 @@ import 'server-only';
 import { z } from 'zod';
 import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
-import { RAG_CONFIG } from '../config';
 import type { KnowledgePoint } from './types';
 
 const knowledgePointSchema = z.object({
@@ -13,34 +12,6 @@ const knowledgePointSchema = z.object({
   examples: z.array(z.string()).optional(),
   sourcePages: z.array(z.number()).default([]),
 });
-
-export function deduplicateByTitle(points: KnowledgePoint[]): KnowledgePoint[] {
-  const seen = new Map<string, KnowledgePoint>();
-  for (const point of points) {
-    const key = point.title.toLowerCase().trim();
-    const existing = seen.get(key);
-    if (existing) {
-      if (point.definition.length > existing.definition.length) {
-        seen.set(key, {
-          ...point,
-          sourcePages: [...new Set([...existing.sourcePages, ...point.sourcePages])].sort(
-            (a, b) => a - b,
-          ),
-        });
-      } else {
-        seen.set(key, {
-          ...existing,
-          sourcePages: [...new Set([...existing.sourcePages, ...point.sourcePages])].sort(
-            (a, b) => a - b,
-          ),
-        });
-      }
-    } else {
-      seen.set(key, point);
-    }
-  }
-  return [...seen.values()];
-}
 
 function buildExtractionPrompt(pages: PDFPage[]): string {
   const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
@@ -77,7 +48,16 @@ Document (${pages.length} pages):
 ${pagesText}`;
 }
 
-async function extractFromPages(pages: PDFPage[]): Promise<KnowledgePoint[]> {
+/**
+ * Single-call knowledge point extraction.
+ * Sends all pages to Gemini in one request.
+ */
+export async function extractKnowledgePoints(
+  pages: PDFPage[],
+  signal?: AbortSignal,
+): Promise<KnowledgePoint[]> {
+  if (signal?.aborted) return [];
+
   const prompt = buildExtractionPrompt(pages);
 
   const response = await getGenAI().models.generateContent({
@@ -96,53 +76,4 @@ async function extractFromPages(pages: PDFPage[]): Promise<KnowledgePoint[]> {
     if (result.success) validated.push(result.data);
   }
   return validated;
-}
-
-/**
- * Single-pass knowledge point extraction.
- *
- * For documents <= singlePassMaxPages: one Gemini call with full text.
- * For longer documents: batches of singlePassBatchPages with overlap, then title-based dedup.
- */
-export async function extractKnowledgePoints(
-  pages: PDFPage[],
-  onProgress?: (current: number, total: number) => void,
-  signal?: AbortSignal,
-): Promise<KnowledgePoint[]> {
-  if (signal?.aborted) return [];
-
-  // Short documents: single call
-  if (pages.length <= RAG_CONFIG.singlePassMaxPages) {
-    onProgress?.(0, 1);
-    const result = await extractFromPages(pages);
-    onProgress?.(1, 1);
-    return result;
-  }
-
-  // Long documents: batch by page ranges
-  const batchSize = RAG_CONFIG.singlePassBatchPages;
-  const overlap = RAG_CONFIG.singlePassBatchOverlap;
-  const allResults: KnowledgePoint[] = [];
-  const totalBatches = Math.ceil(pages.length / (batchSize - overlap));
-
-  for (let i = 0, batchNum = 0; i < pages.length; i += batchSize - overlap, batchNum++) {
-    if (signal?.aborted) break;
-
-    const batch = pages.slice(i, i + batchSize);
-    if (batch.length === 0) break;
-
-    onProgress?.(batchNum, totalBatches);
-
-    try {
-      const batchResults = await extractFromPages(batch);
-      allResults.push(...batchResults);
-    } catch (error) {
-      // For the first batch, rethrow so the caller can report the error
-      if (batchNum === 0) throw error;
-      console.warn(`Batch extraction failed at page ${batch[0]?.page}:`, error);
-    }
-  }
-
-  onProgress?.(totalBatches, totalBatches);
-  return deduplicateByTitle(allResults);
 }
