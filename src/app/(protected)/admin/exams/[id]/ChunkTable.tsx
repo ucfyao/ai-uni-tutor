@@ -18,8 +18,8 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
-import { useLanguage } from '@/i18n/LanguageContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { ChunkEditForm } from './ChunkEditForm';
 import type { Chunk, DocType } from './types';
@@ -326,11 +326,7 @@ export function ChunkTable({
             })}
             {chunks.length === 0 && (
               <Table.Tr>
-                <Table.Td
-                  colSpan={6}
-                  py={48}
-                  style={{ textAlign: 'center' }}
-                >
+                <Table.Td colSpan={6} py={48} style={{ textAlign: 'center' }}>
                   <Stack align="center" gap={8}>
                     <FileText size={32} color="var(--mantine-color-dimmed)" strokeWidth={1.5} />
                     <Text size="sm" c="dimmed">
@@ -479,7 +475,9 @@ function DesktopChunkRows({
                 color="gray"
                 size="sm"
                 onClick={onToggleAnswer}
-                aria-label={isExpanded ? t.documentDetail.collapseAnswer : t.documentDetail.expandAnswer}
+                aria-label={
+                  isExpanded ? t.documentDetail.collapseAnswer : t.documentDetail.expandAnswer
+                }
               >
                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </ActionIcon>
@@ -625,7 +623,9 @@ function MobileChunkRow({
                 color="gray"
                 size="sm"
                 onClick={onToggleAnswer}
-                aria-label={isExpanded ? t.documentDetail.collapseAnswer : t.documentDetail.expandAnswer}
+                aria-label={
+                  isExpanded ? t.documentDetail.collapseAnswer : t.documentDetail.expandAnswer
+                }
               >
                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </ActionIcon>

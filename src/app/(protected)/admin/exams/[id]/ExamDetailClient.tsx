@@ -21,9 +21,9 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { ExamPaper, ExamQuestion } from '@/types/exam';
-import { ChunkTable } from '../../knowledge/[id]/ChunkTable';
-import { DocumentDetailHeader } from '../../knowledge/[id]/DocumentDetailHeader';
-import type { Chunk, DocType } from '../../knowledge/[id]/types';
+import { ChunkTable } from './ChunkTable';
+import { DocumentDetailHeader } from './DocumentDetailHeader';
+import type { Chunk, DocType } from './types';
 
 interface ExamDetailClientProps {
   paper: ExamPaper;
