@@ -23,17 +23,10 @@ export const RAG_CONFIG = {
   matchCount: safeInt(process.env.RAG_MATCH_COUNT, 5),
   rrfK: safeInt(process.env.RAG_RRF_K, 60),
 
-  // Multi-pass pipeline config
-  structurePageSummaryLength: safeInt(process.env.RAG_STRUCTURE_SUMMARY_LENGTH, 500),
-  sectionMaxPages: safeInt(process.env.RAG_SECTION_MAX_PAGES, 15),
-  sectionBatchPages: safeInt(process.env.RAG_SECTION_BATCH_PAGES, 12),
-  sectionOverlapPages: safeInt(process.env.RAG_SECTION_OVERLAP_PAGES, 2),
-  sectionBatchOverlapPages: safeInt(process.env.RAG_SECTION_BATCH_OVERLAP_PAGES, 3),
-  sectionConcurrency: safeInt(process.env.RAG_SECTION_CONCURRENCY, 3),
-  qualityScoreThreshold: safeInt(process.env.RAG_QUALITY_THRESHOLD, 5),
-  semanticDedupThreshold: safeFloat(process.env.RAG_SEMANTIC_DEDUP_THRESHOLD, 0.9),
-  qualityReviewBatchSize: safeInt(process.env.RAG_QUALITY_REVIEW_BATCH, 20),
-  shortDocumentThreshold: safeInt(process.env.RAG_SHORT_DOC_THRESHOLD, 5),
+  // Single-pass lecture extraction config
+  singlePassMaxPages: safeInt(process.env.RAG_SINGLE_PASS_MAX_PAGES, 50),
+  singlePassBatchPages: safeInt(process.env.RAG_SINGLE_PASS_BATCH_PAGES, 30),
+  singlePassBatchOverlap: safeInt(process.env.RAG_SINGLE_PASS_BATCH_OVERLAP, 3),
 
   // Reranking config
   rerankEnabled: process.env.RAG_RERANK_ENABLED !== 'false',
