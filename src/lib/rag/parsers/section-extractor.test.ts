@@ -12,9 +12,9 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
   return { ...actual, genAI: mockGemini.client, getGenAI: () => mockGemini.client };
 });
 
-const { extractKnowledgePoints, deduplicateByTitle } = await import('./section-extractor');
+const { extractKnowledgePoints } = await import('./section-extractor');
 
-describe('section-extractor (single-pass)', () => {
+describe('section-extractor', () => {
   beforeEach(() => {
     mockGemini.reset();
   });
@@ -23,7 +23,7 @@ describe('section-extractor (single-pass)', () => {
     vi.restoreAllMocks();
   });
 
-  it('extracts knowledge points from all pages in a single Gemini call', async () => {
+  it('extracts knowledge points in a single Gemini call regardless of page count', async () => {
     const mockKPs: KnowledgePoint[] = [
       {
         title: 'Binary Search Tree',
@@ -35,7 +35,7 @@ describe('section-extractor (single-pass)', () => {
 
     mockGemini.setGenerateJSON(mockKPs);
 
-    const pages = Array.from({ length: 10 }, (_, i) => ({
+    const pages = Array.from({ length: 100 }, (_, i) => ({
       page: i + 1,
       text: `Page ${i + 1} content about data structures`,
     }));
@@ -44,58 +44,8 @@ describe('section-extractor (single-pass)', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].title).toBe('Binary Search Tree');
+    // Always exactly 1 Gemini call, even for 100 pages
     expect(mockGemini.client.models.generateContent).toHaveBeenCalledTimes(1);
-  });
-
-  it('batches long documents (>singlePassMaxPages) into page ranges', async () => {
-    // With default singlePassMaxPages=50, batchPages=30, overlap=3 → step=27
-    // a 60-page doc makes 3 calls (pages 1-30, 28-57, 55-60)
-    const kpsBatch1: KnowledgePoint[] = [
-      { title: 'Concept A', definition: 'Def A', sourcePages: [5] },
-    ];
-    const kpsBatch2: KnowledgePoint[] = [
-      { title: 'Concept B', definition: 'Def B', sourcePages: [45] },
-    ];
-
-    mockGemini.client.models.generateContent
-      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch1) })
-      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch2) })
-      .mockResolvedValueOnce({ text: JSON.stringify([]) });
-
-    const pages = Array.from({ length: 60 }, (_, i) => ({
-      page: i + 1,
-      text: `Page ${i + 1} content`,
-    }));
-
-    const result = await extractKnowledgePoints(pages);
-
-    expect(result).toHaveLength(2);
-    expect(mockGemini.client.models.generateContent).toHaveBeenCalledTimes(3);
-  });
-
-  it('deduplicates by title across batches', async () => {
-    const kpsBatch1: KnowledgePoint[] = [
-      { title: 'Same Concept', definition: 'Short def', sourcePages: [5] },
-    ];
-    const kpsBatch2: KnowledgePoint[] = [
-      { title: 'Same Concept', definition: 'A much longer and better definition', sourcePages: [35] },
-    ];
-
-    mockGemini.client.models.generateContent
-      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch1) })
-      .mockResolvedValueOnce({ text: JSON.stringify(kpsBatch2) })
-      .mockResolvedValueOnce({ text: JSON.stringify([]) });
-
-    const pages = Array.from({ length: 60 }, (_, i) => ({
-      page: i + 1,
-      text: `Page ${i + 1}`,
-    }));
-
-    const result = await extractKnowledgePoints(pages);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].definition).toBe('A much longer and better definition');
-    expect(result[0].sourcePages).toEqual([5, 35]);
   });
 
   it('handles Gemini API failure by throwing', async () => {
@@ -110,12 +60,9 @@ describe('section-extractor (single-pass)', () => {
     const controller = new AbortController();
     controller.abort();
 
-    const pages = Array.from({ length: 60 }, (_, i) => ({
-      page: i + 1,
-      text: `Page ${i + 1}`,
-    }));
+    const pages = [{ page: 1, text: 'Content' }];
 
-    const result = await extractKnowledgePoints(pages, undefined, controller.signal);
+    const result = await extractKnowledgePoints(pages, controller.signal);
 
     expect(result).toEqual([]);
     expect(mockGemini.client.models.generateContent).not.toHaveBeenCalled();
@@ -129,19 +76,18 @@ describe('section-extractor (single-pass)', () => {
 
     expect(result).toEqual([]);
   });
-});
 
-describe('deduplicateByTitle', () => {
-  it('keeps the longer definition and merges sourcePages', () => {
-    const points: KnowledgePoint[] = [
-      { title: 'BST', definition: 'Short', sourcePages: [1] },
-      { title: 'bst', definition: 'A much longer definition', sourcePages: [5, 6] },
-    ];
+  it('validates each item with Zod and skips invalid ones', async () => {
+    mockGemini.setGenerateJSON([
+      { title: 'Valid', definition: 'A real point', sourcePages: [1] },
+      { title: '', definition: 'Missing title' },
+      { noTitle: true },
+    ]);
 
-    const result = deduplicateByTitle(points);
+    const pages = [{ page: 1, text: 'Content' }];
+    const result = await extractKnowledgePoints(pages);
 
     expect(result).toHaveLength(1);
-    expect(result[0].definition).toBe('A much longer definition');
-    expect(result[0].sourcePages).toEqual([1, 5, 6]);
+    expect(result[0].title).toBe('Valid');
   });
 });

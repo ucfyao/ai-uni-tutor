@@ -17,6 +17,7 @@ import {
   Switch,
   Text,
   TextInput,
+  SegmentedControl,
   Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
@@ -30,12 +31,14 @@ import {
   updateDocumentMeta,
 } from '@/app/actions/documents';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import { DocumentOutlineView } from '@/components/rag/DocumentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentStatus } from '@/lib/domain/models/Document';
+import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
@@ -81,6 +84,8 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedAnswers] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'chunks' | 'outline'>('chunks');
+  const hasOutline = doc.outline !== null;
 
   // ── Helpers ──
 
@@ -506,25 +511,45 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             />
           </Collapse>
 
-          {/* Table */}
-          <ChunkTable
-            chunks={chunks}
-            docType="lecture"
-            editingChunkId={null}
-            expandedAnswers={expandedAnswers}
-            selectedIds={selectedIds}
-            getEffectiveContent={getContent}
-            getEffectiveMetadata={getMeta}
-            onStartEdit={(chunk) => setEditingChunk(chunk)}
-            onCancelEdit={() => setEditingChunk(null)}
-            onSaveEdit={handleEditSave}
-            onDelete={(chunkId) => handleDelete(chunkId)}
-            onToggleAnswer={() => {}}
-            onToggleSelect={handleToggleSelect}
-            onToggleSelectAll={handleToggleSelectAll}
-            onBulkDelete={handleBulkDelete}
-            hideToolbar
-          />
+          {/* View toggle */}
+          {hasOutline && chunks.length > 0 && (
+            <SegmentedControl
+              value={viewMode}
+              onChange={(v) => setViewMode(v as 'chunks' | 'outline')}
+              data={[
+                { label: t.knowledge.viewChunks, value: 'chunks' },
+                { label: t.knowledge.viewOutline, value: 'outline' },
+              ]}
+              size="xs"
+            />
+          )}
+
+          {/* Content */}
+          {viewMode === 'outline' && hasOutline ? (
+            <DocumentOutlineView
+              outline={doc.outline as unknown as DocumentOutline}
+              chunks={chunks}
+            />
+          ) : (
+            <ChunkTable
+              chunks={chunks}
+              docType="lecture"
+              editingChunkId={null}
+              expandedAnswers={expandedAnswers}
+              selectedIds={selectedIds}
+              getEffectiveContent={getContent}
+              getEffectiveMetadata={getMeta}
+              onStartEdit={(chunk) => setEditingChunk(chunk)}
+              onCancelEdit={() => setEditingChunk(null)}
+              onSaveEdit={handleEditSave}
+              onDelete={(chunkId) => handleDelete(chunkId)}
+              onToggleAnswer={() => {}}
+              onToggleSelect={handleToggleSelect}
+              onToggleSelectAll={handleToggleSelectAll}
+              onBulkDelete={handleBulkDelete}
+              hideToolbar
+            />
+          )}
         </Stack>
       </ScrollArea>
 

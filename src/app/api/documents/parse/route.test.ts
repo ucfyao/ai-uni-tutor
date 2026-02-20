@@ -679,15 +679,15 @@ describe('POST /api/documents/parse', () => {
   // =========================================================================
 
   describe('service interactions', () => {
-    it('calls generateEmbeddingWithRetry for each item', async () => {
+    it('calls generateEmbeddingBatch for lecture items', async () => {
       setupSuccessfulParse();
 
       const response = await POST(makeRequest());
       await readSSEEvents(response);
 
-      expect(mockGenerateEmbeddingWithRetry).toHaveBeenCalledTimes(1);
-      expect(mockGenerateEmbeddingWithRetry).toHaveBeenCalledWith(
-        expect.stringContaining('Algorithm Basics'),
+      expect(mockGenerateEmbeddingBatch).toHaveBeenCalledTimes(1);
+      expect(mockGenerateEmbeddingBatch).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.stringContaining('Algorithm Basics')]),
       );
     });
   });

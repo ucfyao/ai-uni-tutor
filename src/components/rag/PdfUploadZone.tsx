@@ -214,11 +214,18 @@ export function PdfUploadZone({
 
     // Detail text under progress bar
     const detailText = (() => {
-      if (stage === 'extracting' && parseState.items.length > 0) {
-        return `${parseState.items.length} ${t.documentDetail[itemLabel]}`;
+      if (stage === 'extracting') {
+        if (parseState.items.length > 0) {
+          return `${parseState.items.length} ${t.documentDetail[itemLabel]}`;
+        }
+        return t.knowledge.parseDetailExtracting;
       }
       if (stage === 'embedding') {
-        return `${parseState.savedChunkIds.size} / ${parseState.progress.total}`;
+        const { current, total } = parseState.progress;
+        if (total > 0) {
+          return `${t.knowledge.parseDetailEmbedding} ${current}/${total}`;
+        }
+        return t.knowledge.parseDetailEmbedding;
       }
       if (isComplete) {
         return `${parseState.items.length} ${t.documentDetail[itemLabel]}`;
@@ -278,11 +285,12 @@ export function PdfUploadZone({
 
           {/* Row 3: progress bar */}
           <Progress
-            value={progressPct}
+            value={stage === 'extracting' && parseState.items.length === 0 ? 100 : progressPct}
             color={progressColor}
             size={4}
             radius="xl"
             animated={!isComplete && !isError}
+            striped={stage === 'extracting' && parseState.items.length === 0}
           />
 
           {/* Row 4: detail text + actions */}

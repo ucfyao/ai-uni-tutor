@@ -12,7 +12,6 @@ import type {
 interface ParseLectureOptions {
   documentId?: string;
   onProgress?: (progress: PipelineProgress) => void;
-  onBatchProgress?: (current: number, total: number) => void;
   signal?: AbortSignal;
 }
 
@@ -35,25 +34,17 @@ function reportProgress(
 }
 
 /**
- * Single-pass lecture parsing pipeline.
- * Returns both knowledge points and optional document outline.
+ * Single-call lecture parsing pipeline.
+ * Sends all pages to Gemini in one call, then builds outline locally.
  */
 export async function parseLectureMultiPass(
   pages: PDFPage[],
   options?: ParseLectureOptions,
 ): Promise<ParseLectureResult> {
-  // === Extraction ===
+  // === Extraction (single Gemini call) ===
   reportProgress(options, 'extraction', 0, 'Extracting knowledge points...');
 
-  const knowledgePoints = await extractKnowledgePoints(
-    pages,
-    (current, total) => {
-      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-      reportProgress(options, 'extraction', pct, `Processing batch ${current}/${total}...`);
-      options?.onBatchProgress?.(current, total + 1); // +1 for outline step
-    },
-    options?.signal,
-  );
+  const knowledgePoints = await extractKnowledgePoints(pages, options?.signal);
 
   if (knowledgePoints.length === 0) {
     reportProgress(options, 'extraction', 100, 'No knowledge points found');
@@ -74,29 +65,16 @@ export async function parseLectureMultiPass(
     reportProgress(options, 'outline_generation', 100, 'Outline generated');
   }
 
-  options?.onBatchProgress?.(1, 1); // signal completion
-
   return { knowledgePoints, outline };
 }
 
 /**
- * Backward-compatible wrapper.
- * Returns KnowledgePoint[] directly (same signature as the old parser).
- *
- * [C2] Handles case where second arg is a function (old SSE route pattern)
- * or a ParseLectureOptions object (new pattern).
+ * Backward-compatible wrapper — returns KnowledgePoint[] directly.
  */
 export async function parseLecture(
   pages: PDFPage[],
-  optionsOrCallback?: ParseLectureOptions | ((current: number, total: number) => void),
+  options?: ParseLectureOptions,
 ): Promise<KnowledgePoint[]> {
-  let options: ParseLectureOptions | undefined;
-  if (typeof optionsOrCallback === 'function') {
-    options = { onBatchProgress: optionsOrCallback };
-  } else {
-    options = optionsOrCallback;
-  }
-
   const result = await parseLectureMultiPass(pages, options);
   return result.knowledgePoints;
 }
