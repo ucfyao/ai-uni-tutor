@@ -4,8 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ScrollArea, Stack } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { addAssignmentItem } from '@/app/actions/assignments';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
 import { AssignmentUploadArea } from '@/components/rag/AssignmentUploadArea';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
@@ -26,7 +26,7 @@ interface AssignmentDetailClientProps {
 }
 
 export function AssignmentDetailClient({ assignment, items }: AssignmentDetailClientProps) {
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
   const router = useRouter();
   const queryClient = useQueryClient();

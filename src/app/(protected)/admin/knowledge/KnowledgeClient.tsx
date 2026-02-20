@@ -19,7 +19,8 @@ import {
   ThemeIcon,
   Tooltip,
 } from '@mantine/core';
-import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
+import { useDebouncedValue } from '@mantine/hooks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { createEmptyAssignment } from '@/app/actions/assignments';
 import { createExam, createLecture, fetchDocuments } from '@/app/actions/documents';
 import { FullScreenModal } from '@/components/FullScreenModal';
@@ -41,7 +42,7 @@ interface KnowledgeClientProps {
 export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeClientProps) {
   const { t } = useLanguage();
   const router = useRouter();
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
   const [activeTab, setActiveTab] = useState<string>(initialDocType);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,7 +54,6 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const hasAutoOpened = useRef(false);
 
   // Fetch documents by type via server action
   const queryClient = useQueryClient();
@@ -205,14 +205,6 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       searchRef.current.focus();
     }
   }, [searchExpanded]);
-
-  // Auto-open upload modal when entering page with empty table
-  useEffect(() => {
-    if (!isLoading && documents.length === 0 && !hasAutoOpened.current) {
-      hasAutoOpened.current = true;
-      setUploadModalOpen(true);
-    }
-  }, [isLoading, documents.length]);
 
   // ── Shared Layout ──
   return (

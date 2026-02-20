@@ -32,7 +32,8 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
+import { useDebouncedValue } from '@mantine/hooks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { modals } from '@mantine/modals';
 import {
   disableUser,
@@ -77,7 +78,7 @@ export function AdminUsersClient({ currentUserId }: Props) {
   const [loadingCourseIds, setLoadingCourseIds] = useState(false);
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useIsMobile();
 
   const { setHeaderContent } = useHeader();
 

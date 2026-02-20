@@ -28,6 +28,7 @@ interface StageTime {
 
 interface StreamingParseState {
   startParse: (file: File, metadata: ParseMetadata) => void;
+  retry: () => void;
   items: ParsedItem[];
   status: ParseStatus;
   progress: { current: number; total: number };
@@ -50,6 +51,8 @@ export function useStreamingParse(): StreamingParseState {
   const [stageTimes, setStageTimes] = useState<Record<string, StageTime>>({});
   const abortRef = useRef<AbortController | null>(null);
   const currentStageRef = useRef<string | null>(null);
+  const lastFileRef = useRef<File | null>(null);
+  const lastMetadataRef = useRef<ParseMetadata | null>(null);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -65,6 +68,9 @@ export function useStreamingParse(): StreamingParseState {
   }, []);
 
   const startParse = useCallback((file: File, metadata: ParseMetadata) => {
+    // Store for retry
+    lastFileRef.current = file;
+    lastMetadataRef.current = metadata;
     // Reset state
     setItems([]);
     setStatus('parsing_pdf');
@@ -207,8 +213,15 @@ export function useStreamingParse(): StreamingParseState {
     }
   }, []);
 
+  const retry = useCallback(() => {
+    if (lastFileRef.current && lastMetadataRef.current) {
+      startParse(lastFileRef.current, lastMetadataRef.current);
+    }
+  }, [startParse]);
+
   return {
     startParse,
+    retry,
     items,
     status,
     progress,

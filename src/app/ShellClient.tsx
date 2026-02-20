@@ -3,7 +3,8 @@
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
-import { useDisclosure, useMediaQuery } from '@mantine/hooks';
+import { useDisclosure } from '@mantine/hooks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
 import { getMockExamIdBySessionId } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
@@ -41,7 +42,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
   const [mockExamOpened, { open: openMockExam, close: closeMockExam }] = useDisclosure(false);
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
 
   // Shared Modal State
   const [renameId, setRenameId] = useState<string | null>(null);

@@ -22,8 +22,8 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Language } from '@/i18n/translations';
@@ -35,7 +35,7 @@ export default function SettingsPage() {
   const { profile, loading: profileLoading } = useProfile();
   const { t, language, setLanguage } = useLanguage();
   const { setHeaderContent } = useHeader();
-  const isMobile = useMediaQuery('(max-width: 48em)', false);
+  const isMobile = useIsMobile();
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const [limits, setLimits] = useState<AccessLimits | null>(null);

@@ -246,18 +246,28 @@ export function AssignmentUploadArea({
                 animated={parseState.status !== 'complete' && parseState.status !== 'error'}
               />
 
-              {(parseState.status === 'complete' || parseState.status === 'error') && (
+              {parseState.status === 'complete' && (
                 <Button
-                  variant={parseState.status === 'error' ? 'light' : 'filled'}
-                  color={parseState.status === 'error' ? 'red' : 'indigo'}
+                  variant="filled"
+                  color="indigo"
                   size="sm"
                   radius="md"
                   fullWidth
                   onClick={handleDismiss}
                 >
-                  {parseState.status === 'complete'
-                    ? t.documentDetail.done
-                    : t.knowledge.retryProcessing}
+                  {t.documentDetail.done}
+                </Button>
+              )}
+              {parseState.status === 'error' && (
+                <Button
+                  variant="light"
+                  color="red"
+                  size="sm"
+                  radius="md"
+                  fullWidth
+                  onClick={() => parseState.retry()}
+                >
+                  {t.knowledge.retryProcessing}
                 </Button>
               )}
             </Stack>
