@@ -1,6 +1,14 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import {
@@ -637,6 +645,8 @@ function TreeNode({
   node,
   depth,
   labels,
+  collapsedIds,
+  onToggleCollapse,
   editingItemId,
   onStartEdit,
   onCancelEdit,
@@ -647,6 +657,8 @@ function TreeNode({
   node: AssignmentItemTree;
   depth: number;
   labels: Map<string, string>;
+  collapsedIds: Set<string>;
+  onToggleCollapse: (id: string) => void;
   editingItemId: string | null;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
@@ -654,8 +666,8 @@ function TreeNode({
   onDeleteItem: (id: string) => Promise<void>;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const hasChildren = node.children.length > 0;
+  const collapsed = collapsedIds.has(node.id);
 
   return (
     <Box pl={depth > 0 ? 24 : 0}>
@@ -665,7 +677,7 @@ function TreeNode({
         displayLabel={labels.get(node.id)}
         hasChildren={hasChildren}
         collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed((v) => !v)}
+        onToggleCollapse={() => onToggleCollapse(node.id)}
         isEditing={editingItemId === node.id}
         onStartEdit={onStartEdit}
         onCancelEdit={onCancelEdit}
@@ -681,6 +693,8 @@ function TreeNode({
               node={child}
               depth={depth + 1}
               labels={labels}
+              collapsedIds={collapsedIds}
+              onToggleCollapse={onToggleCollapse}
               editingItemId={editingItemId}
               onStartEdit={onStartEdit}
               onCancelEdit={onCancelEdit}
@@ -708,6 +722,7 @@ export function AssignmentOutlineView({
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [internalAddForm, setInternalAddForm] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   // Use controlled state from parent when provided, otherwise internal
   const showAddForm = addFormOpen ?? internalAddForm;
@@ -722,6 +737,38 @@ export function AssignmentOutlineView({
   const tree = buildItemTree(items);
   const labels = computeDisplayLabels(tree);
 
+  // Collect all IDs that have children (collapsible nodes)
+  const collectParentIds = (nodes: AssignmentItemTree[]): string[] => {
+    const ids: string[] = [];
+    for (const n of nodes) {
+      if (n.children.length > 0) {
+        ids.push(n.id);
+        ids.push(...collectParentIds(n.children));
+      }
+    }
+    return ids;
+  };
+  const parentIds = collectParentIds(tree);
+  const hasCollapsible = parentIds.length > 0;
+  const allCollapsed = hasCollapsible && parentIds.every((id) => collapsedIds.has(id));
+
+  const handleToggleCollapse = (id: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleAll = () => {
+    if (allCollapsed) {
+      setCollapsedIds(new Set());
+    } else {
+      setCollapsedIds(new Set(parentIds));
+    }
+  };
+
   return (
     <Stack gap="md">
       {/* Empty state */}
@@ -731,6 +778,21 @@ export function AssignmentOutlineView({
         </Text>
       )}
 
+      {/* Expand / Collapse all */}
+      {hasCollapsible && items.length > 0 && (
+        <Group justify="flex-end">
+          <Button
+            variant="subtle"
+            color="gray"
+            size="compact-xs"
+            leftSection={allCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+            onClick={handleToggleAll}
+          >
+            {allCollapsed ? t.documentDetail.showMore : t.documentDetail.showLess}
+          </Button>
+        </Group>
+      )}
+
       {/* Tree item list */}
       {tree.map((root) => (
         <TreeNode
@@ -738,6 +800,8 @@ export function AssignmentOutlineView({
           node={root}
           depth={0}
           labels={labels}
+          collapsedIds={collapsedIds}
+          onToggleCollapse={handleToggleCollapse}
           editingItemId={editingItemId}
           onStartEdit={(id) => setEditingItemId(id)}
           onCancelEdit={() => setEditingItemId(null)}
