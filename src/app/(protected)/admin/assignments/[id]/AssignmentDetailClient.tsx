@@ -1,17 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  Check,
-  ListChecks,
-  Pencil,
-  Plus,
-  Save,
-  Send,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Send, Trash2, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -22,21 +12,18 @@ import {
   Button,
   Divider,
   Group,
-  Modal,
   ScrollArea,
   Stack,
   Text,
-  Textarea,
   TextInput,
   Tooltip,
 } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import {
   deleteAssignment,
   publishAssignment,
-  saveAssignmentChanges,
   unpublishAssignment,
 } from '@/app/actions/assignments';
-import { FullScreenModal } from '@/components/FullScreenModal';
 import { AssignmentOutlineView } from '@/components/rag/AssignmentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
@@ -62,21 +49,6 @@ function statusColor(status: string): string {
   }
 }
 
-function parseAnswerText(text: string): Array<{ orderNum: number; answer: string }> {
-  const results: Array<{ orderNum: number; answer: string }> = [];
-  const pattern = /(?:^|\n)\s*(?:Q|第)?(\d+)[.):\s:、题]+\s*/gi;
-  const matches = [...text.matchAll(pattern)];
-
-  for (let i = 0; i < matches.length; i++) {
-    const orderNum = parseInt(matches[i][1], 10);
-    const start = matches[i].index! + matches[i][0].length;
-    const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
-    const answer = text.slice(start, end).trim();
-    if (answer) results.push({ orderNum, answer });
-  }
-  return results;
-}
-
 /* ── Component ── */
 
 interface AssignmentDetailClientProps {
@@ -96,210 +68,31 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const courseId = assignment.courseId || '';
 
   /* -- use hook for data management -- */
-  const {
-    items,
-    addItem,
-    isAddingItem,
-    rename,
-    merge,
-    split,
-    batchUpdateAnswers: batchAnswers,
-    invalidateItems,
-  } = useAssignmentItems(assignment.id, initialItems);
+  const { items, addItem, isAddingItem, updateItem, deleteItem, rename, invalidateItems } =
+    useAssignmentItems(assignment.id, initialItems);
 
-  /* -- editing state -- */
-  const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
-  const [editedChunks, setEditedChunks] = useState<
-    Map<string, { content: string; metadata: Record<string, unknown> }>
-  >(new Map());
-  const [deletedChunkIds, setDeletedChunkIds] = useState<Set<string>>(new Set());
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  /* -- UI state -- */
   const [showUploadZone, setShowUploadZone] = useState(initialItems.length === 0);
   const [addFormOpen, setAddFormOpen] = useState(false);
-  const [answerModalOpen, setAnswerModalOpen] = useState(false);
-  const [answerText, setAnswerText] = useState('');
-
-  /* -- inline name editing -- */
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(assignment.title);
+  const [isPublishing, setIsPublishing] = useState(false);
 
-  /* -- derived -- */
-  const visibleItems = useMemo(
-    () => items.filter((item) => !deletedChunkIds.has(item.id)),
-    [items, deletedChunkIds],
-  );
-  const pendingChanges = editedChunks.size + deletedChunkIds.size;
-
-  const parsedAnswers = useMemo(() => {
-    if (!answerText.trim()) return [];
-    const parsed = parseAnswerText(answerText);
-    return parsed.map((p) => {
-      const item = items.find((i) => i.orderNum === p.orderNum);
-      return { ...p, itemId: item?.id ?? null, matched: !!item };
-    });
-  }, [answerText, items]);
-
-  /* -- editing handlers -- */
-  const handleSaveEdit = useCallback(
-    (chunkId: string, content: string, metadata: Record<string, unknown>) => {
-      setEditedChunks((prev) => {
-        const next = new Map(prev);
-        next.set(chunkId, { content, metadata });
-        return next;
-      });
-      setEditingChunkId(null);
+  /* -- item handlers (delegate to hook mutations) -- */
+  const handleSaveItem = useCallback(
+    async (itemId: string, content: string, metadata: Record<string, unknown>) => {
+      await updateItem({ itemId, content, metadata });
     },
-    [],
+    [updateItem],
   );
 
-  const handleDelete = useCallback(
-    (chunkId: string) => {
-      setDeletedChunkIds((prev) => {
-        const next = new Set(prev);
-        next.add(chunkId);
-        return next;
-      });
-      if (editingChunkId === chunkId) setEditingChunkId(null);
+  const handleDeleteItem = useCallback(
+    async (itemId: string) => {
+      await deleteItem(itemId);
     },
-    [editingChunkId],
+    [deleteItem],
   );
 
-  const handleToggleSelect = useCallback((chunkId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(chunkId)) next.delete(chunkId);
-      else next.add(chunkId);
-      return next;
-    });
-  }, []);
-
-  const handleToggleSelectAll = useCallback(() => {
-    setSelectedIds((prev) => {
-      if (prev.size === visibleItems.length) return new Set();
-      return new Set(visibleItems.map((item) => item.id));
-    });
-  }, [visibleItems]);
-
-  const handleBulkDelete = useCallback(() => {
-    setDeletedChunkIds((prev) => {
-      const next = new Set(prev);
-      for (const id of selectedIds) next.add(id);
-      return next;
-    });
-    setSelectedIds(new Set());
-  }, [selectedIds]);
-
-  const handleBulkSetDifficulty = useCallback(
-    (difficulty: string) => {
-      setEditedChunks((prev) => {
-        const next = new Map(prev);
-        for (const id of selectedIds) {
-          const existing = next.get(id);
-          const item = items.find((i) => i.id === id);
-          if (item) {
-            const currentContent = existing?.content ?? item.content;
-            const currentMeta = existing?.metadata ?? item.metadata ?? {};
-            next.set(id, {
-              content: currentContent,
-              metadata: { ...currentMeta, difficulty },
-            });
-          }
-        }
-        return next;
-      });
-    },
-    [selectedIds, items],
-  );
-
-  const handleBulkSetPoints = useCallback(
-    (points: number) => {
-      setEditedChunks((prev) => {
-        const next = new Map(prev);
-        for (const id of selectedIds) {
-          const existing = next.get(id);
-          const item = items.find((i) => i.id === id);
-          if (item) {
-            const currentContent = existing?.content ?? item.content;
-            const currentMeta = existing?.metadata ?? item.metadata ?? {};
-            next.set(id, {
-              content: currentContent,
-              metadata: { ...currentMeta, points },
-            });
-          }
-        }
-        return next;
-      });
-    },
-    [selectedIds, items],
-  );
-
-  /* -- merge / split handlers -- */
-  const handleMerge = useCallback(async () => {
-    if (selectedIds.size < 2) return;
-    await merge(Array.from(selectedIds));
-    setSelectedIds(new Set());
-  }, [selectedIds, merge]);
-
-  const handleSplit = useCallback(
-    async (itemId: string, splitContent: [string, string]) => {
-      await split({ itemId, splitContent });
-      setEditingChunkId(null);
-    },
-    [split],
-  );
-
-  /* -- batch answer matching handler -- */
-  const handleApplyAnswers = useCallback(async () => {
-    const matched = parsedAnswers.filter(
-      (p): p is typeof p & { itemId: string } => p.itemId !== null,
-    );
-    if (matched.length === 0) return;
-    await batchAnswers(matched.map((m) => ({ itemId: m.itemId, referenceAnswer: m.answer })));
-    setAnswerModalOpen(false);
-    setAnswerText('');
-  }, [parsedAnswers, batchAnswers]);
-
-  /* -- save changes handler -- */
-  const handleSaveChanges = useCallback(async () => {
-    setIsSaving(true);
-    try {
-      const updates = Array.from(editedChunks.entries()).map(([id, data]) => ({
-        id,
-        content: data.content,
-        metadata: data.metadata,
-      }));
-      const deletedArr = Array.from(deletedChunkIds);
-
-      const result = await saveAssignmentChanges(assignment.id, updates, deletedArr);
-      if (result.success) {
-        showNotification({
-          message: t.toast.changesSaved,
-          color: 'green',
-          icon: <Check size={16} />,
-          autoClose: 3000,
-        });
-        setEditedChunks(new Map());
-        setDeletedChunkIds(new Set());
-        setSelectedIds(new Set());
-        invalidateItems();
-      } else {
-        showNotification({ title: t.common.error, message: result.error, color: 'red' });
-      }
-    } catch {
-      showNotification({
-        title: t.common.error,
-        message: t.documentDetail.failedToSave,
-        color: 'red',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [assignment.id, editedChunks, deletedChunkIds, invalidateItems, t]);
-
-  /* -- add item handler -- */
   const handleAddItem = useCallback(
     async (data: Record<string, unknown>): Promise<boolean> => {
       try {
@@ -310,7 +103,6 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
           explanation: (data.explanation as string) || '',
           points: (data.points as number) || 0,
           difficulty: (data.difficulty as string) || '',
-          parentItemId: (data.parentItemId as string) || undefined,
         });
         return true;
       } catch {
@@ -383,7 +175,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const headerActions = useMemo(
     () => (
       <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-        {/* ── Group 1: Content creation ── */}
+        {/* Group 1: Content creation */}
         <Tooltip label={t.documentDetail.uploadPdf}>
           <ActionIcon
             variant={showUploadZone ? 'filled' : 'default'}
@@ -399,40 +191,15 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             <Plus size={16} />
           </ActionIcon>
         </Tooltip>
-        <Tooltip label={t.knowledge.batchAnswers}>
-          <ActionIcon
-            variant="default"
-            color="gray"
-            size="md"
-            onClick={() => setAnswerModalOpen(true)}
-          >
-            <ListChecks size={16} />
-          </ActionIcon>
-        </Tooltip>
 
-        {/* ── Group 2: Save / Publish ── */}
-        {(pendingChanges > 0 || assignment.status === 'draft' || assignment.status === 'ready') && (
+        {/* Group 2: Publish */}
+        {(assignment.status === 'draft' || assignment.status === 'ready') && (
           <>
             <Divider orientation="vertical" size="xs" h={20} style={{ alignSelf: 'center' }} />
-            {pendingChanges > 0 && (
-              <Tooltip label={`${t.documentDetail.saveChanges} (${pendingChanges})`}>
-                <ActionIcon
-                  variant="filled"
-                  color="indigo"
-                  size="md"
-                  loading={isSaving}
-                  onClick={handleSaveChanges}
-                >
-                  <Save size={16} />
-                </ActionIcon>
-              </Tooltip>
-            )}
             {assignment.status === 'draft' && (
               <Tooltip
                 label={
-                  visibleItems.length === 0
-                    ? t.knowledge.publishDisabledTooltip
-                    : t.documentDetail.publish
+                  items.length === 0 ? t.knowledge.publishDisabledTooltip : t.documentDetail.publish
                 }
               >
                 <span style={{ display: 'inline-flex' }}>
@@ -441,7 +208,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
                     color="green"
                     size="md"
                     loading={isPublishing}
-                    disabled={visibleItems.length === 0}
+                    disabled={items.length === 0}
                     onClick={handlePublish}
                   >
                     <Send size={16} />
@@ -459,14 +226,22 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
           </>
         )}
 
-        {/* ── Group 3: Destructive ── */}
+        {/* Group 3: Destructive */}
         <Divider orientation="vertical" size="xs" h={20} style={{ alignSelf: 'center' }} />
         <Tooltip label={t.documentDetail.deleteDocument}>
           <ActionIcon
             variant="subtle"
             color="red"
             size="md"
-            onClick={() => setDeleteModalOpen(true)}
+            onClick={() =>
+              modals.openConfirmModal({
+                title: t.documentDetail.deleteDocument,
+                children: <Text size="sm">{t.documentDetail.deleteDocConfirm}</Text>,
+                labels: { confirm: t.common.delete, cancel: t.common.cancel },
+                confirmProps: { color: 'red' },
+                onConfirm: handleDeleteDoc,
+              })
+            }
           >
             <Trash2 size={16} />
           </ActionIcon>
@@ -475,14 +250,12 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
     ),
     [
       showUploadZone,
-      pendingChanges,
-      isSaving,
-      handleSaveChanges,
       assignment.status,
-      visibleItems.length,
+      items.length,
       isPublishing,
       handlePublish,
       handleUnpublish,
+      handleDeleteDoc,
       t,
     ],
   );
@@ -596,7 +369,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             <PdfUploadZone
               documentId={assignment.id}
               docType="assignment"
-              existingItemCount={visibleItems.length}
+              existingItemCount={items.length}
               courseId={courseId || undefined}
               onParseComplete={() => {
                 invalidateItems();
@@ -608,137 +381,16 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
 
           {/* Assignment outline view */}
           <AssignmentOutlineView
-            items={visibleItems}
-            selectedIds={selectedIds}
-            editedItems={editedChunks}
-            deletedItemIds={deletedChunkIds}
-            editingItemId={editingChunkId}
-            onToggleSelect={handleToggleSelect}
-            onToggleSelectAll={handleToggleSelectAll}
-            onStartEdit={(id) => setEditingChunkId(id)}
-            onCancelEdit={() => setEditingChunkId(null)}
-            onSaveEdit={handleSaveEdit}
-            onDelete={handleDelete}
-            onBulkDelete={handleBulkDelete}
-            onBulkSetDifficulty={handleBulkSetDifficulty}
-            onBulkSetPoints={handleBulkSetPoints}
+            items={items}
+            onSaveItem={handleSaveItem}
+            onDeleteItem={handleDeleteItem}
             onAddItem={handleAddItem}
             isAddingItem={isAddingItem}
             addFormOpen={addFormOpen}
             onAddFormOpenChange={setAddFormOpen}
-            onMerge={handleMerge}
-            onSplit={handleSplit}
           />
         </Stack>
       </ScrollArea>
-
-      {/* Delete confirmation modal */}
-      <Modal
-        opened={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title={t.documentDetail.deleteDocument}
-        centered
-        size="sm"
-        radius="lg"
-      >
-        <Stack align="center" gap="md">
-          <Box
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              background: 'light-dark(var(--mantine-color-red-0), var(--mantine-color-red-9))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Trash2 size={22} color="var(--mantine-color-red-5)" />
-          </Box>
-          <Text fz="sm" ta="center">
-            {t.documentDetail.deleteDocConfirm}
-          </Text>
-        </Stack>
-        <Group justify="flex-end" mt="lg" gap="sm">
-          <Button variant="default" onClick={() => setDeleteModalOpen(false)} radius="md">
-            {t.common.cancel}
-          </Button>
-          <Button
-            color="red"
-            onClick={() => {
-              setDeleteModalOpen(false);
-              handleDeleteDoc();
-            }}
-            radius="md"
-          >
-            {t.common.delete}
-          </Button>
-        </Group>
-      </Modal>
-
-      {/* Batch answer matching modal */}
-      <FullScreenModal
-        opened={answerModalOpen}
-        onClose={() => setAnswerModalOpen(false)}
-        title={t.knowledge.batchAnswers}
-        centered
-        size="lg"
-        radius="lg"
-      >
-        <Stack gap="md">
-          <Textarea
-            placeholder={t.knowledge.pasteAnswersHere}
-            minRows={6}
-            maxRows={12}
-            autosize
-            value={answerText}
-            onChange={(e) => setAnswerText(e.currentTarget.value)}
-          />
-          {parsedAnswers.length > 0 && (
-            <>
-              <Text fz="sm" fw={600}>
-                {t.knowledge.matchPreview}
-              </Text>
-              <Stack gap={4}>
-                {parsedAnswers.map((p, i) => (
-                  <Group key={i} gap="xs" wrap="nowrap">
-                    <Badge
-                      variant="light"
-                      color={p.matched ? 'green' : 'red'}
-                      size="sm"
-                      style={{ flexShrink: 0 }}
-                    >
-                      Q{p.orderNum}
-                    </Badge>
-                    <Text fz="xs" truncate style={{ flex: 1 }}>
-                      {p.answer.slice(0, 100)}
-                      {p.answer.length > 100 ? '…' : ''}
-                    </Text>
-                    {!p.matched && (
-                      <Badge variant="light" color="red" size="xs" style={{ flexShrink: 0 }}>
-                        {t.knowledge.unmatched}
-                      </Badge>
-                    )}
-                  </Group>
-                ))}
-              </Stack>
-            </>
-          )}
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={() => setAnswerModalOpen(false)} radius="md">
-              {t.common.cancel}
-            </Button>
-            <Button
-              color="indigo"
-              radius="md"
-              disabled={parsedAnswers.filter((p) => p.matched).length === 0}
-              onClick={handleApplyAnswers}
-            >
-              {t.knowledge.applyMatches} ({parsedAnswers.filter((p) => p.matched).length})
-            </Button>
-          </Group>
-        </Stack>
-      </FullScreenModal>
     </Box>
   );
 }

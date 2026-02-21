@@ -23,7 +23,6 @@ export function sendGeminiError(
   context: 'extraction' | 'embedding',
 ) {
   const appErr = AppError.from(error);
-  console.error(`${context} [${appErr.code}]:`, error);
 
   // Specific Gemini errors → use ERROR_MAP message
   if (appErr.code.startsWith('GEMINI_') && appErr.code !== 'GEMINI_ERROR') {

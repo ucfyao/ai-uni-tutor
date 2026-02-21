@@ -67,20 +67,33 @@ export class AppError extends Error {
     const status = (error as { status?: number })?.status;
     const msg = error instanceof Error ? error.message : '';
 
+    // Log raw Gemini response for debugging
+    if (msg) {
+      console.error('[AppError.from] raw:', { status, message: msg });
+    }
+
     // 1. Parse structured JSON body (Gemini API returns JSON in ApiError.message)
     if (msg) {
-      const body = extractJson(msg) as { error?: { status?: string } } | undefined;
+      const body = extractJson(msg) as
+        | { error?: { status?: string; message?: string } }
+        | undefined;
       const grpcStatus = body?.error?.status;
       if (typeof grpcStatus === 'string') {
         const mapped = GRPC_STATUS_MAP[grpcStatus];
-        if (mapped) return new AppError(mapped);
+        if (mapped) {
+          console.error('[AppError.from] mapped gRPC:', grpcStatus, '→', mapped);
+          return new AppError(mapped);
+        }
       }
     }
 
     // 2. HTTP status code fallback
     if (typeof status === 'number') {
       const mapped = HTTP_STATUS_MAP[status];
-      if (mapped) return new AppError(mapped);
+      if (mapped) {
+        console.error('[AppError.from] mapped HTTP:', status, '→', mapped);
+        return new AppError(mapped);
+      }
     }
 
     return new AppError(fallbackCode);
