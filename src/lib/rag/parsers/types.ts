@@ -105,7 +105,7 @@ export interface EnrichedAssignmentItem {
   options?: string[];
   referenceAnswer: string;
   explanation: string;
-  score: number;
+  points: number;
   type: string;
   difficulty: string;
   section: string;

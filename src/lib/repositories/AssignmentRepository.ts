@@ -3,22 +3,16 @@
  */
 
 import type { IAssignmentRepository } from '@/lib/domain/interfaces/IAssignmentRepository';
-import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
+import type {
+  AssignmentEntity,
+  AssignmentItemEntity,
+  MatchedAssignmentItem,
+} from '@/lib/domain/models/Assignment';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database, Json } from '@/types/database';
 
-export interface MatchedAssignmentItem {
-  id: string;
-  assignmentId: string;
-  orderNum: number;
-  content: string;
-  referenceAnswer: string;
-  explanation: string;
-  points: number;
-  difficulty: string;
-  similarity: number;
-}
+export type { MatchedAssignmentItem };
 
 function mapAssignmentRow(row: Record<string, unknown>): AssignmentEntity {
   return {
@@ -357,15 +351,20 @@ export class AssignmentRepository implements IAssignmentRepository {
   }
 
   async bulkUpdateOrder(assignmentId: string, orderedIds: string[]): Promise<void> {
+    if (orderedIds.length === 0) return;
     const supabase = await createClient();
-    for (let i = 0; i < orderedIds.length; i++) {
-      const { error } = await supabase
-        .from('assignment_items')
-        .update({ order_num: i + 1 })
-        .eq('id', orderedIds[i])
-        .eq('assignment_id', assignmentId);
-      if (error)
-        throw new DatabaseError(`Failed to reorder item ${orderedIds[i]}: ${error.message}`, error);
+    const results = await Promise.all(
+      orderedIds.map((id, i) =>
+        supabase
+          .from('assignment_items')
+          .update({ order_num: i + 1 })
+          .eq('id', id)
+          .eq('assignment_id', assignmentId),
+      ),
+    );
+    const failed = results.find((r) => r.error);
+    if (failed?.error) {
+      throw new DatabaseError(`Failed to reorder items: ${failed.error.message}`, failed.error);
     }
   }
 
@@ -421,6 +420,14 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (error)
       throw new DatabaseError(`Failed to insert assignment items: ${error.message}`, error);
     return (data ?? []).map((r) => ({ id: r.id as string }));
+  }
+
+  async deleteItemsByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const supabase = await createClient();
+    const { error } = await supabase.from('assignment_items').delete().in('id', ids);
+    if (error)
+      throw new DatabaseError(`Failed to delete assignment items: ${error.message}`, error);
   }
 
   async deleteItemsByAssignmentId(assignmentId: string): Promise<void> {

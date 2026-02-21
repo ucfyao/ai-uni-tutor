@@ -1,0 +1,246 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
+const mockGenerateContent = vi.fn();
+
+vi.mock('@/lib/gemini', () => ({
+  GEMINI_MODELS: { parse: 'gemini-test' },
+  getGenAI: () => ({
+    models: { generateContent: mockGenerateContent },
+  }),
+}));
+
+const { extractAssignmentQuestions } = await import('./assignment-extractor');
+
+function validResponse(items: unknown[], sections?: unknown[]) {
+  return {
+    text: JSON.stringify({
+      sections: sections ?? [
+        { title: 'General', type: 'mixed', sourcePages: [1], itemIndices: [0] },
+      ],
+      items,
+    }),
+  };
+}
+
+function makeItem(overrides: Record<string, unknown> = {}) {
+  return {
+    orderNum: 1,
+    content: 'What is 2+2?',
+    options: ['3', '4', '5'],
+    referenceAnswer: '4',
+    explanation: 'Basic addition',
+    points: 5,
+    type: 'choice',
+    difficulty: 'easy',
+    section: 'General',
+    sourcePages: [1],
+    ...overrides,
+  };
+}
+
+describe('assignment-extractor', () => {
+  beforeEach(() => {
+    mockGenerateContent.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('extractAssignmentQuestions', () => {
+    it('parses a valid Gemini response', async () => {
+      mockGenerateContent.mockResolvedValue(validResponse([makeItem()]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'Q1: What is 2+2?' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.sections).toHaveLength(1);
+      expect(result.warnings).toHaveLength(0);
+      expect(result.items[0].content).toBe('What is 2+2?');
+      expect(result.items[0].points).toBe(5);
+      expect(result.items[0].type).toBe('choice');
+    });
+
+    it('returns empty result when signal is already aborted', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      const result = await extractAssignmentQuestions(
+        [{ page: 1, text: 'test' }],
+        controller.signal,
+      );
+
+      expect(result.items).toHaveLength(0);
+      expect(result.sections).toHaveLength(0);
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('returns warning for empty Gemini response', async () => {
+      mockGenerateContent.mockResolvedValue({ text: '' });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(0);
+      expect(result.warnings).toContain('Gemini returned empty response');
+    });
+
+    it('returns warning for invalid JSON response', async () => {
+      mockGenerateContent.mockResolvedValue({ text: 'not json {{{' });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(0);
+      expect(result.warnings[0]).toMatch(/invalid JSON/);
+    });
+
+    it('applies default values for optional fields', async () => {
+      const item = {
+        orderNum: 1,
+        content: 'Explain gravity.',
+        sourcePages: [2],
+      };
+      mockGenerateContent.mockResolvedValue(validResponse([item]));
+
+      const result = await extractAssignmentQuestions([{ page: 2, text: 'Explain gravity.' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].points).toBe(0);
+      expect(result.items[0].difficulty).toBe('medium');
+      expect(result.items[0].referenceAnswer).toBe('');
+      expect(result.items[0].explanation).toBe('');
+      expect(result.items[0].type).toBe('');
+      expect(result.items[0].section).toBe('General');
+    });
+
+    it('extracts multiple items and sections', async () => {
+      const items = [
+        makeItem({ orderNum: 1, section: 'Part A' }),
+        makeItem({ orderNum: 2, section: 'Part A', content: 'What is 3+3?' }),
+        makeItem({
+          orderNum: 3,
+          section: 'Part B',
+          content: 'Explain addition.',
+          type: 'short_answer',
+        }),
+      ];
+      const sections = [
+        { title: 'Part A', type: 'choice', sourcePages: [1], itemIndices: [0, 1] },
+        { title: 'Part B', type: 'short_answer', sourcePages: [2], itemIndices: [2] },
+      ];
+      mockGenerateContent.mockResolvedValue(validResponse(items, sections));
+
+      const result = await extractAssignmentQuestions([
+        { page: 1, text: 'Part A' },
+        { page: 2, text: 'Part B' },
+      ]);
+
+      expect(result.items).toHaveLength(3);
+      expect(result.sections).toHaveLength(2);
+      expect(result.warnings).toHaveLength(0);
+    });
+  });
+
+  describe('partial recovery', () => {
+    it('recovers valid items when overall schema fails', async () => {
+      const raw = {
+        sections: [{ title: 'General', type: 'mixed', sourcePages: [1], itemIndices: [0] }],
+        items: [
+          makeItem(),
+          { invalid: true }, // will fail validation
+        ],
+      };
+      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(raw) });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings.join(' ')).toMatch(/Recovered 1\/2/);
+    });
+
+    it('creates default section when items recovered but sections invalid', async () => {
+      const raw = {
+        sections: [{ badField: true }], // will fail validation
+        items: [makeItem()],
+      };
+      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(raw) });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.sections).toHaveLength(1);
+      expect(result.sections[0].title).toBe('General');
+      expect(result.warnings.join(' ')).toMatch(/default section/i);
+    });
+
+    it('returns empty result when no items can be recovered', async () => {
+      const raw = {
+        sections: [],
+        items: [{ invalid: true }],
+      };
+      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(raw) });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(0);
+    });
+  });
+
+  describe('coerceSourcePages (via schema)', () => {
+    it('passes through valid arrays', async () => {
+      const item = makeItem({ sourcePages: [1, 3, 5] });
+      mockGenerateContent.mockResolvedValue(validResponse([item]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].sourcePages).toEqual([1, 3, 5]);
+    });
+
+    it('coerces a single number to array', async () => {
+      const item = makeItem({ sourcePages: 3 });
+      mockGenerateContent.mockResolvedValue(validResponse([item]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].sourcePages).toEqual([3]);
+    });
+
+    it('coerces a comma-separated string to array', async () => {
+      const item = makeItem({ sourcePages: '1, 2, 3' });
+      mockGenerateContent.mockResolvedValue(validResponse([item]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].sourcePages).toEqual([1, 2, 3]);
+    });
+
+    it('coerces a range string to array', async () => {
+      const item = makeItem({ sourcePages: '2-5' });
+      mockGenerateContent.mockResolvedValue(validResponse([item]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].sourcePages).toEqual([2, 3, 4, 5]);
+    });
+
+    it('returns empty array for null/undefined', async () => {
+      const item = makeItem({ sourcePages: null });
+      mockGenerateContent.mockResolvedValue(validResponse([item]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].sourcePages).toEqual([]);
+    });
+
+    it('filters out invalid values from arrays', async () => {
+      const item = makeItem({ sourcePages: [1, NaN, -1, 0, 3] });
+      mockGenerateContent.mockResolvedValue(validResponse([item]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].sourcePages).toEqual([1, 3]);
+    });
+  });
+});
