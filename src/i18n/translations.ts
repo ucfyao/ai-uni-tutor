@@ -443,6 +443,11 @@ export const translations = {
       editMode: '编辑',
       showMore: '展开',
       showLess: '收起',
+      totalPoints: '总分',
+      totalQuestions: '题目数',
+      metaDuration: '时长',
+      examDate: '考试日期',
+      instructions: '注意事项',
     },
     // Exam
     exam: {
@@ -1278,6 +1283,11 @@ export const translations = {
       editMode: 'Edit',
       showMore: 'Show more',
       showLess: 'Show less',
+      totalPoints: 'Total',
+      totalQuestions: 'Questions',
+      metaDuration: 'Duration',
+      examDate: 'Exam Date',
+      instructions: 'Instructions',
     },
     // Exam
     exam: {

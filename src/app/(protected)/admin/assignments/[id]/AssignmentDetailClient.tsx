@@ -379,6 +379,39 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             />
           )}
 
+          {/* Metadata info bar */}
+          {assignment.metadata && Object.values(assignment.metadata).some(Boolean) && (
+            <Box>
+              <Group gap="sm" mb={assignment.metadata.instructions ? 'xs' : 0}>
+                {assignment.metadata.totalPoints != null && (
+                  <Badge variant="light" color="blue" size="lg">
+                    {t.documentDetail.totalPoints}: {assignment.metadata.totalPoints}
+                  </Badge>
+                )}
+                {assignment.metadata.totalQuestions != null && (
+                  <Badge variant="light" color="blue" size="lg">
+                    {t.documentDetail.totalQuestions}: {assignment.metadata.totalQuestions}
+                  </Badge>
+                )}
+                {assignment.metadata.duration && (
+                  <Badge variant="light" color="blue" size="lg">
+                    {t.documentDetail.metaDuration}: {assignment.metadata.duration}
+                  </Badge>
+                )}
+                {assignment.metadata.examDate && (
+                  <Badge variant="light" color="gray" size="lg">
+                    {t.documentDetail.examDate}: {assignment.metadata.examDate}
+                  </Badge>
+                )}
+              </Group>
+              {assignment.metadata.instructions && (
+                <Text size="sm" c="dimmed">
+                  {t.documentDetail.instructions}: {assignment.metadata.instructions}
+                </Text>
+              )}
+            </Box>
+          )}
+
           {/* Assignment outline view */}
           <AssignmentOutlineView
             items={items}
