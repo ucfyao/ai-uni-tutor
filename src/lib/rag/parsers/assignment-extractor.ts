@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AppError } from '@/lib/errors';
 import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
-import type { EnrichedAssignmentItem } from './types';
+import type { AssignmentMetadata, EnrichedAssignmentItem } from './types';
 
 function coerceSourcePages(val: unknown): number[] {
   if (Array.isArray(val)) return val.map(Number).filter((n) => !isNaN(n) && n > 0);
@@ -41,12 +41,25 @@ const itemSchema = z.object({
   sourcePages: sourcePagesSchema,
 });
 
+const metadataSchema = z
+  .object({
+    totalPoints: z.number().positive().optional(),
+    totalQuestions: z.number().positive().optional(),
+    duration: z.string().min(1).optional(),
+    instructions: z.string().min(1).optional(),
+    examDate: z.string().min(1).optional(),
+  })
+  .optional()
+  .default({});
+
 const extractionSchema = z.object({
+  metadata: metadataSchema,
   items: z.array(itemSchema).min(1),
 });
 
 export interface AssignmentExtractionResult {
   items: EnrichedAssignmentItem[];
+  metadata: AssignmentMetadata;
   warnings: string[];
 }
 
@@ -55,7 +68,20 @@ function buildPrompt(pages: PDFPage[]): string {
 
   return `You are an expert academic assignment/homework content analyzer.
 
-Analyze the following document and extract ALL questions with their full structure.
+Analyze the following document and extract:
+1. Document-level metadata
+2. ALL questions with their full structure
+
+## Document Metadata
+
+Extract these fields from the document header, title page, or instructions section:
+- totalPoints: Total marks/points for the entire assignment (null if not stated)
+- totalQuestions: Total number of questions (null if not stated)
+- duration: Time limit or duration (null if not stated, e.g. "120 minutes", "2 hours")
+- instructions: General instructions for students (null if none, e.g. "Use blue or black ink pen. Show all working.")
+- examDate: Date of the exam/assignment if stated (null if not stated, ISO format YYYY-MM-DD if possible)
+
+## Questions
 
 For each ITEM (question):
 - orderNum: Sequential number (1, 2, 3...)
@@ -83,7 +109,7 @@ Critical rules:
 - Each item's referenceAnswer must correspond to THAT specific question.
 - Do NOT include instructions or headers as questions unless they serve as a parent grouping.
 
-Return ONLY a valid JSON object with an "items" array. No markdown, no explanation.
+Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.
 
 Document (${pages.length} pages):
 ${pagesText}`;
@@ -93,7 +119,7 @@ export async function extractAssignmentQuestions(
   pages: PDFPage[],
   signal?: AbortSignal,
 ): Promise<AssignmentExtractionResult> {
-  if (signal?.aborted) return { items: [], warnings: [] };
+  if (signal?.aborted) return { items: [], metadata: {}, warnings: [] };
 
   const prompt = buildPrompt(pages);
 
@@ -109,7 +135,7 @@ export async function extractAssignmentQuestions(
     throw AppError.from(error);
   }
   if (!text.trim()) {
-    return { items: [], warnings: ['Gemini returned empty response'] };
+    return { items: [], metadata: {}, warnings: ['Gemini returned empty response'] };
   }
 
   let raw: unknown;
@@ -118,13 +144,14 @@ export async function extractAssignmentQuestions(
   } catch {
     return {
       items: [],
+      metadata: {},
       warnings: [`Gemini returned invalid JSON (${text.length} chars)`],
     };
   }
 
   const result = extractionSchema.safeParse(raw);
   if (result.success) {
-    return { items: result.data.items, warnings: [] };
+    return { items: result.data.items, metadata: result.data.metadata ?? {}, warnings: [] };
   }
 
   // Partial recovery
@@ -147,5 +174,5 @@ export async function extractAssignmentQuestions(
     warnings.push(`Recovered ${validItems.length}/${rawItems.length} valid items`);
   }
 
-  return { items: validItems, warnings };
+  return { items: validItems, metadata: {}, warnings };
 }

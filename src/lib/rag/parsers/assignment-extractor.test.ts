@@ -130,6 +130,61 @@ describe('assignment-extractor', () => {
     });
   });
 
+  describe('metadata extraction', () => {
+    it('extracts metadata from response', async () => {
+      const response = {
+        metadata: {
+          totalPoints: 100,
+          totalQuestions: 25,
+          duration: '120 minutes',
+          instructions: 'Use blue or black ink pen.',
+          examDate: '2026-03-15',
+        },
+        items: [makeItem()],
+      };
+      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(response) });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.metadata).toEqual({
+        totalPoints: 100,
+        totalQuestions: 25,
+        duration: '120 minutes',
+        instructions: 'Use blue or black ink pen.',
+        examDate: '2026-03-15',
+      });
+    });
+
+    it('returns empty metadata when not present in response', async () => {
+      mockGenerateContent.mockResolvedValue(validResponse([makeItem()]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.metadata).toEqual({});
+    });
+
+    it('ignores invalid metadata fields', async () => {
+      const response = {
+        metadata: {
+          totalPoints: 'not a number',
+          totalQuestions: -5,
+          duration: 123,
+          bogusField: 'ignored',
+        },
+        items: [makeItem()],
+      };
+      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(response) });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.metadata).toBeDefined();
+      expect(result.metadata?.totalPoints).toBeUndefined();
+    });
+  });
+
   describe('partial recovery', () => {
     it('recovers valid items when overall schema fails', async () => {
       const raw = {
