@@ -26,6 +26,7 @@ import {
   Textarea,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentItemEntity, AssignmentItemTree } from '@/lib/domain/models/Assignment';
 import { buildItemTree, computeDisplayLabels } from '@/lib/domain/models/Assignment';
@@ -329,93 +330,78 @@ function AddItemForm({
   };
 
   return (
-    <Card
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        borderStyle: 'dashed',
-        borderColor: 'var(--mantine-color-indigo-3)',
-        borderLeftWidth: 3,
-        borderLeftColor: 'var(--mantine-color-indigo-3)',
-      }}
-    >
-      <Stack gap="sm">
-        <Text size="sm" fw={600} c="indigo">
-          {t.knowledge.newQuestion}
-        </Text>
-        <Textarea
-          label={t.documentDetail.content}
-          placeholder={t.knowledge.questionContentPlaceholder}
-          value={content}
-          onChange={(e) => setContent(e.currentTarget.value)}
-          minRows={2}
-          autosize
-          maxRows={8}
-          required
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              onCancel();
-            }
-          }}
+    <Stack gap="sm">
+      <Textarea
+        label={t.documentDetail.content}
+        placeholder={t.knowledge.questionContentPlaceholder}
+        value={content}
+        onChange={(e) => setContent(e.currentTarget.value)}
+        minRows={2}
+        autosize
+        maxRows={8}
+        required
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            onCancel();
+          }
+        }}
+      />
+      <MarkdownToggleField
+        label={t.documentDetail.answer}
+        placeholder={t.knowledge.referenceAnswerPlaceholder}
+        value={refAnswer}
+        onChange={setRefAnswer}
+        minRows={2}
+        maxRows={6}
+        t={t}
+      />
+      <MarkdownToggleField
+        label={t.documentDetail.explanation}
+        placeholder={t.knowledge.explanationPlaceholder}
+        value={explanation}
+        onChange={setExplanation}
+        minRows={1}
+        maxRows={4}
+        t={t}
+      />
+      <Group grow>
+        <Select
+          label={t.knowledge.questionType}
+          data={getQuestionTypes(t)}
+          value={type}
+          onChange={(v) => setType(v ?? 'short_answer')}
         />
-        <MarkdownToggleField
-          label={t.documentDetail.answer}
-          placeholder={t.knowledge.referenceAnswerPlaceholder}
-          value={refAnswer}
-          onChange={setRefAnswer}
-          minRows={2}
-          maxRows={6}
-          t={t}
+        <Select
+          label={t.documentDetail.difficulty}
+          data={getDifficulties(t)}
+          value={difficulty}
+          onChange={(v) => setDifficulty(v ?? 'medium')}
         />
-        <MarkdownToggleField
-          label={t.documentDetail.explanation}
-          placeholder={t.knowledge.explanationPlaceholder}
-          value={explanation}
-          onChange={setExplanation}
-          minRows={1}
-          maxRows={4}
-          t={t}
+        <NumberInput
+          label={t.documentDetail.score}
+          value={points}
+          onChange={(v) => setPoints(v)}
+          min={0}
+          max={200}
         />
-        <Group grow>
-          <Select
-            label={t.knowledge.questionType}
-            data={getQuestionTypes(t)}
-            value={type}
-            onChange={(v) => setType(v ?? 'short_answer')}
-          />
-          <Select
-            label={t.documentDetail.difficulty}
-            data={getDifficulties(t)}
-            value={difficulty}
-            onChange={(v) => setDifficulty(v ?? 'medium')}
-          />
-          <NumberInput
-            label={t.documentDetail.score}
-            value={points}
-            onChange={(v) => setPoints(v)}
-            min={0}
-            max={200}
-          />
-        </Group>
-        <Group justify="flex-end" gap="sm">
-          <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
-            {t.common.cancel}
-          </Button>
-          <Button
-            color="indigo"
-            size="compact-sm"
-            onClick={handleAdd}
-            loading={saving}
-            disabled={!content.trim()}
-          >
-            {t.knowledge.addQuestion}
-          </Button>
-        </Group>
-      </Stack>
-    </Card>
+      </Group>
+      <Group justify="flex-end" gap="sm">
+        <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
+          {t.common.cancel}
+        </Button>
+        <Button
+          color="indigo"
+          size="compact-sm"
+          onClick={handleAdd}
+          loading={saving}
+          disabled={!content.trim()}
+        >
+          {t.knowledge.addQuestion}
+        </Button>
+      </Group>
+    </Stack>
   );
 }
 
@@ -861,27 +847,36 @@ export function AssignmentOutlineView({
         />
       ))}
 
-      {/* Add item form or button */}
-      {showAddForm ? (
+      {/* Add item button */}
+      <Button
+        variant="light"
+        color="indigo"
+        size="sm"
+        leftSection={<Plus size={16} />}
+        onClick={() => setShowAddForm(true)}
+        fullWidth
+        style={{ borderStyle: 'dashed' }}
+      >
+        {t.documentDetail.addManually}
+      </Button>
+
+      {/* Add item modal */}
+      <FullScreenModal
+        opened={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        title={t.knowledge.newQuestion}
+        radius="lg"
+        centered
+        size="lg"
+        padding="md"
+      >
         <AddItemForm
           onAdd={onAddItem}
           onCancel={() => setShowAddForm(false)}
           saving={isAddingItem}
           t={t}
         />
-      ) : (
-        <Button
-          variant="light"
-          color="indigo"
-          size="sm"
-          leftSection={<Plus size={16} />}
-          onClick={() => setShowAddForm(true)}
-          fullWidth
-          style={{ borderStyle: 'dashed' }}
-        >
-          {t.documentDetail.addManually}
-        </Button>
-      )}
+      </FullScreenModal>
     </Stack>
   );
 }
