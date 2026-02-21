@@ -69,7 +69,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
         : null,
       answer: q.referenceAnswer || '',
       explanation: '',
-      points: q.score || 0,
+      points: typeof q.score === 'number' ? q.score : (parseInt(String(q.score)) || 0),
       metadata: { sourcePage: q.sourcePage },
     };
   });
