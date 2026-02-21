@@ -31,8 +31,15 @@ export function buildQuestionChunkContent(q: ParsedQuestion): string {
  * Build assignment item content for embedding and RAG retrieval.
  * Includes question + options + answer + explanation for comprehensive matching.
  */
-export function buildAssignmentItemContent(item: EnrichedAssignmentItem): string {
-  const parts: string[] = [`## Q${item.orderNum}: ${item.content}`];
+export function buildAssignmentItemContent(
+  item: EnrichedAssignmentItem,
+  parentContent?: string,
+): string {
+  const parts: string[] = [];
+  if (parentContent) {
+    parts.push(`Context: ${parentContent}`);
+  }
+  parts.push(`## Q${item.orderNum}: ${item.content}`);
 
   if (item.options && item.options.length > 0) {
     parts.push(
