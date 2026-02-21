@@ -35,7 +35,7 @@ function buildOutline(
   for (let i = 0; i < items.length; i++) {
     const node: AssignmentOutlineItem = {
       orderNum: items[i].orderNum,
-      title: items[i].content.slice(0, 80),
+      title: items[i].title || items[i].content.slice(0, 80),
       children: [],
     };
     indexMap.set(i, node);

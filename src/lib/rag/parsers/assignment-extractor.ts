@@ -29,6 +29,7 @@ function coerceSourcePages(val: unknown): number[] {
 const sourcePagesSchema = z.preprocess(coerceSourcePages, z.array(z.number()).default([]));
 
 const itemSchema = z.object({
+  title: z.string().optional().default(''),
   orderNum: z.number(),
   content: z.string().min(1),
   parentIndex: z.number().nullable().optional().default(null),
@@ -84,8 +85,9 @@ Extract these fields from the document header, title page, or instructions secti
 ## Questions
 
 For each ITEM (question):
-- orderNum: Sequential number (1, 2, 3...)
-- content: Full question text in Markdown (use KaTeX for math: $...$ inline, $$...$$ block)
+- title: The original question number or label exactly as shown in the document (e.g. "Question 1", "5.2(a)", "Part A: Multiple Choice"). Empty string if none visible.
+- orderNum: Sequential number (1, 2, 3...) for internal ordering only
+- content: Full question text in Markdown (use KaTeX for math: $...$ inline, $$...$$ block). Do NOT include the question label/number in content — that belongs in the title field.
 - parentIndex: If this is a sub-question, the 0-based index of its parent in the items array. null for top-level questions.
 - options: Array of option texts for multiple choice (empty array if not MC)
 - referenceAnswer: The reference answer if present in the document (empty string if none)

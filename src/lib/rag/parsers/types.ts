@@ -92,6 +92,7 @@ export interface AssignmentOutline {
 }
 
 export interface EnrichedAssignmentItem {
+  title?: string;
   orderNum: number;
   content: string;
   options?: string[];

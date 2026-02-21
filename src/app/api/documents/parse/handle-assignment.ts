@@ -182,7 +182,6 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
 
   // Final surviving items — track their original parsedItems index
   const survivingOrigIndices = keepCandidateIndices.map((ci) => afterContentDedup[ci]);
-  const newContents = keepCandidateIndices.map((ci) => candidateContents[ci]);
   const newEmbeddings = keepCandidateIndices.map((ci) => candidateEmbeddings[ci]);
   const newItems = survivingOrigIndices.map((oi) => parsedItems[oi]);
 
@@ -239,12 +238,13 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
       assignmentId: documentId,
       orderNum: nextOrder,
       type: newItems[i].type,
-      content: newContents[i],
+      content: newItems[i].content,
       referenceAnswer: newItems[i].referenceAnswer,
       explanation: newItems[i].explanation,
       points: newItems[i].points,
       difficulty: newItems[i].difficulty,
       metadata: {
+        title: newItems[i].title || '',
         type: newItems[i].type,
         sourcePages: newItems[i].sourcePages,
         difficulty: newItems[i].difficulty,
@@ -298,12 +298,13 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
           assignmentId: documentId,
           orderNum: nextOrder,
           type: newItems[i].type,
-          content: newContents[i],
+          content: newItems[i].content,
           referenceAnswer: newItems[i].referenceAnswer,
           explanation: newItems[i].explanation,
           points: newItems[i].points,
           difficulty: newItems[i].difficulty,
           metadata: {
+            title: newItems[i].title || '',
             type: newItems[i].type,
             sourcePages: newItems[i].sourcePages,
             difficulty: newItems[i].difficulty,
@@ -336,12 +337,13 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         assignmentId: documentId,
         orderNum: nextOrder,
         type: newItems[i].type,
-        content: newContents[i],
+        content: newItems[i].content,
         referenceAnswer: newItems[i].referenceAnswer,
         explanation: newItems[i].explanation,
         points: newItems[i].points,
         difficulty: newItems[i].difficulty,
         metadata: {
+          title: newItems[i].title || '',
           type: newItems[i].type,
           sourcePages: newItems[i].sourcePages,
           difficulty: newItems[i].difficulty,

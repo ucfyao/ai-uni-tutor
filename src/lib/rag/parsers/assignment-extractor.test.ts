@@ -21,6 +21,7 @@ function validResponse(items: unknown[]) {
 
 function makeItem(overrides: Record<string, unknown> = {}) {
   return {
+    title: 'Question 1',
     orderNum: 1,
     content: 'What is 2+2?',
     options: ['3', '4', '5'],
@@ -86,6 +87,25 @@ describe('assignment-extractor', () => {
 
       expect(result.items).toHaveLength(0);
       expect(result.warnings[0]).toMatch(/invalid JSON/);
+    });
+
+    it('extracts title field from response', async () => {
+      mockGenerateContent.mockResolvedValue(
+        validResponse([makeItem({ title: 'Question 5.2(a)' })]),
+      );
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].title).toBe('Question 5.2(a)');
+    });
+
+    it('defaults title to empty string when not provided', async () => {
+      const { title: _, ...itemWithoutTitle } = makeItem();
+      mockGenerateContent.mockResolvedValue(validResponse([itemWithoutTitle]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].title).toBe('');
     });
 
     it('applies default values for optional fields', async () => {

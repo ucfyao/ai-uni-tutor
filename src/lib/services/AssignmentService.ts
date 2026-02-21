@@ -265,6 +265,7 @@ export class AssignmentService {
     try {
       const { buildAssignmentItemContent } = await import('@/lib/rag/build-chunk-content');
       const enriched = {
+        title: (toMerge[0].metadata?.title as string) ?? '',
         orderNum: toMerge[0].orderNum,
         content: mergedContent,
         referenceAnswer: mergedRefAnswer,
