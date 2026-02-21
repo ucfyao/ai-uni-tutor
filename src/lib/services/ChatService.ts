@@ -8,7 +8,7 @@
 import type { Content, Part } from '@google/genai';
 import { MODE_CONFIGS, type ModeConfig } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
 import { appendRagContext } from '@/lib/prompts';
 import type { ChatSource } from '@/types';
 import { ChatMessage, Course, TutoringMode } from '@/types';
@@ -299,33 +299,28 @@ Guidelines:
         if (!text) throw new Error('Empty response from AI model.');
         return text;
       } catch (error: unknown) {
-        lastError = error;
+        const geminiErr = parseGeminiError(error);
+        lastError = geminiErr;
 
-        // Check for rate limit
-        if (this.isRateLimitError(error)) {
-          console.warn(`Rate limit hit. Retrying attempt ${attempt + 1}/${this.MAX_RETRIES}...`);
+        if (
+          ['GEMINI_RATE_LIMITED', 'GEMINI_QUOTA_EXCEEDED', 'GEMINI_UNAVAILABLE'].includes(
+            geminiErr.code,
+          )
+        ) {
+          console.warn(
+            `Gemini [${geminiErr.code}] — retrying ${attempt + 1}/${this.MAX_RETRIES}...`,
+          );
           await this.delay(this.BASE_DELAY * Math.pow(2, attempt));
           continue;
         }
 
-        // Other errors - break immediately
+        // Non-retryable errors — break immediately
         break;
       }
     }
 
     console.error('AI service failed after retries:', lastError);
     throw lastError || new Error('AI service failed');
-  }
-
-  private isRateLimitError(error: unknown): boolean {
-    if (error instanceof Error) {
-      return (
-        error.message?.includes('429') ||
-        error.message?.includes('RESOURCE_EXHAUSTED') ||
-        (error as { status?: number }).status === 429
-      );
-    }
-    return false;
   }
 
   private delay(ms: number): Promise<void> {

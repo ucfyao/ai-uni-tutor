@@ -9,7 +9,7 @@
 import { parseAIResponse } from '@/lib/ai-utils';
 import type { PaginatedResult } from '@/lib/domain/models/Pagination';
 import { AppError, ForbiddenError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
 import { parsePDF } from '@/lib/pdf';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
@@ -88,15 +88,21 @@ export class ExamPaperService {
       }
 
       // Call Gemini to extract questions
-      const ai = getGenAI();
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODELS.chat,
-        contents: [{ role: 'user', parts: [{ text: EXTRACTION_PROMPT + fullText }] }],
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.3,
-        },
-      });
+      let responseText: string;
+      try {
+        const ai = getGenAI();
+        const response = await ai.models.generateContent({
+          model: GEMINI_MODELS.chat,
+          contents: [{ role: 'user', parts: [{ text: EXTRACTION_PROMPT + fullText }] }],
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.3,
+          },
+        });
+        responseText = response.text ?? '';
+      } catch (error) {
+        throw parseGeminiError(error);
+      }
 
       const parsed = parseAIResponse<{
         title?: string;
@@ -111,7 +117,7 @@ export class ExamPaperService {
           knowledge_point?: string;
           difficulty?: string;
         }>;
-      }>(response.text);
+      }>(responseText);
 
       const questions = parsed.questions ?? [];
       if (questions.length === 0) {

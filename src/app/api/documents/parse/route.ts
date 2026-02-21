@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { CreateLectureChunkDTO } from '@/lib/domain/models/Document';
 import { getEnv } from '@/lib/env';
-import { QuotaExceededError } from '@/lib/errors';
+import { AppError, QuotaExceededError } from '@/lib/errors';
+import { parseGeminiError } from '@/lib/gemini';
 import { parsePDF } from '@/lib/pdf';
 import type { ParsedQuestion } from '@/lib/rag/parsers/types';
 import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
@@ -11,6 +12,29 @@ import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
+
+/** Map a Gemini/pipeline error to SSE error event using ERROR_MAP messages. */
+function sendGeminiError(
+  send: ReturnType<typeof createSSEStream>['send'],
+  error: unknown,
+  context: 'extraction' | 'embedding',
+) {
+  const appErr = error instanceof AppError ? error : parseGeminiError(error);
+  console.error(`${context} [${appErr.code}]:`, error);
+
+  // Specific Gemini errors → use ERROR_MAP message
+  if (appErr.code.startsWith('GEMINI_') && appErr.code !== 'GEMINI_ERROR') {
+    send('log', { message: appErr.message, level: 'error' });
+    send('error', { message: appErr.message, code: appErr.code });
+    return;
+  }
+
+  // Generic / non-Gemini errors → context-specific fallback
+  const code = context === 'embedding' ? 'EMBEDDING_ERROR' : 'EXTRACTION_ERROR';
+  const label = context === 'embedding' ? 'generate embeddings' : 'extract content from PDF';
+  send('log', { message: `Failed to ${label}`, level: 'error' });
+  send('error', { message: `Failed to ${label}`, code });
+}
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -468,28 +492,7 @@ export async function POST(request: Request) {
             console.warn('Failed to store file hash (non-fatal):', hashErr);
           }
         } catch (e) {
-          console.error('LLM extraction error:', e);
-
-          const isQuotaError =
-            (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-            (typeof e === 'object' &&
-              e !== null &&
-              'status' in e &&
-              (e as { status: number }).status === 429);
-
-          if (isQuotaError) {
-            send('log', { message: 'AI service quota exceeded', level: 'error' });
-            send('error', {
-              message: 'AI service quota exceeded. Please contact your administrator.',
-              code: 'LLM_QUOTA_EXCEEDED',
-            });
-          } else {
-            send('log', { message: 'Failed to extract content from PDF', level: 'error' });
-            send('error', {
-              message: 'Failed to extract content from PDF',
-              code: 'EXTRACTION_ERROR',
-            });
-          }
+          sendGeminiError(send, e, 'extraction');
           return;
         }
       } else {
@@ -507,26 +510,7 @@ export async function POST(request: Request) {
           const questions = await parseQuestions(pdfData.pages, has_answers, onBatchProgress);
           items = questions.map((q) => ({ type: 'question' as const, data: q }));
         } catch (e) {
-          console.error('LLM extraction error:', e);
-
-          const isQuotaError =
-            (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-            (typeof e === 'object' &&
-              e !== null &&
-              'status' in e &&
-              (e as { status: number }).status === 429);
-
-          if (isQuotaError) {
-            send('error', {
-              message: 'AI service quota exceeded. Please contact your administrator.',
-              code: 'LLM_QUOTA_EXCEEDED',
-            });
-          } else {
-            send('error', {
-              message: 'Failed to extract content from PDF',
-              code: 'EXTRACTION_ERROR',
-            });
-          }
+          sendGeminiError(send, e, 'extraction');
           return;
         }
 
@@ -614,30 +598,7 @@ export async function POST(request: Request) {
             parsedItems = parseResult.items;
             warnings = parseResult.warnings;
           } catch (e) {
-            console.error('Assignment extraction error:', e);
-            const isQuotaError =
-              (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-              (typeof e === 'object' &&
-                e !== null &&
-                'status' in e &&
-                (e as { status: number }).status === 429);
-
-            if (isQuotaError) {
-              send('log', { message: 'AI service quota exceeded', level: 'error' });
-              send('error', {
-                message: 'AI service quota exceeded. Please contact your administrator.',
-                code: 'LLM_QUOTA_EXCEEDED',
-              });
-            } else {
-              send('log', {
-                message: `Extraction failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
-                level: 'error',
-              });
-              send('error', {
-                message: 'Failed to extract questions from PDF',
-                code: 'EXTRACTION_ERROR',
-              });
-            }
+            sendGeminiError(send, e, 'extraction');
             return;
           }
 
@@ -714,30 +675,7 @@ export async function POST(request: Request) {
             const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
             candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
           } catch (e) {
-            console.error('Embedding generation error:', e);
-            const isQuotaError =
-              (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-              (typeof e === 'object' &&
-                e !== null &&
-                'status' in e &&
-                (e as { status: number }).status === 429);
-
-            if (isQuotaError) {
-              send('log', { message: 'Embedding service quota exceeded', level: 'error' });
-              send('error', {
-                message: 'Embedding service quota exceeded. Please try again later.',
-                code: 'EMBEDDING_QUOTA_EXCEEDED',
-              });
-            } else {
-              send('log', {
-                message: `Embedding failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
-                level: 'error',
-              });
-              send('error', {
-                message: 'Failed to generate embeddings for questions',
-                code: 'EMBEDDING_ERROR',
-              });
-            }
+            sendGeminiError(send, e, 'embedding');
             return;
           }
           send('log', { message: 'Embeddings generated', level: 'success' });

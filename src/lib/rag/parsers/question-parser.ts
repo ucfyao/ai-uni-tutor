@@ -1,5 +1,5 @@
 import 'server-only';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
 import type { ParsedQuestion } from './types';
 
@@ -31,15 +31,20 @@ Return ONLY a valid JSON array of questions. No markdown, no explanation.
 Document content:
 ${pagesText}`;
 
-  const response = await genAI.models.generateContent({
-    model: GEMINI_MODELS.parse,
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
+  let text: string;
+  try {
+    const response = await genAI.models.generateContent({
+      model: GEMINI_MODELS.parse,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+      },
+    });
+    text = response.text ?? '';
+  } catch (error) {
+    throw parseGeminiError(error);
+  }
 
-  const text = response.text ?? '';
   const parsed = JSON.parse(text) as ParsedQuestion[];
   return parsed;
 }

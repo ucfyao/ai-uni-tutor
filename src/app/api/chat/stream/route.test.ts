@@ -373,7 +373,7 @@ describe('POST /api/chat/stream', () => {
 
       // The error should NOT be flagged as a user limit error
       expect(streamContent).toContain('"isLimitError":false');
-      expect(streamContent).toContain('high volume');
+      expect(streamContent).toContain('rate limited');
     });
   });
 
@@ -393,7 +393,7 @@ describe('POST /api/chat/stream', () => {
       const body = JSON.parse(await response.text());
 
       expect(response.status).toBe(500);
-      expect(body.error).toContain('unexpected error');
+      expect(body.error).toContain('AI service error');
       expect(body.isRetryable).toBe(true);
     });
 
@@ -410,7 +410,7 @@ describe('POST /api/chat/stream', () => {
       expect(response.status).toBe(429);
       expect(body.isLimitError).toBe(false);
       expect(body.isRetryable).toBe(true);
-      expect(body.error).toContain('high volume');
+      expect(body.error).toContain('rate limited');
     });
   });
 
