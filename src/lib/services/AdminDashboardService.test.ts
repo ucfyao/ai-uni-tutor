@@ -114,35 +114,51 @@ describe('AdminDashboardService', () => {
   // ==================== fetchUpstashData ====================
 
   describe('fetchUpstashData', () => {
-    it('should return stats when env vars are set and API responds', async () => {
+    it('should return stats and limits when env vars are set and API responds', async () => {
       vi.stubEnv('UPSTASH_MGMT_EMAIL', 'admin@test.com');
       vi.stubEnv('UPSTASH_MGMT_API_KEY', 'mgmt-key-123');
       vi.stubEnv('UPSTASH_DATABASE_ID', 'db-id-456');
 
-      const mockResponse = {
+      const mockStatsResponse = {
         ok: true,
         json: vi.fn().mockResolvedValue({
           total_monthly_requests: 150000,
+          daily_net_commands: 2000,
           total_monthly_bandwidth: 500000,
           current_storage: 1024,
-          total_monthly_billing: 1299,
+          total_monthly_billing: 0,
         }),
       };
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+      const mockDbResponse = {
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          db_request_limit: 500000,
+          db_monthly_bandwidth_limit: 50,
+          db_disk_threshold: 268435456,
+          type: 'free',
+        }),
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockImplementation((url: string) =>
+            Promise.resolve(url.includes('/stats/') ? mockStatsResponse : mockDbResponse),
+          ),
+      );
 
       const result = await service.fetchUpstashData();
 
       expect(result).toEqual({
         monthlyRequests: 150000,
+        dailyCommands: 2000,
+        dailyCommandsLimit: 500000,
         monthlyBandwidth: 500000,
+        monthlyBandwidthLimit: 50 * 1024 * 1024 * 1024,
         currentStorage: 1024,
-        monthlyBilling: 1299,
-      });
-
-      expect(fetch).toHaveBeenCalledWith('https://api.upstash.com/v2/redis/stats/db-id-456', {
-        headers: {
-          Authorization: `Basic ${btoa('admin@test.com:mgmt-key-123')}`,
-        },
+        storageLimit: 268435456,
+        monthlyBilling: 0,
+        plan: 'free',
       });
 
       vi.unstubAllGlobals();
@@ -168,7 +184,7 @@ describe('AdminDashboardService', () => {
 
       const result = await service.fetchUpstashData();
 
-      expect(result).toEqual({ error: 'Upstash API returned 403' });
+      expect(result).toEqual({ error: 'Upstash stats API returned 403' });
 
       vi.unstubAllGlobals();
     });
@@ -283,9 +299,14 @@ describe('AdminDashboardService', () => {
           ok: true,
           json: vi.fn().mockResolvedValue({
             total_monthly_requests: 1000,
+            daily_net_commands: 100,
             total_monthly_bandwidth: 2000,
             current_storage: 512,
             total_monthly_billing: 500,
+            db_request_limit: 500000,
+            db_monthly_bandwidth_limit: 50,
+            db_disk_threshold: 268435456,
+            type: 'free',
           }),
         }),
       );
@@ -313,9 +334,14 @@ describe('AdminDashboardService', () => {
       // Verify upstash data
       expect(result.upstash).toEqual({
         monthlyRequests: 1000,
+        dailyCommands: 100,
+        dailyCommandsLimit: 500000,
         monthlyBandwidth: 2000,
+        monthlyBandwidthLimit: 50 * 1024 * 1024 * 1024,
         currentStorage: 512,
+        storageLimit: 268435456,
         monthlyBilling: 500,
+        plan: 'free',
       });
 
       // Verify gemini data (3 models x 10 each)

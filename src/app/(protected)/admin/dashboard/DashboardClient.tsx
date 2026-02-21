@@ -10,6 +10,7 @@ import {
   Divider,
   Group,
   Loader,
+  Progress,
   SimpleGrid,
   Stack,
   Text,
@@ -31,9 +32,14 @@ interface StripeData {
 
 interface UpstashData {
   monthlyRequests: number;
+  dailyCommands: number;
+  dailyCommandsLimit: number;
   monthlyBandwidth: number;
+  monthlyBandwidthLimit: number;
   currentStorage: number;
+  storageLimit: number;
   monthlyBilling: number;
+  plan: string;
 }
 
 interface GeminiModelData {
@@ -145,14 +151,58 @@ function StripeCard({ data }: { data: StripeData | { error: string } }) {
   );
 }
 
+function UsageRow({
+  label,
+  used,
+  limit,
+  format = 'number',
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  format?: 'number' | 'bytes';
+}) {
+  const fmt = format === 'bytes' ? formatBytes : formatNumber;
+  const pct = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+  const color = pct >= 90 ? 'red' : pct >= 70 ? 'yellow' : 'teal';
+
+  return (
+    <Stack gap={4}>
+      <Group justify="space-between">
+        <Text size="sm" c="dimmed">
+          {label}
+        </Text>
+        <Text size="sm" fw={600}>
+          {fmt(used)} / {fmt(limit)}
+        </Text>
+      </Group>
+      <Progress value={pct} color={color} size="sm" />
+    </Stack>
+  );
+}
+
 function UpstashCard({ data }: { data: UpstashData | { error: string } }) {
   if (isError(data)) return <CardError message={data.error} />;
 
   return (
     <Stack gap="sm">
+      <Badge color="gray" variant="light" size="xs">
+        Plan: {data.plan}
+      </Badge>
+      <UsageRow label="Daily Commands" used={data.dailyCommands} limit={data.dailyCommandsLimit} />
+      <UsageRow
+        label="Storage"
+        used={data.currentStorage}
+        limit={data.storageLimit}
+        format="bytes"
+      />
+      <UsageRow
+        label="Bandwidth"
+        used={data.monthlyBandwidth}
+        limit={data.monthlyBandwidthLimit}
+        format="bytes"
+      />
       <StatRow label="Monthly Requests" value={formatNumber(data.monthlyRequests)} />
-      <StatRow label="Bandwidth" value={formatBytes(data.monthlyBandwidth)} />
-      <StatRow label="Storage" value={formatBytes(data.currentStorage)} />
       <StatRow label="Monthly Cost" value={`$${data.monthlyBilling.toFixed(2)}`} />
     </Stack>
   );

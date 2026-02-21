@@ -12,9 +12,14 @@ interface StripeData {
 
 interface UpstashData {
   monthlyRequests: number;
+  dailyCommands: number;
+  dailyCommandsLimit: number;
   monthlyBandwidth: number;
+  monthlyBandwidthLimit: number;
   currentStorage: number;
+  storageLimit: number;
   monthlyBilling: number;
+  plan: string;
 }
 
 interface GeminiModelData {
@@ -79,23 +84,34 @@ export class AdminDashboardService {
         return { error: 'Missing Upstash management env vars' };
       }
 
-      const res = await fetch(`https://api.upstash.com/v2/redis/stats/${dbId}`, {
-        headers: {
-          Authorization: `Basic ${btoa(`${email}:${apiKey}`)}`,
-        },
-      });
+      const headers = {
+        Authorization: `Basic ${btoa(`${email}:${apiKey}`)}`,
+      };
 
-      if (!res.ok) {
-        return { error: `Upstash API returned ${res.status}` };
+      const [statsRes, dbRes] = await Promise.all([
+        fetch(`https://api.upstash.com/v2/redis/stats/${dbId}`, { headers }),
+        fetch(`https://api.upstash.com/v2/redis/database/${dbId}`, { headers }),
+      ]);
+
+      if (!statsRes.ok) {
+        return { error: `Upstash stats API returned ${statsRes.status}` };
+      }
+      if (!dbRes.ok) {
+        return { error: `Upstash database API returned ${dbRes.status}` };
       }
 
-      const data = await res.json();
+      const [stats, db] = await Promise.all([statsRes.json(), dbRes.json()]);
 
       return {
-        monthlyRequests: data.total_monthly_requests ?? 0,
-        monthlyBandwidth: data.total_monthly_bandwidth ?? 0,
-        currentStorage: data.current_storage ?? 0,
-        monthlyBilling: data.total_monthly_billing ?? 0,
+        monthlyRequests: stats.total_monthly_requests ?? 0,
+        dailyCommands: stats.daily_net_commands ?? 0,
+        dailyCommandsLimit: db.db_request_limit ?? 0,
+        monthlyBandwidth: stats.total_monthly_bandwidth ?? 0,
+        monthlyBandwidthLimit: (db.db_monthly_bandwidth_limit ?? 0) * 1024 * 1024 * 1024, // GB → bytes
+        currentStorage: stats.current_storage ?? 0,
+        storageLimit: db.db_disk_threshold ?? 0,
+        monthlyBilling: stats.total_monthly_billing ?? 0,
+        plan: db.type ?? 'unknown',
       };
     } catch (error) {
       console.error('[AdminDashboard] Upstash fetch failed:', error);
