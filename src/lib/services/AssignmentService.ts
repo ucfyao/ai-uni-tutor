@@ -136,6 +136,35 @@ export class AssignmentService {
     return this.repo.updateItemEmbedding(itemId, embedding);
   }
 
+  /**
+   * Re-validate a single item's content and return updated warnings.
+   */
+  validateItemContent(content: string, referenceAnswer: string): string[] {
+    const warnings: string[] = [];
+
+    if (!content.trim()) {
+      warnings.push('Empty question content');
+    }
+
+    if (!referenceAnswer.trim()) {
+      warnings.push('No reference answer');
+    }
+
+    // Broken KaTeX
+    const withoutDisplay = content.replace(/\$\$[^]*?\$\$/g, '');
+    const singleDollarCount = (withoutDisplay.match(/\$/g) || []).length;
+    if (singleDollarCount % 2 !== 0) {
+      warnings.push('Possible broken KaTeX formula (unmatched $)');
+    }
+
+    // Suspiciously short
+    if (content.trim().length > 0 && content.trim().length < 20) {
+      warnings.push('Suspiciously short content');
+    }
+
+    return warnings;
+  }
+
   async findCourseId(assignmentId: string): Promise<string | null> {
     return this.repo.findCourseId(assignmentId);
   }

@@ -194,6 +194,16 @@ export async function updateAssignmentItems(
         }),
       );
 
+      // Re-validate edited items and update warnings
+      await Promise.all(
+        parsed.updates.map((update) => {
+          const meta = update.metadata;
+          const refAnswer = (meta.referenceAnswer as string) || '';
+          const newWarnings = service.validateItemContent(update.content, refAnswer);
+          return service.updateItem(update.id, { warnings: newWarnings });
+        }),
+      );
+
       // Batch embedding generation, then parallel DB updates
       try {
         const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
