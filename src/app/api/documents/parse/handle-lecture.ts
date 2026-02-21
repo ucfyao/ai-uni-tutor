@@ -34,10 +34,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       return;
     }
 
-    send('log', {
-      message: `Extracted ${sections.length} sections, ${knowledgePoints.length} knowledge points`,
-      level: 'success',
-    });
+    // "Extracted N sections, M knowledge points" already sent by onProgress callback
 
     for (let i = 0; i < knowledgePoints.length; i++) {
       send('item', { index: i, type: 'knowledge_point', data: knowledgePoints[i] });
