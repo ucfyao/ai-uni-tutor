@@ -542,6 +542,7 @@ export interface Database {
           metadata: Json;
           embedding: number[] | null;
           created_at: string;
+          parent_item_id: string | null;
         };
         Insert: {
           id?: string;
@@ -556,6 +557,7 @@ export interface Database {
           metadata?: Json;
           embedding?: number[] | null;
           created_at?: string;
+          parent_item_id?: string | null;
         };
         Update: {
           id?: string;
@@ -570,6 +572,7 @@ export interface Database {
           metadata?: Json;
           embedding?: number[] | null;
           created_at?: string;
+          parent_item_id?: string | null;
         };
         Relationships: [];
       };
