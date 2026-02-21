@@ -247,14 +247,13 @@ function ItemEditForm({
 
   return (
     <Stack gap="sm" p="sm">
-      <Textarea
+      <MarkdownToggleField
         label={t.documentDetail.content}
         value={content}
-        onChange={(e) => setContent(e.currentTarget.value)}
+        onChange={setContent}
         minRows={2}
-        autosize
         maxRows={8}
-        autoFocus
+        t={t}
       />
       <MarkdownToggleField
         label={t.documentDetail.answer}
