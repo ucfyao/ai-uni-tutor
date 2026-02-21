@@ -2,10 +2,8 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  AlertTriangle,
   ArrowLeft,
   Calendar,
-  CheckCircle,
   Clock,
   Hash,
   Pencil,
@@ -86,13 +84,6 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   /* -- use hook for data management -- */
   const { items, addItem, isAddingItem, updateItem, deleteItem, rename, invalidateItems } =
     useAssignmentItems(assignment.id, initialItems);
-
-  /* -- stats -- */
-  const withAnswer = useMemo(() => items.filter((i) => i.referenceAnswer?.trim()).length, [items]);
-  const warningCount = useMemo(
-    () => items.filter((i) => i.warnings && i.warnings.length > 0).length,
-    [items],
-  );
 
   /* -- UI state -- */
   const [showUploadZone, setShowUploadZone] = useState(initialItems.length === 0);
@@ -203,7 +194,12 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const headerActions = useMemo(
     () => (
       <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-        {/* Group 1: Content creation */}
+        {/* Group 1: Content creation (high frequency) */}
+        <Tooltip label={t.documentDetail.addManually}>
+          <ActionIcon variant="default" color="gray" size="md" onClick={() => setAddFormOpen(true)}>
+            <Plus size={16} />
+          </ActionIcon>
+        </Tooltip>
         <Tooltip label={t.documentDetail.uploadPdf}>
           <ActionIcon
             variant={showUploadZone ? 'filled' : 'default'}
@@ -212,11 +208,6 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             onClick={() => setShowUploadZone((v) => !v)}
           >
             <Upload size={16} />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label={t.documentDetail.addManually}>
-          <ActionIcon variant="default" color="gray" size="md" onClick={() => setAddFormOpen(true)}>
-            <Plus size={16} />
           </ActionIcon>
         </Tooltip>
 
@@ -371,55 +362,6 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             <Badge variant="light" color={statusColor(assignment.status)} size="sm">
               {assignment.status}
             </Badge>
-            {/* Stats */}
-            {items.length > 0 && (
-              <>
-                <Box
-                  style={{
-                    width: 1,
-                    height: 14,
-                    background: 'var(--mantine-color-default-border)',
-                    flexShrink: 0,
-                  }}
-                />
-                <Tooltip label={`${items.length} ${t.documentDetail.items}`} withArrow>
-                  <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
-                    <Hash size={12} color="var(--mantine-color-indigo-5)" />
-                    <Text size="xs" c="dimmed">
-                      {items.length}
-                    </Text>
-                  </Group>
-                </Tooltip>
-                <Tooltip
-                  label={`${withAnswer}/${items.length} ${t.knowledge.answerCoverage}`}
-                  withArrow
-                >
-                  <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
-                    <CheckCircle
-                      size={12}
-                      color={
-                        withAnswer === items.length
-                          ? 'var(--mantine-color-green-5)'
-                          : 'var(--mantine-color-yellow-5)'
-                      }
-                    />
-                    <Text size="xs" c="dimmed">
-                      {withAnswer}/{items.length}
-                    </Text>
-                  </Group>
-                </Tooltip>
-                {warningCount > 0 && (
-                  <Tooltip label={`${warningCount} ${t.knowledge.hasWarnings}`} withArrow>
-                    <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
-                      <AlertTriangle size={12} color="var(--mantine-color-orange-5)" />
-                      <Text size="xs" c="dimmed">
-                        {warningCount}
-                      </Text>
-                    </Group>
-                  </Tooltip>
-                )}
-              </>
-            )}
           </Group>
         </Group>
 
@@ -427,19 +369,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
         {headerActions}
       </Group>
     ),
-    [
-      editingName,
-      nameValue,
-      handleSaveName,
-      school,
-      course,
-      assignment.status,
-      items.length,
-      withAnswer,
-      warningCount,
-      headerActions,
-      t,
-    ],
+    [editingName, nameValue, handleSaveName, school, course, assignment.status, headerActions, t],
   );
 
   useEffect(() => {
