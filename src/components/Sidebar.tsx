@@ -7,6 +7,7 @@ import {
   Compass,
   Ellipsis,
   FileQuestion,
+  Gauge,
   GraduationCap,
   LifeBuoy,
   LogIn,
@@ -87,6 +88,7 @@ const JUMP_LINKS = [
   },
   { labelKey: 'coursesAdmin' as const, icon: BookOpen, href: '/admin/courses', superOnly: true },
   { labelKey: 'usersAdmin' as const, icon: ShieldCheck, href: '/admin/users', superOnly: true },
+  { labelKey: 'dashboard' as const, icon: Gauge, href: '/admin/dashboard', superOnly: true },
 ];
 
 // ============================================================================
