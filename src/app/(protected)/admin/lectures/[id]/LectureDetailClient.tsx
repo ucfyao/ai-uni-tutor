@@ -424,10 +424,10 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
                 </>
               )}
               {/* Document attributes */}
-              <Badge variant="light" color="indigo" size="xs">
+              <Badge variant="light" color="indigo" size="sm">
                 {(t.knowledge.docTypeLabel as Record<string, string>)?.lecture ?? 'Lecture'}
               </Badge>
-              <Badge variant="light" color={currentStatus === 'ready' ? 'green' : 'blue'} size="xs">
+              <Badge variant="light" color={currentStatus === 'ready' ? 'green' : 'blue'} size="sm">
                 {currentStatus}
               </Badge>
               {/* Stats */}
@@ -441,7 +441,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
                       flexShrink: 0,
                     }}
                   />
-                  <Tooltip label={`${chunks.length} sections`} withArrow>
+                  <Tooltip label={`${chunks.length} ${t.knowledge.sections}`} withArrow>
                     <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
                       <BookOpen size={12} color="var(--mantine-color-indigo-5)" />
                       <Text size="xs" c="dimmed">
@@ -450,7 +450,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
                     </Group>
                   </Tooltip>
                   {totalKPs > 0 && (
-                    <Tooltip label={`${totalKPs} knowledge points`} withArrow>
+                    <Tooltip label={`${totalKPs} ${t.documentDetail.knowledgePoints}`} withArrow>
                       <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
                         <Lightbulb size={12} color="var(--mantine-color-yellow-6)" />
                         <Text size="xs" c="dimmed">
@@ -468,7 +468,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         {/* Right: actions + status */}
         <Group gap={12} wrap="nowrap" style={{ flexShrink: 0 }}>
           <Group gap={4} wrap="nowrap">
-            <Tooltip label="Add Section">
+            <Tooltip label={t.documentDetail.addSection}>
               <ActionIcon
                 variant="subtle"
                 color="indigo"
