@@ -39,6 +39,7 @@ function mapItemRow(row: Record<string, unknown>): AssignmentItemEntity {
     points: (row.points as number) || 0,
     difficulty: (row.difficulty as string) || '',
     metadata: (row.metadata as Record<string, unknown>) ?? {},
+    warnings: (Array.isArray(row.warnings) ? row.warnings : []) as string[],
     createdAt: row.created_at as string,
   };
 }
@@ -192,6 +193,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     }>,
   ): Promise<void> {
     const supabase = await createClient();
@@ -206,6 +208,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty: item.difficulty ?? '',
       metadata: (item.metadata ?? {}) as Json,
       embedding: item.embedding ?? null,
+      warnings: item.warnings ?? [],
     }));
 
     const { error } = await supabase.from('assignment_items').insert(rows);
@@ -242,6 +245,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     },
   ): Promise<AssignmentItemEntity> {
     const supabase = await createClient();
@@ -258,6 +262,7 @@ export class AssignmentRepository implements IAssignmentRepository {
         difficulty: data.difficulty ?? '',
         metadata: (data.metadata ?? {}) as Json,
         embedding: data.embedding ?? null,
+        warnings: data.warnings ?? [],
       })
       .select('*')
       .single();
@@ -326,6 +331,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (data.points !== undefined) updates.points = data.points;
     if (data.difficulty !== undefined) updates.difficulty = data.difficulty;
     if (data.metadata !== undefined) updates.metadata = data.metadata as Json;
+    if (data.warnings !== undefined) updates.warnings = data.warnings;
 
     if (Object.keys(updates).length === 0) return;
 
@@ -399,6 +405,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     }>,
   ): Promise<{ id: string }[]> {
     if (items.length === 0) return [];
@@ -414,6 +421,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty: item.difficulty ?? '',
       metadata: (item.metadata ?? {}) as Json,
       embedding: item.embedding ?? null,
+      warnings: item.warnings ?? [],
     }));
 
     const { data, error } = await supabase.from('assignment_items').insert(rows).select('id');

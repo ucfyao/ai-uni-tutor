@@ -27,6 +27,7 @@ export interface AssignmentItemEntity {
   points: number;
   difficulty: string;
   metadata: Record<string, unknown>;
+  warnings: string[];
   createdAt: string;
 }
 
@@ -53,4 +54,5 @@ export interface CreateAssignmentItemDTO {
   difficulty?: string;
   metadata?: Record<string, unknown>;
   embedding?: number[] | null;
+  warnings?: string[];
 }

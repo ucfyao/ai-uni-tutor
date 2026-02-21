@@ -40,6 +40,7 @@ export interface IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     }>,
   ): Promise<void>;
 
@@ -56,6 +57,7 @@ export interface IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     },
   ): Promise<AssignmentItemEntity>;
 
