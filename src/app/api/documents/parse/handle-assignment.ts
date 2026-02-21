@@ -58,7 +58,12 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
 
   // Send item events for frontend
   for (let i = 0; i < parsedItems.length; i++) {
-    send('item', { index: i, type: 'question', data: parsedItems[i] });
+    send('item', {
+      index: i,
+      type: 'question',
+      data: parsedItems[i],
+      warnings: parsedItems[i].warnings ?? [],
+    });
     send('progress', { current: i + 1, total: parsedItems.length });
   }
 
@@ -246,6 +251,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
       difficulty: item.difficulty,
     },
     embedding: allEmbeddings[i],
+    warnings: item.warnings ?? [],
   }));
 
   // Batch save (groups of 20)
