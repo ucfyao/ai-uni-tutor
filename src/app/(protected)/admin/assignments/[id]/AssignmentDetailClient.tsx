@@ -310,6 +310,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
           explanation: (data.explanation as string) || '',
           points: (data.points as number) || 0,
           difficulty: (data.difficulty as string) || '',
+          parentItemId: (data.parentItemId as string) || undefined,
         });
         return true;
       } catch {

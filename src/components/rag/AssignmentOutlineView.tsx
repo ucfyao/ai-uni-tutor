@@ -20,7 +20,6 @@ import {
   Button,
   Card,
   Checkbox,
-  Collapse,
   Divider,
   Group,
   Menu,
@@ -33,7 +32,12 @@ import {
   TextInput,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
+import {
+  buildItemTree,
+  computeDisplayLabels,
+  type AssignmentItemEntity,
+  type AssignmentItemTree,
+} from '@/lib/domain/models/Assignment';
 
 const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
   ssr: false,
@@ -102,12 +106,6 @@ function getDifficulties(t: { knowledge: { difficulties: TranslationMap } }) {
 
 /* ── Helpers ── */
 
-function getSection(item: AssignmentItemEntity): string {
-  const m = item.metadata;
-  if (m && typeof m.section === 'string' && m.section.trim()) return m.section.trim();
-  return 'General';
-}
-
 function getDifficulty(item: AssignmentItemEntity): string {
   if (item.difficulty) return item.difficulty;
   const m = item.metadata;
@@ -120,11 +118,6 @@ function getType(item: AssignmentItemEntity): string {
   const m = item.metadata;
   if (m && typeof m.type === 'string') return m.type;
   return '';
-}
-
-function truncate(str: string, max: number): string {
-  if (str.length <= max) return str;
-  return str.slice(0, max) + '...';
 }
 
 /* ── Markdown Toggle Field ── */
@@ -333,11 +326,13 @@ function AddItemForm({
   onCancel,
   saving: externalSaving,
   t,
+  parentLabel,
 }: {
   onAdd: (data: Record<string, unknown>) => Promise<boolean>;
   onCancel: () => void;
   saving?: boolean;
   t: ReturnType<typeof useLanguage>['t'];
+  parentLabel?: string;
 }) {
   const [content, setContent] = useState('');
   const [refAnswer, setRefAnswer] = useState('');
@@ -383,6 +378,11 @@ function AddItemForm({
         <Text size="sm" fw={600} c="indigo">
           {t.knowledge.newQuestion}
         </Text>
+        {parentLabel && (
+          <Text size="xs" c="indigo.5" fw={500}>
+            {parentLabel}
+          </Text>
+        )}
         <Textarea
           label={t.documentDetail.content}
           placeholder={t.knowledge.questionContentPlaceholder}
@@ -462,6 +462,11 @@ function AddItemForm({
 
 function ItemCard({
   item,
+  depth,
+  displayLabel,
+  hasChildren,
+  isItemExpanded,
+  onToggleItemExpand,
   isSelected,
   isDeleted,
   isEditing,
@@ -472,9 +477,15 @@ function ItemCard({
   onSaveEdit,
   onDelete,
   onSplit,
+  onAddSubItem,
   t,
 }: {
   item: AssignmentItemEntity;
+  depth: number;
+  displayLabel: string;
+  hasChildren: boolean;
+  isItemExpanded: boolean;
+  onToggleItemExpand: () => void;
   isSelected: boolean;
   isDeleted: boolean;
   isEditing: boolean;
@@ -485,6 +496,7 @@ function ItemCard({
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
   onSplit?: (itemId: string, splitContent: [string, string]) => void;
+  onAddSubItem?: (parentId: string) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -499,25 +511,30 @@ function ItemCard({
   const displayExplanation = (edited?.metadata?.explanation as string) ?? item.explanation ?? '';
 
   const contentTruncated = displayContent.length > 200;
-  const shownContent = expanded ? displayContent : truncate(displayContent, 200);
 
   return (
     <Box
-      px="sm"
       py="sm"
+      className="hover:shadow-sm"
       style={{
+        paddingRight: 'var(--mantine-spacing-sm)',
+        paddingLeft: `calc(var(--mantine-spacing-sm) + ${depth * 24}px)`,
         borderRadius: 'var(--mantine-radius-md)',
         background: isSelected
           ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
           : 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
         border: `1px solid ${
           isSelected
-            ? 'light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))'
+            ? 'light-dark(var(--mantine-color-indigo-3), var(--mantine-color-indigo-7))'
             : item.warnings && item.warnings.length > 0
               ? 'var(--mantine-color-orange-3)'
               : 'var(--mantine-color-default-border)'
         }`,
-        transition: 'all 0.15s ease',
+        outline: isSelected
+          ? '2px solid light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-8))'
+          : 'none',
+        outlineOffset: 1,
+        transition: 'all 0.2s ease',
       }}
     >
       {isEditing ? (
@@ -533,6 +550,22 @@ function ItemCard({
         <Stack gap="xs">
           {/* Header: checkbox, order, badges, actions */}
           <Group gap="sm" wrap="nowrap" align="center">
+            {hasChildren ? (
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleItemExpand();
+                }}
+                style={{ flexShrink: 0 }}
+              >
+                {isItemExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </ActionIcon>
+            ) : (
+              <Box style={{ width: 22, flexShrink: 0 }} />
+            )}
             <Checkbox
               checked={isSelected}
               onChange={() => onToggleSelect(item.id)}
@@ -540,9 +573,25 @@ function ItemCard({
               color="indigo"
               style={{ flexShrink: 0 }}
             />
-            <Badge size="sm" variant="filled" color="indigo" circle style={{ flexShrink: 0 }}>
-              {item.orderNum}
-            </Badge>
+            <Box
+              style={{
+                minWidth: 32,
+                height: 28,
+                borderRadius: 14,
+                background:
+                  depth === 0 ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-indigo-1)',
+                color: depth === 0 ? 'white' : 'var(--mantine-color-indigo-7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+                padding: '0 6px',
+              }}
+            >
+              {displayLabel}
+            </Box>
             {qType && (
               <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
                 {(t.knowledge.questionTypes as TranslationMap)[qType] ?? qType}
@@ -590,17 +639,32 @@ function ItemCard({
               <ActionIcon variant="subtle" color="red" size="xs" onClick={() => onDelete(item.id)}>
                 <Trash2 size={14} />
               </ActionIcon>
+              {onAddSubItem && (
+                <ActionIcon
+                  variant="subtle"
+                  color="indigo"
+                  size="xs"
+                  onClick={() => onAddSubItem(item.id)}
+                  title={
+                    (t.knowledge as unknown as Record<string, string>).addSubQuestion ??
+                    'Add sub-question'
+                  }
+                >
+                  <Plus size={14} />
+                </ActionIcon>
+              )}
             </Group>
           </Group>
 
           {/* Content */}
-          <Text size="sm" style={{ lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
-            {shownContent}
-          </Text>
+          <Box style={{ maxHeight: expanded ? undefined : 100, overflow: 'hidden' }}>
+            <MarkdownRenderer content={displayContent} compact />
+          </Box>
           {contentTruncated && (
             <Text
               size="xs"
               c="indigo"
+              fw={500}
               style={{ cursor: 'pointer' }}
               onClick={() => setExpanded((v) => !v)}
             >
@@ -610,8 +674,17 @@ function ItemCard({
 
           {/* Answer */}
           {displayAnswer.trim() && (
-            <Box mt={4} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
-              <Text size="xs" fw={600} c="dimmed" mb={2}>
+            <Box
+              mt="xs"
+              pl="sm"
+              py={6}
+              style={{
+                borderLeft: '3px solid var(--mantine-color-green-5)',
+                borderRadius: '0 var(--mantine-radius-sm) var(--mantine-radius-sm) 0',
+                background: 'light-dark(var(--mantine-color-green-0), rgba(34, 139, 34, 0.06))',
+              }}
+            >
+              <Text size="xs" fw={600} c="green.7" mb={2}>
                 {t.documentDetail.answer}
               </Text>
               <MarkdownRenderer content={displayAnswer} compact />
@@ -620,8 +693,17 @@ function ItemCard({
 
           {/* Explanation */}
           {displayExplanation.trim() && (
-            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
-              <Text size="xs" fw={600} c="dimmed" mb={2}>
+            <Box
+              mt="xs"
+              pl="sm"
+              py={6}
+              style={{
+                borderLeft: '3px solid var(--mantine-color-blue-5)',
+                borderRadius: '0 var(--mantine-radius-sm) var(--mantine-radius-sm) 0',
+                background: 'light-dark(var(--mantine-color-blue-0), rgba(59, 130, 246, 0.06))',
+              }}
+            >
+              <Text size="xs" fw={600} c="blue.7" mb={2}>
                 {t.documentDetail.explanation}
               </Text>
               <MarkdownRenderer content={displayExplanation} compact />
@@ -630,13 +712,23 @@ function ItemCard({
 
           {/* Warnings */}
           {item.warnings && item.warnings.length > 0 && expanded && (
-            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}>
-              <Text size="xs" fw={600} c="orange" mb={2}>
+            <Box
+              mt="xs"
+              px="sm"
+              py={8}
+              style={{
+                borderRadius: 'var(--mantine-radius-sm)',
+                background: 'light-dark(var(--mantine-color-orange-0), rgba(245, 158, 11, 0.08))',
+                border:
+                  '1px solid light-dark(var(--mantine-color-orange-2), var(--mantine-color-orange-9))',
+              }}
+            >
+              <Text size="xs" fw={600} c="orange" mb={4}>
                 {t.knowledge.hasWarnings}
               </Text>
               <Stack gap={2}>
                 {item.warnings.map((w, i) => (
-                  <Text key={i} size="xs" c="dimmed">
+                  <Text key={i} size="xs" c="orange.8">
                     • {w}
                   </Text>
                 ))}
@@ -649,113 +741,94 @@ function ItemCard({
   );
 }
 
-/* ── Section Card ── */
+/* ── Tree Node (recursive) ── */
 
-function SectionCard({
-  sectionName,
-  sectionItems,
-  expanded,
+function TreeNode({
+  node,
+  depth,
+  displayLabels,
+  expandedItems,
   selectedIds,
   editedItems,
   deletedItemIds,
   editingItemId,
-  onToggleExpand,
+  onToggleItemExpand,
   onToggleSelect,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
   onDelete,
   onSplit,
+  onAddSubItem,
   t,
 }: {
-  sectionName: string;
-  sectionItems: AssignmentItemEntity[];
-  expanded: boolean;
+  node: AssignmentItemTree;
+  depth: number;
+  displayLabels: Map<string, string>;
+  expandedItems: Set<string>;
   selectedIds: Set<string>;
   editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
   deletedItemIds: Set<string>;
   editingItemId: string | null;
-  onToggleExpand: () => void;
+  onToggleItemExpand: (id: string) => void;
   onToggleSelect: (id: string) => void;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
   onSplit?: (itemId: string, splitContent: [string, string]) => void;
+  onAddSubItem?: (parentId: string) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
-  const visibleCount = sectionItems.filter((i) => !deletedItemIds.has(i.id)).length;
+  if (deletedItemIds.has(node.id)) return null;
 
   return (
-    <Card
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        borderLeftWidth: 3,
-        borderLeftColor: 'var(--mantine-color-indigo-3)',
-        transition: 'all 0.15s ease',
-      }}
-    >
-      <Box
-        onClick={onToggleExpand}
-        style={{ cursor: 'pointer' }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggleExpand();
-          }
-        }}
-      >
-        <Group gap="xs" justify="space-between" wrap="nowrap">
-          <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-            {expanded ? (
-              <ChevronDown
-                size={14}
-                color="var(--mantine-color-dimmed)"
-                style={{ flexShrink: 0 }}
-              />
-            ) : (
-              <ChevronRight
-                size={14}
-                color="var(--mantine-color-dimmed)"
-                style={{ flexShrink: 0 }}
-              />
-            )}
-            <Text fw={600} size="sm" truncate style={{ minWidth: 0 }}>
-              {sectionName}
-            </Text>
-          </Group>
-          <Badge size="xs" variant="light" color="indigo" style={{ flexShrink: 0 }}>
-            {visibleCount}
-          </Badge>
-        </Group>
-      </Box>
-
-      <Collapse in={expanded}>
-        <Stack gap="xs" mt="sm">
-          {sectionItems.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              isSelected={selectedIds.has(item.id)}
-              isDeleted={deletedItemIds.has(item.id)}
-              isEditing={editingItemId === item.id}
-              editedItems={editedItems}
-              onToggleSelect={onToggleSelect}
-              onStartEdit={onStartEdit}
-              onCancelEdit={onCancelEdit}
-              onSaveEdit={onSaveEdit}
-              onDelete={onDelete}
-              onSplit={onSplit}
-              t={t}
-            />
-          ))}
-        </Stack>
-      </Collapse>
-    </Card>
+    <>
+      <ItemCard
+        item={node}
+        depth={depth}
+        displayLabel={displayLabels.get(node.id) ?? ''}
+        hasChildren={node.children.length > 0}
+        isItemExpanded={expandedItems.has(node.id)}
+        onToggleItemExpand={() => onToggleItemExpand(node.id)}
+        isSelected={selectedIds.has(node.id)}
+        isDeleted={false}
+        isEditing={editingItemId === node.id}
+        editedItems={editedItems}
+        onToggleSelect={onToggleSelect}
+        onStartEdit={onStartEdit}
+        onCancelEdit={onCancelEdit}
+        onSaveEdit={onSaveEdit}
+        onDelete={onDelete}
+        onSplit={onSplit}
+        onAddSubItem={onAddSubItem}
+        t={t}
+      />
+      {node.children.length > 0 &&
+        expandedItems.has(node.id) &&
+        node.children.map((child) => (
+          <TreeNode
+            key={child.id}
+            node={child}
+            depth={depth + 1}
+            displayLabels={displayLabels}
+            expandedItems={expandedItems}
+            selectedIds={selectedIds}
+            editedItems={editedItems}
+            deletedItemIds={deletedItemIds}
+            editingItemId={editingItemId}
+            onToggleItemExpand={onToggleItemExpand}
+            onToggleSelect={onToggleSelect}
+            onStartEdit={onStartEdit}
+            onCancelEdit={onCancelEdit}
+            onSaveEdit={onSaveEdit}
+            onDelete={onDelete}
+            onSplit={onSplit}
+            onAddSubItem={onAddSubItem}
+            t={t}
+          />
+        ))}
+    </>
   );
 }
 
@@ -843,44 +916,65 @@ export function AssignmentOutlineView({
   const hasActiveFilters =
     search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0 || warningFilter;
 
-  // Group by section
-  const sections = useMemo(() => {
-    const map = new Map<string, AssignmentItemEntity[]>();
-    for (const item of filteredItems) {
-      const sec = getSection(item);
-      const list = map.get(sec);
-      if (list) list.push(item);
-      else map.set(sec, [item]);
-    }
-    return map;
-  }, [filteredItems]);
+  // Build tree from filtered items
+  const tree = useMemo(() => buildItemTree(filteredItems), [filteredItems]);
+  const displayLabels = useMemo(() => computeDisplayLabels(tree), [tree]);
 
-  const sectionNames = useMemo(() => Array.from(sections.keys()), [sections]);
+  // Expand/collapse state for parent items
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  // Expand/collapse state
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    () => new Set(sectionNames),
-  );
+  // Auto-expand items with children
+  useMemo(() => {
+    const ids = new Set<string>();
+    const walk = (nodes: AssignmentItemTree[]) => {
+      for (const n of nodes) {
+        if (n.children.length > 0) ids.add(n.id);
+        walk(n.children);
+      }
+    };
+    walk(tree);
+    setExpandedItems(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredItems.length]);
 
-  // Keep expanded set in sync when sections change
-  const allExpanded = sectionNames.length > 0 && sectionNames.every((s) => expandedSections.has(s));
-
-  const toggleSection = useCallback((name: string) => {
-    setExpandedSections((prev) => {
+  const toggleItemExpand = useCallback((id: string) => {
+    setExpandedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
 
-  const toggleAllSections = useCallback(() => {
+  const allExpanded =
+    tree.length > 0 && tree.every((n) => n.children.length === 0 || expandedItems.has(n.id));
+
+  const toggleAllExpand = useCallback(() => {
     if (allExpanded) {
-      setExpandedSections(new Set());
+      setExpandedItems(new Set());
     } else {
-      setExpandedSections(new Set(sectionNames));
+      const ids = new Set<string>();
+      const walk = (nodes: AssignmentItemTree[]) => {
+        for (const n of nodes) {
+          if (n.children.length > 0) ids.add(n.id);
+          walk(n.children);
+        }
+      };
+      walk(tree);
+      setExpandedItems(ids);
     }
-  }, [allExpanded, sectionNames]);
+  }, [allExpanded, tree]);
+
+  // State for sub-item add form
+  const [addSubItemParentId, setAddSubItemParentId] = useState<string | null>(null);
+
+  const handleAddSubItem = useCallback(
+    (parentId: string) => {
+      setAddSubItemParentId(parentId);
+      setShowAddForm(true);
+    },
+    [setShowAddForm],
+  );
 
   // Selection state
   const selectedCount = selectedIds.size;
@@ -903,16 +997,16 @@ export function AssignmentOutlineView({
           align="center"
           wrap="nowrap"
           px="sm"
-          py={6}
+          py={8}
           style={{
-            borderRadius: 'var(--mantine-radius-md)',
+            borderRadius: 'var(--mantine-radius-lg)',
             border: hasSelection
               ? '1px solid light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))'
-              : '1px solid transparent',
+              : '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4))',
             background: hasSelection
               ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
-              : 'transparent',
-            transition: 'background 0.2s ease, border-color 0.2s ease',
+              : 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+            transition: 'all 0.2s ease',
           }}
         >
           <Group gap="sm" style={{ flex: 1 }}>
@@ -930,8 +1024,8 @@ export function AssignmentOutlineView({
             ) : (
               <Group gap="sm" wrap="nowrap">
                 <Text size="xs" fw={500} c="dimmed">
-                  {sectionNames.length} {t.knowledge.sections}, {liveItems.length}{' '}
-                  {t.knowledge.questions}
+                  {tree.length} {t.knowledge.questions}, {liveItems.length}{' '}
+                  {(t.knowledge as unknown as Record<string, string>).totalItems ?? 'total'}
                 </Text>
               </Group>
             )}
@@ -1004,7 +1098,7 @@ export function AssignmentOutlineView({
               </Menu>
             </Group>
           ) : (
-            <Button variant="subtle" color="gray" size="compact-sm" onClick={toggleAllSections}>
+            <Button variant="subtle" color="gray" size="compact-sm" onClick={toggleAllExpand}>
               {allExpanded ? t.knowledge.collapseAll : t.knowledge.expandAll}
             </Button>
           )}
@@ -1077,29 +1171,47 @@ export function AssignmentOutlineView({
 
       {/* Empty state */}
       {liveItems.length === 0 && !showAddForm && (
-        <Text c="dimmed" ta="center" py="xl">
-          {t.documentDetail.noItemsYet}
-        </Text>
+        <Stack align="center" gap="sm" py={48}>
+          <Box
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background:
+                'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Plus size={24} color="var(--mantine-color-indigo-4)" />
+          </Box>
+          <Text c="dimmed" ta="center" size="sm">
+            {t.documentDetail.noItemsYet}
+          </Text>
+        </Stack>
       )}
 
-      {/* Section cards */}
-      {sectionNames.map((sectionName) => (
-        <SectionCard
-          key={sectionName}
-          sectionName={sectionName}
-          sectionItems={sections.get(sectionName) ?? []}
-          expanded={expandedSections.has(sectionName)}
+      {/* Recursive tree rendering */}
+      {tree.map((node) => (
+        <TreeNode
+          key={node.id}
+          node={node}
+          depth={0}
+          displayLabels={displayLabels}
+          expandedItems={expandedItems}
           selectedIds={selectedIds}
           editedItems={editedItems}
           deletedItemIds={deletedItemIds}
           editingItemId={editingItemId}
-          onToggleExpand={() => toggleSection(sectionName)}
+          onToggleItemExpand={toggleItemExpand}
           onToggleSelect={onToggleSelect}
           onStartEdit={onStartEdit}
           onCancelEdit={onCancelEdit}
           onSaveEdit={onSaveEdit}
           onDelete={onDelete}
           onSplit={onSplit}
+          onAddSubItem={handleAddSubItem}
           t={t}
         />
       ))}
@@ -1116,10 +1228,22 @@ export function AssignmentOutlineView({
       {/* Add item form or button */}
       {showAddForm ? (
         <AddItemForm
-          onAdd={onAddItem}
-          onCancel={() => setShowAddForm(false)}
+          onAdd={async (data) => {
+            const result = await onAddItem({ ...data, parentItemId: addSubItemParentId });
+            if (result) setAddSubItemParentId(null);
+            return result;
+          }}
+          onCancel={() => {
+            setShowAddForm(false);
+            setAddSubItemParentId(null);
+          }}
           saving={isAddingItem}
           t={t}
+          parentLabel={
+            addSubItemParentId
+              ? `Sub-question of ${displayLabels.get(addSubItemParentId) ?? '?'}`
+              : undefined
+          }
         />
       ) : (
         <Button
