@@ -374,6 +374,11 @@ export const translations = {
       hasWarnings: '有警告',
       merge: '合并',
       split: '从 --- 处拆分',
+      batchAnswers: '批量答案',
+      pasteAnswersHere: '在此粘贴答案文本...',
+      matchPreview: '匹配预览',
+      unmatched: '未匹配',
+      applyMatches: '应用匹配',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -1199,6 +1204,11 @@ export const translations = {
       hasWarnings: 'Has warnings',
       merge: 'Merge',
       split: 'Split at ---',
+      batchAnswers: 'Batch Answers',
+      pasteAnswersHere: 'Paste answer text here...',
+      matchPreview: 'Match Preview',
+      unmatched: 'Unmatched',
+      applyMatches: 'Apply Matches',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',
