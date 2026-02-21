@@ -8,6 +8,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { MODE_CONFIGS } from '@/constants/modes';
+import { AppError } from '@/lib/errors';
+import { parseGeminiError } from '@/lib/gemini';
 import { getChatService } from '@/lib/services/ChatService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -179,27 +181,12 @@ export async function POST(req: NextRequest) {
         } catch (error) {
           console.error('Streaming error:', sanitizeError(error));
 
-          let clientMessage = 'An unexpected error occurred. Please contact support.';
-          const isLimitError = false;
-
-          // Check if it's a Gemini API error (Third Party)
-          const errorMessage = error instanceof Error ? error.message : String(error);
-
-          // Detect Gemini 429/Resource Exhausted
-          if (
-            errorMessage.includes('429') ||
-            errorMessage.includes('RESOURCE_EXHAUSTED') ||
-            errorMessage.includes('quota')
-          ) {
-            // It's a third-party capacity issue, not the user's plan limit
-            clientMessage =
-              'The AI service is currently experiencing high volume. Please try again in a moment.';
-            // We do NOT set isLimitError=true here because that triggers the "Upgrade Plan" modal
-            // which is reserved for when the USER hits their own limit.
-          }
+          const appErr = error instanceof AppError ? error : parseGeminiError(error);
 
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: clientMessage, isLimitError })}\n\n`),
+            encoder.encode(
+              `data: ${JSON.stringify({ error: appErr.message, isLimitError: false, code: appErr.code })}\n\n`,
+            ),
           );
           controller.close();
         }
@@ -216,27 +203,17 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Failed to start stream:', sanitizeError(error));
 
-    // Check if it's a rate limit error
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const isRateLimit =
-      errorMessage.includes('429') ||
-      errorMessage.includes('RESOURCE_EXHAUSTED') ||
-      errorMessage.includes('quota');
+    const appErr = error instanceof AppError ? error : parseGeminiError(error);
+    const retryable = [
+      'GEMINI_RATE_LIMITED',
+      'GEMINI_QUOTA_EXCEEDED',
+      'GEMINI_UNAVAILABLE',
+    ].includes(appErr.code);
 
-    if (isRateLimit) {
-      // Third-party API limit (Gemini) - do NOT flag as user limit error
-      return errorResponse(
-        'The AI service is currently experiencing high volume. Please try again in a moment.',
-        429,
-        {
-          isLimitError: false, // Explicitly false so UI doesn't show Upgrade modal
-          isRetryable: true,
-        },
-      );
-    }
-
-    return errorResponse('An unexpected error occurred. Please try again.', 500, {
-      isRetryable: true,
+    return errorResponse(appErr.message, retryable ? 429 : 500, {
+      isLimitError: false,
+      isRetryable: retryable,
+      code: appErr.code,
     });
   }
 }

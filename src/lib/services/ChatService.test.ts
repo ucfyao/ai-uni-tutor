@@ -179,7 +179,9 @@ describe('ChatService', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.spyOn(service as any, 'delay').mockResolvedValue(undefined);
 
-      await expect(service.generateResponse(baseOptions())).rejects.toThrow('RESOURCE_EXHAUSTED');
+      await expect(service.generateResponse(baseOptions())).rejects.toThrow(
+        'AI service rate limited. Please retry shortly.',
+      );
       expect(mockGenerateContent).toHaveBeenCalledTimes(3);
     });
 
@@ -187,18 +189,14 @@ describe('ChatService', () => {
       const genericError = new Error('Internal server error');
       mockGenerateContent.mockRejectedValue(genericError);
 
-      await expect(service.generateResponse(baseOptions())).rejects.toThrow(
-        'Internal server error',
-      );
+      await expect(service.generateResponse(baseOptions())).rejects.toThrow('AI service error.');
       expect(mockGenerateContent).toHaveBeenCalledTimes(1);
     });
 
     it('should throw when AI returns empty text', async () => {
       mockGenerateContent.mockResolvedValue({ text: '' });
 
-      await expect(service.generateResponse(baseOptions())).rejects.toThrow(
-        'Empty response from AI model',
-      );
+      await expect(service.generateResponse(baseOptions())).rejects.toThrow('AI service error.');
     });
 
     it('should include RAG context when available', async () => {

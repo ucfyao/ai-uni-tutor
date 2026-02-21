@@ -1,6 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
 import type { ExtractedSection } from './types';
 
@@ -101,13 +101,17 @@ export async function extractSections(
 
   const prompt = buildExtractionPrompt(pages);
 
-  const response = await getGenAI().models.generateContent({
-    model: GEMINI_MODELS.parse,
-    contents: prompt,
-    config: { responseMimeType: 'application/json', temperature: 0 },
-  });
-
-  const text = response.text ?? '';
+  let text: string;
+  try {
+    const response = await getGenAI().models.generateContent({
+      model: GEMINI_MODELS.parse,
+      contents: prompt,
+      config: { responseMimeType: 'application/json', temperature: 0 },
+    });
+    text = response.text ?? '';
+  } catch (error) {
+    throw parseGeminiError(error);
+  }
   if (!text.trim()) {
     return { sections: [], warnings: ['Gemini returned empty response'] };
   }
