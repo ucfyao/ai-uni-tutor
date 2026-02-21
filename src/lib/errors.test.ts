@@ -179,20 +179,65 @@ describe('errors', () => {
   // ── AppError.from ──
 
   describe('AppError.from', () => {
-    describe('ApiError with status codes', () => {
-      it('maps 429 + RESOURCE_EXHAUSTED to GEMINI_QUOTA_EXCEEDED', () => {
-        const err = new ApiError({ status: 429, message: 'RESOURCE_EXHAUSTED: quota exceeded' });
-        const result = AppError.from(err);
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe('GEMINI_QUOTA_EXCEEDED');
+    /** Build ApiError with realistic JSON body matching Gemini SDK format */
+    const geminiError = (code: number, grpcStatus: string) =>
+      new ApiError({
+        status: code,
+        message: JSON.stringify({ error: { code, status: grpcStatus, message: 'test' } }),
       });
 
-      it('maps 429 + quota to GEMINI_QUOTA_EXCEEDED', () => {
-        const err = new ApiError({ status: 429, message: 'You have exceeded your quota' });
-        expect(AppError.from(err).code).toBe('GEMINI_QUOTA_EXCEEDED');
+    /** Build ApiError with streaming prefix ("got status: N. {...}") */
+    const streamingError = (code: number, grpcStatus: string) =>
+      new ApiError({
+        status: code,
+        message: `got status: ${code}. ${JSON.stringify({ error: { code, status: grpcStatus } })}`,
       });
 
-      it('maps 429 + other message to GEMINI_RATE_LIMITED', () => {
+    describe('gRPC status from JSON body', () => {
+      it('maps RESOURCE_EXHAUSTED to GEMINI_QUOTA_EXCEEDED', () => {
+        expect(AppError.from(geminiError(429, 'RESOURCE_EXHAUSTED')).code).toBe(
+          'GEMINI_QUOTA_EXCEEDED',
+        );
+      });
+
+      it('maps UNAVAILABLE to GEMINI_UNAVAILABLE', () => {
+        expect(AppError.from(geminiError(503, 'UNAVAILABLE')).code).toBe('GEMINI_UNAVAILABLE');
+      });
+
+      it('maps INTERNAL to GEMINI_UNAVAILABLE', () => {
+        expect(AppError.from(geminiError(500, 'INTERNAL')).code).toBe('GEMINI_UNAVAILABLE');
+      });
+
+      it('maps PERMISSION_DENIED to GEMINI_INVALID_KEY', () => {
+        expect(AppError.from(geminiError(403, 'PERMISSION_DENIED')).code).toBe(
+          'GEMINI_INVALID_KEY',
+        );
+      });
+
+      it('maps UNAUTHENTICATED to GEMINI_INVALID_KEY', () => {
+        expect(AppError.from(geminiError(401, 'UNAUTHENTICATED')).code).toBe('GEMINI_INVALID_KEY');
+      });
+
+      it('falls through unmapped gRPC status to HTTP fallback', () => {
+        // INVALID_ARGUMENT not in GRPC_STATUS_MAP → falls to HTTP 400 → not in HTTP_STATUS_MAP → GEMINI_ERROR
+        expect(AppError.from(geminiError(400, 'INVALID_ARGUMENT')).code).toBe('GEMINI_ERROR');
+      });
+    });
+
+    describe('streaming error format (prefixed JSON)', () => {
+      it('parses JSON after "got status: N. " prefix', () => {
+        expect(AppError.from(streamingError(429, 'RESOURCE_EXHAUSTED')).code).toBe(
+          'GEMINI_QUOTA_EXCEEDED',
+        );
+      });
+
+      it('maps streaming UNAVAILABLE to GEMINI_UNAVAILABLE', () => {
+        expect(AppError.from(streamingError(503, 'UNAVAILABLE')).code).toBe('GEMINI_UNAVAILABLE');
+      });
+    });
+
+    describe('HTTP status fallback (non-JSON message)', () => {
+      it('maps 429 to GEMINI_RATE_LIMITED', () => {
         const err = new ApiError({ status: 429, message: 'Too many requests' });
         expect(AppError.from(err).code).toBe('GEMINI_RATE_LIMITED');
       });
@@ -217,74 +262,39 @@ describe('errors', () => {
         expect(AppError.from(err).code).toBe('GEMINI_UNAVAILABLE');
       });
 
-      it('maps 400 + safety to GEMINI_CONTENT_BLOCKED', () => {
-        const err = new ApiError({ status: 400, message: 'Content blocked by safety filters' });
-        expect(AppError.from(err).code).toBe('GEMINI_CONTENT_BLOCKED');
-      });
-
-      it('maps 400 + HARM_CATEGORY to GEMINI_CONTENT_BLOCKED', () => {
-        const err = new ApiError({ status: 400, message: 'HARM_CATEGORY_DANGEROUS_CONTENT' });
-        expect(AppError.from(err).code).toBe('GEMINI_CONTENT_BLOCKED');
-      });
-
-      it('maps 400 + other message to GEMINI_ERROR', () => {
-        const err = new ApiError({ status: 400, message: 'Invalid argument' });
-        expect(AppError.from(err).code).toBe('GEMINI_ERROR');
-      });
-
-      it('maps unmapped status (404) to GEMINI_ERROR', () => {
+      it('maps unmapped status to fallback', () => {
         const err = new ApiError({ status: 404, message: 'Not found' });
         expect(AppError.from(err).code).toBe('GEMINI_ERROR');
       });
     });
 
-    describe('plain Error fallback', () => {
-      it('maps message with 429 to GEMINI_RATE_LIMITED', () => {
-        expect(AppError.from(new Error('429 Too Many Requests')).code).toBe('GEMINI_RATE_LIMITED');
+    describe('edge cases', () => {
+      it('returns existing AppError unchanged', () => {
+        const original = new AppError('VALIDATION', 'bad input');
+        expect(AppError.from(original)).toBe(original);
       });
 
-      it('maps message with RESOURCE_EXHAUSTED to GEMINI_RATE_LIMITED', () => {
-        expect(AppError.from(new Error('RESOURCE_EXHAUSTED')).code).toBe('GEMINI_RATE_LIMITED');
-      });
-
-      it('maps message with rate limit to GEMINI_RATE_LIMITED', () => {
-        expect(AppError.from(new Error('rate limit exceeded')).code).toBe('GEMINI_RATE_LIMITED');
-      });
-
-      it('maps message with safety to GEMINI_CONTENT_BLOCKED', () => {
-        expect(AppError.from(new Error('blocked by safety filters')).code).toBe(
-          'GEMINI_CONTENT_BLOCKED',
-        );
-      });
-
-      it('maps generic error to GEMINI_ERROR', () => {
+      it('maps plain Error to fallback', () => {
         expect(AppError.from(new Error('Something went wrong')).code).toBe('GEMINI_ERROR');
       });
-    });
 
-    describe('non-Error values', () => {
-      it('maps string to GEMINI_ERROR', () => {
+      it('maps string to fallback', () => {
         expect(AppError.from('some string').code).toBe('GEMINI_ERROR');
       });
 
-      it('maps null to GEMINI_ERROR', () => {
+      it('maps null to fallback', () => {
         expect(AppError.from(null).code).toBe('GEMINI_ERROR');
       });
 
-      it('maps undefined to GEMINI_ERROR', () => {
+      it('maps undefined to fallback', () => {
         expect(AppError.from(undefined).code).toBe('GEMINI_ERROR');
       });
-    });
 
-    it('returns existing AppError unchanged', () => {
-      const original = new AppError('VALIDATION', 'bad input');
-      expect(AppError.from(original)).toBe(original);
-    });
-
-    it('always returns AppError instance', () => {
-      expect(AppError.from(new Error('anything'))).toBeInstanceOf(AppError);
-      expect(AppError.from(new ApiError({ status: 500, message: '' }))).toBeInstanceOf(AppError);
-      expect(AppError.from('string')).toBeInstanceOf(AppError);
+      it('always returns AppError instance', () => {
+        expect(AppError.from(new Error('anything'))).toBeInstanceOf(AppError);
+        expect(AppError.from(geminiError(500, 'INTERNAL'))).toBeInstanceOf(AppError);
+        expect(AppError.from('string')).toBeInstanceOf(AppError);
+      });
     });
   });
 

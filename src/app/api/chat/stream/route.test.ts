@@ -1,3 +1,4 @@
+import { ApiError } from '@google/genai';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -364,7 +365,10 @@ describe('POST /api/chat/stream', () => {
 
       // eslint-disable-next-line require-yield
       async function* rateLimitStream(): AsyncGenerator<string, void, unknown> {
-        throw new Error('429 RESOURCE_EXHAUSTED: quota exceeded');
+        throw new ApiError({
+          status: 429,
+          message: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }),
+        });
       }
       mockChatService.generateStream.mockReturnValue(rateLimitStream());
 
@@ -373,7 +377,7 @@ describe('POST /api/chat/stream', () => {
 
       // The error should NOT be flagged as a user limit error
       expect(streamContent).toContain('"isLimitError":false');
-      expect(streamContent).toContain('rate limited');
+      expect(streamContent).toContain('quota exceeded');
     });
   });
 
@@ -401,7 +405,10 @@ describe('POST /api/chat/stream', () => {
       mockGetCurrentUser.mockResolvedValue(MOCK_USER);
       mockQuotaService.checkAndConsume.mockResolvedValue({ allowed: true });
       mockChatService.generateStream.mockImplementation(() => {
-        throw new Error('429 RESOURCE_EXHAUSTED');
+        throw new ApiError({
+          status: 429,
+          message: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }),
+        });
       });
 
       const response = await POST(makeRequest(VALID_BODY));
@@ -410,7 +417,7 @@ describe('POST /api/chat/stream', () => {
       expect(response.status).toBe(429);
       expect(body.isLimitError).toBe(false);
       expect(body.isRetryable).toBe(true);
-      expect(body.error).toContain('rate limited');
+      expect(body.error).toContain('quota exceeded');
     });
   });
 
