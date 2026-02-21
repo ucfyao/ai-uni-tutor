@@ -1,3 +1,4 @@
+import { ApiError } from '@google/genai';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AppError,
@@ -172,6 +173,128 @@ describe('errors', () => {
     it('should be an instance of AppError', () => {
       const err = new ForbiddenError();
       expect(err).toBeInstanceOf(AppError);
+    });
+  });
+
+  // ── AppError.from ──
+
+  describe('AppError.from', () => {
+    /** Build ApiError with realistic JSON body matching Gemini SDK format */
+    const geminiError = (code: number, grpcStatus: string) =>
+      new ApiError({
+        status: code,
+        message: JSON.stringify({ error: { code, status: grpcStatus, message: 'test' } }),
+      });
+
+    /** Build ApiError with streaming prefix ("got status: N. {...}") */
+    const streamingError = (code: number, grpcStatus: string) =>
+      new ApiError({
+        status: code,
+        message: `got status: ${code}. ${JSON.stringify({ error: { code, status: grpcStatus } })}`,
+      });
+
+    describe('gRPC status from JSON body', () => {
+      it('maps RESOURCE_EXHAUSTED to GEMINI_QUOTA_EXCEEDED', () => {
+        expect(AppError.from(geminiError(429, 'RESOURCE_EXHAUSTED')).code).toBe(
+          'GEMINI_QUOTA_EXCEEDED',
+        );
+      });
+
+      it('maps UNAVAILABLE to GEMINI_UNAVAILABLE', () => {
+        expect(AppError.from(geminiError(503, 'UNAVAILABLE')).code).toBe('GEMINI_UNAVAILABLE');
+      });
+
+      it('maps INTERNAL to GEMINI_UNAVAILABLE', () => {
+        expect(AppError.from(geminiError(500, 'INTERNAL')).code).toBe('GEMINI_UNAVAILABLE');
+      });
+
+      it('maps PERMISSION_DENIED to GEMINI_INVALID_KEY', () => {
+        expect(AppError.from(geminiError(403, 'PERMISSION_DENIED')).code).toBe(
+          'GEMINI_INVALID_KEY',
+        );
+      });
+
+      it('maps UNAUTHENTICATED to GEMINI_INVALID_KEY', () => {
+        expect(AppError.from(geminiError(401, 'UNAUTHENTICATED')).code).toBe('GEMINI_INVALID_KEY');
+      });
+
+      it('falls through unmapped gRPC status to HTTP fallback', () => {
+        // INVALID_ARGUMENT not in GRPC_STATUS_MAP → falls to HTTP 400 → not in HTTP_STATUS_MAP → GEMINI_ERROR
+        expect(AppError.from(geminiError(400, 'INVALID_ARGUMENT')).code).toBe('GEMINI_ERROR');
+      });
+    });
+
+    describe('streaming error format (prefixed JSON)', () => {
+      it('parses JSON after "got status: N. " prefix', () => {
+        expect(AppError.from(streamingError(429, 'RESOURCE_EXHAUSTED')).code).toBe(
+          'GEMINI_QUOTA_EXCEEDED',
+        );
+      });
+
+      it('maps streaming UNAVAILABLE to GEMINI_UNAVAILABLE', () => {
+        expect(AppError.from(streamingError(503, 'UNAVAILABLE')).code).toBe('GEMINI_UNAVAILABLE');
+      });
+    });
+
+    describe('HTTP status fallback (non-JSON message)', () => {
+      it('maps 429 to GEMINI_RATE_LIMITED', () => {
+        const err = new ApiError({ status: 429, message: 'Too many requests' });
+        expect(AppError.from(err).code).toBe('GEMINI_RATE_LIMITED');
+      });
+
+      it('maps 401 to GEMINI_INVALID_KEY', () => {
+        const err = new ApiError({ status: 401, message: 'Unauthorized' });
+        expect(AppError.from(err).code).toBe('GEMINI_INVALID_KEY');
+      });
+
+      it('maps 403 to GEMINI_INVALID_KEY', () => {
+        const err = new ApiError({ status: 403, message: 'Forbidden' });
+        expect(AppError.from(err).code).toBe('GEMINI_INVALID_KEY');
+      });
+
+      it('maps 500 to GEMINI_UNAVAILABLE', () => {
+        const err = new ApiError({ status: 500, message: 'Internal error' });
+        expect(AppError.from(err).code).toBe('GEMINI_UNAVAILABLE');
+      });
+
+      it('maps 503 to GEMINI_UNAVAILABLE', () => {
+        const err = new ApiError({ status: 503, message: 'Service unavailable' });
+        expect(AppError.from(err).code).toBe('GEMINI_UNAVAILABLE');
+      });
+
+      it('maps unmapped status to fallback', () => {
+        const err = new ApiError({ status: 404, message: 'Not found' });
+        expect(AppError.from(err).code).toBe('GEMINI_ERROR');
+      });
+    });
+
+    describe('edge cases', () => {
+      it('returns existing AppError unchanged', () => {
+        const original = new AppError('VALIDATION', 'bad input');
+        expect(AppError.from(original)).toBe(original);
+      });
+
+      it('maps plain Error to fallback', () => {
+        expect(AppError.from(new Error('Something went wrong')).code).toBe('GEMINI_ERROR');
+      });
+
+      it('maps string to fallback', () => {
+        expect(AppError.from('some string').code).toBe('GEMINI_ERROR');
+      });
+
+      it('maps null to fallback', () => {
+        expect(AppError.from(null).code).toBe('GEMINI_ERROR');
+      });
+
+      it('maps undefined to fallback', () => {
+        expect(AppError.from(undefined).code).toBe('GEMINI_ERROR');
+      });
+
+      it('always returns AppError instance', () => {
+        expect(AppError.from(new Error('anything'))).toBeInstanceOf(AppError);
+        expect(AppError.from(geminiError(500, 'INTERNAL'))).toBeInstanceOf(AppError);
+        expect(AppError.from('string')).toBeInstanceOf(AppError);
+      });
     });
   });
 

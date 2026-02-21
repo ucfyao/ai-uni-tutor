@@ -1,3 +1,4 @@
+import { ApiError } from '@google/genai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { GEMINI_MODELS } from '@/lib/gemini';
@@ -151,7 +152,10 @@ describe('ChatService', () => {
     });
 
     it('should retry on 429 rate limit error up to MAX_RETRIES', async () => {
-      const rateLimitError = new Error('429 Too Many Requests');
+      const rateLimitError = new ApiError({
+        status: 429,
+        message: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }),
+      });
 
       mockGenerateContent
         .mockRejectedValueOnce(rateLimitError)
@@ -169,7 +173,10 @@ describe('ChatService', () => {
     });
 
     it('should throw after exhausting all retries on rate limit', async () => {
-      const rateLimitError = new Error('RESOURCE_EXHAUSTED');
+      const rateLimitError = new ApiError({
+        status: 429,
+        message: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }),
+      });
 
       mockGenerateContent
         .mockRejectedValueOnce(rateLimitError)
@@ -180,7 +187,7 @@ describe('ChatService', () => {
       vi.spyOn(service as any, 'delay').mockResolvedValue(undefined);
 
       await expect(service.generateResponse(baseOptions())).rejects.toThrow(
-        'AI service rate limited. Please retry shortly.',
+        'AI service quota exceeded. Contact your administrator.',
       );
       expect(mockGenerateContent).toHaveBeenCalledTimes(3);
     });

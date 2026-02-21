@@ -1,3 +1,4 @@
+import { ApiError } from '@google/genai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
 
@@ -58,12 +59,17 @@ describe('section-extractor', () => {
   });
 
   it('handles Gemini API failure by throwing', async () => {
-    mockGemini.setGenerateError(new Error('429 RESOURCE_EXHAUSTED'));
+    mockGemini.setGenerateError(
+      new ApiError({
+        status: 429,
+        message: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }),
+      }),
+    );
 
     const pages = [{ page: 1, text: 'Content' }];
 
     await expect(extractSections(pages)).rejects.toThrow(
-      'AI service rate limited. Please retry shortly.',
+      'AI service quota exceeded. Contact your administrator.',
     );
   });
 

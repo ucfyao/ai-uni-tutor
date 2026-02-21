@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppError } from '@/lib/errors';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { MockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { ExamPaper, ExamQuestion, MockExam, MockExamQuestion } from '@/types/exam';
@@ -14,7 +13,6 @@ vi.mock('@/lib/gemini', () => ({
     embedding: 'gemini-embedding-001',
   },
   getGenAI: vi.fn(),
-  parseGeminiError: vi.fn(),
 }));
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -175,10 +173,6 @@ describe('MockExamService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Configure parseGeminiError to return a proper AppError
-    vi.mocked(geminiModule.parseGeminiError).mockImplementation(() => {
-      return new AppError('GEMINI_ERROR');
-    });
     mockRepo = createMockMockExamRepo();
     paperRepo = createMockPaperRepo();
     service = new MockExamService(

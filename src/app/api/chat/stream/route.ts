@@ -9,7 +9,6 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { MODE_CONFIGS } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
-import { parseGeminiError } from '@/lib/gemini';
 import { getChatService } from '@/lib/services/ChatService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -181,7 +180,7 @@ export async function POST(req: NextRequest) {
         } catch (error) {
           console.error('Streaming error:', sanitizeError(error));
 
-          const appErr = error instanceof AppError ? error : parseGeminiError(error);
+          const appErr = AppError.from(error);
 
           controller.enqueue(
             encoder.encode(
@@ -203,7 +202,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Failed to start stream:', sanitizeError(error));
 
-    const appErr = error instanceof AppError ? error : parseGeminiError(error);
+    const appErr = AppError.from(error);
     const retryable = [
       'GEMINI_RATE_LIMITED',
       'GEMINI_QUOTA_EXCEEDED',

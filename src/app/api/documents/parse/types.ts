@@ -1,5 +1,4 @@
 import { AppError } from '@/lib/errors';
-import { parseGeminiError } from '@/lib/gemini';
 import type { SSEEventMap } from '@/lib/sse';
 
 export type SSESendFn = <K extends keyof SSEEventMap>(event: K, data: SSEEventMap[K]) => void;
@@ -23,7 +22,7 @@ export function sendGeminiError(
   error: unknown,
   context: 'extraction' | 'embedding',
 ) {
-  const appErr = error instanceof AppError ? error : parseGeminiError(error);
+  const appErr = AppError.from(error);
   console.error(`${context} [${appErr.code}]:`, error);
 
   // Specific Gemini errors → use ERROR_MAP message

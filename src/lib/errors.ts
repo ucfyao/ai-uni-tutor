@@ -22,6 +22,35 @@ export const ERROR_MAP = {
 
 type ErrorCode = keyof typeof ERROR_MAP;
 
+/** gRPC status string → ErrorCode (parsed from Gemini JSON error body) */
+const GRPC_STATUS_MAP: Partial<Record<string, ErrorCode>> = {
+  RESOURCE_EXHAUSTED: 'GEMINI_QUOTA_EXCEEDED',
+  UNAVAILABLE: 'GEMINI_UNAVAILABLE',
+  INTERNAL: 'GEMINI_UNAVAILABLE',
+  PERMISSION_DENIED: 'GEMINI_INVALID_KEY',
+  UNAUTHENTICATED: 'GEMINI_INVALID_KEY',
+};
+
+/** HTTP status → ErrorCode (fallback when message is not JSON) */
+const HTTP_STATUS_MAP: Partial<Record<number, ErrorCode>> = {
+  401: 'GEMINI_INVALID_KEY',
+  403: 'GEMINI_INVALID_KEY',
+  429: 'GEMINI_RATE_LIMITED',
+  500: 'GEMINI_UNAVAILABLE',
+  503: 'GEMINI_UNAVAILABLE',
+};
+
+/** Extract first JSON object from a string (handles SDK prefix like "got status: 429. {...}") */
+function extractJson(msg: string): unknown | undefined {
+  const idx = msg.indexOf('{');
+  if (idx < 0) return undefined;
+  try {
+    return JSON.parse(msg.slice(idx));
+  } catch {
+    return undefined;
+  }
+}
+
 export class AppError extends Error {
   constructor(
     public code: ErrorCode,
@@ -29,6 +58,32 @@ export class AppError extends Error {
   ) {
     super(message ?? ERROR_MAP[code]);
     this.name = 'AppError';
+  }
+
+  /** Map any error into AppError. Parses Gemini JSON body → gRPC status, then HTTP status fallback. */
+  static from(error: unknown, fallbackCode: ErrorCode = 'GEMINI_ERROR'): AppError {
+    if (error instanceof AppError) return error;
+
+    const status = (error as { status?: number })?.status;
+    const msg = error instanceof Error ? error.message : '';
+
+    // 1. Parse structured JSON body (Gemini API returns JSON in ApiError.message)
+    if (msg) {
+      const body = extractJson(msg) as { error?: { status?: string } } | undefined;
+      const grpcStatus = body?.error?.status;
+      if (typeof grpcStatus === 'string') {
+        const mapped = GRPC_STATUS_MAP[grpcStatus];
+        if (mapped) return new AppError(mapped);
+      }
+    }
+
+    // 2. HTTP status code fallback
+    if (typeof status === 'number') {
+      const mapped = HTTP_STATUS_MAP[status];
+      if (mapped) return new AppError(mapped);
+    }
+
+    return new AppError(fallbackCode);
   }
 }
 
