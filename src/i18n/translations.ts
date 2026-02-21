@@ -371,6 +371,7 @@ export const translations = {
       continueUpload: '继续上传',
       checkingDuplicate: '检查重复文件...',
       emptyLectureUploadPrompt: '上传讲义 PDF，AI 将自动提取知识点',
+      hasWarnings: '有警告',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -1193,6 +1194,7 @@ export const translations = {
       continueUpload: 'Continue upload',
       checkingDuplicate: 'Checking for duplicates...',
       emptyLectureUploadPrompt: 'Upload a lecture PDF to automatically extract knowledge points',
+      hasWarnings: 'Has warnings',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',

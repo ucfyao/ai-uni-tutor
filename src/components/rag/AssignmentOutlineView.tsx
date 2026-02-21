@@ -489,7 +489,13 @@ function ItemCard({
         background: isSelected
           ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
           : 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
-        border: `1px solid ${isSelected ? 'light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))' : 'var(--mantine-color-default-border)'}`,
+        border: `1px solid ${
+          isSelected
+            ? 'light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))'
+            : item.warnings && item.warnings.length > 0
+              ? 'var(--mantine-color-orange-3)'
+              : 'var(--mantine-color-default-border)'
+        }`,
         transition: 'all 0.15s ease',
       }}
     >
@@ -528,6 +534,20 @@ function ItemCard({
                 style={{ flexShrink: 0 }}
               >
                 {(t.knowledge.difficulties as TranslationMap)[difficulty] ?? difficulty}
+              </Badge>
+            )}
+            {item.warnings && item.warnings.length > 0 && (
+              <Badge
+                size="xs"
+                variant="light"
+                color="orange"
+                style={{ flexShrink: 0, cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded((v) => !v);
+                }}
+              >
+                ⚠ {item.warnings.length}
               </Badge>
             )}
             {item.points > 0 && (
@@ -583,6 +603,22 @@ function ItemCard({
                 {t.documentDetail.explanation}
               </Text>
               <MarkdownRenderer content={displayExplanation} compact />
+            </Box>
+          )}
+
+          {/* Warnings */}
+          {item.warnings && item.warnings.length > 0 && expanded && (
+            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}>
+              <Text size="xs" fw={600} c="orange" mb={2}>
+                Warnings
+              </Text>
+              <Stack gap={2}>
+                {item.warnings.map((w, i) => (
+                  <Text key={i} size="xs" c="dimmed">
+                    • {w}
+                  </Text>
+                ))}
+              </Stack>
             </Box>
           )}
         </Stack>
@@ -726,6 +762,7 @@ export function AssignmentOutlineView({
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [warningFilter, setWarningFilter] = useState(false);
   const [internalAddForm, setInternalAddForm] = useState(false);
 
   // Use controlled state from parent when provided, otherwise internal
@@ -769,11 +806,15 @@ export function AssignmentOutlineView({
       result = result.filter((i) => typeFilter.includes(getType(i)));
     }
 
+    if (warningFilter) {
+      result = result.filter((i) => i.warnings && i.warnings.length > 0);
+    }
+
     return result;
-  }, [liveItems, search, difficultyFilter, typeFilter]);
+  }, [liveItems, search, difficultyFilter, typeFilter, warningFilter]);
 
   const hasActiveFilters =
-    search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0;
+    search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0 || warningFilter;
 
   // Group by section
   const sections = useMemo(() => {
@@ -823,6 +864,7 @@ export function AssignmentOutlineView({
     setSearch('');
     setDifficultyFilter([]);
     setTypeFilter([]);
+    setWarningFilter(false);
   };
 
   return (
@@ -985,6 +1027,14 @@ export function AssignmentOutlineView({
                 style={{ minWidth: 160 }}
               />
             )}
+            <Button
+              variant={warningFilter ? 'filled' : 'light'}
+              color="orange"
+              size="compact-xs"
+              onClick={() => setWarningFilter((v) => !v)}
+            >
+              ⚠ {t.knowledge.hasWarnings}
+            </Button>
             {hasActiveFilters && (
               <Text size="xs" c="dimmed">
                 {filteredItems.length} {t.knowledge.results}
