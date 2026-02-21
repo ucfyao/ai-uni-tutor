@@ -262,7 +262,7 @@ export class AssignmentService {
         points: toMerge[0].points,
         type: toMerge[0].type,
         difficulty: toMerge[0].difficulty,
-        section: '',
+        parentIndex: null,
         sourcePages: (toMerge[0].metadata?.sourcePages as number[]) ?? [],
       };
       const enrichedContent = buildAssignmentItemContent(enriched);
