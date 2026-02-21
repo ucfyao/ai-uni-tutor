@@ -7,7 +7,7 @@ import { QuotaService } from './QuotaService';
 vi.mock('@/lib/redis', () => ({
   checkLLMUsage: vi.fn(),
   getLLMUsage: vi.fn(),
-  incrementModelStats: vi.fn(),
+  incrementModelStats: vi.fn().mockResolvedValue(undefined),
   llmFreeRatelimit: { limit: vi.fn().mockResolvedValue({ success: true }) },
   llmProRatelimit: { limit: vi.fn().mockResolvedValue({ success: true }) },
 }));

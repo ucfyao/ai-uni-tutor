@@ -8,7 +8,13 @@
 
 import { getEnv, getRateLimitConfig, isRateLimitEnabled } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
-import { checkLLMUsage, getLLMUsage, incrementModelStats, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
+import {
+  checkLLMUsage,
+  getLLMUsage,
+  incrementModelStats,
+  llmFreeRatelimit,
+  llmProRatelimit,
+} from '@/lib/redis';
 import { getProfileRepository } from '@/lib/repositories';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
 
@@ -82,7 +88,12 @@ export class QuotaService {
    * Check and consume quota (call before AI requests)
    */
   async checkAndConsume(userId: string, model?: string): Promise<QuotaCheckResult> {
-    // Skip in development unless explicitly enabled
+    // Always track per-model stats (fire-and-forget), even in dev
+    if (model) {
+      incrementModelStats(model).catch(() => {});
+    }
+
+    // Skip rate limiting in development unless explicitly enabled
     if (!isRateLimitEnabled()) {
       return {
         allowed: true,
@@ -123,11 +134,6 @@ export class QuotaService {
           isPro,
           error: `Daily limit reached (${count}/${dailyLimit}). Please upgrade to Pro for more.`,
         };
-      }
-
-      // Track per-model stats (fire-and-forget, non-blocking)
-      if (model) {
-        incrementModelStats(model);
       }
 
       return {
