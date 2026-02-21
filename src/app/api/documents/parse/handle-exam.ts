@@ -1,5 +1,5 @@
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
-import type { PipelineContext } from './types';
+import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
   const { send, signal, documentId, pages, hasAnswers } = ctx;
@@ -21,26 +21,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
     const questions = await parseQuestions(pages, hasAnswers, onBatchProgress);
     items = questions.map((q) => ({ type: 'question' as const, data: q }));
   } catch (e) {
-    console.error('LLM extraction error:', e);
-
-    const isQuotaError =
-      (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-      (typeof e === 'object' &&
-        e !== null &&
-        'status' in e &&
-        (e as { status: number }).status === 429);
-
-    if (isQuotaError) {
-      send('error', {
-        message: 'AI service quota exceeded. Please contact your administrator.',
-        code: 'LLM_QUOTA_EXCEEDED',
-      });
-    } else {
-      send('error', {
-        message: 'Failed to extract content from PDF',
-        code: 'EXTRACTION_ERROR',
-      });
-    }
+    sendGeminiError(send, e, 'extraction');
     return;
   }
 

@@ -1,4 +1,4 @@
-import type { PipelineContext } from './types';
+import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<void> {
   const { send, signal, documentId, pages } = ctx;
@@ -22,30 +22,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     parsedItems = parseResult.items;
     warnings = parseResult.warnings;
   } catch (e) {
-    console.error('Assignment extraction error:', e);
-    const isQuotaError =
-      (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-      (typeof e === 'object' &&
-        e !== null &&
-        'status' in e &&
-        (e as { status: number }).status === 429);
-
-    if (isQuotaError) {
-      send('log', { message: 'AI service quota exceeded', level: 'error' });
-      send('error', {
-        message: 'AI service quota exceeded. Please contact your administrator.',
-        code: 'LLM_QUOTA_EXCEEDED',
-      });
-    } else {
-      send('log', {
-        message: `Extraction failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
-        level: 'error',
-      });
-      send('error', {
-        message: 'Failed to extract questions from PDF',
-        code: 'EXTRACTION_ERROR',
-      });
-    }
+    sendGeminiError(send, e, 'extraction');
     return;
   }
 
@@ -125,30 +102,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
     candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
   } catch (e) {
-    console.error('Embedding generation error:', e);
-    const isQuotaError =
-      (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-      (typeof e === 'object' &&
-        e !== null &&
-        'status' in e &&
-        (e as { status: number }).status === 429);
-
-    if (isQuotaError) {
-      send('log', { message: 'Embedding service quota exceeded', level: 'error' });
-      send('error', {
-        message: 'Embedding service quota exceeded. Please try again later.',
-        code: 'EMBEDDING_QUOTA_EXCEEDED',
-      });
-    } else {
-      send('log', {
-        message: `Embedding failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
-        level: 'error',
-      });
-      send('error', {
-        message: 'Failed to generate embeddings for questions',
-        code: 'EMBEDDING_ERROR',
-      });
-    }
+    sendGeminiError(send, e, 'embedding');
     return;
   }
   send('log', { message: 'Embeddings generated', level: 'success' });

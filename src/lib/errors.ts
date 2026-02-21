@@ -12,6 +12,12 @@ export const ERROR_MAP = {
   QUOTA_EXCEEDED: 'Usage limit reached',
   VALIDATION: 'Invalid input',
   DB_ERROR: 'Database operation failed',
+  GEMINI_RATE_LIMITED: 'AI service rate limited. Please retry shortly.',
+  GEMINI_QUOTA_EXCEEDED: 'AI service quota exceeded. Contact your administrator.',
+  GEMINI_UNAVAILABLE: 'AI service temporarily unavailable.',
+  GEMINI_INVALID_KEY: 'AI service configuration error.',
+  GEMINI_CONTENT_BLOCKED: 'Content blocked by safety filters.',
+  GEMINI_ERROR: 'AI service error.',
 } as const;
 
 type ErrorCode = keyof typeof ERROR_MAP;

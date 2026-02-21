@@ -1,7 +1,7 @@
 import type { CreateLectureChunkDTO } from '@/lib/domain/models/Document';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import type { Json } from '@/types/database';
-import type { PipelineContext } from './types';
+import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleLecturePipeline(ctx: PipelineContext): Promise<void> {
   const { send, signal, documentId, pages, fileHash, documentName } = ctx;
@@ -226,27 +226,6 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       console.warn('Failed to store file hash (non-fatal):', hashErr);
     }
   } catch (e) {
-    console.error('LLM extraction error:', e);
-
-    const isQuotaError =
-      (e instanceof Error && /quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(e.message)) ||
-      (typeof e === 'object' &&
-        e !== null &&
-        'status' in e &&
-        (e as { status: number }).status === 429);
-
-    if (isQuotaError) {
-      send('log', { message: 'AI service quota exceeded', level: 'error' });
-      send('error', {
-        message: 'AI service quota exceeded. Please contact your administrator.',
-        code: 'LLM_QUOTA_EXCEEDED',
-      });
-    } else {
-      send('log', { message: 'Failed to extract content from PDF', level: 'error' });
-      send('error', {
-        message: 'Failed to extract content from PDF',
-        code: 'EXTRACTION_ERROR',
-      });
-    }
+    sendGeminiError(send, e, 'extraction');
   }
 }

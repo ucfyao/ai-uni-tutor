@@ -1,6 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
 import type { Json } from '@/types/database';
 
 const rerankResponseSchema = z.array(
@@ -73,7 +73,8 @@ Every chunk index must appear exactly once. Return ONLY valid JSON, no markdown.
 
     return scored.slice(0, topK);
   } catch (error) {
-    console.warn('Reranking failed, using original order:', error);
+    const geminiErr = parseGeminiError(error);
+    console.warn(`Reranking failed [${geminiErr.code}], using original order:`, geminiErr.message);
     return fallbackRank(chunks, topK);
   }
 }

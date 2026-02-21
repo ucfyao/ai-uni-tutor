@@ -153,7 +153,7 @@ describe('embedding', () => {
 
       const result = await promise;
       expect(result).toBeInstanceOf(Error);
-      expect((result as Error).message).toBe('Persistent failure');
+      expect((result as Error).message).toBe('AI service error.');
       expect(mockGemini.client.models.embedContent).toHaveBeenCalledTimes(3);
     });
 
@@ -185,7 +185,7 @@ describe('embedding', () => {
       // All 3 attempts failed -> should have rejected with last error
       const result = await promise;
       expect(result).toBeInstanceOf(Error);
-      expect((result as Error).message).toBe('fail 3');
+      expect((result as Error).message).toBe('AI service error.');
     });
 
     it('should respect custom maxRetries parameter', async () => {
@@ -194,7 +194,7 @@ describe('embedding', () => {
       const promise = generateEmbeddingWithRetry('test', 1).catch((e: Error) => e);
       const result = await promise;
       expect(result).toBeInstanceOf(Error);
-      expect((result as Error).message).toBe('fail');
+      expect((result as Error).message).toBe('AI service error.');
       expect(mockGemini.client.models.embedContent).toHaveBeenCalledTimes(1);
     });
   });

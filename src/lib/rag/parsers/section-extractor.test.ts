@@ -62,7 +62,9 @@ describe('section-extractor', () => {
 
     const pages = [{ page: 1, text: 'Content' }];
 
-    await expect(extractSections(pages)).rejects.toThrow('429 RESOURCE_EXHAUSTED');
+    await expect(extractSections(pages)).rejects.toThrow(
+      'AI service rate limited. Please retry shortly.',
+    );
   });
 
   it('respects abort signal', async () => {

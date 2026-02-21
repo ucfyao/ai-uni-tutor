@@ -7,7 +7,7 @@
 
 import { parseAIResponse } from '@/lib/ai-utils';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
@@ -221,14 +221,20 @@ ${typesInstruction}
 `;
 
     // Single Gemini call
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODELS.chat,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.7,
-      },
-    });
+    let responseText: string;
+    try {
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODELS.chat,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+        },
+      });
+      responseText = response.text ?? '';
+    } catch (error) {
+      throw parseGeminiError(error);
+    }
 
     const parsed = parseAIResponse<{
       title?: string;
@@ -243,7 +249,7 @@ ${typesInstruction}
         knowledge_point?: string;
         difficulty?: string;
       }>;
-    }>(response.text);
+    }>(responseText);
 
     const questions = parsed.questions ?? [];
     if (questions.length === 0) {
@@ -427,7 +433,10 @@ Return JSON with these exact fields:
               sourceQuestionId: q.id,
             } satisfies MockExamQuestion;
           } catch (err) {
-            console.warn(`Variant generation failed for question ${q.id}, using original:`, err);
+            const geminiErr = err instanceof AppError ? err : parseGeminiError(err);
+            console.warn(
+              `Variant generation failed [${geminiErr.code}] for question ${q.id}, using original`,
+            );
             // Fallback: use original question
             return {
               content: q.content,
@@ -517,7 +526,8 @@ Return JSON with these exact fields:
         aiFeedback: parsed.feedback || 'Unable to generate feedback.',
       };
     } catch (err) {
-      console.warn('AI judging failed, falling back to simple matching:', err);
+      const geminiErr = err instanceof AppError ? err : parseGeminiError(err);
+      console.warn(`AI judging failed [${geminiErr.code}], falling back to simple matching`);
 
       const normalizedUser = userAnswer.trim().toLowerCase();
       const normalizedAnswer = question.answer.trim().toLowerCase();

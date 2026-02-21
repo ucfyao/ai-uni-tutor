@@ -21,6 +21,12 @@ describe('errors', () => {
         'QUOTA_EXCEEDED',
         'VALIDATION',
         'DB_ERROR',
+        'GEMINI_RATE_LIMITED',
+        'GEMINI_QUOTA_EXCEEDED',
+        'GEMINI_UNAVAILABLE',
+        'GEMINI_INVALID_KEY',
+        'GEMINI_CONTENT_BLOCKED',
+        'GEMINI_ERROR',
       ];
       expect(Object.keys(ERROR_MAP)).toEqual(expectedCodes);
     });
