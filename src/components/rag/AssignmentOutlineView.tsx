@@ -463,6 +463,8 @@ function ItemCard({
   onDelete: (id: string) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (isDeleted) return null;
 
   const difficulty = getDifficulty(item);
@@ -472,7 +474,6 @@ function ItemCard({
   const displayAnswer = (edited?.metadata?.referenceAnswer as string) ?? item.referenceAnswer ?? '';
   const displayExplanation = (edited?.metadata?.explanation as string) ?? item.explanation ?? '';
 
-  const [expanded, setExpanded] = useState(false);
   const contentTruncated = displayContent.length > 200;
   const shownContent = expanded ? displayContent : truncate(displayContent, 200);
 
