@@ -182,7 +182,6 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
 
   // Final surviving items — track their original parsedItems index
   const survivingOrigIndices = keepCandidateIndices.map((ci) => afterContentDedup[ci]);
-  const newContents = keepCandidateIndices.map((ci) => candidateContents[ci]);
   const newEmbeddings = keepCandidateIndices.map((ci) => candidateEmbeddings[ci]);
   const newItems = survivingOrigIndices.map((oi) => parsedItems[oi]);
 

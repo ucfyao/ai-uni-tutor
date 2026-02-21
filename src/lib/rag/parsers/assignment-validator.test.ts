@@ -4,6 +4,7 @@ import type { EnrichedAssignmentItem } from './types';
 
 function makeItem(overrides: Partial<EnrichedAssignmentItem> = {}): EnrichedAssignmentItem {
   return {
+    title: 'Question 1',
     orderNum: 1,
     content: 'What is the result of 2+2?',
     options: [],

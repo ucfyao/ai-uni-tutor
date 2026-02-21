@@ -21,6 +21,7 @@ function validResponse(items: unknown[]) {
 
 function makeItem(overrides: Record<string, unknown> = {}) {
   return {
+    title: 'Question 1',
     orderNum: 1,
     content: 'What is 2+2?',
     options: ['3', '4', '5'],
@@ -99,7 +100,8 @@ describe('assignment-extractor', () => {
     });
 
     it('defaults title to empty string when not provided', async () => {
-      mockGenerateContent.mockResolvedValue(validResponse([makeItem()]));
+      const { title: _, ...itemWithoutTitle } = makeItem();
+      mockGenerateContent.mockResolvedValue(validResponse([itemWithoutTitle]));
 
       const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
 
