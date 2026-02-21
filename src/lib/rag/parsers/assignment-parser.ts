@@ -2,7 +2,12 @@ import 'server-only';
 import type { PDFPage } from '@/lib/pdf';
 import { extractAssignmentQuestions } from './assignment-extractor';
 import { validateAssignmentItems } from './assignment-validator';
-import type { AssignmentOutline, ParseAssignmentResult, PipelineProgress } from './types';
+import type {
+  AssignmentOutline,
+  AssignmentOutlineItem,
+  ParseAssignmentResult,
+  PipelineProgress,
+} from './types';
 
 interface ParseAssignmentOptions {
   assignmentId?: string;
@@ -22,27 +27,37 @@ function reportProgress(
 
 function buildOutline(
   assignmentId: string,
-  sections: ParseAssignmentResult['sections'],
   items: ParseAssignmentResult['items'],
 ): AssignmentOutline {
+  const indexMap = new Map<number, AssignmentOutlineItem>();
+  const roots: AssignmentOutlineItem[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const node: AssignmentOutlineItem = {
+      orderNum: items[i].orderNum,
+      title: items[i].content.slice(0, 80),
+      children: [],
+    };
+    indexMap.set(i, node);
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const pi = items[i].parentIndex;
+    const node = indexMap.get(i)!;
+    if (pi != null && indexMap.has(pi)) {
+      indexMap.get(pi)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
   return {
     assignmentId,
-    title: sections[0]?.title ?? 'Untitled Assignment',
+    title: roots[0]?.title ?? 'Untitled Assignment',
     subject: '',
     totalItems: items.length,
-    sections: sections.map((s) => ({
-      title: s.title,
-      type: s.type,
-      itemCount: s.itemIndices.length,
-      items: s.itemIndices.map((idx) => {
-        const item = items[idx];
-        return {
-          orderNum: item?.orderNum ?? idx + 1,
-          title: item?.content.slice(0, 80) ?? '',
-        };
-      }),
-    })),
-    summary: `${sections.length} sections, ${items.length} questions.`,
+    items: roots,
+    summary: `${roots.length} top-level questions, ${items.length} total items.`,
   };
 }
 
@@ -53,7 +68,7 @@ export async function parseAssignment(
   reportProgress(options, 0, `Sending ${pages.length} pages to AI...`);
 
   const extraction = await extractAssignmentQuestions(pages, options?.signal);
-  const { sections, items, warnings } = extraction;
+  const { items, warnings } = extraction;
 
   // Per-item validation
   const itemWarnings = validateAssignmentItems(items);
@@ -67,15 +82,14 @@ export async function parseAssignment(
   if (items.length === 0) {
     reportProgress(options, 100, 'No questions found');
     return {
-      sections: [],
       items: [],
-      outline: buildOutline(options?.assignmentId ?? '', [], []),
+      outline: buildOutline(options?.assignmentId ?? '', []),
       warnings,
     };
   }
 
-  reportProgress(options, 100, `Extracted ${sections.length} sections, ${items.length} questions`);
+  reportProgress(options, 100, `Extracted ${items.length} questions`);
 
-  const outline = buildOutline(options?.assignmentId ?? '', sections, items);
-  return { sections, items, outline, warnings };
+  const outline = buildOutline(options?.assignmentId ?? '', items);
+  return { items, outline, warnings };
 }
