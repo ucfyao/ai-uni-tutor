@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Cpu, CreditCard, Database, RefreshCw } from 'lucide-react';
 import {
   ActionIcon,
@@ -57,13 +57,6 @@ interface GeminiData {
   activeUsersToday: number;
 }
 
-interface DashboardResponse {
-  stripe: StripeData | { error: string };
-  upstash: UpstashData | { error: string };
-  gemini: GeminiData | { error: string };
-  fetchedAt: string;
-}
-
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
@@ -97,13 +90,16 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat('en-US').format(n);
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
+// ---------------------------------------------------------------------------
+// Data fetcher
+// ---------------------------------------------------------------------------
+
+async function fetchService<T>(service: string): Promise<T> {
+  const res = await fetch(`/api/admin/dashboard?service=${service}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${service} data (${res.status})`);
+  }
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------
@@ -124,8 +120,16 @@ function StatRow({ label, value }: { label: string; value: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Card error fallback
+// Card loading / error states
 // ---------------------------------------------------------------------------
+
+function CardLoading() {
+  return (
+    <Stack align="center" py="md">
+      <Loader size="sm" />
+    </Stack>
+  );
+}
 
 function CardError({ message }: { message: string }) {
   return (
@@ -136,12 +140,10 @@ function CardError({ message }: { message: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Individual cards
+// Individual card content
 // ---------------------------------------------------------------------------
 
-function StripeCard({ data }: { data: StripeData | { error: string } }) {
-  if (isError(data)) return <CardError message={data.error} />;
-
+function StripeContent({ data }: { data: StripeData }) {
   return (
     <Stack gap="sm">
       <StatRow label="Available Balance" value={formatCents(data.available, data.currency)} />
@@ -182,9 +184,7 @@ function UsageRow({
   );
 }
 
-function UpstashCard({ data }: { data: UpstashData | { error: string } }) {
-  if (isError(data)) return <CardError message={data.error} />;
-
+function UpstashContent({ data }: { data: UpstashData }) {
   return (
     <Stack gap="sm">
       <Badge color="gray" variant="light" size="xs">
@@ -214,9 +214,7 @@ function UpstashCard({ data }: { data: UpstashData | { error: string } }) {
   );
 }
 
-function GeminiCard({ data }: { data: GeminiData | { error: string } }) {
-  if (isError(data)) return <CardError message={data.error} />;
-
+function GeminiContent({ data }: { data: GeminiData }) {
   return (
     <Stack gap="sm">
       {data.models.map((model) => (
@@ -253,115 +251,131 @@ function GeminiCard({ data }: { data: GeminiData | { error: string } }) {
 }
 
 // ---------------------------------------------------------------------------
+// Per-service card wrapper with independent query
+// ---------------------------------------------------------------------------
+
+function ServiceCard<T>({
+  queryKey,
+  service,
+  icon,
+  title,
+  badgeLabel,
+  badgeColor,
+  children,
+}: {
+  queryKey: string;
+  service: string;
+  icon: React.ReactNode;
+  title: string;
+  badgeLabel: string;
+  badgeColor: string;
+  children: (data: T) => React.ReactNode;
+}) {
+  const {
+    data,
+    isLoading,
+    isError: hasError,
+    error,
+  } = useQuery<T>({
+    queryKey: ['admin-dashboard', queryKey],
+    queryFn: () => fetchService<T>(service),
+    staleTime: 0,
+  });
+
+  return (
+    <Card withBorder shadow="sm" padding="lg">
+      <Group justify="space-between" mb="md">
+        <Group gap="xs">
+          {icon}
+          <Text fw={600}>{title}</Text>
+        </Group>
+        <Badge color={badgeColor} variant="light" size="sm">
+          {badgeLabel}
+        </Badge>
+      </Group>
+      {isLoading ? (
+        <CardLoading />
+      ) : hasError ? (
+        <CardError message={error instanceof Error ? error.message : 'Failed to load'} />
+      ) : data && isError(data) ? (
+        <CardError message={(data as { error: string }).error} />
+      ) : data ? (
+        children(data)
+      ) : null}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main dashboard client
 // ---------------------------------------------------------------------------
 
 export function DashboardClient() {
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery<DashboardResponse>({
-    queryKey: ['admin-dashboard'],
-    queryFn: async () => {
-      const res = await fetch('/api/admin/dashboard');
-      if (!res.ok) {
-        throw new Error(`Failed to fetch dashboard data (${res.status})`);
-      }
-      return res.json();
-    },
-    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
-  });
+  const queryClient = useQueryClient();
+  const isFetching = queryClient.isFetching({ queryKey: ['admin-dashboard'] }) > 0;
 
-  const updatedAt = data?.fetchedAt ? formatTime(data.fetchedAt) : null;
-
-  if (isLoading) {
-    return (
-      <Stack align="center" justify="center" h="100%" py="xl">
-        <Loader size="md" />
-        <Text size="sm" c="dimmed">
-          Loading dashboard...
-        </Text>
-      </Stack>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Stack p="lg" maw={600} mx="auto">
-        <Alert color="red" variant="light" title="Error" icon={<AlertCircle size={16} />}>
-          {error instanceof Error ? error.message : 'Failed to load dashboard data'}
-        </Alert>
-      </Stack>
-    );
-  }
-
-  if (!data) return null;
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+  };
 
   return (
     <Stack gap="lg" p="lg" maw={1200} mx="auto">
       {/* Header */}
       <Group justify="space-between" align="center">
         <Title order={3}>API Dashboard</Title>
-        <Group gap="sm" align="center">
-          {updatedAt && (
-            <Text size="xs" c="dimmed">
-              Updated: {updatedAt}
-            </Text>
-          )}
-          <Tooltip label="Refresh">
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={() => refetch()}
-              loading={isFetching}
-              aria-label="Refresh dashboard"
-            >
-              <RefreshCw size={16} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
+        <Tooltip label="Refresh">
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            onClick={handleRefresh}
+            loading={isFetching}
+            aria-label="Refresh dashboard"
+          >
+            <RefreshCw size={16} />
+          </ActionIcon>
+        </Tooltip>
       </Group>
 
-      {/* Cards grid */}
+      {/* Cards grid — each card fetches independently */}
       <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-        {/* Stripe */}
-        <Card withBorder shadow="sm" padding="lg">
-          <Group justify="space-between" mb="md">
-            <Group gap="xs">
-              <CreditCard size={18} color="var(--mantine-color-violet-5)" />
-              <Text fw={600}>Stripe</Text>
-            </Group>
-            <Badge color="violet" variant="light" size="sm">
-              Payment
-            </Badge>
-          </Group>
-          <StripeCard data={data.stripe} />
-        </Card>
+        <ServiceCard<StripeData | { error: string }>
+          queryKey="stripe"
+          service="stripe"
+          icon={<CreditCard size={18} color="var(--mantine-color-violet-5)" />}
+          title="Stripe"
+          badgeLabel="Payment"
+          badgeColor="violet"
+        >
+          {(data) =>
+            isError(data) ? <CardError message={data.error} /> : <StripeContent data={data} />
+          }
+        </ServiceCard>
 
-        {/* Upstash */}
-        <Card withBorder shadow="sm" padding="lg">
-          <Group justify="space-between" mb="md">
-            <Group gap="xs">
-              <Database size={18} color="var(--mantine-color-teal-5)" />
-              <Text fw={600}>Upstash</Text>
-            </Group>
-            <Badge color="teal" variant="light" size="sm">
-              Cache
-            </Badge>
-          </Group>
-          <UpstashCard data={data.upstash} />
-        </Card>
+        <ServiceCard<UpstashData | { error: string }>
+          queryKey="upstash"
+          service="upstash"
+          icon={<Database size={18} color="var(--mantine-color-teal-5)" />}
+          title="Upstash"
+          badgeLabel="Cache"
+          badgeColor="teal"
+        >
+          {(data) =>
+            isError(data) ? <CardError message={data.error} /> : <UpstashContent data={data} />
+          }
+        </ServiceCard>
 
-        {/* Gemini */}
-        <Card withBorder shadow="sm" padding="lg">
-          <Group justify="space-between" mb="md">
-            <Group gap="xs">
-              <Cpu size={18} color="var(--mantine-color-blue-5)" />
-              <Text fw={600}>Gemini</Text>
-            </Group>
-            <Badge color="blue" variant="light" size="sm">
-              LLM
-            </Badge>
-          </Group>
-          <GeminiCard data={data.gemini} />
-        </Card>
+        <ServiceCard<GeminiData | { error: string }>
+          queryKey="gemini"
+          service="gemini"
+          icon={<Cpu size={18} color="var(--mantine-color-blue-5)" />}
+          title="Gemini"
+          badgeLabel="LLM"
+          badgeColor="blue"
+        >
+          {(data) =>
+            isError(data) ? <CardError message={data.error} /> : <GeminiContent data={data} />
+          }
+        </ServiceCard>
       </SimpleGrid>
     </Stack>
   );
