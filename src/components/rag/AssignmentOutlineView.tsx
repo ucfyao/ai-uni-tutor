@@ -905,15 +905,39 @@ export function AssignmentOutlineView({
     <Stack gap="md">
       {/* Empty state */}
       {items.length === 0 && !showAddForm && (
-        <Card withBorder radius="lg" p="xl">
-          <Stack align="center" gap={8}>
-            <FileText size={32} color="var(--mantine-color-dimmed)" />
-            <Text size="sm" c="dimmed">
-              {t.documentDetail.emptyTableTitle}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {t.documentDetail.emptyTableHint}
-            </Text>
+        <Card withBorder radius="lg" p="xl" py={40}>
+          <Stack align="center" gap="md">
+            <Box
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background:
+                  'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <FileText size={24} color="var(--mantine-color-indigo-4)" />
+            </Box>
+            <Stack align="center" gap={4}>
+              <Text size="md" fw={600}>
+                {t.documentDetail.emptyTableTitle}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {t.documentDetail.emptyTableHint}
+              </Text>
+            </Stack>
+            <Button
+              variant="light"
+              color="indigo"
+              size="sm"
+              leftSection={<Plus size={16} />}
+              onClick={() => setShowAddForm(true)}
+            >
+              {t.documentDetail.addManually}
+            </Button>
           </Stack>
         </Card>
       )}
@@ -989,19 +1013,6 @@ export function AssignmentOutlineView({
           t={t}
         />
       ))}
-
-      {/* Add item button */}
-      <Button
-        variant="light"
-        color="indigo"
-        size="sm"
-        leftSection={<Plus size={16} />}
-        onClick={() => setShowAddForm(true)}
-        fullWidth
-        style={{ borderStyle: 'dashed' }}
-      >
-        {t.documentDetail.addManually}
-      </Button>
 
       {/* Add item modal */}
       <FullScreenModal
