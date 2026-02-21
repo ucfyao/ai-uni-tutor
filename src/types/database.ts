@@ -481,6 +481,7 @@ export interface Database {
           course_id: string | null;
           status: 'draft' | 'ready';
           created_at: string;
+          metadata: Json;
         };
         Insert: {
           id?: string;
@@ -491,6 +492,7 @@ export interface Database {
           course_id?: string | null;
           status?: 'draft' | 'ready';
           created_at?: string;
+          metadata?: Json;
         };
         Update: {
           id?: string;
@@ -501,6 +503,7 @@ export interface Database {
           course_id?: string | null;
           status?: 'draft' | 'ready';
           created_at?: string;
+          metadata?: Json;
         };
         Relationships: [];
       };

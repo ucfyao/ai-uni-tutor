@@ -2,6 +2,8 @@
  * Domain Models - Assignment Entity
  */
 
+import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
+
 type AssignmentStatus = 'draft' | 'ready';
 
 export interface AssignmentEntity {
@@ -14,6 +16,7 @@ export interface AssignmentEntity {
   status: AssignmentStatus;
   createdAt: string;
   itemCount?: number;
+  metadata?: AssignmentMetadata;
 }
 
 export interface AssignmentItemEntity {

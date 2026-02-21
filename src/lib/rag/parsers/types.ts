@@ -105,8 +105,17 @@ export interface EnrichedAssignmentItem {
   warnings?: string[];
 }
 
+export interface AssignmentMetadata {
+  totalPoints?: number;
+  totalQuestions?: number;
+  duration?: string;
+  instructions?: string;
+  examDate?: string;
+}
+
 export interface ParseAssignmentResult {
   items: EnrichedAssignmentItem[];
+  metadata?: AssignmentMetadata;
   outline: AssignmentOutline;
   warnings: string[];
 }
