@@ -22,6 +22,7 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { createEmptyAssignment, fetchAssignmentStats } from '@/app/actions/assignments';
 import { createExam, createLecture, fetchDocuments } from '@/app/actions/documents';
+import { AdminContent } from '@/components/admin/AdminContent';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { DOC_TYPES } from '@/constants/doc-types';
@@ -244,7 +245,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
 
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="lg" p="lg" maw={900} mx="auto">
+        <AdminContent>
           {/* ── Toolbar: SegmentedControl + Search + Create ── */}
           <Group gap="sm" justify="space-between" wrap="nowrap">
             <SegmentedControl
@@ -455,7 +456,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
               </Button>
             </Stack>
           )}
-        </Stack>
+        </AdminContent>
       </ScrollArea>
 
       {/* ── Create Modal ── */}

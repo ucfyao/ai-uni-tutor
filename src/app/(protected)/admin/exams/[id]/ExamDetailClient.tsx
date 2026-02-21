@@ -12,6 +12,7 @@ import {
   unpublishDocument,
   updateExamQuestions,
 } from '@/app/actions/documents';
+import { AdminContent } from '@/components/admin/AdminContent';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES } from '@/constants/doc-types';
@@ -304,7 +305,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
         </Box>
       )}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="md" p="lg" maw={900} mx="auto">
+        <AdminContent gap="md">
           <PdfUploadZone
             documentId={paper.id}
             docType={docType}
@@ -442,7 +443,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
               </Button>
             </Group>
           </Modal>
-        </Stack>
+        </AdminContent>
       </ScrollArea>
     </Box>
   );
