@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Center, Loader, Stack, Text } from '@mantine/core';
+import { Anchor, Button, Center, Loader, Stack, Text, Title } from '@mantine/core';
 import {
   getChatMessages,
   getChatSession,
@@ -21,7 +21,7 @@ import { ChatSession } from '@/types';
 
 interface AssignmentClientProps {
   id: string;
-  initialSession: ChatSession;
+  initialSession: ChatSession | null;
 }
 
 export default function AssignmentClient({ id, initialSession }: AssignmentClientProps) {
@@ -54,7 +54,14 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
   useEffect(() => {
     if (!id) return;
 
-    if (initialSession && initialSession.id === id) {
+    // Server already determined session doesn't exist
+    if (!initialSession) {
+      setSession(null);
+      setLoading(false);
+      return;
+    }
+
+    if (initialSession.id === id) {
       savedMsgIdsRef.current = new Set(initialSession.messages.map((m) => m.id));
       setSession(initialSession);
       setLoading(false);
@@ -202,12 +209,20 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
 
   if (!session) {
     return (
-      <Center h="100vh">
+      <Center h="100%">
         <Stack align="center" gap="md" ta="center">
-          <Text size="xl" fw={700}>
-            Session Not Found
+          <Title order={1} size={80} c="gray.3" style={{ lineHeight: 1 }}>
+            404
+          </Title>
+          <Title order={2}>Session Not Found</Title>
+          <Text c="dimmed" maw={400}>
+            The session you are looking for does not exist or you do not have permission to view it.
           </Text>
-          <Text c="dimmed">This assignment session could not be found.</Text>
+          <Anchor href="/study" underline="never">
+            <Button variant="light" color="indigo" mt="md">
+              Back to Study
+            </Button>
+          </Anchor>
         </Stack>
       </Center>
     );
