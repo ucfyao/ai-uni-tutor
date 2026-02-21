@@ -482,6 +482,43 @@ export class AssignmentRepository implements IAssignmentRepository {
       .eq('id', itemId);
     if (error) throw new DatabaseError(`Failed to update item embedding: ${error.message}`, error);
   }
+
+  async getStats(
+    assignmentIds: string[],
+  ): Promise<Map<string, { itemCount: number; withAnswer: number; warningCount: number }>> {
+    if (assignmentIds.length === 0) return new Map();
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignment_items')
+      .select('*')
+      .in('assignment_id', assignmentIds);
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch assignment stats: ${error.message}`, error);
+    }
+
+    const statsMap = new Map<
+      string,
+      { itemCount: number; withAnswer: number; warningCount: number }
+    >();
+
+    for (const id of assignmentIds) {
+      statsMap.set(id, { itemCount: 0, withAnswer: 0, warningCount: 0 });
+    }
+
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const id = row.assignment_id as string;
+      const stat = statsMap.get(id);
+      if (!stat) continue;
+      stat.itemCount++;
+      if ((row.reference_answer as string)?.trim()) stat.withAnswer++;
+      const warnings = row.warnings as string[] | null;
+      if (warnings && warnings.length > 0) stat.warningCount++;
+    }
+
+    return statsMap;
+  }
 }
 
 let _assignmentRepository: AssignmentRepository | null = null;

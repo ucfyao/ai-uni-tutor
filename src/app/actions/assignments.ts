@@ -343,3 +343,63 @@ export async function splitAssignmentItem(
     };
   }
 }
+
+// ── Assignment Stats ──
+
+export async function fetchAssignmentStats(
+  assignmentIds: string[],
+): Promise<
+  ActionResult<Record<string, { itemCount: number; withAnswer: number; warningCount: number }>>
+> {
+  try {
+    await requireAnyAdmin();
+    const service = getAssignmentService();
+    const stats = await service.getAssignmentStats(assignmentIds);
+    const result: Record<string, { itemCount: number; withAnswer: number; warningCount: number }> =
+      {};
+    for (const [id, stat] of stats) {
+      result[id] = stat;
+    }
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('fetchAssignmentStats error:', error);
+    return { success: false, error: 'Failed to fetch stats' };
+  }
+}
+
+// ── Batch Answer Matching ──
+
+const batchUpdateAnswersSchema = z.object({
+  assignmentId: z.string().uuid(),
+  matches: z.array(
+    z.object({
+      itemId: z.string().uuid(),
+      referenceAnswer: z.string(),
+    }),
+  ),
+});
+
+export async function batchUpdateAnswers(
+  input: z.infer<typeof batchUpdateAnswersSchema>,
+): Promise<ActionResult<{ updated: number }>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = batchUpdateAnswersSchema.parse(input);
+    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
+
+    const service = getAssignmentService();
+    const itemIds = parsed.matches.map((m) => m.itemId);
+    if (itemIds.length > 0) {
+      const valid = await service.verifyItemsBelongToAssignment(itemIds, parsed.assignmentId);
+      if (!valid) return { success: false, error: 'Invalid item IDs' };
+    }
+
+    await service.batchUpdateAnswers(parsed.matches);
+    return { success: true, data: { updated: parsed.matches.length } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    console.error('batchUpdateAnswers error:', error);
+    return { success: false, error: 'Failed to update answers' };
+  }
+}

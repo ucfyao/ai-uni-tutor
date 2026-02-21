@@ -181,6 +181,18 @@ export class AssignmentService {
     return this.repo.findAllForAdmin();
   }
 
+  async getAssignmentStats(assignmentIds: string[]) {
+    return this.repo.getStats(assignmentIds);
+  }
+
+  async batchUpdateAnswers(
+    matches: Array<{ itemId: string; referenceAnswer: string }>,
+  ): Promise<void> {
+    await Promise.all(
+      matches.map((m) => this.repo.updateItem(m.itemId, { referenceAnswer: m.referenceAnswer })),
+    );
+  }
+
   async mergeItems(assignmentId: string, itemIds: string[]): Promise<string> {
     if (itemIds.length < 2) throw new Error('Need at least 2 items to merge');
 

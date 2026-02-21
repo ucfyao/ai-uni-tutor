@@ -379,6 +379,9 @@ export const translations = {
       matchPreview: '匹配预览',
       unmatched: '未匹配',
       applyMatches: '应用匹配',
+      answerCoverage: '答案覆盖',
+      needsReview: '需要校对',
+      noAnswers: '无答案',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -1209,6 +1212,9 @@ export const translations = {
       matchPreview: 'Match Preview',
       unmatched: 'Unmatched',
       applyMatches: 'Apply Matches',
+      answerCoverage: 'Answer coverage',
+      needsReview: 'Needs review',
+      noAnswers: 'No answers',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',

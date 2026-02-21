@@ -84,4 +84,7 @@ export interface IAssignmentRepository {
   deleteItemsByAssignmentId(assignmentId: string): Promise<void>;
   verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean>;
   updateItemEmbedding(itemId: string, embedding: number[]): Promise<void>;
+  getStats(
+    assignmentIds: string[],
+  ): Promise<Map<string, { itemCount: number; withAnswer: number; warningCount: number }>>;
 }
