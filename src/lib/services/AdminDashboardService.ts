@@ -12,13 +12,14 @@ interface StripeData {
 
 interface UpstashData {
   monthlyRequests: number;
+  monthlyRequestsLimit: number;
   dailyCommands: number;
-  dailyCommandsLimit: number;
   monthlyBandwidth: number;
   monthlyBandwidthLimit: number;
   currentStorage: number;
   storageLimit: number;
   monthlyBilling: number;
+  maxCommandsPerSecond: number;
   plan: string;
 }
 
@@ -104,13 +105,14 @@ export class AdminDashboardService {
 
       return {
         monthlyRequests: stats.total_monthly_requests ?? 0,
+        monthlyRequestsLimit: db.db_request_limit ?? 0,
         dailyCommands: stats.daily_net_commands ?? 0,
-        dailyCommandsLimit: db.db_request_limit ?? 0,
         monthlyBandwidth: stats.total_monthly_bandwidth ?? 0,
         monthlyBandwidthLimit: (db.db_monthly_bandwidth_limit ?? 0) * 1024 * 1024 * 1024, // GB → bytes
         currentStorage: stats.current_storage ?? 0,
         storageLimit: db.db_disk_threshold ?? 0,
         monthlyBilling: stats.total_monthly_billing ?? 0,
+        maxCommandsPerSecond: db.db_max_commands_per_second ?? 0,
         plan: db.type ?? 'unknown',
       };
     } catch (error) {

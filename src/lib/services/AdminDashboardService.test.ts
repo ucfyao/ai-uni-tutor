@@ -135,6 +135,7 @@ describe('AdminDashboardService', () => {
           db_request_limit: 500000,
           db_monthly_bandwidth_limit: 50,
           db_disk_threshold: 268435456,
+          db_max_commands_per_second: 10000,
           type: 'free',
         }),
       };
@@ -151,13 +152,14 @@ describe('AdminDashboardService', () => {
 
       expect(result).toEqual({
         monthlyRequests: 150000,
+        monthlyRequestsLimit: 500000,
         dailyCommands: 2000,
-        dailyCommandsLimit: 500000,
         monthlyBandwidth: 500000,
         monthlyBandwidthLimit: 50 * 1024 * 1024 * 1024,
         currentStorage: 1024,
         storageLimit: 268435456,
         monthlyBilling: 0,
+        maxCommandsPerSecond: 10000,
         plan: 'free',
       });
 
@@ -306,6 +308,7 @@ describe('AdminDashboardService', () => {
             db_request_limit: 500000,
             db_monthly_bandwidth_limit: 50,
             db_disk_threshold: 268435456,
+            db_max_commands_per_second: 10000,
             type: 'free',
           }),
         }),
@@ -334,13 +337,14 @@ describe('AdminDashboardService', () => {
       // Verify upstash data
       expect(result.upstash).toEqual({
         monthlyRequests: 1000,
+        monthlyRequestsLimit: 500000,
         dailyCommands: 100,
-        dailyCommandsLimit: 500000,
         monthlyBandwidth: 2000,
         monthlyBandwidthLimit: 50 * 1024 * 1024 * 1024,
         currentStorage: 512,
         storageLimit: 268435456,
         monthlyBilling: 500,
+        maxCommandsPerSecond: 10000,
         plan: 'free',
       });
 

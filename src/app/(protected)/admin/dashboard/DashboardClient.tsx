@@ -32,13 +32,14 @@ interface StripeData {
 
 interface UpstashData {
   monthlyRequests: number;
+  monthlyRequestsLimit: number;
   dailyCommands: number;
-  dailyCommandsLimit: number;
   monthlyBandwidth: number;
   monthlyBandwidthLimit: number;
   currentStorage: number;
   storageLimit: number;
   monthlyBilling: number;
+  maxCommandsPerSecond: number;
   plan: string;
 }
 
@@ -189,7 +190,11 @@ function UpstashCard({ data }: { data: UpstashData | { error: string } }) {
       <Badge color="gray" variant="light" size="xs">
         Plan: {data.plan}
       </Badge>
-      <UsageRow label="Daily Commands" used={data.dailyCommands} limit={data.dailyCommandsLimit} />
+      <UsageRow
+        label="Monthly Requests"
+        used={data.monthlyRequests}
+        limit={data.monthlyRequestsLimit}
+      />
       <UsageRow
         label="Storage"
         used={data.currentStorage}
@@ -202,7 +207,8 @@ function UpstashCard({ data }: { data: UpstashData | { error: string } }) {
         limit={data.monthlyBandwidthLimit}
         format="bytes"
       />
-      <StatRow label="Monthly Requests" value={formatNumber(data.monthlyRequests)} />
+      <StatRow label="Today Commands" value={formatNumber(data.dailyCommands)} />
+      <StatRow label="Max Commands/sec" value={formatNumber(data.maxCommandsPerSecond)} />
       <StatRow label="Monthly Cost" value={`$${data.monthlyBilling.toFixed(2)}`} />
     </Stack>
   );
