@@ -6,7 +6,9 @@ import { useCallback } from 'react';
 import {
   addAssignmentItem,
   fetchAssignmentItems,
+  mergeAssignmentItems,
   renameAssignment,
+  splitAssignmentItem,
 } from '@/app/actions/assignments';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
@@ -77,6 +79,40 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     },
   });
 
+  const mergeMutation = useMutation({
+    mutationFn: async (itemIds: string[]) => {
+      const result = await mergeAssignmentItems({ assignmentId, itemIds });
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    onSuccess: () => {
+      showNotification({ message: t.documentDetail.saved, color: 'green' });
+      invalidateItems();
+    },
+    onError: (error: Error) => {
+      showNotification({ title: t.common.error, message: error.message, color: 'red' });
+    },
+  });
+
+  const splitMutation = useMutation({
+    mutationFn: async (data: { itemId: string; splitContent: [string, string] }) => {
+      const result = await splitAssignmentItem({
+        assignmentId,
+        itemId: data.itemId,
+        splitContent: data.splitContent,
+      });
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    onSuccess: () => {
+      showNotification({ message: t.documentDetail.saved, color: 'green' });
+      invalidateItems();
+    },
+    onError: (error: Error) => {
+      showNotification({ title: t.common.error, message: error.message, color: 'red' });
+    },
+  });
+
   return {
     items: query.data ?? [],
     isLoading: query.isLoading,
@@ -84,6 +120,10 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     isAddingItem: addItemMutation.isPending,
     rename: renameMutation.mutateAsync,
     isRenaming: renameMutation.isPending,
+    merge: mergeMutation.mutateAsync,
+    isMerging: mergeMutation.isPending,
+    split: splitMutation.mutateAsync,
+    isSplitting: splitMutation.isPending,
     invalidateItems,
   };
 }

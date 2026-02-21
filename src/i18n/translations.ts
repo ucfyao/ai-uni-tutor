@@ -372,6 +372,8 @@ export const translations = {
       checkingDuplicate: '检查重复文件...',
       emptyLectureUploadPrompt: '上传讲义 PDF，AI 将自动提取知识点',
       hasWarnings: '有警告',
+      merge: '合并',
+      split: '从 --- 处拆分',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -1195,6 +1197,8 @@ export const translations = {
       checkingDuplicate: 'Checking for duplicates...',
       emptyLectureUploadPrompt: 'Upload a lecture PDF to automatically extract knowledge points',
       hasWarnings: 'Has warnings',
+      merge: 'Merge',
+      split: 'Split at ---',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',

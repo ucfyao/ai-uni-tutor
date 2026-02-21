@@ -180,6 +180,123 @@ export class AssignmentService {
     }
     return this.repo.findAllForAdmin();
   }
+
+  async mergeItems(assignmentId: string, itemIds: string[]): Promise<string> {
+    if (itemIds.length < 2) throw new Error('Need at least 2 items to merge');
+
+    const valid = await this.repo.verifyItemsBelongToAssignment(itemIds, assignmentId);
+    if (!valid) throw new Error('Items do not belong to this assignment');
+
+    const allItems = await this.repo.findItemsByAssignmentId(assignmentId);
+    const toMerge = itemIds
+      .map((id) => allItems.find((i) => i.id === id))
+      .filter((i): i is AssignmentItemEntity => i !== null);
+    toMerge.sort((a, b) => a.orderNum - b.orderNum);
+
+    const mergedContent = toMerge.map((i) => i.content).join('\n\n---\n\n');
+    const mergedRefAnswer = toMerge
+      .map((i) => i.referenceAnswer)
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+    const mergedExplanation = toMerge
+      .map((i) => i.explanation)
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+
+    const keepId = toMerge[0].id;
+    const deleteIds = toMerge.slice(1).map((i) => i.id);
+
+    const warnings = this.validateItemContent(mergedContent, mergedRefAnswer);
+
+    await this.repo.updateItem(keepId, {
+      content: mergedContent,
+      referenceAnswer: mergedRefAnswer,
+      explanation: mergedExplanation,
+      warnings,
+    });
+
+    await this.repo.deleteItemsByIds(deleteIds);
+
+    try {
+      const { buildAssignmentItemContent } = await import('@/lib/rag/build-chunk-content');
+      const enriched = {
+        orderNum: toMerge[0].orderNum,
+        content: mergedContent,
+        referenceAnswer: mergedRefAnswer,
+        explanation: mergedExplanation,
+        points: toMerge[0].points,
+        type: toMerge[0].type,
+        difficulty: toMerge[0].difficulty,
+        section: (toMerge[0].metadata?.section as string) ?? '',
+        sourcePages: (toMerge[0].metadata?.sourcePages as number[]) ?? [],
+      };
+      const enrichedContent = buildAssignmentItemContent(enriched);
+      const embedding = await generateEmbeddingWithRetry(enrichedContent);
+      await this.repo.updateItemEmbedding(keepId, embedding);
+    } catch (e) {
+      console.error('Re-embedding after merge failed:', e);
+    }
+
+    const remaining = allItems.filter((i) => !deleteIds.includes(i.id));
+    remaining.sort((a, b) => a.orderNum - b.orderNum);
+    await this.repo.bulkUpdateOrder(
+      assignmentId,
+      remaining.map((i) => i.id),
+    );
+
+    return keepId;
+  }
+
+  async splitItem(
+    assignmentId: string,
+    itemId: string,
+    splitContent: [string, string],
+  ): Promise<{ firstId: string; secondId: string }> {
+    const valid = await this.repo.verifyItemsBelongToAssignment([itemId], assignmentId);
+    if (!valid) throw new Error('Item does not belong to this assignment');
+
+    const item = await this.repo.findItemById(itemId);
+    if (!item) throw new Error('Item not found');
+
+    const firstWarnings = this.validateItemContent(splitContent[0], item.referenceAnswer);
+    await this.repo.updateItem(itemId, {
+      content: splitContent[0],
+      warnings: firstWarnings,
+    });
+
+    const secondWarnings = this.validateItemContent(splitContent[1], '');
+    const secondItem = await this.repo.insertSingleItem(assignmentId, {
+      orderNum: item.orderNum + 1,
+      type: item.type,
+      content: splitContent[1],
+      referenceAnswer: '',
+      explanation: '',
+      points: 0,
+      difficulty: item.difficulty,
+      metadata: item.metadata,
+      warnings: secondWarnings,
+    });
+
+    try {
+      const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+      const embeddings = await generateEmbeddingBatch([splitContent[0], splitContent[1]]);
+      await Promise.all([
+        this.repo.updateItemEmbedding(itemId, embeddings[0]),
+        this.repo.updateItemEmbedding(secondItem.id, embeddings[1]),
+      ]);
+    } catch (e) {
+      console.error('Re-embedding after split failed:', e);
+    }
+
+    const allItems = await this.repo.findItemsByAssignmentId(assignmentId);
+    allItems.sort((a, b) => a.orderNum - b.orderNum);
+    await this.repo.bulkUpdateOrder(
+      assignmentId,
+      allItems.map((i) => i.id),
+    );
+
+    return { firstId: itemId, secondId: secondItem.id };
+  }
 }
 
 // Singleton instance

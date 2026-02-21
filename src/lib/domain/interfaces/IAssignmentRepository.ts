@@ -61,6 +61,7 @@ export interface IAssignmentRepository {
     },
   ): Promise<AssignmentItemEntity>;
 
+  findItemById(itemId: string): Promise<AssignmentItemEntity | null>;
   findItemsByAssignmentId(assignmentId: string): Promise<AssignmentItemEntity[]>;
   searchItemsByEmbedding(
     embedding: number[],

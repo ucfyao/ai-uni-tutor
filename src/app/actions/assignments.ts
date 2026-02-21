@@ -286,3 +286,60 @@ export async function unpublishAssignment(assignmentId: string): Promise<ActionR
     return { success: false, error: 'Failed to unpublish' };
   }
 }
+
+// ── Merge & Split ──
+
+const mergeSchema = z.object({
+  assignmentId: z.string().uuid(),
+  itemIds: z.array(z.string().uuid()).min(2),
+});
+
+const splitSchema = z.object({
+  assignmentId: z.string().uuid(),
+  itemId: z.string().uuid(),
+  splitContent: z.tuple([z.string().min(1), z.string().min(1)]),
+});
+
+export async function mergeAssignmentItems(
+  input: z.infer<typeof mergeSchema>,
+): Promise<ActionResult<{ keepId: string }>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = mergeSchema.parse(input);
+    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
+
+    const service = getAssignmentService();
+    const keepId = await service.mergeItems(parsed.assignmentId, parsed.itemIds);
+    return { success: true, data: { keepId } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    console.error('mergeAssignmentItems error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to merge items',
+    };
+  }
+}
+
+export async function splitAssignmentItem(
+  input: z.infer<typeof splitSchema>,
+): Promise<ActionResult<{ firstId: string; secondId: string }>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = splitSchema.parse(input);
+    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
+
+    const service = getAssignmentService();
+    const result = await service.splitItem(parsed.assignmentId, parsed.itemId, parsed.splitContent);
+    return { success: true, data: result };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    console.error('splitAssignmentItem error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to split item',
+    };
+  }
+}

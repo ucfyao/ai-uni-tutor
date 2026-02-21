@@ -62,6 +62,8 @@ interface AssignmentOutlineViewProps {
   /** Controlled add-form visibility (from parent header button). */
   addFormOpen?: boolean;
   onAddFormOpenChange?: (open: boolean) => void;
+  onMerge?: () => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
 }
 
 /* ── Constants ── */
@@ -209,12 +211,14 @@ function ItemEditForm({
   editedItems,
   onSave,
   onCancel,
+  onSplit,
   t,
 }: {
   item: AssignmentItemEntity;
   editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
   onSave: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onCancel: () => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const edited = editedItems.get(item.id);
@@ -295,6 +299,22 @@ function ItemEditForm({
         />
       </Group>
       <Group justify="flex-end" gap="sm">
+        {onSplit && (
+          <Button
+            variant="subtle"
+            color="orange"
+            size="compact-sm"
+            onClick={() => {
+              const parts = content.split(/\n---\n/);
+              if (parts.length >= 2) {
+                onSplit(item.id, [parts[0].trim(), parts.slice(1).join('\n---\n').trim()]);
+              }
+            }}
+            disabled={!content.includes('\n---\n')}
+          >
+            {t.knowledge.split}
+          </Button>
+        )}
         <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
           {t.common.cancel}
         </Button>
@@ -451,6 +471,7 @@ function ItemCard({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  onSplit,
   t,
 }: {
   item: AssignmentItemEntity;
@@ -463,6 +484,7 @@ function ItemCard({
   onCancelEdit: () => void;
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -504,6 +526,7 @@ function ItemCard({
           editedItems={editedItems}
           onSave={onSaveEdit}
           onCancel={onCancelEdit}
+          onSplit={onSplit}
           t={t}
         />
       ) : (
@@ -642,6 +665,7 @@ function SectionCard({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  onSplit,
   t,
 }: {
   sectionName: string;
@@ -657,6 +681,7 @@ function SectionCard({
   onCancelEdit: () => void;
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const visibleCount = sectionItems.filter((i) => !deletedItemIds.has(i.id)).length;
@@ -724,6 +749,7 @@ function SectionCard({
               onCancelEdit={onCancelEdit}
               onSaveEdit={onSaveEdit}
               onDelete={onDelete}
+              onSplit={onSplit}
               t={t}
             />
           ))}
@@ -754,6 +780,8 @@ export function AssignmentOutlineView({
   isAddingItem,
   addFormOpen,
   onAddFormOpenChange,
+  onMerge,
+  onSplit,
 }: AssignmentOutlineViewProps) {
   const { t } = useLanguage();
 
@@ -965,6 +993,10 @@ export function AssignmentOutlineView({
                     </Group>
                   </Box>
                   <Menu.Divider />
+                  <Menu.Item onClick={() => onMerge?.()} disabled={selectedCount < 2}>
+                    {t.knowledge.merge} ({selectedCount})
+                  </Menu.Item>
+                  <Menu.Divider />
                   <Menu.Item color="red" leftSection={<Trash2 size={14} />} onClick={onBulkDelete}>
                     {t.common.delete} ({selectedCount})
                   </Menu.Item>
@@ -1067,6 +1099,7 @@ export function AssignmentOutlineView({
           onCancelEdit={onCancelEdit}
           onSaveEdit={onSaveEdit}
           onDelete={onDelete}
+          onSplit={onSplit}
           t={t}
         />
       ))}

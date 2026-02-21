@@ -273,6 +273,20 @@ export class AssignmentRepository implements IAssignmentRepository {
     return mapItemRow(row as Record<string, unknown>);
   }
 
+  async findItemById(itemId: string): Promise<AssignmentItemEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignment_items')
+      .select('*')
+      .eq('id', itemId)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch assignment item: ${error.message}`, error);
+    }
+    return mapItemRow(data as Record<string, unknown>);
+  }
+
   async findItemsByAssignmentId(assignmentId: string): Promise<AssignmentItemEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase

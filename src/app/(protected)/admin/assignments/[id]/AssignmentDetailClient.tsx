@@ -69,10 +69,8 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const courseId = assignment.courseId || '';
 
   /* -- use hook for data management -- */
-  const { items, addItem, isAddingItem, rename, invalidateItems } = useAssignmentItems(
-    assignment.id,
-    initialItems,
-  );
+  const { items, addItem, isAddingItem, rename, merge, split, invalidateItems } =
+    useAssignmentItems(assignment.id, initialItems);
 
   /* -- editing state -- */
   const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
@@ -190,6 +188,21 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
       });
     },
     [selectedIds, items],
+  );
+
+  /* -- merge / split handlers -- */
+  const handleMerge = useCallback(async () => {
+    if (selectedIds.size < 2) return;
+    await merge(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  }, [selectedIds, merge]);
+
+  const handleSplit = useCallback(
+    async (itemId: string, splitContent: [string, string]) => {
+      await split({ itemId, splitContent });
+      setEditingChunkId(null);
+    },
+    [split],
   );
 
   /* -- save changes handler -- */
@@ -545,6 +558,8 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             isAddingItem={isAddingItem}
             addFormOpen={addFormOpen}
             onAddFormOpenChange={setAddFormOpen}
+            onMerge={handleMerge}
+            onSplit={handleSplit}
           />
         </Stack>
       </ScrollArea>
