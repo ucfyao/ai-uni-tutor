@@ -1,200 +1,129 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Save, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Send, Trash2, Upload } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, Card, Group, Modal, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import {
-  addExamQuestion,
-  deleteDocument,
-  publishDocument,
-  unpublishDocument,
-  updateExamQuestions,
-} from '@/app/actions/documents';
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Divider,
+  Group,
+  ScrollArea,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
+import { modals } from '@mantine/modals';
+import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
 import { AdminContent } from '@/components/admin/AdminContent';
+import { ExamQuestionList } from '@/components/rag/ExamQuestionList';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES, getDocColor } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useExamQuestions } from '@/hooks/useExamQuestions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { ExamPaper, ExamQuestion } from '@/types/exam';
-import { ChunkTable } from './ChunkTable';
-import { DocumentDetailHeader } from './DocumentDetailHeader';
-import type { Chunk, DocType } from './types';
+
+/* ── helpers ── */
+
+function statusColor(status: string): string {
+  switch (status) {
+    case 'ready':
+      return 'green';
+    case 'draft':
+      return 'blue';
+    default:
+      return 'gray';
+  }
+}
+
+/* ── Component ── */
 
 interface ExamDetailClientProps {
   paper: ExamPaper;
   questions: ExamQuestion[];
 }
 
-export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
+export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDetailClientProps) {
   const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useLanguage();
 
-  const docType: DocType = 'exam';
   const school = paper.school || '';
   const course = paper.course || '';
   const courseId = paper.courseId || '';
 
-  /* -- Convert questions to Chunk format for ChunkTable -- */
-  const chunks: Chunk[] = useMemo(
-    () =>
-      questions.map((q) => ({
-        id: q.id,
-        content: q.content,
-        metadata: {
-          type: 'question',
-          questionNumber: String(q.orderNum),
-          options: q.options ? Object.values(q.options) : undefined,
-          answer: q.answer,
-          referenceAnswer: q.answer,
-          score: q.points,
-          explanation: q.explanation,
-        },
-        embedding: null,
-      })),
-    [questions],
-  );
+  /* -- use hook for data management -- */
+  const {
+    questions,
+    addQuestion,
+    isAddingQuestion,
+    updateQuestion,
+    deleteQuestion,
+    rename,
+    invalidateQuestions,
+  } = useExamQuestions(paper.id, initialQuestions);
 
-  /* -- chunk editing state -- */
-  const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
-  const [editedChunks, setEditedChunks] = useState<
-    Map<string, { content: string; metadata: Record<string, unknown> }>
-  >(new Map());
-  const [deletedChunkIds, setDeletedChunkIds] = useState<Set<string>>(new Set());
-  const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  /* -- publishing state -- */
+  /* -- UI state -- */
+  const [showUploadZone, setShowUploadZone] = useState(initialQuestions.length === 0);
+  const [addFormOpen, setAddFormOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(paper.title);
   const [isPublishing, setIsPublishing] = useState(false);
 
-  /* -- derived -- */
-  const visibleChunks = chunks.filter((c) => !deletedChunkIds.has(c.id));
-  const pendingChanges = editedChunks.size + deletedChunkIds.size;
-
-  /* -- chunk helpers -- */
-  const getEffectiveMetadata = useCallback(
-    (chunk: Chunk): Record<string, unknown> => {
-      const edited = editedChunks.get(chunk.id);
-      if (edited) return edited.metadata;
-      if (chunk.metadata && typeof chunk.metadata === 'object' && !Array.isArray(chunk.metadata)) {
-        return chunk.metadata as Record<string, unknown>;
-      }
-      return {};
+  /* -- question handlers (delegate to hook mutations) -- */
+  const handleSaveQuestion = useCallback(
+    async (
+      questionId: string,
+      fields: {
+        content?: string;
+        answer?: string;
+        explanation?: string;
+        points?: number;
+        type?: string;
+        options?: Record<string, string> | null;
+        orderNum?: number;
+      },
+    ) => {
+      await updateQuestion({ questionId, ...fields });
     },
-    [editedChunks],
+    [updateQuestion],
   );
 
-  const getEffectiveContent = useCallback(
-    (chunk: Chunk): string => {
-      const edited = editedChunks.get(chunk.id);
-      return edited ? edited.content : chunk.content;
+  const handleDeleteQuestion = useCallback(
+    async (questionId: string) => {
+      await deleteQuestion(questionId);
     },
-    [editedChunks],
+    [deleteQuestion],
   );
 
-  const handleSaveEdit = useCallback(
-    (chunkId: string, content: string, metadata: Record<string, unknown>) => {
-      setEditedChunks((prev) => {
-        const next = new Map(prev);
-        next.set(chunkId, { content, metadata });
-        return next;
-      });
-      setEditingChunkId(null);
-    },
-    [],
-  );
-
-  const handleDelete = useCallback(
-    (chunkId: string) => {
-      setDeletedChunkIds((prev) => {
-        const next = new Set(prev);
-        next.add(chunkId);
-        return next;
-      });
-      if (editingChunkId === chunkId) setEditingChunkId(null);
-    },
-    [editingChunkId],
-  );
-
-  const handleToggleAnswer = useCallback((chunkId: string) => {
-    setExpandedAnswers((prev) => {
-      const next = new Set(prev);
-      if (next.has(chunkId)) next.delete(chunkId);
-      else next.add(chunkId);
-      return next;
-    });
-  }, []);
-
-  const handleToggleSelect = useCallback((chunkId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(chunkId)) next.delete(chunkId);
-      else next.add(chunkId);
-      return next;
-    });
-  }, []);
-
-  const handleToggleSelectAll = useCallback(() => {
-    setSelectedIds((prev) => {
-      if (prev.size === visibleChunks.length) return new Set();
-      return new Set(visibleChunks.map((c) => c.id));
-    });
-  }, [visibleChunks]);
-
-  const handleBulkDelete = useCallback(() => {
-    setDeletedChunkIds((prev) => {
-      const next = new Set(prev);
-      for (const id of selectedIds) next.add(id);
-      return next;
-    });
-    setSelectedIds(new Set());
-  }, [selectedIds]);
-
-  /* -- save -- */
-  const [saving, setSaving] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    try {
-      const updates = Array.from(editedChunks.entries()).map(([id, data]) => ({
-        id,
-        content: data.content,
-        metadata: data.metadata,
-      }));
-      const deletedArr = Array.from(deletedChunkIds);
-      const result = await updateExamQuestions(paper.id, updates, deletedArr);
-      if (result.status === 'success') {
-        showNotification({
-          message: t.toast.changesSaved,
-          color: 'green',
-          icon: <Check size={16} />,
-          autoClose: 3000,
+  const handleAddQuestion = useCallback(
+    async (data: Record<string, unknown>): Promise<boolean> => {
+      try {
+        await addQuestion({
+          content: (data.content as string) || '',
+          answer: (data.referenceAnswer as string) || '',
+          explanation: (data.explanation as string) || '',
+          points: (data.points as number) || 0,
+          type: (data.type as string) || 'short_answer',
         });
-        setEditedChunks(new Map());
-        setDeletedChunkIds(new Set());
-        setSelectedIds(new Set());
-      } else {
-        showNotification({ title: t.knowledge.error, message: result.message, color: 'red' });
+        return true;
+      } catch {
+        return false;
       }
-    } catch {
-      showNotification({
-        title: t.knowledge.error,
-        message: t.documentDetail.failedToSave,
-        color: 'red',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [paper.id, editedChunks, deletedChunkIds, t]);
+    },
+    [addQuestion],
+  );
 
   /* -- publish / unpublish / delete handlers -- */
   const handlePublish = useCallback(async () => {
@@ -202,7 +131,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
     try {
       const result = await publishDocument(paper.id, 'exam');
       if (result.success) {
-        showNotification({ message: t.toast.changesSaved, color: 'green' });
+        showNotification({ message: t.documentDetail.publish, color: 'green' });
         router.refresh();
       } else {
         showNotification({ title: t.common.error, message: result.error, color: 'red' });
@@ -215,7 +144,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
   const handleUnpublish = useCallback(async () => {
     const result = await unpublishDocument(paper.id, 'exam');
     if (result.success) {
-      showNotification({ message: t.toast.changesSaved, color: 'green' });
+      showNotification({ message: t.documentDetail.unpublish, color: 'green' });
       router.refresh();
     } else {
       showNotification({ title: t.common.error, message: result.error, color: 'red' });
@@ -231,52 +160,202 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
           (prev) => prev?.filter((d) => d.id !== paper.id),
         );
       }
-      showNotification({ message: t.toast.changesSaved, color: 'green' });
+      showNotification({ message: t.toast.deletedSuccessfully, color: 'green' });
       router.push('/admin/knowledge?tab=exam');
     } catch {
       showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
     }
   }, [paper.id, queryClient, router, t]);
 
-  // Add exam question
-  const handleAddItem = useCallback(
-    async (data: Record<string, unknown>): Promise<boolean> => {
-      const result = await addExamQuestion({
-        paperId: paper.id,
-        content: (data.content as string) || '',
-        answer: (data.referenceAnswer as string) || '',
-        explanation: (data.explanation as string) || '',
-        points: (data.points as number) || 0,
-        type: (data.type as string) || 'short_answer',
-      });
-      if (result.success) {
-        showNotification({ message: t.toast.changesSaved, color: 'green' });
-        router.refresh();
-        return true;
-      } else {
-        showNotification({ title: t.common.error, message: result.error, color: 'red' });
-        return false;
-      }
-    },
-    [paper.id, router, t],
+  /* -- rename handler -- */
+  const handleSaveName = useCallback(async () => {
+    const trimmed = nameValue.trim();
+    if (trimmed && trimmed !== paper.title) {
+      await rename(trimmed);
+    }
+    setEditingName(false);
+  }, [nameValue, paper.title, rename]);
+
+  /* -- header action buttons (right side) -- */
+  const headerActions = useMemo(
+    () => (
+      <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+        {/* Group 1: Content creation */}
+        <Tooltip label={t.documentDetail.addManually}>
+          <ActionIcon variant="default" color="gray" size="md" onClick={() => setAddFormOpen(true)}>
+            <Plus size={16} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label={t.documentDetail.uploadPdf}>
+          <ActionIcon
+            variant={showUploadZone ? 'filled' : 'default'}
+            color={showUploadZone ? getDocColor('exam') : 'gray'}
+            size="md"
+            onClick={() => setShowUploadZone((v) => !v)}
+          >
+            <Upload size={16} />
+          </ActionIcon>
+        </Tooltip>
+
+        {/* Group 2: Publish */}
+        {(paper.status === 'draft' || paper.status === 'ready') && (
+          <>
+            <Divider orientation="vertical" size="xs" h={20} style={{ alignSelf: 'center' }} />
+            {paper.status === 'draft' && (
+              <Tooltip
+                label={
+                  questions.length === 0
+                    ? t.knowledge.publishDisabledTooltip
+                    : t.documentDetail.publish
+                }
+              >
+                <span style={{ display: 'inline-flex' }}>
+                  <ActionIcon
+                    variant="light"
+                    color="green"
+                    size="md"
+                    loading={isPublishing}
+                    disabled={questions.length === 0}
+                    onClick={handlePublish}
+                  >
+                    <Send size={16} />
+                  </ActionIcon>
+                </span>
+              </Tooltip>
+            )}
+            {paper.status === 'ready' && (
+              <Tooltip label={t.documentDetail.unpublish}>
+                <ActionIcon variant="light" color="yellow" size="md" onClick={handleUnpublish}>
+                  <Send size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </>
+        )}
+
+        {/* Group 3: Destructive */}
+        <Divider orientation="vertical" size="xs" h={20} style={{ alignSelf: 'center' }} />
+        <Tooltip label={t.documentDetail.deleteDocument}>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="md"
+            onClick={() =>
+              modals.openConfirmModal({
+                title: t.documentDetail.deleteDocument,
+                children: <Text size="sm">{t.documentDetail.deleteDocConfirm}</Text>,
+                labels: { confirm: t.common.delete, cancel: t.common.cancel },
+                confirmProps: { color: 'red' },
+                onConfirm: handleDeleteDoc,
+              })
+            }
+          >
+            <Trash2 size={16} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+    ),
+    [
+      showUploadZone,
+      paper.status,
+      questions.length,
+      isPublishing,
+      handlePublish,
+      handleUnpublish,
+      handleDeleteDoc,
+      t,
+    ],
   );
 
+  /* -- header: left = info, right = actions -- */
   const headerNode = useMemo(
     () => (
-      <DocumentDetailHeader
-        docId={paper.id}
-        initialName={paper.title}
-        docType="exam"
-        school={school}
-        course={course}
-        status={paper.status}
-        backHref="/admin/knowledge?tab=exam"
-        onSaveName={async () => {
-          // Exam title rename not yet supported
-        }}
-      />
+      <Group justify="space-between" align="center" wrap="nowrap" w="100%">
+        {/* Left: back + name + badges */}
+        <Group gap="sm" wrap="nowrap" style={{ flex: 1, overflow: 'hidden' }}>
+          <Button
+            component={Link}
+            href="/admin/knowledge?tab=exam"
+            variant="subtle"
+            color="gray"
+            size="compact-sm"
+            px={4}
+          >
+            <ArrowLeft size={16} />
+          </Button>
+
+          {editingName ? (
+            <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
+              <TextInput
+                value={nameValue}
+                onChange={(e) => setNameValue(e.currentTarget.value)}
+                size="sm"
+                style={{ flex: 1 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName();
+                  if (e.key === 'Escape') setEditingName(false);
+                }}
+                autoFocus
+              />
+              <Button size="compact-sm" onClick={handleSaveName}>
+                {t.documentDetail.done}
+              </Button>
+            </Group>
+          ) : (
+            <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
+              <Text fw={600} size="sm" truncate>
+                {nameValue}
+              </Text>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={() => setEditingName(true)}
+              >
+                <Pencil size={14} />
+              </ActionIcon>
+            </Group>
+          )}
+
+          <Box
+            style={{
+              width: 1,
+              height: 14,
+              background: 'var(--mantine-color-default-border)',
+              flexShrink: 0,
+            }}
+          />
+
+          <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+            {(school || course) && (
+              <>
+                <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                  {[school, course].filter(Boolean).join(' · ')}
+                </Text>
+                <Box
+                  style={{
+                    width: 1,
+                    height: 14,
+                    background: 'var(--mantine-color-default-border)',
+                    flexShrink: 0,
+                  }}
+                />
+              </>
+            )}
+            <Badge variant="light" color={getDocColor('exam')} size="sm">
+              {(t.knowledge.docTypeLabel as Record<string, string>)?.exam ?? 'Exam'}
+            </Badge>
+            <Badge variant="light" color={statusColor(paper.status)} size="sm">
+              {paper.status}
+            </Badge>
+          </Group>
+        </Group>
+
+        {/* Right: actions */}
+        {headerActions}
+      </Group>
     ),
-    [paper.id, paper.title, school, course, paper.status],
+    [editingName, nameValue, handleSaveName, school, course, paper.status, headerActions, t],
   );
 
   useEffect(() => {
@@ -306,143 +385,29 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
       )}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
         <AdminContent gap="md">
-          <PdfUploadZone
-            documentId={paper.id}
-            docType={docType}
-            existingItemCount={visibleChunks.length}
-            courseId={courseId || undefined}
-            onParseComplete={() => router.refresh()}
-          />
-          <ChunkTable
-            chunks={visibleChunks}
-            docType={docType}
-            editingChunkId={editingChunkId}
-            expandedAnswers={expandedAnswers}
-            selectedIds={selectedIds}
-            getEffectiveContent={getEffectiveContent}
-            getEffectiveMetadata={getEffectiveMetadata}
-            onStartEdit={(chunk) => setEditingChunkId(chunk.id)}
-            onCancelEdit={() => setEditingChunkId(null)}
-            onSaveEdit={handleSaveEdit}
-            onDelete={handleDelete}
-            onToggleAnswer={handleToggleAnswer}
-            onToggleSelect={handleToggleSelect}
-            onToggleSelectAll={handleToggleSelectAll}
-            onBulkDelete={handleBulkDelete}
-            onAddItem={handleAddItem}
-          />
-          <Card
-            withBorder
-            radius="lg"
-            p="md"
-            style={{ position: 'sticky', bottom: 0, zIndex: 10 }}
-            bg="var(--mantine-color-body)"
-          >
-            <Group justify="space-between">
-              <Group gap="sm">
-                {paper.status === 'draft' && (
-                  <Tooltip
-                    label={
-                      visibleChunks.length === 0 ? t.knowledge.publishDisabledTooltip : undefined
-                    }
-                    disabled={visibleChunks.length !== 0}
-                  >
-                    <Button
-                      variant="light"
-                      color="green"
-                      size="compact-sm"
-                      leftSection={<Send size={14} />}
-                      loading={isPublishing}
-                      disabled={visibleChunks.length === 0}
-                      onClick={handlePublish}
-                      radius="md"
-                    >
-                      {t.documentDetail.publish}
-                    </Button>
-                  </Tooltip>
-                )}
-                {paper.status === 'ready' && (
-                  <Button
-                    variant="light"
-                    color="yellow"
-                    size="compact-sm"
-                    onClick={handleUnpublish}
-                    radius="md"
-                  >
-                    {t.documentDetail.unpublish}
-                  </Button>
-                )}
-                <Button
-                  variant="light"
-                  color="red"
-                  size="compact-sm"
-                  onClick={() => setDeleteModalOpen(true)}
-                  radius="md"
-                >
-                  <Trash2 size={14} />
-                </Button>
-                <Text size="sm" c="dimmed">
-                  {pendingChanges > 0
-                    ? `${pendingChanges} ${t.documentDetail.pendingChanges}`
-                    : t.documentDetail.noChanges}
-                </Text>
-              </Group>
-              <Button
-                color={getDocColor('exam')}
-                leftSection={<Save size={16} />}
-                loading={saving}
-                disabled={pendingChanges === 0 || saving}
-                onClick={handleSave}
-                radius="md"
-              >
-                {t.documentDetail.saveChanges}
-              </Button>
-            </Group>
-          </Card>
+          {showUploadZone && (
+            <PdfUploadZone
+              documentId={paper.id}
+              docType="exam"
+              existingItemCount={questions.length}
+              courseId={courseId || undefined}
+              onParseComplete={() => {
+                invalidateQuestions();
+                router.refresh();
+                setShowUploadZone(false);
+              }}
+            />
+          )}
 
-          {/* Delete confirmation modal */}
-          <Modal
-            opened={deleteModalOpen}
-            onClose={() => setDeleteModalOpen(false)}
-            title={t.documentDetail.deleteDocument}
-            centered
-            size="sm"
-            radius="lg"
-          >
-            <Stack align="center" gap="md">
-              <Box
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  background: 'var(--mantine-color-red-0)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Trash2 size={22} color="var(--mantine-color-red-5)" />
-              </Box>
-              <Text fz="sm" ta="center">
-                {t.documentDetail.deleteDocConfirm}
-              </Text>
-            </Stack>
-            <Group justify="flex-end" mt="lg" gap="sm">
-              <Button variant="default" onClick={() => setDeleteModalOpen(false)} radius="md">
-                {t.common.cancel}
-              </Button>
-              <Button
-                color="red"
-                onClick={() => {
-                  setDeleteModalOpen(false);
-                  handleDeleteDoc();
-                }}
-                radius="md"
-              >
-                {t.common.delete}
-              </Button>
-            </Group>
-          </Modal>
+          <ExamQuestionList
+            questions={questions}
+            onSaveQuestion={handleSaveQuestion}
+            onDeleteQuestion={handleDeleteQuestion}
+            onAddQuestion={handleAddQuestion}
+            isAddingQuestion={isAddingQuestion}
+            addFormOpen={addFormOpen}
+            onAddFormOpenChange={setAddFormOpen}
+          />
         </AdminContent>
       </ScrollArea>
     </Box>

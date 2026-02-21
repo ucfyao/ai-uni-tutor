@@ -298,7 +298,10 @@ export class ExamPaperRepository implements IExamPaperRepository {
   async updateQuestion(
     questionId: string,
     data: Partial<
-      Pick<ExamQuestion, 'content' | 'options' | 'answer' | 'explanation' | 'points' | 'type'>
+      Pick<
+        ExamQuestion,
+        'content' | 'options' | 'answer' | 'explanation' | 'points' | 'type' | 'orderNum'
+      >
     >,
   ): Promise<void> {
     const supabase = await createClient();
@@ -310,6 +313,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
     if (data.explanation !== undefined) updatePayload.explanation = data.explanation;
     if (data.points !== undefined) updatePayload.points = data.points;
     if (data.type !== undefined) updatePayload.type = data.type;
+    if (data.orderNum !== undefined) updatePayload.order_num = data.orderNum;
 
     if (Object.keys(updatePayload).length === 0) return;
 

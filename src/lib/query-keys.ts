@@ -29,4 +29,7 @@ export const queryKeys = {
     items: (assignmentId: string) => ['assignments', assignmentId, 'items'] as const,
     detail: (assignmentId: string) => ['assignments', assignmentId] as const,
   },
+  exams: {
+    questions: (paperId: string) => ['exams', paperId, 'questions'] as const,
+  },
 } as const;
