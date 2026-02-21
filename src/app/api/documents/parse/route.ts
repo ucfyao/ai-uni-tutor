@@ -1,40 +1,16 @@
 import { z } from 'zod';
-import type { CreateLectureChunkDTO } from '@/lib/domain/models/Document';
 import { getEnv } from '@/lib/env';
-import { AppError, QuotaExceededError } from '@/lib/errors';
-import { parseGeminiError } from '@/lib/gemini';
+import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
-import type { ParsedQuestion } from '@/lib/rag/parsers/types';
-import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
-import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
+import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
-import type { Json } from '@/types/database';
-
-/** Map a Gemini/pipeline error to SSE error event using ERROR_MAP messages. */
-function sendGeminiError(
-  send: ReturnType<typeof createSSEStream>['send'],
-  error: unknown,
-  context: 'extraction' | 'embedding',
-) {
-  const appErr = error instanceof AppError ? error : parseGeminiError(error);
-  console.error(`${context} [${appErr.code}]:`, error);
-
-  // Specific Gemini errors → use ERROR_MAP message
-  if (appErr.code.startsWith('GEMINI_') && appErr.code !== 'GEMINI_ERROR') {
-    send('log', { message: appErr.message, level: 'error' });
-    send('error', { message: appErr.message, code: appErr.code });
-    return;
-  }
-
-  // Generic / non-Gemini errors → context-specific fallback
-  const code = context === 'embedding' ? 'EMBEDDING_ERROR' : 'EXTRACTION_ERROR';
-  const label = context === 'embedding' ? 'generate embeddings' : 'extract content from PDF';
-  send('log', { message: `Failed to ${label}`, level: 'error' });
-  send('error', { message: `Failed to ${label}`, code });
-}
+import { handleAssignmentPipeline } from './handle-assignment';
+import { handleExamPipeline } from './handle-exam';
+import { handleLecturePipeline } from './handle-lecture';
+import type { PipelineContext } from './types';
 
 // [C2] Ensure this route runs on Node.js runtime and is never statically cached
 export const runtime = 'nodejs';
@@ -127,9 +103,10 @@ export async function POST(request: Request) {
         courseId = doc.courseId;
         documentName = doc.name;
       } else if (doc_type === 'exam') {
-        courseId = await getExamPaperRepository().findCourseId(documentId);
+        courseId = await getExamPaperService().findCourseId(documentId);
       } else {
-        courseId = await getAssignmentRepository().findCourseId(documentId);
+        const { getAssignmentService } = await import('@/lib/services/AssignmentService');
+        courseId = await getAssignmentService().findCourseId(documentId);
       }
 
       // Admin (non-super_admin) must have a course assigned
@@ -170,7 +147,7 @@ export async function POST(request: Request) {
         const items = await getAssignmentService().getItems(documentId);
         existingCount = items.length;
       } else if (doc_type === 'exam') {
-        const questions = await getExamPaperRepository().findQuestionsByPaperId(documentId);
+        const questions = await getExamPaperService().getQuestionsByPaperId(documentId);
         existingCount = questions.length;
       } else {
         const chunks = await lectureService.getChunks(documentId);
@@ -262,556 +239,25 @@ export async function POST(request: Request) {
         return;
       }
 
-      // ── LLM Extraction ──
-      send('status', { stage: 'extracting', message: 'AI extracting content...' });
-
-      let documentOutline: import('@/lib/rag/parsers/types').DocumentOutline | undefined;
+      // ── Dispatch to doc-type-specific pipeline ──
+      const ctx: PipelineContext = {
+        send,
+        signal,
+        documentId,
+        pages: pdfData.pages,
+        fileHash,
+        courseId,
+        userId: user.id,
+        hasAnswers: has_answers,
+        documentName,
+      };
 
       if (doc_type === 'lecture') {
-        // ── LECTURE: section-level chunks ──
-        try {
-          const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
-          const parseResult = await parseLectureMultiPass(pdfData.pages, {
-            documentId,
-            onProgress: (progress) => {
-              send('pipeline_progress', progress);
-              if (progress.detail) send('log', { message: progress.detail, level: 'info' });
-            },
-            signal,
-          });
-
-          const { sections, knowledgePoints, warnings = [] } = parseResult;
-          documentOutline = parseResult.outline;
-
-          // Surface extraction warnings to user
-          for (const w of warnings) {
-            send('log', { message: w, level: 'warning' });
-          }
-
-          if (sections.length === 0) {
-            send('log', { message: 'No structured content extracted', level: 'warning' });
-            send('progress', { current: 0, total: 0 });
-            send('status', { stage: 'complete', message: 'No content extracted' });
-            return;
-          }
-
-          send('log', {
-            message: `Extracted ${sections.length} sections, ${knowledgePoints.length} knowledge points`,
-            level: 'success',
-          });
-
-          // Send item events for frontend display
-          for (let i = 0; i < knowledgePoints.length; i++) {
-            send('item', { index: i, type: 'knowledge_point', data: knowledgePoints[i] });
-          }
-
-          // ── Enter saving stage ──
-          send('status', { stage: 'embedding', message: 'Saving...' });
-
-          // Save document outline (JSON only, no embedding)
-          if (documentOutline) {
-            send('log', { message: 'Saving document outline...', level: 'info' });
-            try {
-              const { getLectureDocumentRepository } =
-                await import('@/lib/repositories/DocumentRepository');
-              await getLectureDocumentRepository().saveOutline(
-                documentId,
-                documentOutline as unknown as Json,
-              );
-              send('log', { message: 'Document outline saved', level: 'success' });
-            } catch (outlineError) {
-              console.warn('Failed to save document outline (non-fatal):', outlineError);
-              send('log', { message: 'Outline save failed (non-fatal)', level: 'warning' });
-            }
-          }
-
-          // Dedup against existing chunks by title + embedding similarity
-          send('log', { message: 'Checking for duplicate sections...', level: 'info' });
-
-          const { buildSectionChunkContent } = await import('@/lib/rag/build-chunk-content');
-
-          const existingChunksForDedup = await lectureService.getChunksWithEmbeddings(documentId);
-          const existingTitles = new Set(
-            existingChunksForDedup.map((c) => {
-              const meta = c.metadata as Record<string, unknown>;
-              return ((meta.title as string) || '').trim().toLowerCase();
-            }),
-          );
-
-          // Pass 1: title-based dedup (fast, no cost)
-          let candidateSections = sections.filter(
-            (s) => !existingTitles.has(s.title.trim().toLowerCase()),
-          );
-          const titleSkipped = sections.length - candidateSections.length;
-
-          if (candidateSections.length === 0) {
-            send('log', { message: 'All sections are duplicates (title match)', level: 'info' });
-            send('status', {
-              stage: 'complete',
-              message: 'No new sections to add (all duplicates).',
-            });
-            return;
-          }
-
-          const candidateContents = candidateSections.map((s) =>
-            buildSectionChunkContent(s, pdfData.pages),
-          );
-
-          send('progress', { current: 0, total: candidateSections.length });
-
-          // Generate embeddings for candidate sections
-          if (signal.aborted) return;
-          send('log', {
-            message: `Generating embeddings for ${candidateSections.length} sections...`,
-            level: 'info',
-          });
-          const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
-          const candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
-
-          send('log', { message: 'Embeddings generated', level: 'success' });
-
-          // Pass 2: embedding similarity dedup (catches same content with different titles)
-          const SIMILARITY_THRESHOLD = 0.92;
-          // pgvector columns may come back as string "[0.1,0.2,...]" from Supabase
-          const existingEmbeddings = existingChunksForDedup
-            .map((c) => {
-              if (Array.isArray(c.embedding)) return c.embedding as number[];
-              if (typeof c.embedding === 'string') {
-                try {
-                  return JSON.parse(c.embedding) as number[];
-                } catch {
-                  return null;
-                }
-              }
-              return null;
-            })
-            .filter((e): e is number[] => Array.isArray(e) && e.length > 0);
-
-          send('log', {
-            message: `Dedup: ${existingEmbeddings.length} existing embeddings found for comparison`,
-            level: 'info',
-          });
-
-          let embeddingSkipped = 0;
-          const keepIndices: number[] = [];
-          if (existingEmbeddings.length > 0) {
-            for (let i = 0; i < candidateEmbeddings.length; i++) {
-              const emb = candidateEmbeddings[i];
-              let maxSim = 0;
-              for (const existing of existingEmbeddings) {
-                let dot = 0;
-                for (let d = 0; d < emb.length; d++) dot += emb[d] * existing[d];
-                if (dot > maxSim) maxSim = dot;
-              }
-              if (maxSim < SIMILARITY_THRESHOLD) {
-                keepIndices.push(i);
-              }
-            }
-            embeddingSkipped = candidateSections.length - keepIndices.length;
-            if (embeddingSkipped > 0) {
-              send('log', {
-                message: `${embeddingSkipped} sections skipped (embedding similarity > ${SIMILARITY_THRESHOLD})`,
-                level: 'info',
-              });
-            }
-          } else {
-            // No existing embeddings to compare — keep all candidates
-            for (let i = 0; i < candidateSections.length; i++) keepIndices.push(i);
-          }
-
-          const totalSkipped = titleSkipped + embeddingSkipped;
-          if (keepIndices.length === 0) {
-            send('log', { message: 'All sections are duplicates', level: 'info' });
-            send('status', {
-              stage: 'complete',
-              message: 'No new sections to add (all duplicates).',
-            });
-            return;
-          }
-
-          // Filter all arrays by keepIndices
-          const newSections = keepIndices.map((i) => candidateSections[i]);
-          const allContents = keepIndices.map((i) => candidateContents[i]);
-          const allEmbeddings = keepIndices.map((i) => candidateEmbeddings[i]);
-
-          send('log', {
-            message:
-              totalSkipped > 0
-                ? `${newSections.length} new sections (${totalSkipped} duplicates skipped)`
-                : `${newSections.length} sections to save`,
-            level: 'success',
-          });
-
-          // Assemble DTOs
-          const allChunks: CreateLectureChunkDTO[] = newSections.map((section, i) => ({
-            lectureDocumentId: documentId,
-            content: allContents[i],
-            embedding: allEmbeddings[i],
-            metadata: {
-              type: 'section',
-              title: section.title,
-              summary: section.summary,
-              sourcePages: section.sourcePages,
-              knowledgePoints: section.knowledgePoints.map((kp) => ({
-                title: kp.title,
-                content: kp.content,
-                sourcePages: kp.sourcePages,
-              })),
-              ...(documentName && { documentName }),
-            },
-          }));
-
-          // Batch save (groups of 20)
-          const SAVE_BATCH = 20;
-          for (let i = 0; i < allChunks.length; i += SAVE_BATCH) {
-            if (signal.aborted) break;
-            const batchIdx = Math.floor(i / SAVE_BATCH);
-            const batch = allChunks.slice(i, i + SAVE_BATCH);
-            const batchEnd = Math.min(i + SAVE_BATCH, allChunks.length);
-
-            send('log', {
-              message: `Saving chunks ${i + 1}-${batchEnd} of ${allChunks.length}...`,
-              level: 'info',
-            });
-
-            const saved = await lectureService.saveChunksAndReturn(batch);
-            send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
-            send('progress', { current: batchEnd, total: allChunks.length });
-          }
-
-          send('log', { message: `Saved ${allChunks.length} chunks`, level: 'success' });
-
-          // Store file hash in document metadata for future course-level dedup
-          try {
-            const currentDoc = await lectureService.findById(documentId);
-            const existingMeta = (currentDoc?.metadata as Record<string, unknown>) ?? {};
-            await lectureService.updateDocumentMetadata(documentId, {
-              metadata: { ...existingMeta, file_hash: fileHash } as Json,
-            });
-          } catch (hashErr) {
-            console.warn('Failed to store file hash (non-fatal):', hashErr);
-          }
-        } catch (e) {
-          sendGeminiError(send, e, 'extraction');
-          return;
-        }
+        await handleLecturePipeline(ctx);
+      } else if (doc_type === 'exam') {
+        await handleExamPipeline(ctx);
       } else {
-        // ── EXAM / ASSIGNMENT: question extraction ──
-        let items: Array<{
-          type: 'question';
-          data: ParsedQuestion;
-        }>;
-
-        try {
-          const onBatchProgress = (current: number, total: number) => {
-            send('progress', { current, total });
-          };
-          const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-          const questions = await parseQuestions(pdfData.pages, has_answers, onBatchProgress);
-          items = questions.map((q) => ({ type: 'question' as const, data: q }));
-        } catch (e) {
-          sendGeminiError(send, e, 'extraction');
-          return;
-        }
-
-        if (items.length === 0) {
-          send('progress', { current: 0, total: 0 });
-          send('status', { stage: 'complete', message: 'No content extracted' });
-          return;
-        }
-
-        if (doc_type === 'exam') {
-          // ── EXAM: Content-based dedup, then save questions ──
-          send('status', { stage: 'embedding', message: 'Saving questions...' });
-          const examRepo = getExamPaperRepository();
-
-          // Query existing questions for content-based dedup
-          const existingQuestions = await examRepo.findQuestionsByPaperId(documentId);
-          const existingContents = new Set(
-            existingQuestions.map((q) => q.content.trim().toLowerCase()),
-          );
-          const maxOrderNum =
-            existingQuestions.length > 0
-              ? Math.max(...existingQuestions.map((q) => q.orderNum))
-              : 0;
-
-          const newItems = items.filter((item) => {
-            const q = item.data;
-            return !existingContents.has(q.content.trim().toLowerCase());
-          });
-
-          if (newItems.length === 0) {
-            send('status', {
-              stage: 'complete',
-              message: 'No new questions to add (all duplicates).',
-            });
-            return;
-          }
-
-          for (let i = 0; i < newItems.length; i++) {
-            send('item', { index: i, type: newItems[i].type, data: newItems[i].data });
-            send('progress', { current: i + 1, total: newItems.length });
-          }
-
-          const questions = newItems.map((item, idx) => {
-            const q = item.data;
-            return {
-              paperId: documentId,
-              orderNum: maxOrderNum + idx + 1,
-              type: '',
-              content: q.content,
-              options: q.options
-                ? Object.fromEntries(q.options.map((opt, j) => [String.fromCharCode(65 + j), opt]))
-                : null,
-              answer: q.referenceAnswer || '',
-              explanation: '',
-              points: q.score || 0,
-              metadata: { sourcePage: q.sourcePage },
-            };
-          });
-
-          await examRepo.insertQuestions(questions);
-          send('batch_saved', { chunkIds: questions.map((_, i) => `q-${i}`), batchIndex: 0 });
-
-          const questionTypes = [...new Set(questions.map((q) => q.type).filter(Boolean))];
-          if (questionTypes.length > 0) {
-            await examRepo.updatePaper(documentId, { questionTypes });
-          }
-        } else {
-          // ── ASSIGNMENT: Dedicated parser + two-pass dedup + batch saves ──
-          send('status', { stage: 'extracting', message: 'Extracting assignment questions...' });
-
-          const { parseAssignment } = await import('@/lib/rag/parsers/assignment-parser');
-          const { buildAssignmentItemContent } = await import('@/lib/rag/build-chunk-content');
-          const { getAssignmentService } = await import('@/lib/services/AssignmentService');
-          const assignmentService = getAssignmentService();
-
-          // Stage 1: AI extraction
-          let parsedItems: Awaited<ReturnType<typeof parseAssignment>>['items'];
-          let warnings: string[];
-          try {
-            const parseResult = await parseAssignment(pdfData.pages, {
-              assignmentId: documentId,
-              signal,
-              onProgress: (p) => send('pipeline_progress', p),
-            });
-            parsedItems = parseResult.items;
-            warnings = parseResult.warnings;
-          } catch (e) {
-            sendGeminiError(send, e, 'extraction');
-            return;
-          }
-
-          for (const w of warnings) send('log', { message: w, level: 'warning' });
-
-          if (parsedItems.length === 0) {
-            send('status', { stage: 'complete', message: 'No questions found in document.' });
-            return;
-          }
-
-          // Send item events for frontend
-          for (let i = 0; i < parsedItems.length; i++) {
-            send('item', { index: i, type: 'question', data: parsedItems[i] });
-            send('progress', { current: i + 1, total: parsedItems.length });
-          }
-
-          // Stage 2: Dedup — fetch existing items
-          send('log', { message: 'Checking for duplicate questions...', level: 'info' });
-
-          let existingItemsForDedup: Awaited<
-            ReturnType<typeof assignmentService.getItemsWithEmbeddings>
-          >;
-          try {
-            existingItemsForDedup = await assignmentService.getItemsWithEmbeddings(documentId);
-          } catch (e) {
-            console.error('Failed to fetch existing items for dedup:', e);
-            send('log', {
-              message: `Failed to load existing items: ${e instanceof Error ? e.message : 'Unknown error'}`,
-              level: 'error',
-            });
-            send('error', {
-              message: 'Failed to check for duplicates. Please try again.',
-              code: 'DEDUP_FETCH_ERROR',
-            });
-            return;
-          }
-
-          const existingContents = new Set(
-            existingItemsForDedup.map((item) => item.content.trim().toLowerCase()),
-          );
-
-          // Pass 1: Content match (fast, zero cost)
-          let candidateItems = parsedItems.filter(
-            (item) => !existingContents.has(item.content.trim().toLowerCase()),
-          );
-          const contentSkipped = parsedItems.length - candidateItems.length;
-          if (contentSkipped > 0) {
-            send('log', {
-              message: `Pass 1: ${contentSkipped} duplicates skipped (content match)`,
-              level: 'info',
-            });
-          }
-
-          if (candidateItems.length === 0) {
-            send('status', {
-              stage: 'complete',
-              message: 'No new questions to add (all duplicates).',
-            });
-            return;
-          }
-
-          // Build enriched content for embedding
-          const candidateContents = candidateItems.map((item) => buildAssignmentItemContent(item));
-
-          send('log', {
-            message: `Generating embeddings for ${candidateItems.length} questions...`,
-            level: 'info',
-          });
-          if (signal.aborted) return;
-
-          // Stage 3: Generate embeddings
-          let candidateEmbeddings: number[][];
-          try {
-            const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
-            candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
-          } catch (e) {
-            sendGeminiError(send, e, 'embedding');
-            return;
-          }
-          send('log', { message: 'Embeddings generated', level: 'success' });
-
-          // Pass 2: Embedding similarity dedup
-          const SIMILARITY_THRESHOLD = 0.92;
-          const existingEmbeddings = existingItemsForDedup
-            .map((c) => {
-              if (Array.isArray(c.embedding)) return c.embedding;
-              if (typeof c.embedding === 'string') {
-                try {
-                  return JSON.parse(c.embedding) as number[];
-                } catch {
-                  return null;
-                }
-              }
-              return null;
-            })
-            .filter((e): e is number[] => Array.isArray(e) && e.length > 0);
-
-          let embeddingSkipped = 0;
-          const keepIndices: number[] = [];
-          if (existingEmbeddings.length > 0) {
-            for (let i = 0; i < candidateEmbeddings.length; i++) {
-              const emb = candidateEmbeddings[i];
-              let maxSim = 0;
-              for (const existing of existingEmbeddings) {
-                let dot = 0;
-                for (let d = 0; d < emb.length; d++) dot += emb[d] * existing[d];
-                if (dot > maxSim) maxSim = dot;
-              }
-              if (maxSim < SIMILARITY_THRESHOLD) keepIndices.push(i);
-            }
-            embeddingSkipped = candidateItems.length - keepIndices.length;
-            if (embeddingSkipped > 0) {
-              send('log', {
-                message: `Pass 2: ${embeddingSkipped} duplicates skipped (embedding similarity > ${SIMILARITY_THRESHOLD})`,
-                level: 'info',
-              });
-            }
-          } else {
-            for (let i = 0; i < candidateItems.length; i++) keepIndices.push(i);
-          }
-
-          if (keepIndices.length === 0) {
-            send('status', {
-              stage: 'complete',
-              message: 'No new questions to add (all duplicates).',
-            });
-            return;
-          }
-
-          // Filter by keepIndices
-          const newItems = keepIndices.map((i) => candidateItems[i]);
-          const allContents = keepIndices.map((i) => candidateContents[i]);
-          const allEmbeddings = keepIndices.map((i) => candidateEmbeddings[i]);
-
-          const totalSkipped = contentSkipped + embeddingSkipped;
-          send('log', {
-            message:
-              totalSkipped > 0
-                ? `${newItems.length} new questions (${totalSkipped} duplicates skipped)`
-                : `${newItems.length} questions to save`,
-            level: 'success',
-          });
-
-          // Stage 4: Save to database
-          let existingItems: Awaited<ReturnType<typeof assignmentService.getItems>>;
-          try {
-            existingItems = await assignmentService.getItems(documentId);
-          } catch (e) {
-            console.error('Failed to fetch existing items for ordering:', e);
-            send('log', {
-              message: `Failed to load existing items: ${e instanceof Error ? e.message : 'Unknown error'}`,
-              level: 'error',
-            });
-            send('error', {
-              message: 'Failed to prepare save. Please try again.',
-              code: 'SAVE_PREP_ERROR',
-            });
-            return;
-          }
-          const maxOrderNum =
-            existingItems.length > 0 ? Math.max(...existingItems.map((item) => item.orderNum)) : 0;
-
-          // Assemble DTOs
-          const allItemDTOs = newItems.map((item, i) => ({
-            assignmentId: documentId,
-            orderNum: maxOrderNum + i + 1,
-            type: item.type,
-            content: allContents[i],
-            referenceAnswer: item.referenceAnswer,
-            explanation: item.explanation,
-            points: item.score,
-            difficulty: item.difficulty,
-            metadata: {
-              section: item.section,
-              type: item.type,
-              sourcePages: item.sourcePages,
-              difficulty: item.difficulty,
-            },
-            embedding: allEmbeddings[i],
-          }));
-
-          // Batch save (groups of 20)
-          send('status', { stage: 'embedding', message: 'Saving questions...' });
-          const SAVE_BATCH = 20;
-          for (let i = 0; i < allItemDTOs.length; i += SAVE_BATCH) {
-            if (signal.aborted) break;
-            const batchIdx = Math.floor(i / SAVE_BATCH);
-            const batch = allItemDTOs.slice(i, i + SAVE_BATCH);
-            const batchEnd = Math.min(i + SAVE_BATCH, allItemDTOs.length);
-            send('log', {
-              message: `Saving questions ${i + 1}-${batchEnd} of ${allItemDTOs.length}...`,
-              level: 'info',
-            });
-            try {
-              const saved = await assignmentService.saveItemsAndReturn(batch);
-              send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
-              send('progress', { current: batchEnd, total: allItemDTOs.length });
-            } catch (e) {
-              console.error(`Batch save error (batch ${batchIdx}):`, e);
-              send('log', {
-                message: `Failed to save questions ${i + 1}-${batchEnd}: ${e instanceof Error ? e.message : 'Unknown error'}`,
-                level: 'error',
-              });
-              send('error', {
-                message: `Failed to save questions (batch ${batchIdx + 1}). ${i > 0 ? `${i} questions were saved successfully.` : 'No questions were saved.'}`,
-                code: 'SAVE_ERROR',
-              });
-              return;
-            }
-          }
-
-          send('log', { message: `Saved ${allItemDTOs.length} questions`, level: 'success' });
-        }
+        await handleAssignmentPipeline(ctx);
       }
 
       // Fire-and-forget: regenerate course outline after lecture upload
@@ -822,8 +268,6 @@ export async function POST(request: Request) {
             .catch((e) => console.warn('Course outline regeneration failed (non-fatal):', e)),
         );
       }
-
-      send('status', { stage: 'complete', message: 'Done!' });
     } catch (error) {
       console.error('Parse pipeline error:', error);
       send('error', { message: 'Internal server error', code: 'INTERNAL_ERROR' });

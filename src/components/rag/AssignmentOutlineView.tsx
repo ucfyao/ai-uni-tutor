@@ -11,6 +11,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActionIcon,
@@ -31,9 +32,13 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
-import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
+
+const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
+  ssr: false,
+  loading: () => <Box style={{ minHeight: 20 }} />,
+});
 
 /* ── Types ── */
 
@@ -53,6 +58,7 @@ interface AssignmentOutlineViewProps {
   onBulkSetDifficulty: (difficulty: string) => void;
   onBulkSetPoints: (points: number) => void;
   onAddItem: (data: Record<string, unknown>) => Promise<boolean>;
+  isAddingItem?: boolean;
   /** Controlled add-form visibility (from parent header button). */
   addFormOpen?: boolean;
   onAddFormOpenChange?: (open: boolean) => void;
@@ -178,7 +184,7 @@ function MarkdownToggleField({
         <Box
           p="sm"
           style={{
-            border: '1px solid var(--mantine-color-gray-3)',
+            border: '1px solid var(--mantine-color-default-border)',
             borderRadius: 'var(--mantine-radius-sm)',
             minHeight: 60,
           }}
@@ -306,10 +312,12 @@ function ItemEditForm({
 function AddItemForm({
   onAdd,
   onCancel,
+  saving: externalSaving,
   t,
 }: {
   onAdd: (data: Record<string, unknown>) => Promise<boolean>;
   onCancel: () => void;
+  saving?: boolean;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const [content, setContent] = useState('');
@@ -318,30 +326,25 @@ function AddItemForm({
   const [type, setType] = useState<string>('short_answer');
   const [difficulty, setDifficulty] = useState<string>('medium');
   const [points, setPoints] = useState<number | string>(10);
-  const [saving, setSaving] = useState(false);
+  const saving = externalSaving ?? false;
 
   const handleAdd = async () => {
     if (!content.trim()) return;
-    setSaving(true);
-    try {
-      const success = await onAdd({
-        content: content.trim(),
-        referenceAnswer: refAnswer.trim(),
-        explanation: explanation.trim(),
-        type,
-        difficulty,
-        points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
-      });
-      if (success) {
-        setContent('');
-        setRefAnswer('');
-        setExplanation('');
-        setType('short_answer');
-        setDifficulty('medium');
-        setPoints(10);
-      }
-    } finally {
-      setSaving(false);
+    const success = await onAdd({
+      content: content.trim(),
+      referenceAnswer: refAnswer.trim(),
+      explanation: explanation.trim(),
+      type,
+      difficulty,
+      points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
+    });
+    if (success) {
+      setContent('');
+      setRefAnswer('');
+      setExplanation('');
+      setType('short_answer');
+      setDifficulty('medium');
+      setPoints(10);
     }
   };
 
@@ -483,8 +486,10 @@ function ItemCard({
       py="sm"
       style={{
         borderRadius: 'var(--mantine-radius-md)',
-        background: isSelected ? 'var(--mantine-color-indigo-0)' : 'var(--mantine-color-gray-0)',
-        border: `1px solid ${isSelected ? 'var(--mantine-color-indigo-2)' : 'var(--mantine-color-gray-2)'}`,
+        background: isSelected
+          ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
+          : 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+        border: `1px solid ${isSelected ? 'light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))' : 'var(--mantine-color-default-border)'}`,
         transition: 'all 0.15s ease',
       }}
     >
@@ -527,7 +532,7 @@ function ItemCard({
             )}
             {item.points > 0 && (
               <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                {item.points} pts
+                {item.points} {t.knowledge.pts}
               </Text>
             )}
             <Box style={{ flex: 1 }} />
@@ -711,6 +716,7 @@ export function AssignmentOutlineView({
   onBulkSetDifficulty,
   onBulkSetPoints,
   onAddItem,
+  isAddingItem,
   addFormOpen,
   onAddFormOpenChange,
 }: AssignmentOutlineViewProps) {
@@ -737,11 +743,14 @@ export function AssignmentOutlineView({
   const availableTypes = useMemo(() => {
     const types = new Set<string>();
     for (const item of liveItems) {
-      const t = getType(item);
-      if (t) types.add(t);
+      const itemType = getType(item);
+      if (itemType) types.add(itemType);
     }
-    return Array.from(types).map((t) => ({ value: t, label: t }));
-  }, [liveItems]);
+    return Array.from(types).map((key) => ({
+      value: key,
+      label: (t.knowledge.questionTypes as TranslationMap)[key] ?? key,
+    }));
+  }, [liveItems, t]);
 
   // Apply search and filters
   const filteredItems = useMemo(() => {
@@ -829,9 +838,11 @@ export function AssignmentOutlineView({
           style={{
             borderRadius: 'var(--mantine-radius-md)',
             border: hasSelection
-              ? '1px solid var(--mantine-color-indigo-2)'
+              ? '1px solid light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))'
               : '1px solid transparent',
-            background: hasSelection ? 'var(--mantine-color-indigo-0)' : 'transparent',
+            background: hasSelection
+              ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
+              : 'transparent',
             transition: 'background 0.2s ease, border-color 0.2s ease',
           }}
         >
@@ -845,7 +856,7 @@ export function AssignmentOutlineView({
             />
             {hasSelection ? (
               <Text size="sm" fw={500}>
-                {selectedCount} selected
+                {selectedCount} {t.knowledge.nSelected}
               </Text>
             ) : (
               <Group gap="sm" wrap="nowrap">
@@ -1022,7 +1033,12 @@ export function AssignmentOutlineView({
 
       {/* Add item form or button */}
       {showAddForm ? (
-        <AddItemForm onAdd={onAddItem} onCancel={() => setShowAddForm(false)} t={t} />
+        <AddItemForm
+          onAdd={onAddItem}
+          onCancel={() => setShowAddForm(false)}
+          saving={isAddingItem}
+          t={t}
+        />
       ) : (
         <Button
           variant="light"

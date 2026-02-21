@@ -61,23 +61,23 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
   parseQuestions: (...args: unknown[]) => mockParseQuestions(...args),
 }));
 
-const mockExamPaperRepo = {
+const mockExamPaperService = {
   findCourseId: vi.fn(),
-  findQuestionsByPaperId: vi.fn(),
+  getQuestionsByPaperId: vi.fn(),
   insertQuestions: vi.fn(),
-  updatePaper: vi.fn(),
+  updatePaperMeta: vi.fn(),
 };
-vi.mock('@/lib/repositories/ExamPaperRepository', () => ({
-  getExamPaperRepository: () => mockExamPaperRepo,
+vi.mock('@/lib/services/ExamPaperService', () => ({
+  getExamPaperService: () => mockExamPaperService,
 }));
 
-const mockAssignmentRepo = {
+const mockAssignmentService = {
   findCourseId: vi.fn(),
-  findItemsByAssignmentId: vi.fn(),
-  insertItems: vi.fn(),
+  getItems: vi.fn(),
+  deleteItemsByAssignmentId: vi.fn(),
 };
-vi.mock('@/lib/repositories/AssignmentRepository', () => ({
-  getAssignmentRepository: () => mockAssignmentRepo,
+vi.mock('@/lib/services/AssignmentService', () => ({
+  getAssignmentService: () => mockAssignmentService,
 }));
 
 // ---------------------------------------------------------------------------
@@ -228,10 +228,10 @@ function setupSuccessfulParse() {
     warnings: [],
   });
   mockParseQuestions.mockResolvedValue([MOCK_QUESTION]);
-  mockExamPaperRepo.findCourseId.mockResolvedValue(null);
-  mockExamPaperRepo.findQuestionsByPaperId.mockResolvedValue([]);
-  mockAssignmentRepo.findCourseId.mockResolvedValue(null);
-  mockAssignmentRepo.findItemsByAssignmentId.mockResolvedValue([]);
+  mockExamPaperService.findCourseId.mockResolvedValue(null);
+  mockExamPaperService.getQuestionsByPaperId.mockResolvedValue([]);
+  mockAssignmentService.findCourseId.mockResolvedValue(null);
+  mockAssignmentService.getItems.mockResolvedValue([]);
 }
 
 // ---------------------------------------------------------------------------
@@ -564,8 +564,8 @@ describe('POST /api/documents/parse', () => {
   describe('exam doc type', () => {
     it('sends question-type items for exam documents', async () => {
       setupSuccessfulParse();
-      mockExamPaperRepo.insertQuestions.mockResolvedValue(undefined);
-      mockExamPaperRepo.updatePaper.mockResolvedValue(undefined);
+      mockExamPaperService.insertQuestions.mockResolvedValue(undefined);
+      mockExamPaperService.updatePaperMeta.mockResolvedValue(undefined);
 
       const response = await POST(makeRequest({ doc_type: 'exam' }));
       const events = await readSSEEvents(response);

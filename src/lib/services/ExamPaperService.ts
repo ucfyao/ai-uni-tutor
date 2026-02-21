@@ -233,6 +233,27 @@ export class ExamPaperService {
   async unpublish(paperId: string): Promise<void> {
     await this.repo.unpublish(paperId);
   }
+
+  async findCourseId(paperId: string): Promise<string | null> {
+    return this.repo.findCourseId(paperId);
+  }
+
+  async getQuestionsByPaperId(paperId: string): Promise<ExamQuestion[]> {
+    return this.repo.findQuestionsByPaperId(paperId);
+  }
+
+  async insertQuestions(
+    questions: Parameters<ExamPaperRepository['insertQuestions']>[0],
+  ): Promise<void> {
+    await this.repo.insertQuestions(questions);
+  }
+
+  async updatePaperMeta(
+    paperId: string,
+    data: { title?: string; questionTypes?: string[] },
+  ): Promise<void> {
+    await this.repo.updatePaper(paperId, data);
+  }
 }
 
 // Singleton instance
