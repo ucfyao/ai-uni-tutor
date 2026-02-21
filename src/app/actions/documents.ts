@@ -145,12 +145,14 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
 export async function deleteDocument(documentId: string, docType: string) {
   const parsedType = docTypeSchema.safeParse(docType);
   if (!parsedType.success) throw new Error('Invalid document type');
-  // Assignments use deleteAssignment from assignments.ts
-  if (parsedType.data === 'assignment') throw new Error('Use deleteAssignment action instead');
 
   const { user, role } = await requireAnyAdmin();
 
-  if (parsedType.data === 'exam') {
+  if (parsedType.data === 'assignment') {
+    await requireAssignmentAccess(documentId, user.id, role);
+    const { getAssignmentService } = await import('@/lib/services/AssignmentService');
+    await getAssignmentService().deleteAssignment(documentId);
+  } else if (parsedType.data === 'exam') {
     await requireExamAccess(documentId, user.id, role);
     const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
     await getExamPaperRepository().delete(documentId);

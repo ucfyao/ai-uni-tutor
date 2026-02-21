@@ -115,9 +115,17 @@ const mockAssignmentRepo = {
   findItemsByAssignmentId: vi.fn(),
   deleteItem: vi.fn(),
   updateItem: vi.fn(),
+  deleteItemsByAssignmentId: vi.fn(),
 };
 vi.mock('@/lib/repositories/AssignmentRepository', () => ({
   getAssignmentRepository: () => mockAssignmentRepo,
+}));
+
+const mockAssignmentService = {
+  deleteAssignment: vi.fn(),
+};
+vi.mock('@/lib/services/AssignmentService', () => ({
+  getAssignmentService: () => mockAssignmentService,
 }));
 
 // ---------------------------------------------------------------------------
@@ -502,11 +510,15 @@ describe('Document Actions', () => {
       });
     });
 
-    describe('assignment — redirects to dedicated action', () => {
-      it('should throw when attempting to delete assignment via deleteDocument', async () => {
-        await expect(deleteDocument('assign-1', 'assignment')).rejects.toThrow(
-          'Use deleteAssignment action instead',
-        );
+    describe('assignment', () => {
+      it('should delete assignment via AssignmentService', async () => {
+        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
+        mockAssignmentRepo.findCourseId.mockResolvedValue(null);
+        mockAssignmentService.deleteAssignment.mockResolvedValue(undefined);
+
+        await deleteDocument('assign-1', 'assignment');
+
+        expect(mockAssignmentService.deleteAssignment).toHaveBeenCalledWith('assign-1');
       });
     });
   });
