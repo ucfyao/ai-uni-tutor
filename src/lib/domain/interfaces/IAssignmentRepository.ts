@@ -41,6 +41,7 @@ export interface IAssignmentRepository {
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
       warnings?: string[];
+      parentItemId?: string | null;
     }>,
   ): Promise<void>;
 
@@ -58,6 +59,7 @@ export interface IAssignmentRepository {
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
       warnings?: string[];
+      parentItemId?: string | null;
     },
   ): Promise<AssignmentItemEntity>;
 
@@ -84,6 +86,7 @@ export interface IAssignmentRepository {
   deleteItemsByAssignmentId(assignmentId: string): Promise<void>;
   verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean>;
   updateItemEmbedding(itemId: string, embedding: number[]): Promise<void>;
+  moveItem(itemId: string, newParentId: string | null): Promise<void>;
   getStats(
     assignmentIds: string[],
   ): Promise<Map<string, { itemCount: number; withAnswer: number; warningCount: number }>>;

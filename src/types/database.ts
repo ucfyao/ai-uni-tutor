@@ -481,6 +481,7 @@ export interface Database {
           course_id: string | null;
           status: 'draft' | 'ready';
           created_at: string;
+          metadata: Json;
         };
         Insert: {
           id?: string;
@@ -491,6 +492,7 @@ export interface Database {
           course_id?: string | null;
           status?: 'draft' | 'ready';
           created_at?: string;
+          metadata?: Json;
         };
         Update: {
           id?: string;
@@ -501,6 +503,7 @@ export interface Database {
           course_id?: string | null;
           status?: 'draft' | 'ready';
           created_at?: string;
+          metadata?: Json;
         };
         Relationships: [];
       };
@@ -542,6 +545,7 @@ export interface Database {
           metadata: Json;
           embedding: number[] | null;
           created_at: string;
+          parent_item_id: string | null;
         };
         Insert: {
           id?: string;
@@ -556,6 +560,7 @@ export interface Database {
           metadata?: Json;
           embedding?: number[] | null;
           created_at?: string;
+          parent_item_id?: string | null;
         };
         Update: {
           id?: string;
@@ -570,6 +575,7 @@ export interface Database {
           metadata?: Json;
           embedding?: number[] | null;
           created_at?: string;
+          parent_item_id?: string | null;
         };
         Relationships: [];
       };

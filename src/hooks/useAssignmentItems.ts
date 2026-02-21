@@ -5,11 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import {
   addAssignmentItem,
-  batchUpdateAnswers,
   fetchAssignmentItems,
-  mergeAssignmentItems,
   renameAssignment,
-  splitAssignmentItem,
+  saveAssignmentChanges,
 } from '@/app/actions/assignments';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
@@ -44,6 +42,9 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
       explanation?: string;
       points?: number;
       difficulty?: string;
+      parentItemId?: string | null;
+      orderNum?: number;
+      title?: string;
     }) => {
       const result = await addAssignmentItem({
         assignmentId,
@@ -53,12 +54,51 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
         explanation: data.explanation ?? '',
         points: data.points ?? 0,
         difficulty: data.difficulty ?? '',
+        parentItemId: data.parentItemId,
+        orderNum: data.orderNum,
+        title: data.title ?? '',
       });
       if (!result.success) throw new Error(result.error);
       return result.data;
     },
     onSuccess: () => {
       showNotification({ message: t.documentDetail.saved, color: 'green' });
+      invalidateItems();
+    },
+    onError: (error: Error) => {
+      showNotification({ title: t.common.error, message: error.message, color: 'red' });
+    },
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: async (data: {
+      itemId: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }) => {
+      const result = await saveAssignmentChanges(
+        assignmentId,
+        [{ id: data.itemId, content: data.content, metadata: data.metadata }],
+        [],
+      );
+      if (!result.success) throw new Error(result.error);
+    },
+    onSuccess: () => {
+      showNotification({ message: t.documentDetail.saved, color: 'green' });
+      invalidateItems();
+    },
+    onError: (error: Error) => {
+      showNotification({ title: t.common.error, message: error.message, color: 'red' });
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const result = await saveAssignmentChanges(assignmentId, [], [itemId]);
+      if (!result.success) throw new Error(result.error);
+    },
+    onSuccess: () => {
+      showNotification({ message: t.toast.deletedSuccessfully, color: 'green' });
       invalidateItems();
     },
     onError: (error: Error) => {
@@ -80,70 +120,14 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     },
   });
 
-  const mergeMutation = useMutation({
-    mutationFn: async (itemIds: string[]) => {
-      const result = await mergeAssignmentItems({ assignmentId, itemIds });
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    },
-    onSuccess: () => {
-      showNotification({ message: t.documentDetail.saved, color: 'green' });
-      invalidateItems();
-    },
-    onError: (error: Error) => {
-      showNotification({ title: t.common.error, message: error.message, color: 'red' });
-    },
-  });
-
-  const splitMutation = useMutation({
-    mutationFn: async (data: { itemId: string; splitContent: [string, string] }) => {
-      const result = await splitAssignmentItem({
-        assignmentId,
-        itemId: data.itemId,
-        splitContent: data.splitContent,
-      });
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    },
-    onSuccess: () => {
-      showNotification({ message: t.documentDetail.saved, color: 'green' });
-      invalidateItems();
-    },
-    onError: (error: Error) => {
-      showNotification({ title: t.common.error, message: error.message, color: 'red' });
-    },
-  });
-
-  const batchAnswersMutation = useMutation({
-    mutationFn: async (matches: Array<{ itemId: string; referenceAnswer: string }>) => {
-      const result = await batchUpdateAnswers({ assignmentId, matches });
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    },
-    onSuccess: (data) => {
-      showNotification({
-        message: t.knowledge.answersUpdated.replace('{count}', String(data!.updated)),
-        color: 'green',
-      });
-      invalidateItems();
-    },
-    onError: (error: Error) => {
-      showNotification({ title: t.common.error, message: error.message, color: 'red' });
-    },
-  });
-
   return {
     items: query.data ?? [],
     isLoading: query.isLoading,
     addItem: addItemMutation.mutateAsync,
     isAddingItem: addItemMutation.isPending,
+    updateItem: updateItemMutation.mutateAsync,
+    deleteItem: deleteItemMutation.mutateAsync,
     rename: renameMutation.mutateAsync,
-    isRenaming: renameMutation.isPending,
-    merge: mergeMutation.mutateAsync,
-    isMerging: mergeMutation.isPending,
-    split: splitMutation.mutateAsync,
-    isSplitting: splitMutation.isPending,
-    batchUpdateAnswers: batchAnswersMutation.mutateAsync,
     invalidateItems,
   };
 }

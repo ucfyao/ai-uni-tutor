@@ -1,39 +1,40 @@
 'use client';
 
 import {
+  AlertTriangle,
+  CheckCircle,
   ChevronDown,
   ChevronRight,
-  Filter,
-  FilterX,
-  GripVertical,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  FileText,
+  Hash,
   Pencil,
   Plus,
-  Search,
   Trash2,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActionIcon,
   Badge,
   Box,
   Button,
   Card,
-  Checkbox,
-  Collapse,
-  Divider,
   Group,
-  Menu,
-  MultiSelect,
   NumberInput,
   Select,
   Stack,
   Text,
   Textarea,
   TextInput,
+  Tooltip,
 } from '@mantine/core';
+import { modals } from '@mantine/modals';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
+import type { AssignmentItemEntity, AssignmentItemTree } from '@/lib/domain/models/Assignment';
+import { buildItemTree, computeDisplayLabels } from '@/lib/domain/models/Assignment';
 
 const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
   ssr: false,
@@ -44,26 +45,14 @@ const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), 
 
 interface AssignmentOutlineViewProps {
   items: AssignmentItemEntity[];
-  selectedIds: Set<string>;
-  editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
-  deletedItemIds: Set<string>;
-  editingItemId: string | null;
-  onToggleSelect: (id: string) => void;
-  onToggleSelectAll: () => void;
-  onStartEdit: (id: string) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
-  onDelete: (id: string) => void;
-  onBulkDelete: () => void;
-  onBulkSetDifficulty: (difficulty: string) => void;
-  onBulkSetPoints: (points: number) => void;
+  onSaveItem: (itemId: string, content: string, metadata: Record<string, unknown>) => Promise<void>;
+  onDeleteItem: (itemId: string) => Promise<void>;
   onAddItem: (data: Record<string, unknown>) => Promise<boolean>;
   isAddingItem?: boolean;
-  /** Controlled add-form visibility (from parent header button). */
   addFormOpen?: boolean;
   onAddFormOpenChange?: (open: boolean) => void;
-  onMerge?: () => void;
-  onSplit?: (itemId: string, splitContent: [string, string]) => void;
+  defaultParentId?: string | null;
+  onDefaultParentIdChange?: (id: string | null) => void;
 }
 
 /* ── Constants ── */
@@ -102,12 +91,6 @@ function getDifficulties(t: { knowledge: { difficulties: TranslationMap } }) {
 
 /* ── Helpers ── */
 
-function getSection(item: AssignmentItemEntity): string {
-  const m = item.metadata;
-  if (m && typeof m.section === 'string' && m.section.trim()) return m.section.trim();
-  return 'General';
-}
-
 function getDifficulty(item: AssignmentItemEntity): string {
   if (item.difficulty) return item.difficulty;
   const m = item.metadata;
@@ -120,11 +103,6 @@ function getType(item: AssignmentItemEntity): string {
   const m = item.metadata;
   if (m && typeof m.type === 'string') return m.type;
   return '';
-}
-
-function truncate(str: string, max: number): string {
-  if (str.length <= max) return str;
-  return str.slice(0, max) + '...';
 }
 
 /* ── Markdown Toggle Field ── */
@@ -208,23 +186,20 @@ function MarkdownToggleField({
 
 function ItemEditForm({
   item,
-  editedItems,
   onSave,
   onCancel,
-  onSplit,
   t,
 }: {
   item: AssignmentItemEntity;
-  editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
-  onSave: (id: string, content: string, metadata: Record<string, unknown>) => void;
+  onSave: (id: string, content: string, metadata: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
-  onSplit?: (itemId: string, splitContent: [string, string]) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
-  const edited = editedItems.get(item.id);
-  const initMeta = edited?.metadata ?? item.metadata ?? {};
+  const initMeta = item.metadata ?? {};
 
-  const [content, setContent] = useState(edited?.content ?? item.content);
+  const [orderNum, setOrderNum] = useState<number | string>(item.orderNum);
+  const [title, setTitle] = useState((initMeta.title as string) ?? '');
+  const [content, setContent] = useState(item.content);
   const [refAnswer, setRefAnswer] = useState(
     (initMeta.referenceAnswer as string) ?? item.referenceAnswer ?? '',
   );
@@ -236,8 +211,9 @@ function ItemEditForm({
   const [points, setPoints] = useState<number | string>(
     (initMeta.points as number) ?? item.points ?? 0,
   );
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const meta: Record<string, unknown> = {
       ...initMeta,
       referenceAnswer: refAnswer,
@@ -245,12 +221,33 @@ function ItemEditForm({
       type,
       difficulty,
       points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
+      orderNum:
+        typeof orderNum === 'number' ? orderNum : parseInt(String(orderNum)) || item.orderNum,
+      title: title.trim(),
     };
-    onSave(item.id, content, meta);
+    setIsSaving(true);
+    try {
+      await onSave(item.id, content, meta);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Stack gap="sm" p="sm">
+      <Group grow>
+        <NumberInput
+          label={t.documentDetail.questionNumber}
+          value={orderNum}
+          onChange={(v) => setOrderNum(v)}
+          min={1}
+        />
+        <TextInput
+          label={t.documentDetail.titleOptional}
+          value={title}
+          onChange={(e) => setTitle(e.currentTarget.value)}
+        />
+      </Group>
       <MarkdownToggleField
         label={t.documentDetail.content}
         value={content}
@@ -299,26 +296,16 @@ function ItemEditForm({
         />
       </Group>
       <Group justify="flex-end" gap="sm">
-        {onSplit && (
-          <Button
-            variant="subtle"
-            color="orange"
-            size="compact-sm"
-            onClick={() => {
-              const parts = content.split(/\n---\n/);
-              if (parts.length >= 2) {
-                onSplit(item.id, [parts[0].trim(), parts.slice(1).join('\n---\n').trim()]);
-              }
-            }}
-            disabled={!content.includes('\n---\n')}
-          >
-            {t.knowledge.split}
-          </Button>
-        )}
         <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
           {t.common.cancel}
         </Button>
-        <Button color="indigo" size="compact-sm" onClick={handleSave} disabled={!content.trim()}>
+        <Button
+          color="indigo"
+          size="compact-sm"
+          onClick={handleSave}
+          loading={isSaving}
+          disabled={!content.trim()}
+        >
           {t.common.save}
         </Button>
       </Group>
@@ -332,13 +319,22 @@ function AddItemForm({
   onAdd,
   onCancel,
   saving: externalSaving,
+  items,
+  labels,
+  defaultParentId,
   t,
 }: {
   onAdd: (data: Record<string, unknown>) => Promise<boolean>;
   onCancel: () => void;
   saving?: boolean;
+  items: AssignmentItemEntity[];
+  labels: Map<string, string>;
+  defaultParentId?: string | null;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
+  const [orderNum, setOrderNum] = useState<number | string>('');
+  const [title, setTitle] = useState('');
+  const [parentItemId, setParentItemId] = useState<string | null>(defaultParentId ?? null);
   const [content, setContent] = useState('');
   const [refAnswer, setRefAnswer] = useState('');
   const [explanation, setExplanation] = useState('');
@@ -347,114 +343,134 @@ function AddItemForm({
   const [points, setPoints] = useState<number | string>(10);
   const saving = externalSaving ?? false;
 
+  const parentOptions = items.map((item) => ({
+    value: item.id,
+    label: `${labels.get(item.id) ?? item.orderNum} - ${item.content.slice(0, 40)}`,
+  }));
+
   const handleAdd = async () => {
     if (!content.trim()) return;
-    const success = await onAdd({
+    const data: Record<string, unknown> = {
       content: content.trim(),
       referenceAnswer: refAnswer.trim(),
       explanation: explanation.trim(),
       type,
       difficulty,
       points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
-    });
+      parentItemId: parentItemId || null,
+    };
+    if (title.trim()) data.title = title.trim();
+    if (typeof orderNum === 'number' && orderNum > 0) data.orderNum = orderNum;
+    const success = await onAdd(data);
     if (success) {
+      setOrderNum('');
+      setTitle('');
+      setParentItemId(null);
       setContent('');
       setRefAnswer('');
       setExplanation('');
       setType('short_answer');
       setDifficulty('medium');
       setPoints(10);
+      onCancel();
     }
   };
 
   return (
-    <Card
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        borderStyle: 'dashed',
-        borderColor: 'var(--mantine-color-indigo-3)',
-        borderLeftWidth: 3,
-        borderLeftColor: 'var(--mantine-color-indigo-3)',
-      }}
-    >
-      <Stack gap="sm">
-        <Text size="sm" fw={600} c="indigo">
-          {t.knowledge.newQuestion}
-        </Text>
-        <Textarea
-          label={t.documentDetail.content}
-          placeholder={t.knowledge.questionContentPlaceholder}
-          value={content}
-          onChange={(e) => setContent(e.currentTarget.value)}
-          minRows={2}
-          autosize
-          maxRows={8}
-          required
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              onCancel();
-            }
-          }}
+    <Stack gap="sm">
+      <Group grow>
+        <NumberInput
+          label={t.documentDetail.questionNumber}
+          placeholder={`${items.length + 1}`}
+          value={orderNum}
+          onChange={(v) => setOrderNum(v)}
+          min={1}
         />
-        <MarkdownToggleField
-          label={t.documentDetail.answer}
-          placeholder={t.knowledge.referenceAnswerPlaceholder}
-          value={refAnswer}
-          onChange={setRefAnswer}
-          minRows={2}
-          maxRows={6}
-          t={t}
+        <TextInput
+          label={t.documentDetail.titleOptional}
+          value={title}
+          onChange={(e) => setTitle(e.currentTarget.value)}
         />
-        <MarkdownToggleField
-          label={t.documentDetail.explanation}
-          placeholder={t.knowledge.explanationPlaceholder}
-          value={explanation}
-          onChange={setExplanation}
-          minRows={1}
-          maxRows={4}
-          t={t}
+      </Group>
+      <Select
+        label={t.documentDetail.parentItem}
+        placeholder={t.documentDetail.noParent}
+        data={parentOptions}
+        value={parentItemId}
+        onChange={(v) => setParentItemId(v)}
+        clearable
+      />
+      <Textarea
+        label={t.documentDetail.content}
+        placeholder={t.knowledge.questionContentPlaceholder}
+        value={content}
+        onChange={(e) => setContent(e.currentTarget.value)}
+        minRows={2}
+        autosize
+        maxRows={8}
+        required
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            onCancel();
+          }
+        }}
+      />
+      <MarkdownToggleField
+        label={t.documentDetail.answer}
+        placeholder={t.knowledge.referenceAnswerPlaceholder}
+        value={refAnswer}
+        onChange={setRefAnswer}
+        minRows={2}
+        maxRows={6}
+        t={t}
+      />
+      <MarkdownToggleField
+        label={t.documentDetail.explanation}
+        placeholder={t.knowledge.explanationPlaceholder}
+        value={explanation}
+        onChange={setExplanation}
+        minRows={1}
+        maxRows={4}
+        t={t}
+      />
+      <Group grow>
+        <Select
+          label={t.knowledge.questionType}
+          data={getQuestionTypes(t)}
+          value={type}
+          onChange={(v) => setType(v ?? 'short_answer')}
         />
-        <Group grow>
-          <Select
-            label={t.knowledge.questionType}
-            data={getQuestionTypes(t)}
-            value={type}
-            onChange={(v) => setType(v ?? 'short_answer')}
-          />
-          <Select
-            label={t.documentDetail.difficulty}
-            data={getDifficulties(t)}
-            value={difficulty}
-            onChange={(v) => setDifficulty(v ?? 'medium')}
-          />
-          <NumberInput
-            label={t.documentDetail.score}
-            value={points}
-            onChange={(v) => setPoints(v)}
-            min={0}
-            max={200}
-          />
-        </Group>
-        <Group justify="flex-end" gap="sm">
-          <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
-            {t.common.cancel}
-          </Button>
-          <Button
-            color="indigo"
-            size="compact-sm"
-            onClick={handleAdd}
-            loading={saving}
-            disabled={!content.trim()}
-          >
-            {t.knowledge.addQuestion}
-          </Button>
-        </Group>
-      </Stack>
-    </Card>
+        <Select
+          label={t.documentDetail.difficulty}
+          data={getDifficulties(t)}
+          value={difficulty}
+          onChange={(v) => setDifficulty(v ?? 'medium')}
+        />
+        <NumberInput
+          label={t.documentDetail.score}
+          value={points}
+          onChange={(v) => setPoints(v)}
+          min={0}
+          max={200}
+        />
+      </Group>
+      <Group justify="flex-end" gap="sm">
+        <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
+          {t.common.cancel}
+        </Button>
+        <Button
+          color="indigo"
+          size="compact-sm"
+          onClick={handleAdd}
+          loading={saving}
+          disabled={!content.trim()}
+        >
+          {t.knowledge.addQuestion}
+        </Button>
+      </Group>
+    </Stack>
   );
 }
 
@@ -462,123 +478,163 @@ function AddItemForm({
 
 function ItemCard({
   item,
-  isSelected,
-  isDeleted,
+  depth = 0,
+  displayLabel,
+  hasChildren,
+  collapsed,
+  onToggleCollapse,
   isEditing,
-  editedItems,
-  onToggleSelect,
   onStartEdit,
   onCancelEdit,
-  onSaveEdit,
-  onDelete,
-  onSplit,
+  onSaveItem,
+  onDeleteItem,
+  onAddChild,
   t,
 }: {
   item: AssignmentItemEntity;
-  isSelected: boolean;
-  isDeleted: boolean;
+  depth?: number;
+  displayLabel?: string;
+  hasChildren?: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   isEditing: boolean;
-  editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
-  onToggleSelect: (id: string) => void;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
-  onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
-  onDelete: (id: string) => void;
-  onSplit?: (itemId: string, splitContent: [string, string]) => void;
+  onSaveItem: (id: string, content: string, metadata: Record<string, unknown>) => Promise<void>;
+  onDeleteItem: (id: string) => Promise<void>;
+  onAddChild: (parentId: string) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
+  const isParent = depth === 0;
   const [expanded, setExpanded] = useState(false);
-
-  if (isDeleted) return null;
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   const difficulty = getDifficulty(item);
   const qType = getType(item);
-  const edited = editedItems.get(item.id);
-  const displayContent = edited?.content ?? item.content;
-  const displayAnswer = (edited?.metadata?.referenceAnswer as string) ?? item.referenceAnswer ?? '';
-  const displayExplanation = (edited?.metadata?.explanation as string) ?? item.explanation ?? '';
 
-  const contentTruncated = displayContent.length > 200;
-  const shownContent = expanded ? displayContent : truncate(displayContent, 200);
+  const contentLong = item.content.length > 200;
+
+  const handleDelete = () => {
+    modals.openConfirmModal({
+      title: t.knowledge.deleteConfirm,
+      children: <Text size="sm">{t.knowledge.deleteDocConfirm}</Text>,
+      labels: { confirm: t.documentDetail.deleteChunk, cancel: t.documentDetail.cancel },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        setIsDeleting(true);
+        try {
+          await onDeleteItem(item.id);
+        } finally {
+          setIsDeleting(false);
+        }
+      },
+    });
+  };
 
   return (
     <Box
       px="sm"
       py="sm"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 'var(--mantine-radius-md)',
-        background: isSelected
-          ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
-          : 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+        background: isParent
+          ? 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))'
+          : 'light-dark(var(--mantine-color-white), var(--mantine-color-dark-7))',
         border: `1px solid ${
-          isSelected
-            ? 'light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))'
-            : item.warnings && item.warnings.length > 0
-              ? 'var(--mantine-color-orange-3)'
-              : 'var(--mantine-color-default-border)'
+          item.warnings && item.warnings.length > 0
+            ? 'var(--mantine-color-orange-3)'
+            : 'var(--mantine-color-default-border)'
         }`,
+        borderLeft: isParent
+          ? '3px solid var(--mantine-color-indigo-5)'
+          : '2px solid var(--mantine-color-gray-3)',
         transition: 'all 0.15s ease',
+        opacity: isDeleting ? 0.5 : 1,
+        boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+        cursor: 'default',
       }}
     >
       {isEditing ? (
-        <ItemEditForm
-          item={item}
-          editedItems={editedItems}
-          onSave={onSaveEdit}
-          onCancel={onCancelEdit}
-          onSplit={onSplit}
-          t={t}
-        />
+        <ItemEditForm item={item} onSave={onSaveItem} onCancel={onCancelEdit} t={t} />
       ) : (
         <Stack gap="xs">
-          {/* Header: checkbox, order, badges, actions */}
+          {/* Header: order, badges, actions */}
           <Group gap="sm" wrap="nowrap" align="center">
-            <Checkbox
-              checked={isSelected}
-              onChange={() => onToggleSelect(item.id)}
-              size="sm"
-              color="indigo"
-              style={{ flexShrink: 0 }}
-            />
-            <Badge size="sm" variant="filled" color="indigo" circle style={{ flexShrink: 0 }}>
-              {item.orderNum}
-            </Badge>
-            {qType && (
-              <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
-                {(t.knowledge.questionTypes as TranslationMap)[qType] ?? qType}
-              </Badge>
-            )}
-            {difficulty && (
+            <Group
+              gap="sm"
+              wrap="nowrap"
+              align="center"
+              onClick={onToggleCollapse}
+              style={{
+                flex: 1,
+                cursor: 'pointer',
+                overflow: 'hidden',
+              }}
+            >
+              <Box style={{ flexShrink: 0 }}>
+                {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+              </Box>
               <Badge
-                size="xs"
-                variant="light"
-                color={DIFFICULTY_COLORS[difficulty] ?? 'gray'}
+                size={isParent ? 'sm' : 'xs'}
+                variant={isParent ? 'filled' : 'light'}
+                color={isParent ? 'indigo' : 'gray'}
+                circle={isParent}
                 style={{ flexShrink: 0 }}
               >
-                {(t.knowledge.difficulties as TranslationMap)[difficulty] ?? difficulty}
+                {displayLabel ?? item.orderNum}
               </Badge>
-            )}
-            {item.warnings && item.warnings.length > 0 && (
-              <Badge
-                size="xs"
-                variant="light"
-                color="orange"
-                style={{ flexShrink: 0, cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpanded((v) => !v);
-                }}
-              >
-                ⚠ {item.warnings.length}
-              </Badge>
-            )}
-            {item.points > 0 && (
-              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                {item.points} {t.knowledge.pts}
-              </Text>
-            )}
-            <Box style={{ flex: 1 }} />
+              {typeof item.metadata?.title === 'string' && item.metadata.title && (
+                <Text size="sm" fw={600} truncate style={{ flexShrink: 1, minWidth: 0 }}>
+                  {item.metadata.title}
+                </Text>
+              )}
+              {qType && (
+                <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                  {(t.knowledge.questionTypes as TranslationMap)[qType] ?? qType}
+                </Badge>
+              )}
+              {difficulty && (
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={DIFFICULTY_COLORS[difficulty] ?? 'gray'}
+                  style={{ flexShrink: 0 }}
+                >
+                  {(t.knowledge.difficulties as TranslationMap)[difficulty] ?? difficulty}
+                </Badge>
+              )}
+              {item.warnings && item.warnings.length > 0 && (
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color="orange"
+                  style={{ flexShrink: 0, cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded((v) => !v);
+                  }}
+                >
+                  {'\u26A0'} {item.warnings.length}
+                </Badge>
+              )}
+              {item.points > 0 && (
+                <Badge size="xs" variant="light" color="violet" style={{ flexShrink: 0 }}>
+                  {item.points} {t.knowledge.pts}
+                </Badge>
+              )}
+            </Group>
             <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
+              <ActionIcon
+                variant="subtle"
+                color="indigo"
+                size="xs"
+                onClick={() => onAddChild(item.id)}
+              >
+                <Plus size={14} />
+              </ActionIcon>
               <ActionIcon
                 variant="subtle"
                 color="gray"
@@ -587,61 +643,110 @@ function ItemCard({
               >
                 <Pencil size={14} />
               </ActionIcon>
-              <ActionIcon variant="subtle" color="red" size="xs" onClick={() => onDelete(item.id)}>
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                size="xs"
+                onClick={handleDelete}
+                loading={isDeleting}
+              >
                 <Trash2 size={14} />
               </ActionIcon>
             </Group>
           </Group>
 
-          {/* Content */}
-          <Text size="sm" style={{ lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
-            {shownContent}
-          </Text>
-          {contentTruncated && (
-            <Text
-              size="xs"
-              c="indigo"
-              style={{ cursor: 'pointer' }}
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? t.documentDetail.showLess : t.documentDetail.showMore}
-            </Text>
-          )}
+          {/* Content body — hidden when collapsed */}
+          {!collapsed && (
+            <>
+              {/* Content */}
+              {!expanded && contentLong ? (
+                <Box style={{ maxHeight: 120, overflow: 'hidden', position: 'relative' }}>
+                  <MarkdownRenderer content={item.content} compact />
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 40,
+                      background: isParent
+                        ? 'linear-gradient(transparent, light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6)))'
+                        : 'linear-gradient(transparent, light-dark(var(--mantine-color-white), var(--mantine-color-dark-7)))',
+                    }}
+                  />
+                </Box>
+              ) : (
+                <MarkdownRenderer content={item.content} compact />
+              )}
+              {contentLong && (
+                <Text
+                  size="xs"
+                  c="indigo"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setExpanded((v) => !v)}
+                >
+                  {expanded ? t.documentDetail.showLess : t.documentDetail.showMore}
+                </Text>
+              )}
 
-          {/* Answer */}
-          {displayAnswer.trim() && (
-            <Box mt={4} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
-              <Text size="xs" fw={600} c="dimmed" mb={2}>
-                {t.documentDetail.answer}
-              </Text>
-              <MarkdownRenderer content={displayAnswer} compact />
-            </Box>
-          )}
-
-          {/* Explanation */}
-          {displayExplanation.trim() && (
-            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
-              <Text size="xs" fw={600} c="dimmed" mb={2}>
-                {t.documentDetail.explanation}
-              </Text>
-              <MarkdownRenderer content={displayExplanation} compact />
-            </Box>
-          )}
-
-          {/* Warnings */}
-          {item.warnings && item.warnings.length > 0 && expanded && (
-            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}>
-              <Text size="xs" fw={600} c="orange" mb={2}>
-                {t.knowledge.hasWarnings}
-              </Text>
-              <Stack gap={2}>
-                {item.warnings.map((w, i) => (
-                  <Text key={i} size="xs" c="dimmed">
-                    • {w}
+              {/* Answer */}
+              {item.referenceAnswer?.trim() && (
+                <Box
+                  mt={8}
+                  p="sm"
+                  style={{
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    background:
+                      'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
+                    borderLeft: '3px solid var(--mantine-color-indigo-4)',
+                  }}
+                >
+                  <Text size="xs" fw={700} c="indigo" mb={4} tt="uppercase" lts={0.5}>
+                    {t.documentDetail.answer}
                   </Text>
-                ))}
-              </Stack>
-            </Box>
+                  <MarkdownRenderer content={item.referenceAnswer} compact />
+                </Box>
+              )}
+
+              {/* Explanation */}
+              {item.explanation?.trim() && (
+                <Box
+                  mt={6}
+                  p="sm"
+                  style={{
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    background:
+                      'light-dark(var(--mantine-color-yellow-0), color-mix(in srgb, var(--mantine-color-yellow-9) 12%, var(--mantine-color-dark-6)))',
+                    borderLeft: '3px solid var(--mantine-color-yellow-5)',
+                  }}
+                >
+                  <Text size="xs" fw={700} c="yellow.7" mb={4} tt="uppercase" lts={0.5}>
+                    {t.documentDetail.explanation}
+                  </Text>
+                  <MarkdownRenderer content={item.explanation} compact />
+                </Box>
+              )}
+
+              {/* Warnings */}
+              {item.warnings && item.warnings.length > 0 && expanded && (
+                <Box
+                  mt={2}
+                  pt={4}
+                  style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}
+                >
+                  <Text size="xs" fw={600} c="orange" mb={2}>
+                    {t.knowledge.hasWarnings}
+                  </Text>
+                  <Stack gap={2}>
+                    {item.warnings.map((w, i) => (
+                      <Text key={i} size="xs" c="dimmed">
+                        {'\u2022'} {w}
+                      </Text>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </>
           )}
         </Stack>
       )}
@@ -649,491 +754,281 @@ function ItemCard({
   );
 }
 
-/* ── Section Card ── */
+/* ── Main View ── */
 
-function SectionCard({
-  sectionName,
-  sectionItems,
-  expanded,
-  selectedIds,
-  editedItems,
-  deletedItemIds,
+function TreeNode({
+  node,
+  depth,
+  labels,
+  collapsedIds,
+  onToggleCollapse,
   editingItemId,
-  onToggleExpand,
-  onToggleSelect,
   onStartEdit,
   onCancelEdit,
-  onSaveEdit,
-  onDelete,
-  onSplit,
+  onSaveItem,
+  onDeleteItem,
+  onAddChild,
   t,
 }: {
-  sectionName: string;
-  sectionItems: AssignmentItemEntity[];
-  expanded: boolean;
-  selectedIds: Set<string>;
-  editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
-  deletedItemIds: Set<string>;
+  node: AssignmentItemTree;
+  depth: number;
+  labels: Map<string, string>;
+  collapsedIds: Set<string>;
+  onToggleCollapse: (id: string) => void;
   editingItemId: string | null;
-  onToggleExpand: () => void;
-  onToggleSelect: (id: string) => void;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
-  onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
-  onDelete: (id: string) => void;
-  onSplit?: (itemId: string, splitContent: [string, string]) => void;
+  onSaveItem: (id: string, content: string, metadata: Record<string, unknown>) => Promise<void>;
+  onDeleteItem: (id: string) => Promise<void>;
+  onAddChild: (parentId: string) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
-  const visibleCount = sectionItems.filter((i) => !deletedItemIds.has(i.id)).length;
+  const hasChildren = node.children.length > 0;
+  const collapsed = collapsedIds.has(node.id);
 
   return (
-    <Card
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        borderLeftWidth: 3,
-        borderLeftColor: 'var(--mantine-color-indigo-3)',
-        transition: 'all 0.15s ease',
-      }}
-    >
-      <Box
-        onClick={onToggleExpand}
-        style={{ cursor: 'pointer' }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggleExpand();
-          }
-        }}
-      >
-        <Group gap="xs" justify="space-between" wrap="nowrap">
-          <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-            {expanded ? (
-              <ChevronDown
-                size={14}
-                color="var(--mantine-color-dimmed)"
-                style={{ flexShrink: 0 }}
-              />
-            ) : (
-              <ChevronRight
-                size={14}
-                color="var(--mantine-color-dimmed)"
-                style={{ flexShrink: 0 }}
-              />
-            )}
-            <Text fw={600} size="sm" truncate style={{ minWidth: 0 }}>
-              {sectionName}
-            </Text>
-          </Group>
-          <Badge size="xs" variant="light" color="indigo" style={{ flexShrink: 0 }}>
-            {visibleCount}
-          </Badge>
-        </Group>
-      </Box>
-
-      <Collapse in={expanded}>
-        <Stack gap="xs" mt="sm">
-          {sectionItems.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              isSelected={selectedIds.has(item.id)}
-              isDeleted={deletedItemIds.has(item.id)}
-              isEditing={editingItemId === item.id}
-              editedItems={editedItems}
-              onToggleSelect={onToggleSelect}
+    <Box pl={depth > 0 ? 24 : 0}>
+      <ItemCard
+        item={node}
+        depth={depth}
+        displayLabel={labels.get(node.id)}
+        hasChildren={hasChildren}
+        collapsed={collapsed}
+        onToggleCollapse={() => onToggleCollapse(node.id)}
+        isEditing={editingItemId === node.id}
+        onStartEdit={onStartEdit}
+        onCancelEdit={onCancelEdit}
+        onSaveItem={onSaveItem}
+        onDeleteItem={onDeleteItem}
+        onAddChild={onAddChild}
+        t={t}
+      />
+      {hasChildren && !collapsed && (
+        <Stack
+          gap="xs"
+          mt="xs"
+          style={{
+            borderLeft:
+              '2px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+            marginLeft: 12,
+            paddingLeft: 12,
+          }}
+        >
+          {node.children.map((child) => (
+            <TreeNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              labels={labels}
+              collapsedIds={collapsedIds}
+              onToggleCollapse={onToggleCollapse}
+              editingItemId={editingItemId}
               onStartEdit={onStartEdit}
               onCancelEdit={onCancelEdit}
-              onSaveEdit={onSaveEdit}
-              onDelete={onDelete}
-              onSplit={onSplit}
+              onSaveItem={onSaveItem}
+              onDeleteItem={onDeleteItem}
+              onAddChild={onAddChild}
               t={t}
             />
           ))}
         </Stack>
-      </Collapse>
-    </Card>
+      )}
+    </Box>
   );
 }
 
-/* ── Main View ── */
-
 export function AssignmentOutlineView({
   items,
-  selectedIds,
-  editedItems,
-  deletedItemIds,
-  editingItemId,
-  onToggleSelect,
-  onToggleSelectAll,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onDelete,
-  onBulkDelete,
-  onBulkSetDifficulty,
-  onBulkSetPoints,
+  onSaveItem,
+  onDeleteItem,
   onAddItem,
   isAddingItem,
   addFormOpen,
   onAddFormOpenChange,
-  onMerge,
-  onSplit,
+  defaultParentId,
+  onDefaultParentIdChange,
 }: AssignmentOutlineViewProps) {
   const { t } = useLanguage();
 
-  // Search & filter state
-  const [search, setSearch] = useState('');
-  const [difficultyFilter, setDifficultyFilter] = useState<string[]>([]);
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
-  const [warningFilter, setWarningFilter] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [internalAddForm, setInternalAddForm] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   // Use controlled state from parent when provided, otherwise internal
   const showAddForm = addFormOpen ?? internalAddForm;
   const setShowAddForm = onAddFormOpenChange ?? setInternalAddForm;
-  const [bulkPoints, setBulkPoints] = useState<number | string>(10);
 
-  // Filter out deleted items for computations
-  const liveItems = useMemo(
-    () => items.filter((i) => !deletedItemIds.has(i.id)),
-    [items, deletedItemIds],
+  const handleSaveItem = async (id: string, content: string, metadata: Record<string, unknown>) => {
+    await onSaveItem(id, content, metadata);
+    setEditingItemId(null);
+  };
+
+  // Build tree and compute display labels (e.g. "1", "1.1", "1.2")
+  const tree = buildItemTree(items);
+  const labels = computeDisplayLabels(tree);
+
+  // Stats
+  const withAnswer = useMemo(() => items.filter((i) => i.referenceAnswer?.trim()).length, [items]);
+  const warningCount = useMemo(
+    () => items.filter((i) => i.warnings && i.warnings.length > 0).length,
+    [items],
   );
 
-  // Collect available types from items
-  const availableTypes = useMemo(() => {
-    const types = new Set<string>();
-    for (const item of liveItems) {
-      const itemType = getType(item);
-      if (itemType) types.add(itemType);
-    }
-    return Array.from(types).map((key) => ({
-      value: key,
-      label: (t.knowledge.questionTypes as TranslationMap)[key] ?? key,
-    }));
-  }, [liveItems, t]);
+  // All items are collapsible
+  const allItemIds = items.map((i) => i.id);
+  const hasCollapsible = allItemIds.length > 0;
+  const allCollapsed = hasCollapsible && allItemIds.every((id) => collapsedIds.has(id));
 
-  // Apply search and filters
-  const filteredItems = useMemo(() => {
-    let result = liveItems;
-
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter((i) => i.content.toLowerCase().includes(q));
-    }
-
-    if (difficultyFilter.length > 0) {
-      result = result.filter((i) => difficultyFilter.includes(getDifficulty(i)));
-    }
-
-    if (typeFilter.length > 0) {
-      result = result.filter((i) => typeFilter.includes(getType(i)));
-    }
-
-    if (warningFilter) {
-      result = result.filter((i) => i.warnings && i.warnings.length > 0);
-    }
-
-    return result;
-  }, [liveItems, search, difficultyFilter, typeFilter, warningFilter]);
-
-  const hasActiveFilters =
-    search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0 || warningFilter;
-
-  // Group by section
-  const sections = useMemo(() => {
-    const map = new Map<string, AssignmentItemEntity[]>();
-    for (const item of filteredItems) {
-      const sec = getSection(item);
-      const list = map.get(sec);
-      if (list) list.push(item);
-      else map.set(sec, [item]);
-    }
-    return map;
-  }, [filteredItems]);
-
-  const sectionNames = useMemo(() => Array.from(sections.keys()), [sections]);
-
-  // Expand/collapse state
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    () => new Set(sectionNames),
-  );
-
-  // Keep expanded set in sync when sections change
-  const allExpanded = sectionNames.length > 0 && sectionNames.every((s) => expandedSections.has(s));
-
-  const toggleSection = useCallback((name: string) => {
-    setExpandedSections((prev) => {
+  const handleToggleCollapse = (id: string) => {
+    setCollapsedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-  }, []);
+  };
 
-  const toggleAllSections = useCallback(() => {
-    if (allExpanded) {
-      setExpandedSections(new Set());
+  const handleToggleAll = () => {
+    if (allCollapsed) {
+      setCollapsedIds(new Set());
     } else {
-      setExpandedSections(new Set(sectionNames));
+      setCollapsedIds(new Set(allItemIds));
     }
-  }, [allExpanded, sectionNames]);
+  };
 
-  // Selection state
-  const selectedCount = selectedIds.size;
-  const hasSelection = selectedCount > 0;
-  const allSelected = hasSelection && selectedCount === liveItems.length;
-
-  const clearFilters = () => {
-    setSearch('');
-    setDifficultyFilter([]);
-    setTypeFilter([]);
-    setWarningFilter(false);
+  const handleAddChild = (parentId: string) => {
+    onDefaultParentIdChange?.(parentId);
+    setShowAddForm(true);
   };
 
   return (
     <Stack gap="md">
+      {/* Empty state */}
+      {items.length === 0 && !showAddForm && (
+        <Card withBorder radius="lg" p="xl">
+          <Stack align="center" gap={8}>
+            <FileText size={32} color="var(--mantine-color-dimmed)" />
+            <Text size="sm" c="dimmed">
+              {t.documentDetail.emptyTableTitle}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {t.documentDetail.emptyTableHint}
+            </Text>
+          </Stack>
+        </Card>
+      )}
+
       {/* Stats bar */}
-      {liveItems.length > 0 && (
-        <Group
-          justify="space-between"
-          align="center"
-          wrap="nowrap"
-          px="sm"
-          py={6}
-          style={{
-            borderRadius: 'var(--mantine-radius-md)',
-            border: hasSelection
-              ? '1px solid light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))'
-              : '1px solid transparent',
-            background: hasSelection
-              ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
-              : 'transparent',
-            transition: 'background 0.2s ease, border-color 0.2s ease',
-          }}
-        >
+      {items.length > 0 && (
+        <Group justify="space-between" align="center" wrap="nowrap" px="sm" py={6}>
           <Group gap="sm" style={{ flex: 1 }}>
-            <Checkbox
-              checked={allSelected}
-              indeterminate={hasSelection && !allSelected}
-              onChange={() => onToggleSelectAll()}
-              size="sm"
-              color="indigo"
-            />
-            {hasSelection ? (
-              <Text size="sm" fw={500}>
-                {selectedCount} {t.knowledge.nSelected}
-              </Text>
-            ) : (
-              <Group gap="sm" wrap="nowrap">
+            <Tooltip label={`${items.length} ${t.documentDetail.items}`} withArrow>
+              <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
+                <Hash size={13} color="var(--mantine-color-indigo-5)" />
                 <Text size="xs" fw={500} c="dimmed">
-                  {sectionNames.length} {t.knowledge.sections}, {liveItems.length}{' '}
-                  {t.knowledge.questions}
+                  {items.length} {t.documentDetail.items}
                 </Text>
               </Group>
+            </Tooltip>
+            <Tooltip
+              label={`${withAnswer}/${items.length} ${t.knowledge.answerCoverage}`}
+              withArrow
+            >
+              <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
+                <CheckCircle
+                  size={13}
+                  color={
+                    withAnswer === items.length
+                      ? 'var(--mantine-color-green-5)'
+                      : 'var(--mantine-color-yellow-5)'
+                  }
+                />
+                <Text size="xs" fw={500} c="dimmed">
+                  {withAnswer}/{items.length} {t.knowledge.answerCoverage}
+                </Text>
+              </Group>
+            </Tooltip>
+            {warningCount > 0 && (
+              <Tooltip label={`${warningCount} ${t.knowledge.hasWarnings}`} withArrow>
+                <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
+                  <AlertTriangle size={13} color="var(--mantine-color-orange-5)" />
+                  <Text size="xs" fw={500} c="dimmed">
+                    {warningCount} {t.knowledge.hasWarnings}
+                  </Text>
+                </Group>
+              </Tooltip>
             )}
           </Group>
-
-          {hasSelection ? (
-            <Group gap="xs" wrap="nowrap">
-              <Menu shadow="md" width={200}>
-                <Menu.Target>
-                  <Button
-                    variant="light"
-                    color="indigo"
-                    size="compact-sm"
-                    rightSection={<GripVertical size={14} />}
-                  >
-                    {t.knowledge.bulkActions}
-                  </Button>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Label>{t.knowledge.setDifficulty}</Menu.Label>
-                  {getDifficulties(t).map((d) => (
-                    <Menu.Item
-                      key={d.value}
-                      onClick={() => onBulkSetDifficulty(d.value)}
-                      leftSection={
-                        <Badge size="xs" color={DIFFICULTY_COLORS[d.value]} variant="filled" circle>
-                          {' '}
-                        </Badge>
-                      }
-                    >
-                      {d.label}
-                    </Menu.Item>
-                  ))}
-                  <Menu.Divider />
-                  <Menu.Label>{t.knowledge.setPoints}</Menu.Label>
-                  <Box px="xs" pb="xs">
-                    <Group gap="xs">
-                      <NumberInput
-                        size="xs"
-                        value={bulkPoints}
-                        onChange={(v) => setBulkPoints(v)}
-                        min={0}
-                        max={200}
-                        style={{ flex: 1 }}
-                      />
-                      <Button
-                        size="compact-xs"
-                        color="indigo"
-                        onClick={() =>
-                          onBulkSetPoints(
-                            typeof bulkPoints === 'number'
-                              ? bulkPoints
-                              : parseInt(String(bulkPoints)) || 0,
-                          )
-                        }
-                      >
-                        {t.knowledge.apply}
-                      </Button>
-                    </Group>
-                  </Box>
-                  <Menu.Divider />
-                  <Menu.Item onClick={() => onMerge?.()} disabled={selectedCount < 2}>
-                    {t.knowledge.merge} ({selectedCount})
-                  </Menu.Item>
-                  <Menu.Divider />
-                  <Menu.Item color="red" leftSection={<Trash2 size={14} />} onClick={onBulkDelete}>
-                    {t.common.delete} ({selectedCount})
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
-            </Group>
-          ) : (
-            <Button variant="subtle" color="gray" size="compact-sm" onClick={toggleAllSections}>
-              {allExpanded ? t.knowledge.collapseAll : t.knowledge.expandAll}
-            </Button>
-          )}
+          <Button
+            variant="subtle"
+            color="gray"
+            size="compact-xs"
+            leftSection={allCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+            onClick={handleToggleAll}
+          >
+            {allCollapsed ? t.knowledge.expandAll : t.knowledge.collapseAll}
+          </Button>
         </Group>
       )}
 
-      {/* Search and filter bar */}
-      {liveItems.length > 0 && (
-        <Stack gap="xs">
-          <Group gap="sm">
-            <TextInput
-              placeholder={t.knowledge.searchPlaceholder}
-              leftSection={<Search size={14} />}
-              value={search}
-              onChange={(e) => setSearch(e.currentTarget.value)}
-              size="sm"
-              style={{ flex: 1 }}
-            />
-            {hasActiveFilters && (
-              <Button
-                variant="subtle"
-                color="gray"
-                size="compact-sm"
-                leftSection={<FilterX size={14} />}
-                onClick={clearFilters}
-              >
-                {t.knowledge.clearFilters}
-              </Button>
-            )}
-          </Group>
-          <Group gap="sm">
-            <MultiSelect
-              placeholder={t.documentDetail.difficulty}
-              data={getDifficulties(t)}
-              value={difficultyFilter}
-              onChange={setDifficultyFilter}
-              size="xs"
-              clearable
-              leftSection={<Filter size={12} />}
-              style={{ minWidth: 160 }}
-            />
-            {availableTypes.length > 0 && (
-              <MultiSelect
-                placeholder={t.knowledge.questionType}
-                data={availableTypes}
-                value={typeFilter}
-                onChange={setTypeFilter}
-                size="xs"
-                clearable
-                leftSection={<Filter size={12} />}
-                style={{ minWidth: 160 }}
-              />
-            )}
-            <Button
-              variant={warningFilter ? 'filled' : 'light'}
-              color="orange"
-              size="compact-xs"
-              onClick={() => setWarningFilter((v) => !v)}
-            >
-              ⚠ {t.knowledge.hasWarnings}
-            </Button>
-            {hasActiveFilters && (
-              <Text size="xs" c="dimmed">
-                {filteredItems.length} {t.knowledge.results}
-              </Text>
-            )}
-          </Group>
-        </Stack>
-      )}
-
-      {/* Empty state */}
-      {liveItems.length === 0 && !showAddForm && (
-        <Text c="dimmed" ta="center" py="xl">
-          {t.documentDetail.noItemsYet}
-        </Text>
-      )}
-
-      {/* Section cards */}
-      {sectionNames.map((sectionName) => (
-        <SectionCard
-          key={sectionName}
-          sectionName={sectionName}
-          sectionItems={sections.get(sectionName) ?? []}
-          expanded={expandedSections.has(sectionName)}
-          selectedIds={selectedIds}
-          editedItems={editedItems}
-          deletedItemIds={deletedItemIds}
+      {/* Tree item list */}
+      {tree.map((root) => (
+        <TreeNode
+          key={root.id}
+          node={root}
+          depth={0}
+          labels={labels}
+          collapsedIds={collapsedIds}
+          onToggleCollapse={handleToggleCollapse}
           editingItemId={editingItemId}
-          onToggleExpand={() => toggleSection(sectionName)}
-          onToggleSelect={onToggleSelect}
-          onStartEdit={onStartEdit}
-          onCancelEdit={onCancelEdit}
-          onSaveEdit={onSaveEdit}
-          onDelete={onDelete}
-          onSplit={onSplit}
+          onStartEdit={(id) => setEditingItemId(id)}
+          onCancelEdit={() => setEditingItemId(null)}
+          onSaveItem={handleSaveItem}
+          onDeleteItem={onDeleteItem}
+          onAddChild={handleAddChild}
           t={t}
         />
       ))}
 
-      {/* No filter results */}
-      {liveItems.length > 0 && filteredItems.length === 0 && hasActiveFilters && (
-        <Text c="dimmed" ta="center" py="md" size="sm">
-          {t.knowledge.noMatchingResults}
-        </Text>
-      )}
+      {/* Add item button */}
+      <Button
+        variant="light"
+        color="indigo"
+        size="sm"
+        leftSection={<Plus size={16} />}
+        onClick={() => setShowAddForm(true)}
+        fullWidth
+        style={{ borderStyle: 'dashed' }}
+      >
+        {t.documentDetail.addManually}
+      </Button>
 
-      <Divider />
-
-      {/* Add item form or button */}
-      {showAddForm ? (
+      {/* Add item modal */}
+      <FullScreenModal
+        opened={showAddForm}
+        onClose={() => {
+          setShowAddForm(false);
+          onDefaultParentIdChange?.(null);
+        }}
+        title={t.knowledge.newQuestion}
+        radius="lg"
+        centered
+        size="lg"
+        padding="md"
+      >
         <AddItemForm
           onAdd={onAddItem}
-          onCancel={() => setShowAddForm(false)}
+          onCancel={() => {
+            setShowAddForm(false);
+            onDefaultParentIdChange?.(null);
+          }}
           saving={isAddingItem}
+          items={items}
+          labels={labels}
+          defaultParentId={defaultParentId}
           t={t}
         />
-      ) : (
-        <Button
-          variant="light"
-          color="indigo"
-          size="sm"
-          leftSection={<Plus size={16} />}
-          onClick={() => setShowAddForm(true)}
-          fullWidth
-          style={{ borderStyle: 'dashed' }}
-        >
-          {t.documentDetail.addManually}
-        </Button>
-      )}
+      </FullScreenModal>
     </Stack>
   );
 }

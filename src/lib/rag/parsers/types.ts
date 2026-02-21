@@ -76,11 +76,10 @@ export interface ParseLectureResult {
 
 // ── Assignment parser types ──
 
-export interface AssignmentOutlineSection {
+export interface AssignmentOutlineItem {
+  orderNum: number;
   title: string;
-  type?: string;
-  itemCount: number;
-  items: { orderNum: number; title: string }[];
+  children: AssignmentOutlineItem[];
 }
 
 export interface AssignmentOutline {
@@ -88,15 +87,8 @@ export interface AssignmentOutline {
   title: string;
   subject: string;
   totalItems: number;
-  sections: AssignmentOutlineSection[];
+  items: AssignmentOutlineItem[];
   summary: string;
-}
-
-export interface AssignmentSection {
-  title: string;
-  type: string;
-  sourcePages: number[];
-  itemIndices: number[];
 }
 
 export interface EnrichedAssignmentItem {
@@ -108,14 +100,22 @@ export interface EnrichedAssignmentItem {
   points: number;
   type: string;
   difficulty: string;
-  section: string;
+  parentIndex: number | null;
   sourcePages: number[];
   warnings?: string[];
 }
 
+export interface AssignmentMetadata {
+  totalPoints?: number;
+  totalQuestions?: number;
+  duration?: string;
+  instructions?: string;
+  examDate?: string;
+}
+
 export interface ParseAssignmentResult {
-  sections: AssignmentSection[];
   items: EnrichedAssignmentItem[];
+  metadata?: AssignmentMetadata;
   outline: AssignmentOutline;
   warnings: string[];
 }

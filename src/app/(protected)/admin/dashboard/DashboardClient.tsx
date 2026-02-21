@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Cpu, CreditCard, Database, LayoutDashboard, RefreshCw } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import {
   ActionIcon,
   Alert,
@@ -328,10 +328,7 @@ export function DashboardClient() {
   const headerNode = useMemo(
     () => (
       <Group gap={8} align="center" wrap="nowrap" px={isMobile ? 6 : 8} py={isMobile ? 4 : 6}>
-        <LayoutDashboard
-          size={isMobile ? 18 : 20}
-          color="var(--mantine-color-indigo-5)"
-        />
+        <LayoutDashboard size={isMobile ? 18 : 20} color="var(--mantine-color-indigo-5)" />
         <Text fw={650} size={isMobile ? 'md' : 'lg'}>
           API Dashboard
         </Text>
@@ -350,10 +347,7 @@ export function DashboardClient() {
   }, [isMobile, headerNode, setHeaderContent]);
 
   return (
-    <Box
-      h="100%"
-      style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-    >
+    <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Desktop Header */}
       {!isMobile && (
         <Box

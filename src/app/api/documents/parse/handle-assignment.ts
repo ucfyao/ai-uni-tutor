@@ -21,6 +21,22 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     });
     parsedItems = parseResult.items;
     warnings = parseResult.warnings;
+
+    // ── Save document-level metadata ──
+    const metadata = parseResult.metadata;
+    if (metadata && Object.keys(metadata).length > 0) {
+      try {
+        await assignmentService.updateMetadata(documentId, metadata);
+        send('log', { message: 'Document metadata saved', level: 'success' });
+      } catch (e) {
+        console.error('Failed to save assignment metadata:', e);
+        send('log', {
+          message: `Failed to save metadata: ${e instanceof Error ? e.message : 'Unknown'}`,
+          level: 'warning',
+        });
+        // Non-fatal — continue with questions
+      }
+    }
   } catch (e) {
     sendGeminiError(send, e, 'extraction');
     return;
@@ -67,11 +83,14 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     existingItemsForDedup.map((item) => item.content.trim().toLowerCase()),
   );
 
-  // Pass 1: Content match
-  let candidateItems = parsedItems.filter(
-    (item) => !existingContents.has(item.content.trim().toLowerCase()),
-  );
-  const contentSkipped = parsedItems.length - candidateItems.length;
+  // Track original parsedItems indices through dedup
+  const afterContentDedup: number[] = []; // original indices that survive
+  for (let i = 0; i < parsedItems.length; i++) {
+    if (!existingContents.has(parsedItems[i].content.trim().toLowerCase())) {
+      afterContentDedup.push(i);
+    }
+  }
+  const contentSkipped = parsedItems.length - afterContentDedup.length;
   if (contentSkipped > 0) {
     send('log', {
       message: `Pass 1: ${contentSkipped} duplicates skipped (content match)`,
@@ -79,7 +98,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     });
   }
 
-  if (candidateItems.length === 0) {
+  if (afterContentDedup.length === 0) {
     send('status', {
       stage: 'complete',
       message: 'No new questions to add (all duplicates).',
@@ -87,11 +106,17 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     return;
   }
 
-  // Build enriched content for embedding
-  const candidateContents = candidateItems.map((item) => buildAssignmentItemContent(item));
+  // Build enriched content for embedding (with parent context)
+  const candidateContents = afterContentDedup.map((origIdx) => {
+    const item = parsedItems[origIdx];
+    const parentIdx = item.parentIndex;
+    const parentContent =
+      parentIdx != null && parsedItems[parentIdx] ? parsedItems[parentIdx].content : undefined;
+    return buildAssignmentItemContent(item, parentContent);
+  });
 
   send('log', {
-    message: `Generating embeddings for ${candidateItems.length} questions...`,
+    message: `Generating embeddings for ${afterContentDedup.length} questions...`,
     level: 'info',
   });
   if (signal.aborted) return;
@@ -124,7 +149,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     .filter((e): e is number[] => Array.isArray(e) && e.length > 0);
 
   let embeddingSkipped = 0;
-  const keepIndices: number[] = [];
+  const keepCandidateIndices: number[] = []; // indices into afterContentDedup
   if (existingEmbeddings.length > 0) {
     for (let i = 0; i < candidateEmbeddings.length; i++) {
       const emb = candidateEmbeddings[i];
@@ -134,9 +159,9 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         for (let d = 0; d < emb.length; d++) dot += emb[d] * existing[d];
         if (dot > maxSim) maxSim = dot;
       }
-      if (maxSim < SIMILARITY_THRESHOLD) keepIndices.push(i);
+      if (maxSim < SIMILARITY_THRESHOLD) keepCandidateIndices.push(i);
     }
-    embeddingSkipped = candidateItems.length - keepIndices.length;
+    embeddingSkipped = afterContentDedup.length - keepCandidateIndices.length;
     if (embeddingSkipped > 0) {
       send('log', {
         message: `Pass 2: ${embeddingSkipped} duplicates skipped (embedding similarity > ${SIMILARITY_THRESHOLD})`,
@@ -144,10 +169,10 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
       });
     }
   } else {
-    for (let i = 0; i < candidateItems.length; i++) keepIndices.push(i);
+    for (let i = 0; i < afterContentDedup.length; i++) keepCandidateIndices.push(i);
   }
 
-  if (keepIndices.length === 0) {
+  if (keepCandidateIndices.length === 0) {
     send('status', {
       stage: 'complete',
       message: 'No new questions to add (all duplicates).',
@@ -155,10 +180,11 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     return;
   }
 
-  // Filter by keepIndices
-  const newItems = keepIndices.map((i) => candidateItems[i]);
-  const allContents = keepIndices.map((i) => candidateContents[i]);
-  const allEmbeddings = keepIndices.map((i) => candidateEmbeddings[i]);
+  // Final surviving items — track their original parsedItems index
+  const survivingOrigIndices = keepCandidateIndices.map((ci) => afterContentDedup[ci]);
+  const newContents = keepCandidateIndices.map((ci) => candidateContents[ci]);
+  const newEmbeddings = keepCandidateIndices.map((ci) => candidateEmbeddings[ci]);
+  const newItems = survivingOrigIndices.map((oi) => parsedItems[oi]);
 
   const totalSkipped = contentSkipped + embeddingSkipped;
   send('log', {
@@ -169,16 +195,12 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     level: 'success',
   });
 
-  // ── Stage 4: Save to database ──
+  // ── Stage 4: Save to database (two-pass for parent-child) ──
   let existingItems: Awaited<ReturnType<typeof assignmentService.getItems>>;
   try {
     existingItems = await assignmentService.getItems(documentId);
   } catch (e) {
     console.error('Failed to fetch existing items for ordering:', e);
-    send('log', {
-      message: `Failed to load existing items: ${e instanceof Error ? e.message : 'Unknown error'}`,
-      level: 'error',
-    });
     send('error', {
       message: 'Failed to prepare save. Please try again.',
       code: 'SAVE_PREP_ERROR',
@@ -188,56 +210,165 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
   const maxOrderNum =
     existingItems.length > 0 ? Math.max(...existingItems.map((item) => item.orderNum)) : 0;
 
-  // Assemble DTOs
-  const allItemDTOs = newItems.map((item, i) => ({
-    assignmentId: documentId,
-    orderNum: maxOrderNum + i + 1,
-    type: item.type,
-    content: allContents[i],
-    referenceAnswer: item.referenceAnswer,
-    explanation: item.explanation,
-    points: item.points,
-    difficulty: item.difficulty,
-    metadata: {
-      section: item.section,
-      type: item.type,
-      sourcePages: item.sourcePages,
-      difficulty: item.difficulty,
-    },
-    embedding: allEmbeddings[i],
-    warnings: item.warnings ?? [],
-  }));
-
-  // Batch save (groups of 20)
   send('status', { stage: 'embedding', message: 'Saving questions...' });
-  const SAVE_BATCH = 20;
-  for (let i = 0; i < allItemDTOs.length; i += SAVE_BATCH) {
-    if (signal.aborted) break;
-    const batchIdx = Math.floor(i / SAVE_BATCH);
-    const batch = allItemDTOs.slice(i, i + SAVE_BATCH);
-    const batchEnd = Math.min(i + SAVE_BATCH, allItemDTOs.length);
-    send('log', {
-      message: `Saving questions ${i + 1}-${batchEnd} of ${allItemDTOs.length}...`,
-      level: 'info',
-    });
-    try {
-      const saved = await assignmentService.saveItemsAndReturn(batch);
-      send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
-      send('progress', { current: batchEnd, total: allItemDTOs.length });
-    } catch (e) {
-      console.error(`Batch save error (batch ${batchIdx}):`, e);
-      send('log', {
-        message: `Failed to save questions ${i + 1}-${batchEnd}: ${e instanceof Error ? e.message : 'Unknown error'}`,
-        level: 'error',
+
+  // Build map: original parsedItems index → local newItems index
+  const origToLocalIdx = new Map<number, number>();
+  for (let i = 0; i < survivingOrigIndices.length; i++) {
+    origToLocalIdx.set(survivingOrigIndices[i], i);
+  }
+
+  // Separate roots and children
+  const rootLocalIndices: number[] = [];
+  const childLocalIndices: number[] = [];
+  for (let i = 0; i < newItems.length; i++) {
+    const parentOrigIdx = newItems[i].parentIndex;
+    if (parentOrigIdx == null || !origToLocalIdx.has(parentOrigIdx)) {
+      // Root item or parent was deduped (treat as root)
+      rootLocalIndices.push(i);
+    } else {
+      childLocalIndices.push(i);
+    }
+  }
+
+  // Pass 1: Insert root items
+  let nextOrder = maxOrderNum;
+  const rootDTOs = rootLocalIndices.map((i) => {
+    nextOrder++;
+    return {
+      assignmentId: documentId,
+      orderNum: nextOrder,
+      type: newItems[i].type,
+      content: newContents[i],
+      referenceAnswer: newItems[i].referenceAnswer,
+      explanation: newItems[i].explanation,
+      points: newItems[i].points,
+      difficulty: newItems[i].difficulty,
+      metadata: {
+        type: newItems[i].type,
+        sourcePages: newItems[i].sourcePages,
+        difficulty: newItems[i].difficulty,
+      },
+      embedding: newEmbeddings[i],
+      warnings: newItems[i].warnings ?? [],
+      parentItemId: null as string | null,
+    };
+  });
+
+  send('log', { message: `Saving ${rootDTOs.length} root questions...`, level: 'info' });
+
+  let insertedRoots: { id: string }[];
+  try {
+    insertedRoots = await assignmentService.saveItemsAndReturn(rootDTOs);
+  } catch (e) {
+    console.error('Root items save error:', e);
+    send('error', { message: 'Failed to save root questions.', code: 'SAVE_ERROR' });
+    return;
+  }
+
+  // Map local newItems index → DB ID
+  const localIdxToDbId = new Map<number, string>();
+  for (let i = 0; i < rootLocalIndices.length; i++) {
+    localIdxToDbId.set(rootLocalIndices[i], insertedRoots[i].id);
+  }
+
+  // Pass 2+: Insert children layer by layer (resolve parents)
+  let remaining = [...childLocalIndices];
+  let passNum = 0;
+  while (remaining.length > 0 && passNum < 10) {
+    passNum++;
+    const resolvable: number[] = [];
+    const unresolvable: number[] = [];
+
+    for (const localIdx of remaining) {
+      const parentOrigIdx = newItems[localIdx].parentIndex!;
+      const parentLocalIdx = origToLocalIdx.get(parentOrigIdx);
+      if (parentLocalIdx != null && localIdxToDbId.has(parentLocalIdx)) {
+        resolvable.push(localIdx);
+      } else {
+        unresolvable.push(localIdx);
+      }
+    }
+
+    if (resolvable.length === 0) {
+      // Remaining are orphans — insert as roots
+      const orphanDTOs = unresolvable.map((i) => {
+        nextOrder++;
+        return {
+          assignmentId: documentId,
+          orderNum: nextOrder,
+          type: newItems[i].type,
+          content: newContents[i],
+          referenceAnswer: newItems[i].referenceAnswer,
+          explanation: newItems[i].explanation,
+          points: newItems[i].points,
+          difficulty: newItems[i].difficulty,
+          metadata: {
+            type: newItems[i].type,
+            sourcePages: newItems[i].sourcePages,
+            difficulty: newItems[i].difficulty,
+          },
+          embedding: newEmbeddings[i],
+          warnings: newItems[i].warnings ?? [],
+          parentItemId: null as string | null,
+        };
       });
+
+      try {
+        const inserted = await assignmentService.saveItemsAndReturn(orphanDTOs);
+        for (let j = 0; j < unresolvable.length; j++) {
+          localIdxToDbId.set(unresolvable[j], inserted[j].id);
+        }
+      } catch (e) {
+        console.error(`Orphan items save error:`, e);
+        send('error', { message: 'Failed to save orphan questions.', code: 'SAVE_ERROR' });
+        return;
+      }
+      remaining = [];
+      break;
+    }
+
+    const childDTOs = resolvable.map((i) => {
+      nextOrder++;
+      const parentOrigIdx = newItems[i].parentIndex!;
+      const parentLocalIdx = origToLocalIdx.get(parentOrigIdx)!;
+      return {
+        assignmentId: documentId,
+        orderNum: nextOrder,
+        type: newItems[i].type,
+        content: newContents[i],
+        referenceAnswer: newItems[i].referenceAnswer,
+        explanation: newItems[i].explanation,
+        points: newItems[i].points,
+        difficulty: newItems[i].difficulty,
+        metadata: {
+          type: newItems[i].type,
+          sourcePages: newItems[i].sourcePages,
+          difficulty: newItems[i].difficulty,
+        },
+        embedding: newEmbeddings[i],
+        warnings: newItems[i].warnings ?? [],
+        parentItemId: localIdxToDbId.get(parentLocalIdx) ?? null,
+      };
+    });
+
+    try {
+      const inserted = await assignmentService.saveItemsAndReturn(childDTOs);
+      for (let j = 0; j < resolvable.length; j++) {
+        localIdxToDbId.set(resolvable[j], inserted[j].id);
+      }
+    } catch (e) {
+      console.error(`Child items save error (pass ${passNum}):`, e);
       send('error', {
-        message: `Failed to save questions (batch ${batchIdx + 1}). ${i > 0 ? `${i} questions were saved successfully.` : 'No questions were saved.'}`,
+        message: `Failed to save child questions (pass ${passNum}).`,
         code: 'SAVE_ERROR',
       });
       return;
     }
+
+    remaining = unresolvable;
   }
 
-  send('log', { message: `Saved ${allItemDTOs.length} questions`, level: 'success' });
+  send('log', { message: `Saved ${newItems.length} questions`, level: 'success' });
   send('status', { stage: 'complete', message: 'Done!' });
 }

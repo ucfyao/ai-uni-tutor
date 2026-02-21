@@ -12,7 +12,7 @@ function makeItem(overrides: Partial<EnrichedAssignmentItem> = {}): EnrichedAssi
     points: 5,
     type: 'choice',
     difficulty: 'easy',
-    section: 'General',
+    parentIndex: null,
     sourcePages: [1],
     ...overrides,
   };

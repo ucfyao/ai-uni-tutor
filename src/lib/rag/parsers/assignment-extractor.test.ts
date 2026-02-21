@@ -13,14 +13,9 @@ vi.mock('@/lib/gemini', () => ({
 
 const { extractAssignmentQuestions } = await import('./assignment-extractor');
 
-function validResponse(items: unknown[], sections?: unknown[]) {
+function validResponse(items: unknown[]) {
   return {
-    text: JSON.stringify({
-      sections: sections ?? [
-        { title: 'General', type: 'mixed', sourcePages: [1], itemIndices: [0] },
-      ],
-      items,
-    }),
+    text: JSON.stringify({ items }),
   };
 }
 
@@ -34,7 +29,7 @@ function makeItem(overrides: Record<string, unknown> = {}) {
     points: 5,
     type: 'choice',
     difficulty: 'easy',
-    section: 'General',
+    parentIndex: null,
     sourcePages: [1],
     ...overrides,
   };
@@ -56,7 +51,6 @@ describe('assignment-extractor', () => {
       const result = await extractAssignmentQuestions([{ page: 1, text: 'Q1: What is 2+2?' }]);
 
       expect(result.items).toHaveLength(1);
-      expect(result.sections).toHaveLength(1);
       expect(result.warnings).toHaveLength(0);
       expect(result.items[0].content).toBe('What is 2+2?');
       expect(result.items[0].points).toBe(5);
@@ -73,7 +67,6 @@ describe('assignment-extractor', () => {
       );
 
       expect(result.items).toHaveLength(0);
-      expect(result.sections).toHaveLength(0);
       expect(mockGenerateContent).not.toHaveBeenCalled();
     });
 
@@ -111,25 +104,21 @@ describe('assignment-extractor', () => {
       expect(result.items[0].referenceAnswer).toBe('');
       expect(result.items[0].explanation).toBe('');
       expect(result.items[0].type).toBe('');
-      expect(result.items[0].section).toBe('General');
+      expect(result.items[0].parentIndex).toBeNull();
     });
 
-    it('extracts multiple items and sections', async () => {
+    it('extracts multiple items', async () => {
       const items = [
-        makeItem({ orderNum: 1, section: 'Part A' }),
-        makeItem({ orderNum: 2, section: 'Part A', content: 'What is 3+3?' }),
+        makeItem({ orderNum: 1, parentIndex: null }),
+        makeItem({ orderNum: 2, parentIndex: 0, content: 'What is 3+3?' }),
         makeItem({
           orderNum: 3,
-          section: 'Part B',
+          parentIndex: null,
           content: 'Explain addition.',
           type: 'short_answer',
         }),
       ];
-      const sections = [
-        { title: 'Part A', type: 'choice', sourcePages: [1], itemIndices: [0, 1] },
-        { title: 'Part B', type: 'short_answer', sourcePages: [2], itemIndices: [2] },
-      ];
-      mockGenerateContent.mockResolvedValue(validResponse(items, sections));
+      mockGenerateContent.mockResolvedValue(validResponse(items));
 
       const result = await extractAssignmentQuestions([
         { page: 1, text: 'Part A' },
@@ -137,19 +126,69 @@ describe('assignment-extractor', () => {
       ]);
 
       expect(result.items).toHaveLength(3);
-      expect(result.sections).toHaveLength(2);
       expect(result.warnings).toHaveLength(0);
+    });
+  });
+
+  describe('metadata extraction', () => {
+    it('extracts metadata from response', async () => {
+      const response = {
+        metadata: {
+          totalPoints: 100,
+          totalQuestions: 25,
+          duration: '120 minutes',
+          instructions: 'Use blue or black ink pen.',
+          examDate: '2026-03-15',
+        },
+        items: [makeItem()],
+      };
+      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(response) });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.metadata).toEqual({
+        totalPoints: 100,
+        totalQuestions: 25,
+        duration: '120 minutes',
+        instructions: 'Use blue or black ink pen.',
+        examDate: '2026-03-15',
+      });
+    });
+
+    it('returns empty metadata when not present in response', async () => {
+      mockGenerateContent.mockResolvedValue(validResponse([makeItem()]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.metadata).toEqual({});
+    });
+
+    it('ignores invalid metadata fields', async () => {
+      const response = {
+        metadata: {
+          totalPoints: 'not a number',
+          totalQuestions: -5,
+          duration: 123,
+          bogusField: 'ignored',
+        },
+        items: [makeItem()],
+      };
+      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(response) });
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.metadata).toBeDefined();
+      expect(result.metadata?.totalPoints).toBeUndefined();
     });
   });
 
   describe('partial recovery', () => {
     it('recovers valid items when overall schema fails', async () => {
       const raw = {
-        sections: [{ title: 'General', type: 'mixed', sourcePages: [1], itemIndices: [0] }],
-        items: [
-          makeItem(),
-          { invalid: true }, // will fail validation
-        ],
+        items: [makeItem(), { invalid: true }],
       };
       mockGenerateContent.mockResolvedValue({ text: JSON.stringify(raw) });
 
@@ -158,21 +197,6 @@ describe('assignment-extractor', () => {
       expect(result.items).toHaveLength(1);
       expect(result.warnings.length).toBeGreaterThan(0);
       expect(result.warnings.join(' ')).toMatch(/Recovered 1\/2/);
-    });
-
-    it('creates default section when items recovered but sections invalid', async () => {
-      const raw = {
-        sections: [{ badField: true }], // will fail validation
-        items: [makeItem()],
-      };
-      mockGenerateContent.mockResolvedValue({ text: JSON.stringify(raw) });
-
-      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
-
-      expect(result.items).toHaveLength(1);
-      expect(result.sections).toHaveLength(1);
-      expect(result.sections[0].title).toBe('General');
-      expect(result.warnings.join(' ')).toMatch(/default section/i);
     });
 
     it('returns empty result when no items can be recovered', async () => {

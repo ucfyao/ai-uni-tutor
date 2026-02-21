@@ -23,6 +23,9 @@ const addItemSchema = z.object({
   explanation: z.string().optional().default(''),
   points: z.number().min(0).optional().default(0),
   difficulty: z.string().max(50).optional().default(''),
+  parentItemId: z.string().uuid().nullable().optional(),
+  orderNum: z.number().int().min(1).optional(),
+  title: z.string().max(255).optional().default(''),
 });
 
 // ── Actions ──
@@ -78,6 +81,9 @@ export async function addAssignmentItem(
       explanation: parsed.explanation,
       points: parsed.points,
       difficulty: parsed.difficulty,
+      parentItemId: parsed.parentItemId,
+      orderNum: parsed.orderNum,
+      title: parsed.title,
     });
 
     return { success: true, data: { id: item.id } };
@@ -191,6 +197,7 @@ export async function updateAssignmentItems(
             points: meta.points != null ? Number(meta.points) : undefined,
             difficulty: (meta.difficulty as string) || undefined,
             type: (meta.type as string) || undefined,
+            orderNum: meta.orderNum != null ? Number(meta.orderNum) : undefined,
             metadata: meta,
             warnings: newWarnings,
           });
@@ -394,5 +401,32 @@ export async function batchUpdateAnswers(
     if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
     console.error('batchUpdateAnswers error:', error);
     return { success: false, error: 'Failed to update answers' };
+  }
+}
+
+// ── Move Item ──
+
+const moveItemSchema = z.object({
+  assignmentId: z.string().uuid(),
+  itemId: z.string().uuid(),
+  newParentId: z.string().uuid().nullable(),
+});
+
+export async function moveAssignmentItem(
+  input: z.infer<typeof moveItemSchema>,
+): Promise<ActionResult<null>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = moveItemSchema.parse(input);
+    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
+
+    const service = getAssignmentService();
+    await service.moveItem(parsed.assignmentId, parsed.itemId, parsed.newParentId);
+    return { success: true, data: null };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    console.error('moveAssignmentItem error:', error);
+    return { success: false, error: 'Failed to move item' };
   }
 }

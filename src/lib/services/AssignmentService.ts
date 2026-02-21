@@ -7,6 +7,7 @@
 
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
+import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
 import {
   getAssignmentRepository,
   type AssignmentRepository,
@@ -47,10 +48,15 @@ export class AssignmentService {
       explanation?: string;
       points?: number;
       difficulty?: string;
+      parentItemId?: string | null;
+      orderNum?: number;
+      title?: string;
     },
   ) {
-    const maxOrderNum = await this.repo.getMaxOrderNum(assignmentId);
-    const orderNum = maxOrderNum + 1;
+    const orderNum = data.orderNum ?? (await this.repo.getMaxOrderNum(assignmentId)) + 1;
+
+    const metadata: Record<string, unknown> = {};
+    if (data.title) metadata.title = data.title;
 
     let embedding: number[] | null = null;
     try {
@@ -67,6 +73,8 @@ export class AssignmentService {
       explanation: data.explanation,
       points: data.points,
       difficulty: data.difficulty,
+      parentItemId: data.parentItemId,
+      metadata,
       embedding,
     });
   }
@@ -103,6 +111,10 @@ export class AssignmentService {
 
   async rename(assignmentId: string, newTitle: string): Promise<void> {
     await this.repo.updateTitle(assignmentId, newTitle);
+  }
+
+  async updateMetadata(assignmentId: string, metadata: AssignmentMetadata): Promise<void> {
+    return this.repo.updateMetadata(assignmentId, metadata);
   }
 
   async reorder(assignmentId: string, orderedIds: string[]): Promise<void> {
@@ -172,6 +184,19 @@ export class AssignmentService {
   async deleteAssignment(id: string): Promise<void> {
     await this.repo.deleteItemsByAssignmentId(id);
     await this.repo.delete(id);
+  }
+
+  async moveItem(assignmentId: string, itemId: string, newParentId: string | null): Promise<void> {
+    const valid = await this.repo.verifyItemsBelongToAssignment([itemId], assignmentId);
+    if (!valid) throw new Error('Item does not belong to this assignment');
+    if (newParentId) {
+      const parentValid = await this.repo.verifyItemsBelongToAssignment(
+        [newParentId],
+        assignmentId,
+      );
+      if (!parentValid) throw new Error('Parent item does not belong to this assignment');
+    }
+    await this.repo.moveItem(itemId, newParentId);
   }
 
   async getAssignmentsForAdmin(courseIds?: string[]) {
@@ -247,7 +272,7 @@ export class AssignmentService {
         points: toMerge[0].points,
         type: toMerge[0].type,
         difficulty: toMerge[0].difficulty,
-        section: (toMerge[0].metadata?.section as string) ?? '',
+        parentIndex: null,
         sourcePages: (toMerge[0].metadata?.sourcePages as number[]) ?? [],
       };
       const enrichedContent = buildAssignmentItemContent(enriched);
@@ -295,6 +320,7 @@ export class AssignmentService {
       difficulty: item.difficulty,
       metadata: item.metadata,
       warnings: secondWarnings,
+      parentItemId: item.parentItemId,
     });
 
     try {

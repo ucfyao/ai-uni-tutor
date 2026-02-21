@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AppError } from '@/lib/errors';
 import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
-import type { AssignmentSection, EnrichedAssignmentItem } from './types';
+import type { AssignmentMetadata, EnrichedAssignmentItem } from './types';
 
 function coerceSourcePages(val: unknown): number[] {
   if (Array.isArray(val)) return val.map(Number).filter((n) => !isNaN(n) && n > 0);
@@ -31,31 +31,35 @@ const sourcePagesSchema = z.preprocess(coerceSourcePages, z.array(z.number()).de
 const itemSchema = z.object({
   orderNum: z.number(),
   content: z.string().min(1),
+  parentIndex: z.number().nullable().optional().default(null),
   options: z.array(z.string()).optional().default([]),
   referenceAnswer: z.string().optional().default(''),
   explanation: z.string().optional().default(''),
   points: z.number().optional().default(0),
   type: z.string().optional().default(''),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional().default('medium'),
-  section: z.string().optional().default('General'),
   sourcePages: sourcePagesSchema,
 });
 
-const sectionSchema = z.object({
-  title: z.string().min(1),
-  type: z.string().optional().default('mixed'),
-  sourcePages: sourcePagesSchema,
-  itemIndices: z.array(z.number()).default([]),
-});
+const metadataSchema = z
+  .object({
+    totalPoints: z.number().positive().optional(),
+    totalQuestions: z.number().positive().optional(),
+    duration: z.string().min(1).optional(),
+    instructions: z.string().min(1).optional(),
+    examDate: z.string().min(1).optional(),
+  })
+  .optional()
+  .default({});
 
 const extractionSchema = z.object({
-  sections: z.array(sectionSchema).min(1),
+  metadata: metadataSchema,
   items: z.array(itemSchema).min(1),
 });
 
 export interface AssignmentExtractionResult {
-  sections: AssignmentSection[];
   items: EnrichedAssignmentItem[];
+  metadata: AssignmentMetadata;
   warnings: string[];
 }
 
@@ -64,36 +68,48 @@ function buildPrompt(pages: PDFPage[]): string {
 
   return `You are an expert academic assignment/homework content analyzer.
 
-Analyze the following document and extract ALL questions with their full structure.
+Analyze the following document and extract:
+1. Document-level metadata
+2. ALL questions with their full structure
 
-For each SECTION (group questions by topic, chapter, or question type):
-- title: Section heading (e.g. "Part A: Multiple Choice", "Chapter 3 Problems")
-- type: Dominant question type (choice/fill_blank/short_answer/calculation/proof/essay/mixed)
-- sourcePages: Array of page numbers this section spans
-- itemIndices: Array of 0-based item indices belonging to this section
+## Document Metadata
+
+Extract these fields from the document header, title page, or instructions section:
+- totalPoints: Total marks/points for the entire assignment (null if not stated)
+- totalQuestions: Total number of questions (null if not stated)
+- duration: Time limit or duration (null if not stated, e.g. "120 minutes", "2 hours")
+- instructions: General instructions for students (null if none, e.g. "Use blue or black ink pen. Show all working.")
+- examDate: Date of the exam/assignment if stated (null if not stated, ISO format YYYY-MM-DD if possible)
+
+## Questions
 
 For each ITEM (question):
 - orderNum: Sequential number (1, 2, 3...)
 - content: Full question text in Markdown (use KaTeX for math: $...$ inline, $$...$$ block)
+- parentIndex: If this is a sub-question, the 0-based index of its parent in the items array. null for top-level questions.
 - options: Array of option texts for multiple choice (empty array if not MC)
 - referenceAnswer: The reference answer if present in the document (empty string if none)
 - explanation: Step-by-step solution explanation if present (empty string if none)
-- score: Point value (0 if not specified)
+- points: Point value (0 if not specified)
 - type: Question type (choice/fill_blank/short_answer/calculation/proof/essay)
 - difficulty: Estimated difficulty (easy/medium/hard)
-- section: Title of the parent section
 - sourcePages: Array of page numbers where this question appears
 
-Critical rules:
-- Extract EVERY question — do not skip any. After extraction, verify your item count matches the total number of questions visible in the document. If the document states a total (e.g. "共15题"), return exactly that many items.
-- ALL mathematical expressions MUST be in KaTeX format. Use $...$ for inline math and $$...$$ for display math. Never output raw Unicode math symbols (×, ÷, √, π, ∑, ∫, etc.) — always convert to KaTeX equivalents ($\\times$, $\\div$, $\\sqrt{}$, $\\pi$, $\\sum$, $\\int$, etc.).
-- Each item's referenceAnswer must correspond to THAT specific question. If the document has a separate answer section, carefully match answers to questions by their number.
-- For questions with sub-parts (a), (b), (c): if the sub-parts are independent questions, extract each as a separate item with orderNum reflecting the overall sequence. If they share context (e.g. "Given X, find: (a)... (b)..."), keep as ONE item with all sub-parts in the content field.
-- Group questions into sections using the document's natural structure
-- If no clear sections exist, group by question type
-- Do NOT include instructions or headers as questions
+Parent-child structure rules:
+- A main question (e.g. "Question 1") with sub-parts (a), (b), (c) should be extracted as:
+  - One parent item with the shared context/stem (parentIndex: null)
+  - Each sub-part as a separate child item (parentIndex: index of parent)
+- If sub-parts have their own sub-sub-parts (i), (ii), (iii), create deeper nesting with parentIndex pointing to the sub-part
+- If a question has NO sub-parts, it is a standalone top-level item (parentIndex: null)
+- Section headers like "Part A: Multiple Choice" should be extracted as parent items with their title as content, and all questions in that section as children
 
-Return ONLY a valid JSON object with "sections" and "items" arrays. No markdown, no explanation.
+Critical rules:
+- Extract EVERY question — do not skip any. After extraction, verify your item count matches the total number of questions visible in the document.
+- ALL mathematical expressions MUST be in KaTeX format. Use $...$ for inline math and $$...$$ for display math.
+- Each item's referenceAnswer must correspond to THAT specific question.
+- Do NOT include instructions or headers as questions unless they serve as a parent grouping.
+
+Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.
 
 Document (${pages.length} pages):
 ${pagesText}`;
@@ -103,7 +119,7 @@ export async function extractAssignmentQuestions(
   pages: PDFPage[],
   signal?: AbortSignal,
 ): Promise<AssignmentExtractionResult> {
-  if (signal?.aborted) return { sections: [], items: [], warnings: [] };
+  if (signal?.aborted) return { items: [], metadata: {}, warnings: [] };
 
   const prompt = buildPrompt(pages);
 
@@ -119,7 +135,7 @@ export async function extractAssignmentQuestions(
     throw AppError.from(error);
   }
   if (!text.trim()) {
-    return { sections: [], items: [], warnings: ['Gemini returned empty response'] };
+    return { items: [], metadata: {}, warnings: ['Gemini returned empty response'] };
   }
 
   let raw: unknown;
@@ -127,15 +143,15 @@ export async function extractAssignmentQuestions(
     raw = JSON.parse(text);
   } catch {
     return {
-      sections: [],
       items: [],
+      metadata: {},
       warnings: [`Gemini returned invalid JSON (${text.length} chars)`],
     };
   }
 
   const result = extractionSchema.safeParse(raw);
   if (result.success) {
-    return { sections: result.data.sections, items: result.data.items, warnings: [] };
+    return { items: result.data.items, metadata: result.data.metadata ?? {}, warnings: [] };
   }
 
   // Partial recovery
@@ -147,7 +163,6 @@ export async function extractAssignmentQuestions(
 
   const rawObj = raw as Record<string, unknown>;
   const rawItems = Array.isArray(rawObj?.items) ? rawObj.items : [];
-  const rawSections = Array.isArray(rawObj?.sections) ? rawObj.sections : [];
 
   const validItems: EnrichedAssignmentItem[] = [];
   for (const item of rawItems) {
@@ -155,25 +170,9 @@ export async function extractAssignmentQuestions(
     if (single.success) validItems.push(single.data);
   }
 
-  const validSections: AssignmentSection[] = [];
-  for (const section of rawSections) {
-    const single = sectionSchema.safeParse(section);
-    if (single.success) validSections.push(single.data);
-  }
-
   if (validItems.length > 0) {
     warnings.push(`Recovered ${validItems.length}/${rawItems.length} valid items`);
   }
 
-  if (validSections.length === 0 && validItems.length > 0) {
-    validSections.push({
-      title: 'General',
-      type: 'mixed',
-      sourcePages: [],
-      itemIndices: validItems.map((_, i) => i),
-    });
-    warnings.push('Created default section for recovered items');
-  }
-
-  return { sections: validSections, items: validItems, warnings };
+  return { items: validItems, metadata: {}, warnings };
 }
