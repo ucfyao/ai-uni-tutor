@@ -30,17 +30,35 @@ export async function generateEmbeddingWithRetry(text: string, maxRetries = 3): 
   throw new Error('Unreachable');
 }
 
-const EMBEDDING_BATCH_SIZE = 10;
+/**
+ * Batch embedding via single API call.
+ * embedContent accepts string[] and returns multiple embeddings in one request.
+ * Falls back to per-text calls if the batch call fails (e.g. payload too large).
+ */
+const EMBEDDING_BATCH_SIZE = 100;
 
 export async function generateEmbeddingBatch(
   texts: string[],
-  concurrency = EMBEDDING_BATCH_SIZE,
+  batchSize = EMBEDDING_BATCH_SIZE,
 ): Promise<number[][]> {
   const results: number[][] = [];
-  for (let i = 0; i < texts.length; i += concurrency) {
-    const batch = texts.slice(i, i + concurrency);
-    const embeddings = await Promise.all(batch.map((text) => generateEmbeddingWithRetry(text)));
-    results.push(...embeddings);
+  for (let i = 0; i < texts.length; i += batchSize) {
+    const batch = texts.slice(i, i + batchSize);
+    try {
+      const result = await genAI.models.embedContent({
+        model: GEMINI_MODELS.embedding,
+        contents: batch,
+        config: {
+          outputDimensionality: RAG_CONFIG.embeddingDimension,
+        },
+      });
+      const embeddings = (result.embeddings ?? []).map((e) => e.values || []);
+      results.push(...embeddings);
+    } catch {
+      // Fallback: per-text calls with retry
+      const embeddings = await Promise.all(batch.map((text) => generateEmbeddingWithRetry(text)));
+      results.push(...embeddings);
+    }
   }
   return results;
 }

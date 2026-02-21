@@ -15,7 +15,9 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
 });
 
 // Import after mock setup
-const { generateEmbedding, generateEmbeddingWithRetry } = await import('./embedding');
+const { generateEmbedding, generateEmbeddingWithRetry, generateEmbeddingBatch } = await import(
+  './embedding'
+);
 const { GEMINI_MODELS } = await import('@/lib/gemini');
 
 describe('embedding', () => {
@@ -196,6 +198,69 @@ describe('embedding', () => {
       expect(result).toBeInstanceOf(Error);
       expect((result as Error).message).toBe('AI service error.');
       expect(mockGemini.client.models.embedContent).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── generateEmbeddingBatch ──
+
+  describe('generateEmbeddingBatch', () => {
+    it('should embed multiple texts in a single API call', async () => {
+      const vectors = [
+        [0.1, 0.2],
+        [0.3, 0.4],
+        [0.5, 0.6],
+      ];
+      mockGemini.client.models.embedContent.mockResolvedValueOnce({
+        embeddings: vectors.map((v) => ({ values: v })),
+      });
+
+      const result = await generateEmbeddingBatch(['text1', 'text2', 'text3']);
+      expect(result).toEqual(vectors);
+      expect(mockGemini.client.models.embedContent).toHaveBeenCalledTimes(1);
+      expect(mockGemini.client.models.embedContent).toHaveBeenCalledWith({
+        model: GEMINI_MODELS.embedding,
+        contents: ['text1', 'text2', 'text3'],
+        config: { outputDimensionality: 768 },
+      });
+    });
+
+    it('should fall back to per-text calls when batch call fails', async () => {
+      const vector = [0.1, 0.2];
+      mockGemini.client.models.embedContent
+        // First call: batch fails
+        .mockRejectedValueOnce(new Error('Payload too large'))
+        // Fallback: individual calls succeed
+        .mockResolvedValueOnce({ embeddings: [{ values: vector }] })
+        .mockResolvedValueOnce({ embeddings: [{ values: vector }] });
+
+      const result = await generateEmbeddingBatch(['text1', 'text2']);
+      expect(result).toEqual([vector, vector]);
+      // 1 batch call + 2 individual calls
+      expect(mockGemini.client.models.embedContent).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle empty input', async () => {
+      const result = await generateEmbeddingBatch([]);
+      expect(result).toEqual([]);
+      expect(mockGemini.client.models.embedContent).not.toHaveBeenCalled();
+    });
+
+    it('should split into batches when exceeding batch size', async () => {
+      const vector = [0.1, 0.2];
+      mockGemini.client.models.embedContent
+        // First batch: ['a', 'b'] → 2 embeddings
+        .mockResolvedValueOnce({
+          embeddings: [{ values: vector }, { values: vector }],
+        })
+        // Second batch: ['c'] → 1 embedding
+        .mockResolvedValueOnce({
+          embeddings: [{ values: vector }],
+        });
+
+      // Use batchSize=2, pass 3 texts → 2 API calls
+      const result = await generateEmbeddingBatch(['a', 'b', 'c'], 2);
+      expect(result).toHaveLength(3);
+      expect(mockGemini.client.models.embedContent).toHaveBeenCalledTimes(2);
     });
   });
 });
