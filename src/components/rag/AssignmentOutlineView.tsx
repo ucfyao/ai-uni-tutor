@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import {
@@ -422,6 +422,9 @@ function ItemCard({
   item,
   depth = 0,
   displayLabel,
+  hasChildren,
+  collapsed,
+  onToggleCollapse,
   isEditing,
   onStartEdit,
   onCancelEdit,
@@ -432,6 +435,9 @@ function ItemCard({
   item: AssignmentItemEntity;
   depth?: number;
   displayLabel?: string;
+  hasChildren?: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   isEditing: boolean;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
@@ -493,6 +499,17 @@ function ItemCard({
         <Stack gap="xs">
           {/* Header: order, badges, actions */}
           <Group gap="sm" wrap="nowrap" align="center">
+            {hasChildren && (
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="xs"
+                onClick={onToggleCollapse}
+                style={{ flexShrink: 0 }}
+              >
+                {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+              </ActionIcon>
+            )}
             <Badge
               size={isParent ? 'sm' : 'xs'}
               variant={isParent ? 'filled' : 'light'}
@@ -637,12 +654,18 @@ function TreeNode({
   onDeleteItem: (id: string) => Promise<void>;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const hasChildren = node.children.length > 0;
+
   return (
     <Box pl={depth > 0 ? 24 : 0}>
       <ItemCard
         item={node}
         depth={depth}
         displayLabel={labels.get(node.id)}
+        hasChildren={hasChildren}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((v) => !v)}
         isEditing={editingItemId === node.id}
         onStartEdit={onStartEdit}
         onCancelEdit={onCancelEdit}
@@ -650,7 +673,7 @@ function TreeNode({
         onDeleteItem={onDeleteItem}
         t={t}
       />
-      {node.children.length > 0 && (
+      {hasChildren && !collapsed && (
         <Stack gap="xs" mt="xs">
           {node.children.map((child) => (
             <TreeNode
