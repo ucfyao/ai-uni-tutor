@@ -88,6 +88,24 @@ describe('assignment-extractor', () => {
       expect(result.warnings[0]).toMatch(/invalid JSON/);
     });
 
+    it('extracts title field from response', async () => {
+      mockGenerateContent.mockResolvedValue(
+        validResponse([makeItem({ title: 'Question 5.2(a)' })]),
+      );
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].title).toBe('Question 5.2(a)');
+    });
+
+    it('defaults title to empty string when not provided', async () => {
+      mockGenerateContent.mockResolvedValue(validResponse([makeItem()]));
+
+      const result = await extractAssignmentQuestions([{ page: 1, text: 'test' }]);
+
+      expect(result.items[0].title).toBe('');
+    });
+
     it('applies default values for optional fields', async () => {
       const item = {
         orderNum: 1,
