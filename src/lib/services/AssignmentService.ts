@@ -47,6 +47,7 @@ export class AssignmentService {
       explanation?: string;
       points?: number;
       difficulty?: string;
+      parentItemId?: string | null;
     },
   ) {
     const maxOrderNum = await this.repo.getMaxOrderNum(assignmentId);
@@ -67,6 +68,7 @@ export class AssignmentService {
       explanation: data.explanation,
       points: data.points,
       difficulty: data.difficulty,
+      parentItemId: data.parentItemId,
       embedding,
     });
   }
@@ -174,6 +176,19 @@ export class AssignmentService {
     await this.repo.delete(id);
   }
 
+  async moveItem(assignmentId: string, itemId: string, newParentId: string | null): Promise<void> {
+    const valid = await this.repo.verifyItemsBelongToAssignment([itemId], assignmentId);
+    if (!valid) throw new Error('Item does not belong to this assignment');
+    if (newParentId) {
+      const parentValid = await this.repo.verifyItemsBelongToAssignment(
+        [newParentId],
+        assignmentId,
+      );
+      if (!parentValid) throw new Error('Parent item does not belong to this assignment');
+    }
+    await this.repo.moveItem(itemId, newParentId);
+  }
+
   async getAssignmentsForAdmin(courseIds?: string[]) {
     if (courseIds && courseIds.length > 0) {
       return this.repo.findByCourseIds(courseIds);
@@ -247,7 +262,7 @@ export class AssignmentService {
         points: toMerge[0].points,
         type: toMerge[0].type,
         difficulty: toMerge[0].difficulty,
-        section: (toMerge[0].metadata?.section as string) ?? '',
+        section: '',
         sourcePages: (toMerge[0].metadata?.sourcePages as number[]) ?? [],
       };
       const enrichedContent = buildAssignmentItemContent(enriched);
@@ -295,6 +310,7 @@ export class AssignmentService {
       difficulty: item.difficulty,
       metadata: item.metadata,
       warnings: secondWarnings,
+      parentItemId: item.parentItemId,
     });
 
     try {
