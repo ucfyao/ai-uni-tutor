@@ -11,12 +11,12 @@ import {
   Card,
   Group,
   ScrollArea,
-  Stack,
   Table,
   Text,
   Title,
 } from '@mantine/core';
 import { deleteExamPaper } from '@/app/actions/exam-papers';
+import { AdminContent } from '@/components/admin/AdminContent';
 import type { ExamPaper } from '@/types/exam';
 import { ExamPaperUploadModal } from '../../exam/ExamPaperUploadModal';
 
@@ -51,7 +51,7 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="lg" p="lg" maw={900} mx="auto">
+        <AdminContent>
           <Group justify="space-between">
             <Title order={2}>Admin: Exam Paper Management</Title>
             <Button leftSection={<Plus size={16} />} onClick={() => setUploadOpen(true)}>
@@ -118,7 +118,7 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
               </Table>
             )}
           </Card>
-        </Stack>
+        </AdminContent>
       </ScrollArea>
 
       <ExamPaperUploadModal

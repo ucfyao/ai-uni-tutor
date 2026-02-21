@@ -38,6 +38,8 @@ import {
   publishAssignment,
   unpublishAssignment,
 } from '@/app/actions/assignments';
+import { AdminContent } from '@/components/admin/AdminContent';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { AssignmentOutlineView } from '@/components/rag/AssignmentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
@@ -466,7 +468,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
         </Box>
       )}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="md" p="lg" maw={900} mx="auto">
+        <AdminContent gap="md">
           {/* Upload zone (shown by default when empty, toggled via header) */}
           {showUploadZone && (
             <PdfUploadZone
@@ -532,7 +534,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             defaultParentId={defaultParentId}
             onDefaultParentIdChange={setDefaultParentId}
           />
-        </Stack>
+        </AdminContent>
       </ScrollArea>
     </Box>
   );

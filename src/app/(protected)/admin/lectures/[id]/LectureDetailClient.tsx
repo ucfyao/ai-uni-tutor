@@ -28,6 +28,7 @@ import {
   updateDocumentChunks,
   updateDocumentMeta,
 } from '@/app/actions/documents';
+import { AdminContent } from '@/components/admin/AdminContent';
 import { DocumentOutlineView, type SectionEditData } from '@/components/rag/DocumentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
@@ -558,7 +559,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       )}
 
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="md" p="lg">
+        <AdminContent gap="md">
           {/* Upload zone */}
           <Collapse in={showUpload}>
             <PdfUploadZone
@@ -585,7 +586,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             onToggleAddSection={() => setAddSectionOpen((v) => !v)}
             onAddSection={handleAddSection}
           />
-        </Stack>
+        </AdminContent>
       </ScrollArea>
     </Box>
   );

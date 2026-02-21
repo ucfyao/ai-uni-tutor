@@ -35,6 +35,7 @@ import {
   updateUniversity,
 } from '@/app/actions/courses';
 import type { CourseListItem, UniversityListItem } from '@/app/actions/courses';
+import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -355,7 +356,7 @@ export function AdminCoursesClient({
 
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="lg" p="lg" maw={900} mx="auto">
+        <AdminContent>
           <Tabs value={activeTab} onChange={setActiveTab}>
             <Group justify="space-between" align="flex-end" wrap="nowrap">
               <Tabs.List>
@@ -702,7 +703,7 @@ export function AdminCoursesClient({
               )}
             </Tabs.Panel>
           </Tabs>
-        </Stack>
+        </AdminContent>
       </ScrollArea>
 
       {/* ── Add / Edit University Modal ── */}
