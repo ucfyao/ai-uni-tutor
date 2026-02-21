@@ -8,7 +8,7 @@
 
 import { getEnv, getRateLimitConfig, isRateLimitEnabled } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
-import { checkLLMUsage, getLLMUsage, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
+import { checkLLMUsage, getLLMUsage, incrementModelStats, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
 import { getProfileRepository } from '@/lib/repositories';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
 
@@ -81,7 +81,7 @@ export class QuotaService {
   /**
    * Check and consume quota (call before AI requests)
    */
-  async checkAndConsume(userId: string): Promise<QuotaCheckResult> {
+  async checkAndConsume(userId: string, model?: string): Promise<QuotaCheckResult> {
     // Skip in development unless explicitly enabled
     if (!isRateLimitEnabled()) {
       return {
@@ -125,6 +125,11 @@ export class QuotaService {
         };
       }
 
+      // Track per-model stats (fire-and-forget, non-blocking)
+      if (model) {
+        incrementModelStats(model);
+      }
+
       return {
         allowed: true,
         usage: count,
@@ -148,8 +153,8 @@ export class QuotaService {
   /**
    * Enforce quota - throws if limit reached
    */
-  async enforce(userId: string): Promise<QuotaCheckResult> {
-    const result = await this.checkAndConsume(userId);
+  async enforce(userId: string, model?: string): Promise<QuotaCheckResult> {
+    const result = await this.checkAndConsume(userId, model);
 
     if (!result.allowed) {
       throw new QuotaExceededError(result.usage, result.limit);
