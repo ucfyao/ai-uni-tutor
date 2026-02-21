@@ -19,7 +19,8 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
+import type { AssignmentItemEntity, AssignmentItemTree } from '@/lib/domain/models/Assignment';
+import { buildItemTree, computeDisplayLabels } from '@/lib/domain/models/Assignment';
 
 const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
   ssr: false,
@@ -419,6 +420,8 @@ function AddItemForm({
 
 function ItemCard({
   item,
+  depth = 0,
+  displayLabel,
   isEditing,
   onStartEdit,
   onCancelEdit,
@@ -427,6 +430,8 @@ function ItemCard({
   t,
 }: {
   item: AssignmentItemEntity;
+  depth?: number;
+  displayLabel?: string;
   isEditing: boolean;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
@@ -434,6 +439,7 @@ function ItemCard({
   onDeleteItem: (id: string) => Promise<void>;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
+  const isParent = depth === 0;
   const [expanded, setExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -466,12 +472,17 @@ function ItemCard({
       py="sm"
       style={{
         borderRadius: 'var(--mantine-radius-md)',
-        background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+        background: isParent
+          ? 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))'
+          : 'light-dark(var(--mantine-color-white), var(--mantine-color-dark-7))',
         border: `1px solid ${
           item.warnings && item.warnings.length > 0
             ? 'var(--mantine-color-orange-3)'
             : 'var(--mantine-color-default-border)'
         }`,
+        borderLeft: isParent
+          ? '3px solid var(--mantine-color-indigo-5)'
+          : '2px solid var(--mantine-color-gray-3)',
         transition: 'all 0.15s ease',
         opacity: isDeleting ? 0.5 : 1,
       }}
@@ -482,8 +493,14 @@ function ItemCard({
         <Stack gap="xs">
           {/* Header: order, badges, actions */}
           <Group gap="sm" wrap="nowrap" align="center">
-            <Badge size="sm" variant="filled" color="indigo" circle style={{ flexShrink: 0 }}>
-              {item.orderNum}
+            <Badge
+              size={isParent ? 'sm' : 'xs'}
+              variant={isParent ? 'filled' : 'light'}
+              color={isParent ? 'indigo' : 'gray'}
+              circle={isParent}
+              style={{ flexShrink: 0 }}
+            >
+              {displayLabel ?? item.orderNum}
             </Badge>
             {qType && (
               <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
@@ -599,6 +616,62 @@ function ItemCard({
 
 /* ── Main View ── */
 
+function TreeNode({
+  node,
+  depth,
+  labels,
+  editingItemId,
+  onStartEdit,
+  onCancelEdit,
+  onSaveItem,
+  onDeleteItem,
+  t,
+}: {
+  node: AssignmentItemTree;
+  depth: number;
+  labels: Map<string, string>;
+  editingItemId: string | null;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onSaveItem: (id: string, content: string, metadata: Record<string, unknown>) => Promise<void>;
+  onDeleteItem: (id: string) => Promise<void>;
+  t: ReturnType<typeof useLanguage>['t'];
+}) {
+  return (
+    <Box pl={depth > 0 ? 24 : 0}>
+      <ItemCard
+        item={node}
+        depth={depth}
+        displayLabel={labels.get(node.id)}
+        isEditing={editingItemId === node.id}
+        onStartEdit={onStartEdit}
+        onCancelEdit={onCancelEdit}
+        onSaveItem={onSaveItem}
+        onDeleteItem={onDeleteItem}
+        t={t}
+      />
+      {node.children.length > 0 && (
+        <Stack gap="xs" mt="xs">
+          {node.children.map((child) => (
+            <TreeNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              labels={labels}
+              editingItemId={editingItemId}
+              onStartEdit={onStartEdit}
+              onCancelEdit={onCancelEdit}
+              onSaveItem={onSaveItem}
+              onDeleteItem={onDeleteItem}
+              t={t}
+            />
+          ))}
+        </Stack>
+      )}
+    </Box>
+  );
+}
+
 export function AssignmentOutlineView({
   items,
   onSaveItem,
@@ -622,6 +695,10 @@ export function AssignmentOutlineView({
     setEditingItemId(null);
   };
 
+  // Build tree and compute display labels (e.g. "1", "1.1", "1.2")
+  const tree = buildItemTree(items);
+  const labels = computeDisplayLabels(tree);
+
   return (
     <Stack gap="md">
       {/* Empty state */}
@@ -631,12 +708,14 @@ export function AssignmentOutlineView({
         </Text>
       )}
 
-      {/* Flat item list */}
-      {items.map((item) => (
-        <ItemCard
-          key={item.id}
-          item={item}
-          isEditing={editingItemId === item.id}
+      {/* Tree item list */}
+      {tree.map((root) => (
+        <TreeNode
+          key={root.id}
+          node={root}
+          depth={0}
+          labels={labels}
+          editingItemId={editingItemId}
           onStartEdit={(id) => setEditingItemId(id)}
           onCancelEdit={() => setEditingItemId(null)}
           onSaveItem={handleSaveItem}
