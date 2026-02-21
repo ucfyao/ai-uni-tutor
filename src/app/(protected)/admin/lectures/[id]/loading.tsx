@@ -1,12 +1,13 @@
-import { Skeleton, Stack } from '@mantine/core';
+import { Skeleton } from '@mantine/core';
+import { AdminContent } from '@/components/admin/AdminContent';
 
 export default function Loading() {
   return (
-    <Stack gap="md" p="lg" maw={900} mx="auto">
+    <AdminContent gap="md">
       <Skeleton height={20} width={120} />
       <Skeleton height={32} width="60%" />
       <Skeleton height={200} />
       <Skeleton height={40} />
-    </Stack>
+    </AdminContent>
   );
 }

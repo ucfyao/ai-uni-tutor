@@ -19,6 +19,7 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
+import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -383,7 +384,7 @@ export function DashboardClient() {
 
       {/* Scrollable Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="lg" p="lg" maw={1200} mx="auto">
+        <AdminContent>
           {/* Mobile: show refresh button inline since header only has title */}
           {isMobile && (
             <Group justify="flex-end">
@@ -442,7 +443,7 @@ export function DashboardClient() {
               }
             </ServiceCard>
           </SimpleGrid>
-        </Stack>
+        </AdminContent>
       </ScrollArea>
     </Box>
   );

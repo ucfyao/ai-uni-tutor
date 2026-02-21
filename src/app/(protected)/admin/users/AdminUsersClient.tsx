@@ -44,6 +44,7 @@ import {
 import type { AdminUserItem } from '@/app/actions/admin';
 import { fetchCourses } from '@/app/actions/courses';
 import type { CourseListItem } from '@/app/actions/courses';
+import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { showNotification } from '@/lib/notifications';
@@ -489,7 +490,7 @@ export function AdminUsersClient({ currentUserId }: Props) {
 
       {/* Main Content */}
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Stack gap="lg" p="lg" maw={900} mx="auto">
+        <AdminContent>
           {/* ── Toolbar: SegmentedControl (left) + Search (right) ── */}
           <Group gap="sm" justify="space-between" wrap="nowrap">
             <SegmentedControl
@@ -621,7 +622,7 @@ export function AdminUsersClient({ currentUserId }: Props) {
               </Table>
             </Card>
           )}
-        </Stack>
+        </AdminContent>
       </ScrollArea>
     </Box>
   );
