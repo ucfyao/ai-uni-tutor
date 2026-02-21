@@ -24,6 +24,8 @@ const addItemSchema = z.object({
   points: z.number().min(0).optional().default(0),
   difficulty: z.string().max(50).optional().default(''),
   parentItemId: z.string().uuid().nullable().optional(),
+  orderNum: z.number().int().min(1).optional(),
+  title: z.string().max(255).optional().default(''),
 });
 
 // ── Actions ──
@@ -80,6 +82,8 @@ export async function addAssignmentItem(
       points: parsed.points,
       difficulty: parsed.difficulty,
       parentItemId: parsed.parentItemId,
+      orderNum: parsed.orderNum,
+      title: parsed.title,
     });
 
     return { success: true, data: { id: item.id } };
@@ -193,6 +197,7 @@ export async function updateAssignmentItems(
             points: meta.points != null ? Number(meta.points) : undefined,
             difficulty: (meta.difficulty as string) || undefined,
             type: (meta.type as string) || undefined,
+            orderNum: meta.orderNum != null ? Number(meta.orderNum) : undefined,
             metadata: meta,
             warnings: newWarnings,
           });

@@ -2,8 +2,10 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
+  CheckCircle,
   Clock,
   Hash,
   Pencil,
@@ -83,12 +85,20 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const { items, addItem, isAddingItem, updateItem, deleteItem, rename, invalidateItems } =
     useAssignmentItems(assignment.id, initialItems);
 
+  /* -- stats -- */
+  const withAnswer = useMemo(() => items.filter((i) => i.referenceAnswer?.trim()).length, [items]);
+  const warningCount = useMemo(
+    () => items.filter((i) => i.warnings && i.warnings.length > 0).length,
+    [items],
+  );
+
   /* -- UI state -- */
   const [showUploadZone, setShowUploadZone] = useState(initialItems.length === 0);
   const [addFormOpen, setAddFormOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(assignment.title);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
 
   /* -- item handlers (delegate to hook mutations) -- */
   const handleSaveItem = useCallback(
@@ -115,7 +125,11 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
           explanation: (data.explanation as string) || '',
           points: (data.points as number) || 0,
           difficulty: (data.difficulty as string) || '',
+          parentItemId: (data.parentItemId as string) || null,
+          orderNum: data.orderNum as number | undefined,
+          title: (data.title as string) || '',
         });
+        setDefaultParentId(null);
         return true;
       } catch {
         return false;
@@ -322,23 +336,88 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             </Group>
           )}
 
+          <Box
+            style={{
+              width: 1,
+              height: 14,
+              background: 'var(--mantine-color-default-border)',
+              flexShrink: 0,
+            }}
+          />
+
           <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+            {/* Context: school · course */}
+            {(school || course) && (
+              <>
+                <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                  {[school, course].filter(Boolean).join(' · ')}
+                </Text>
+                <Box
+                  style={{
+                    width: 1,
+                    height: 14,
+                    background: 'var(--mantine-color-default-border)',
+                    flexShrink: 0,
+                  }}
+                />
+              </>
+            )}
+            {/* Document attributes */}
             <Badge variant="light" color="indigo" size="sm">
               {(t.knowledge.docTypeLabel as Record<string, string>)?.assignment ?? 'Assignment'}
             </Badge>
-            {school && (
-              <Badge variant="light" color="gray" size="sm">
-                {school}
-              </Badge>
-            )}
-            {course && (
-              <Badge variant="light" color="gray" size="sm">
-                {course}
-              </Badge>
-            )}
             <Badge variant="light" color={statusColor(assignment.status)} size="sm">
               {assignment.status}
             </Badge>
+            {/* Stats */}
+            {items.length > 0 && (
+              <>
+                <Box
+                  style={{
+                    width: 1,
+                    height: 14,
+                    background: 'var(--mantine-color-default-border)',
+                    flexShrink: 0,
+                  }}
+                />
+                <Tooltip label={`${items.length} ${t.documentDetail.items}`} withArrow>
+                  <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
+                    <Hash size={12} color="var(--mantine-color-indigo-5)" />
+                    <Text size="xs" c="dimmed">
+                      {items.length}
+                    </Text>
+                  </Group>
+                </Tooltip>
+                <Tooltip
+                  label={`${withAnswer}/${items.length} ${t.knowledge.answerCoverage}`}
+                  withArrow
+                >
+                  <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
+                    <CheckCircle
+                      size={12}
+                      color={
+                        withAnswer === items.length
+                          ? 'var(--mantine-color-green-5)'
+                          : 'var(--mantine-color-yellow-5)'
+                      }
+                    />
+                    <Text size="xs" c="dimmed">
+                      {withAnswer}/{items.length}
+                    </Text>
+                  </Group>
+                </Tooltip>
+                {warningCount > 0 && (
+                  <Tooltip label={`${warningCount} ${t.knowledge.hasWarnings}`} withArrow>
+                    <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
+                      <AlertTriangle size={12} color="var(--mantine-color-orange-5)" />
+                      <Text size="xs" c="dimmed">
+                        {warningCount}
+                      </Text>
+                    </Group>
+                  </Tooltip>
+                )}
+              </>
+            )}
           </Group>
         </Group>
 
@@ -346,7 +425,19 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
         {headerActions}
       </Group>
     ),
-    [editingName, nameValue, handleSaveName, school, course, assignment.status, headerActions, t],
+    [
+      editingName,
+      nameValue,
+      handleSaveName,
+      school,
+      course,
+      assignment.status,
+      items.length,
+      withAnswer,
+      warningCount,
+      headerActions,
+      t,
+    ],
   );
 
   useEffect(() => {
@@ -438,6 +529,8 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             isAddingItem={isAddingItem}
             addFormOpen={addFormOpen}
             onAddFormOpenChange={setAddFormOpen}
+            defaultParentId={defaultParentId}
+            onDefaultParentIdChange={setDefaultParentId}
           />
         </Stack>
       </ScrollArea>

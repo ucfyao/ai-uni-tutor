@@ -3,7 +3,7 @@
 import { ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Group, Text, TextInput, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Group, Text, TextInput, Tooltip } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { statusColor } from './types';
 
@@ -96,21 +96,37 @@ export function DocumentDetailHeader({
         )}
       </Group>
 
+      <Box
+        style={{
+          width: 1,
+          height: 14,
+          background: 'var(--mantine-color-default-border)',
+          flexShrink: 0,
+        }}
+      />
+
       {/* Right: badges */}
       <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+        {/* Context: school · course */}
+        {(school || course) && (
+          <>
+            <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+              {[school, course].filter(Boolean).join(' · ')}
+            </Text>
+            <Box
+              style={{
+                width: 1,
+                height: 14,
+                background: 'var(--mantine-color-default-border)',
+                flexShrink: 0,
+              }}
+            />
+          </>
+        )}
+        {/* Document attributes */}
         <Badge variant="light" color="indigo" size="sm">
           {(t.knowledge.docTypeLabel as Record<string, string>)?.[docType] ?? docType}
         </Badge>
-        {school && (
-          <Badge variant="light" color="gray" size="sm">
-            {school}
-          </Badge>
-        )}
-        {course && (
-          <Badge variant="light" color="gray" size="sm">
-            {course}
-          </Badge>
-        )}
         <Tooltip
           label={
             status === 'draft' ? t.documentDetail.clickToPublish : t.documentDetail.clickToUnpublish

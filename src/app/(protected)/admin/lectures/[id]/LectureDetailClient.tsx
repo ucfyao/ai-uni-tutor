@@ -399,19 +399,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
               >
                 <Pencil size={14} />
               </ActionIcon>
-              {school && (
-                <Badge variant="light" color="gray" size="xs">
-                  {school}
-                </Badge>
-              )}
-              {course && (
-                <Badge variant="light" color="gray" size="xs">
-                  {course}
-                </Badge>
-              )}
-              <Badge variant="light" color="gray" size="xs">
-                {(t.knowledge.docTypeLabel as Record<string, string>)?.lecture ?? 'Lecture'}
-              </Badge>
               <Box
                 style={{
                   width: 1,
@@ -420,23 +407,59 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
                   flexShrink: 0,
                 }}
               />
-              <Tooltip label={`${chunks.length} sections`} withArrow>
-                <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
-                  <BookOpen size={12} color="var(--mantine-color-indigo-5)" />
-                  <Text size="xs" c="dimmed">
-                    {chunks.length}
+              {/* Context: school · course */}
+              {(school || course) && (
+                <>
+                  <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                    {[school, course].filter(Boolean).join(' · ')}
                   </Text>
-                </Group>
-              </Tooltip>
-              {totalKPs > 0 && (
-                <Tooltip label={`${totalKPs} knowledge points`} withArrow>
-                  <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
-                    <Lightbulb size={12} color="var(--mantine-color-yellow-6)" />
-                    <Text size="xs" c="dimmed">
-                      {totalKPs}
-                    </Text>
-                  </Group>
-                </Tooltip>
+                  <Box
+                    style={{
+                      width: 1,
+                      height: 14,
+                      background: 'var(--mantine-color-default-border)',
+                      flexShrink: 0,
+                    }}
+                  />
+                </>
+              )}
+              {/* Document attributes */}
+              <Badge variant="light" color="indigo" size="xs">
+                {(t.knowledge.docTypeLabel as Record<string, string>)?.lecture ?? 'Lecture'}
+              </Badge>
+              <Badge variant="light" color={currentStatus === 'ready' ? 'green' : 'blue'} size="xs">
+                {currentStatus}
+              </Badge>
+              {/* Stats */}
+              {chunks.length > 0 && (
+                <>
+                  <Box
+                    style={{
+                      width: 1,
+                      height: 14,
+                      background: 'var(--mantine-color-default-border)',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Tooltip label={`${chunks.length} sections`} withArrow>
+                    <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
+                      <BookOpen size={12} color="var(--mantine-color-indigo-5)" />
+                      <Text size="xs" c="dimmed">
+                        {chunks.length}
+                      </Text>
+                    </Group>
+                  </Tooltip>
+                  {totalKPs > 0 && (
+                    <Tooltip label={`${totalKPs} knowledge points`} withArrow>
+                      <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
+                        <Lightbulb size={12} color="var(--mantine-color-yellow-6)" />
+                        <Text size="xs" c="dimmed">
+                          {totalKPs}
+                        </Text>
+                      </Group>
+                    </Tooltip>
+                  )}
+                </>
               )}
             </Group>
           )}
@@ -496,6 +519,8 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       publishAction,
       isPublishing,
       handleSaveName,
+      school,
+      course,
       chunks.length,
       totalKPs,
       showUpload,

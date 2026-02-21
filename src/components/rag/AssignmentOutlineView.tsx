@@ -1,17 +1,20 @@
 'use client';
 
 import {
+  AlertTriangle,
+  CheckCircle,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   FileText,
+  Hash,
   Pencil,
   Plus,
   Trash2,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -24,6 +27,8 @@ import {
   Stack,
   Text,
   Textarea,
+  TextInput,
+  Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { FullScreenModal } from '@/components/FullScreenModal';
@@ -46,6 +51,8 @@ interface AssignmentOutlineViewProps {
   isAddingItem?: boolean;
   addFormOpen?: boolean;
   onAddFormOpenChange?: (open: boolean) => void;
+  defaultParentId?: string | null;
+  onDefaultParentIdChange?: (id: string | null) => void;
 }
 
 /* ── Constants ── */
@@ -190,6 +197,8 @@ function ItemEditForm({
 }) {
   const initMeta = item.metadata ?? {};
 
+  const [orderNum, setOrderNum] = useState<number | string>(item.orderNum);
+  const [title, setTitle] = useState((initMeta.title as string) ?? '');
   const [content, setContent] = useState(item.content);
   const [refAnswer, setRefAnswer] = useState(
     (initMeta.referenceAnswer as string) ?? item.referenceAnswer ?? '',
@@ -212,6 +221,9 @@ function ItemEditForm({
       type,
       difficulty,
       points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
+      orderNum:
+        typeof orderNum === 'number' ? orderNum : parseInt(String(orderNum)) || item.orderNum,
+      title: title.trim(),
     };
     setIsSaving(true);
     try {
@@ -223,6 +235,19 @@ function ItemEditForm({
 
   return (
     <Stack gap="sm" p="sm">
+      <Group grow>
+        <NumberInput
+          label={t.documentDetail.questionNumber}
+          value={orderNum}
+          onChange={(v) => setOrderNum(v)}
+          min={1}
+        />
+        <TextInput
+          label={t.documentDetail.titleOptional}
+          value={title}
+          onChange={(e) => setTitle(e.currentTarget.value)}
+        />
+      </Group>
       <MarkdownToggleField
         label={t.documentDetail.content}
         value={content}
@@ -294,13 +319,22 @@ function AddItemForm({
   onAdd,
   onCancel,
   saving: externalSaving,
+  items,
+  labels,
+  defaultParentId,
   t,
 }: {
   onAdd: (data: Record<string, unknown>) => Promise<boolean>;
   onCancel: () => void;
   saving?: boolean;
+  items: AssignmentItemEntity[];
+  labels: Map<string, string>;
+  defaultParentId?: string | null;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
+  const [orderNum, setOrderNum] = useState<number | string>('');
+  const [title, setTitle] = useState('');
+  const [parentItemId, setParentItemId] = useState<string | null>(defaultParentId ?? null);
   const [content, setContent] = useState('');
   const [refAnswer, setRefAnswer] = useState('');
   const [explanation, setExplanation] = useState('');
@@ -309,28 +343,63 @@ function AddItemForm({
   const [points, setPoints] = useState<number | string>(10);
   const saving = externalSaving ?? false;
 
+  const parentOptions = items.map((item) => ({
+    value: item.id,
+    label: `${labels.get(item.id) ?? item.orderNum} - ${item.content.slice(0, 40)}`,
+  }));
+
   const handleAdd = async () => {
     if (!content.trim()) return;
-    const success = await onAdd({
+    const data: Record<string, unknown> = {
       content: content.trim(),
       referenceAnswer: refAnswer.trim(),
       explanation: explanation.trim(),
       type,
       difficulty,
       points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
-    });
+      parentItemId: parentItemId || null,
+    };
+    if (title.trim()) data.title = title.trim();
+    if (typeof orderNum === 'number' && orderNum > 0) data.orderNum = orderNum;
+    const success = await onAdd(data);
     if (success) {
+      setOrderNum('');
+      setTitle('');
+      setParentItemId(null);
       setContent('');
       setRefAnswer('');
       setExplanation('');
       setType('short_answer');
       setDifficulty('medium');
       setPoints(10);
+      onCancel();
     }
   };
 
   return (
     <Stack gap="sm">
+      <Group grow>
+        <NumberInput
+          label={t.documentDetail.questionNumber}
+          placeholder={`${items.length + 1}`}
+          value={orderNum}
+          onChange={(v) => setOrderNum(v)}
+          min={1}
+        />
+        <TextInput
+          label={t.documentDetail.titleOptional}
+          value={title}
+          onChange={(e) => setTitle(e.currentTarget.value)}
+        />
+      </Group>
+      <Select
+        label={t.documentDetail.parentItem}
+        placeholder={t.documentDetail.noParent}
+        data={parentOptions}
+        value={parentItemId}
+        onChange={(v) => setParentItemId(v)}
+        clearable
+      />
       <Textarea
         label={t.documentDetail.content}
         placeholder={t.knowledge.questionContentPlaceholder}
@@ -419,6 +488,7 @@ function ItemCard({
   onCancelEdit,
   onSaveItem,
   onDeleteItem,
+  onAddChild,
   t,
 }: {
   item: AssignmentItemEntity;
@@ -432,6 +502,7 @@ function ItemCard({
   onCancelEdit: () => void;
   onSaveItem: (id: string, content: string, metadata: Record<string, unknown>) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
+  onAddChild: (parentId: string) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const isParent = depth === 0;
@@ -492,62 +563,78 @@ function ItemCard({
         <Stack gap="xs">
           {/* Header: order, badges, actions */}
           <Group gap="sm" wrap="nowrap" align="center">
-            {hasChildren && (
+            <Group
+              gap="sm"
+              wrap="nowrap"
+              align="center"
+              onClick={onToggleCollapse}
+              style={{
+                flex: 1,
+                cursor: 'pointer',
+                overflow: 'hidden',
+              }}
+            >
+              <Box style={{ flexShrink: 0 }}>
+                {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+              </Box>
+              <Badge
+                size={isParent ? 'sm' : 'xs'}
+                variant={isParent ? 'filled' : 'light'}
+                color={isParent ? 'indigo' : 'gray'}
+                circle={isParent}
+                style={{ flexShrink: 0 }}
+              >
+                {displayLabel ?? item.orderNum}
+              </Badge>
+              {typeof item.metadata?.title === 'string' && item.metadata.title && (
+                <Text size="sm" fw={600} truncate style={{ flexShrink: 1, minWidth: 0 }}>
+                  {item.metadata.title}
+                </Text>
+              )}
+              {qType && (
+                <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                  {(t.knowledge.questionTypes as TranslationMap)[qType] ?? qType}
+                </Badge>
+              )}
+              {difficulty && (
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={DIFFICULTY_COLORS[difficulty] ?? 'gray'}
+                  style={{ flexShrink: 0 }}
+                >
+                  {(t.knowledge.difficulties as TranslationMap)[difficulty] ?? difficulty}
+                </Badge>
+              )}
+              {item.warnings && item.warnings.length > 0 && (
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color="orange"
+                  style={{ flexShrink: 0, cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded((v) => !v);
+                  }}
+                >
+                  {'\u26A0'} {item.warnings.length}
+                </Badge>
+              )}
+              {item.points > 0 && (
+                <Badge size="xs" variant="light" color="violet" style={{ flexShrink: 0 }}>
+                  {item.points} {t.knowledge.pts}
+                </Badge>
+              )}
+            </Group>
+            <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
               <ActionIcon
                 variant="subtle"
-                color="gray"
+                color="indigo"
                 size="xs"
-                onClick={onToggleCollapse}
-                style={{ flexShrink: 0 }}
+                onClick={() => onAddChild(item.id)}
               >
-                {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                <Plus size={14} />
               </ActionIcon>
-            )}
-            <Badge
-              size={isParent ? 'sm' : 'xs'}
-              variant={isParent ? 'filled' : 'light'}
-              color={isParent ? 'indigo' : 'gray'}
-              circle={isParent}
-              style={{ flexShrink: 0 }}
-            >
-              {displayLabel ?? item.orderNum}
-            </Badge>
-            {qType && (
-              <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
-                {(t.knowledge.questionTypes as TranslationMap)[qType] ?? qType}
-              </Badge>
-            )}
-            {difficulty && (
-              <Badge
-                size="xs"
-                variant="light"
-                color={DIFFICULTY_COLORS[difficulty] ?? 'gray'}
-                style={{ flexShrink: 0 }}
-              >
-                {(t.knowledge.difficulties as TranslationMap)[difficulty] ?? difficulty}
-              </Badge>
-            )}
-            {item.warnings && item.warnings.length > 0 && (
-              <Badge
-                size="xs"
-                variant="light"
-                color="orange"
-                style={{ flexShrink: 0, cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpanded((v) => !v);
-                }}
-              >
-                {'\u26A0'} {item.warnings.length}
-              </Badge>
-            )}
-            {item.points > 0 && (
-              <Badge size="xs" variant="light" color="violet" style={{ flexShrink: 0 }}>
-                {item.points} {t.knowledge.pts}
-              </Badge>
-            )}
-            <Box style={{ flex: 1 }} />
-            <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
               <ActionIcon
                 variant="subtle"
                 color="gray"
@@ -568,89 +655,98 @@ function ItemCard({
             </Group>
           </Group>
 
-          {/* Content */}
-          {!expanded && contentLong ? (
-            <Box style={{ maxHeight: 120, overflow: 'hidden', position: 'relative' }}>
-              <MarkdownRenderer content={item.content} compact />
-              <Box
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: 40,
-                  background: isParent
-                    ? 'linear-gradient(transparent, light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6)))'
-                    : 'linear-gradient(transparent, light-dark(var(--mantine-color-white), var(--mantine-color-dark-7)))',
-                }}
-              />
-            </Box>
-          ) : (
-            <MarkdownRenderer content={item.content} compact />
-          )}
-          {contentLong && (
-            <Text
-              size="xs"
-              c="indigo"
-              style={{ cursor: 'pointer' }}
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? t.documentDetail.showLess : t.documentDetail.showMore}
-            </Text>
-          )}
+          {/* Content body — hidden when collapsed */}
+          {!collapsed && (
+            <>
+              {/* Content */}
+              {!expanded && contentLong ? (
+                <Box style={{ maxHeight: 120, overflow: 'hidden', position: 'relative' }}>
+                  <MarkdownRenderer content={item.content} compact />
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 40,
+                      background: isParent
+                        ? 'linear-gradient(transparent, light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6)))'
+                        : 'linear-gradient(transparent, light-dark(var(--mantine-color-white), var(--mantine-color-dark-7)))',
+                    }}
+                  />
+                </Box>
+              ) : (
+                <MarkdownRenderer content={item.content} compact />
+              )}
+              {contentLong && (
+                <Text
+                  size="xs"
+                  c="indigo"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setExpanded((v) => !v)}
+                >
+                  {expanded ? t.documentDetail.showLess : t.documentDetail.showMore}
+                </Text>
+              )}
 
-          {/* Answer */}
-          {item.referenceAnswer?.trim() && (
-            <Box
-              mt={8}
-              p="sm"
-              style={{
-                borderRadius: 'var(--mantine-radius-sm)',
-                background:
-                  'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
-                borderLeft: '3px solid var(--mantine-color-indigo-4)',
-              }}
-            >
-              <Text size="xs" fw={700} c="indigo" mb={4} tt="uppercase" lts={0.5}>
-                {t.documentDetail.answer}
-              </Text>
-              <MarkdownRenderer content={item.referenceAnswer} compact />
-            </Box>
-          )}
-
-          {/* Explanation */}
-          {item.explanation?.trim() && (
-            <Box
-              mt={6}
-              p="sm"
-              style={{
-                borderRadius: 'var(--mantine-radius-sm)',
-                background:
-                  'light-dark(var(--mantine-color-yellow-0), color-mix(in srgb, var(--mantine-color-yellow-9) 12%, var(--mantine-color-dark-6)))',
-                borderLeft: '3px solid var(--mantine-color-yellow-5)',
-              }}
-            >
-              <Text size="xs" fw={700} c="yellow.7" mb={4} tt="uppercase" lts={0.5}>
-                {t.documentDetail.explanation}
-              </Text>
-              <MarkdownRenderer content={item.explanation} compact />
-            </Box>
-          )}
-
-          {/* Warnings */}
-          {item.warnings && item.warnings.length > 0 && expanded && (
-            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}>
-              <Text size="xs" fw={600} c="orange" mb={2}>
-                {t.knowledge.hasWarnings}
-              </Text>
-              <Stack gap={2}>
-                {item.warnings.map((w, i) => (
-                  <Text key={i} size="xs" c="dimmed">
-                    {'\u2022'} {w}
+              {/* Answer */}
+              {item.referenceAnswer?.trim() && (
+                <Box
+                  mt={8}
+                  p="sm"
+                  style={{
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    background:
+                      'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
+                    borderLeft: '3px solid var(--mantine-color-indigo-4)',
+                  }}
+                >
+                  <Text size="xs" fw={700} c="indigo" mb={4} tt="uppercase" lts={0.5}>
+                    {t.documentDetail.answer}
                   </Text>
-                ))}
-              </Stack>
-            </Box>
+                  <MarkdownRenderer content={item.referenceAnswer} compact />
+                </Box>
+              )}
+
+              {/* Explanation */}
+              {item.explanation?.trim() && (
+                <Box
+                  mt={6}
+                  p="sm"
+                  style={{
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    background:
+                      'light-dark(var(--mantine-color-yellow-0), color-mix(in srgb, var(--mantine-color-yellow-9) 12%, var(--mantine-color-dark-6)))',
+                    borderLeft: '3px solid var(--mantine-color-yellow-5)',
+                  }}
+                >
+                  <Text size="xs" fw={700} c="yellow.7" mb={4} tt="uppercase" lts={0.5}>
+                    {t.documentDetail.explanation}
+                  </Text>
+                  <MarkdownRenderer content={item.explanation} compact />
+                </Box>
+              )}
+
+              {/* Warnings */}
+              {item.warnings && item.warnings.length > 0 && expanded && (
+                <Box
+                  mt={2}
+                  pt={4}
+                  style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}
+                >
+                  <Text size="xs" fw={600} c="orange" mb={2}>
+                    {t.knowledge.hasWarnings}
+                  </Text>
+                  <Stack gap={2}>
+                    {item.warnings.map((w, i) => (
+                      <Text key={i} size="xs" c="dimmed">
+                        {'\u2022'} {w}
+                      </Text>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </>
           )}
         </Stack>
       )}
@@ -671,6 +767,7 @@ function TreeNode({
   onCancelEdit,
   onSaveItem,
   onDeleteItem,
+  onAddChild,
   t,
 }: {
   node: AssignmentItemTree;
@@ -683,6 +780,7 @@ function TreeNode({
   onCancelEdit: () => void;
   onSaveItem: (id: string, content: string, metadata: Record<string, unknown>) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
+  onAddChild: (parentId: string) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const hasChildren = node.children.length > 0;
@@ -702,6 +800,7 @@ function TreeNode({
         onCancelEdit={onCancelEdit}
         onSaveItem={onSaveItem}
         onDeleteItem={onDeleteItem}
+        onAddChild={onAddChild}
         t={t}
       />
       {hasChildren && !collapsed && (
@@ -728,6 +827,7 @@ function TreeNode({
               onCancelEdit={onCancelEdit}
               onSaveItem={onSaveItem}
               onDeleteItem={onDeleteItem}
+              onAddChild={onAddChild}
               t={t}
             />
           ))}
@@ -745,6 +845,8 @@ export function AssignmentOutlineView({
   isAddingItem,
   addFormOpen,
   onAddFormOpenChange,
+  defaultParentId,
+  onDefaultParentIdChange,
 }: AssignmentOutlineViewProps) {
   const { t } = useLanguage();
 
@@ -765,20 +867,17 @@ export function AssignmentOutlineView({
   const tree = buildItemTree(items);
   const labels = computeDisplayLabels(tree);
 
-  // Collect all IDs that have children (collapsible nodes)
-  const collectParentIds = (nodes: AssignmentItemTree[]): string[] => {
-    const ids: string[] = [];
-    for (const n of nodes) {
-      if (n.children.length > 0) {
-        ids.push(n.id);
-        ids.push(...collectParentIds(n.children));
-      }
-    }
-    return ids;
-  };
-  const parentIds = collectParentIds(tree);
-  const hasCollapsible = parentIds.length > 0;
-  const allCollapsed = hasCollapsible && parentIds.every((id) => collapsedIds.has(id));
+  // Stats
+  const withAnswer = useMemo(() => items.filter((i) => i.referenceAnswer?.trim()).length, [items]);
+  const warningCount = useMemo(
+    () => items.filter((i) => i.warnings && i.warnings.length > 0).length,
+    [items],
+  );
+
+  // All items are collapsible
+  const allItemIds = items.map((i) => i.id);
+  const hasCollapsible = allItemIds.length > 0;
+  const allCollapsed = hasCollapsible && allItemIds.every((id) => collapsedIds.has(id));
 
   const handleToggleCollapse = (id: string) => {
     setCollapsedIds((prev) => {
@@ -793,8 +892,13 @@ export function AssignmentOutlineView({
     if (allCollapsed) {
       setCollapsedIds(new Set());
     } else {
-      setCollapsedIds(new Set(parentIds));
+      setCollapsedIds(new Set(allItemIds));
     }
+  };
+
+  const handleAddChild = (parentId: string) => {
+    onDefaultParentIdChange?.(parentId);
+    setShowAddForm(true);
   };
 
   return (
@@ -814,9 +918,47 @@ export function AssignmentOutlineView({
         </Card>
       )}
 
-      {/* Expand / Collapse all */}
-      {hasCollapsible && items.length > 0 && (
-        <Group justify="flex-end">
+      {/* Stats bar */}
+      {items.length > 0 && (
+        <Group justify="space-between" align="center" wrap="nowrap" px="sm" py={6}>
+          <Group gap="sm" style={{ flex: 1 }}>
+            <Tooltip label={`${items.length} ${t.documentDetail.items}`} withArrow>
+              <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
+                <Hash size={13} color="var(--mantine-color-indigo-5)" />
+                <Text size="xs" fw={500} c="dimmed">
+                  {items.length} {t.documentDetail.items}
+                </Text>
+              </Group>
+            </Tooltip>
+            <Tooltip
+              label={`${withAnswer}/${items.length} ${t.knowledge.answerCoverage}`}
+              withArrow
+            >
+              <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
+                <CheckCircle
+                  size={13}
+                  color={
+                    withAnswer === items.length
+                      ? 'var(--mantine-color-green-5)'
+                      : 'var(--mantine-color-yellow-5)'
+                  }
+                />
+                <Text size="xs" fw={500} c="dimmed">
+                  {withAnswer}/{items.length} {t.knowledge.answerCoverage}
+                </Text>
+              </Group>
+            </Tooltip>
+            {warningCount > 0 && (
+              <Tooltip label={`${warningCount} ${t.knowledge.hasWarnings}`} withArrow>
+                <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
+                  <AlertTriangle size={13} color="var(--mantine-color-orange-5)" />
+                  <Text size="xs" fw={500} c="dimmed">
+                    {warningCount} {t.knowledge.hasWarnings}
+                  </Text>
+                </Group>
+              </Tooltip>
+            )}
+          </Group>
           <Button
             variant="subtle"
             color="gray"
@@ -843,6 +985,7 @@ export function AssignmentOutlineView({
           onCancelEdit={() => setEditingItemId(null)}
           onSaveItem={handleSaveItem}
           onDeleteItem={onDeleteItem}
+          onAddChild={handleAddChild}
           t={t}
         />
       ))}
@@ -863,7 +1006,10 @@ export function AssignmentOutlineView({
       {/* Add item modal */}
       <FullScreenModal
         opened={showAddForm}
-        onClose={() => setShowAddForm(false)}
+        onClose={() => {
+          setShowAddForm(false);
+          onDefaultParentIdChange?.(null);
+        }}
         title={t.knowledge.newQuestion}
         radius="lg"
         centered
@@ -872,8 +1018,14 @@ export function AssignmentOutlineView({
       >
         <AddItemForm
           onAdd={onAddItem}
-          onCancel={() => setShowAddForm(false)}
+          onCancel={() => {
+            setShowAddForm(false);
+            onDefaultParentIdChange?.(null);
+          }}
           saving={isAddingItem}
+          items={items}
+          labels={labels}
+          defaultParentId={defaultParentId}
           t={t}
         />
       </FullScreenModal>

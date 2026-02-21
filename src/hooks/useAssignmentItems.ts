@@ -42,6 +42,9 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
       explanation?: string;
       points?: number;
       difficulty?: string;
+      parentItemId?: string | null;
+      orderNum?: number;
+      title?: string;
     }) => {
       const result = await addAssignmentItem({
         assignmentId,
@@ -51,6 +54,9 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
         explanation: data.explanation ?? '',
         points: data.points ?? 0,
         difficulty: data.difficulty ?? '',
+        parentItemId: data.parentItemId,
+        orderNum: data.orderNum,
+        title: data.title ?? '',
       });
       if (!result.success) throw new Error(result.error);
       return result.data;

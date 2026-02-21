@@ -49,10 +49,14 @@ export class AssignmentService {
       points?: number;
       difficulty?: string;
       parentItemId?: string | null;
+      orderNum?: number;
+      title?: string;
     },
   ) {
-    const maxOrderNum = await this.repo.getMaxOrderNum(assignmentId);
-    const orderNum = maxOrderNum + 1;
+    const orderNum = data.orderNum ?? (await this.repo.getMaxOrderNum(assignmentId)) + 1;
+
+    const metadata: Record<string, unknown> = {};
+    if (data.title) metadata.title = data.title;
 
     let embedding: number[] | null = null;
     try {
@@ -70,6 +74,7 @@ export class AssignmentService {
       points: data.points,
       difficulty: data.difficulty,
       parentItemId: data.parentItemId,
+      metadata,
       embedding,
     });
   }
