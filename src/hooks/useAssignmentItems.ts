@@ -44,6 +44,7 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
       explanation?: string;
       points?: number;
       difficulty?: string;
+      parentItemId?: string | null;
     }) => {
       const result = await addAssignmentItem({
         assignmentId,
@@ -53,6 +54,7 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
         explanation: data.explanation ?? '',
         points: data.points ?? 0,
         difficulty: data.difficulty ?? '',
+        parentItemId: data.parentItemId,
       });
       if (!result.success) throw new Error(result.error);
       return result.data;
@@ -132,6 +134,24 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     },
   });
 
+  const moveItemMutation = useMutation({
+    mutationFn: async (data: { itemId: string; newParentId: string | null }) => {
+      const { moveAssignmentItem } = await import('@/app/actions/assignments');
+      const result = await moveAssignmentItem({
+        assignmentId,
+        itemId: data.itemId,
+        newParentId: data.newParentId,
+      });
+      if (!result.success) throw new Error(result.error);
+    },
+    onSuccess: () => {
+      invalidateItems();
+    },
+    onError: (error: Error) => {
+      showNotification({ title: t.common.error, message: error.message, color: 'red' });
+    },
+  });
+
   return {
     items: query.data ?? [],
     isLoading: query.isLoading,
@@ -144,6 +164,7 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     split: splitMutation.mutateAsync,
     isSplitting: splitMutation.isPending,
     batchUpdateAnswers: batchAnswersMutation.mutateAsync,
+    moveItem: moveItemMutation.mutateAsync,
     invalidateItems,
   };
 }
