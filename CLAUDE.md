@@ -65,6 +65,19 @@ Scopes: `chat` `rag` `api` `ui` `auth` `stripe` `db` `deps` `config`
 
 Git hooks: pre-commit (lint-staged) · pre-push (build) · commit-msg (commitlint). Main branch is protected — must go through PR with Vercel check.
 
+## Pre-Commit / Pre-Push Verification
+
+Before every commit and push, run **all four checks** in order. Do NOT skip any step. Do NOT create a PR until all pass.
+
+```bash
+npm run lint          # 1. Lint — must be 0 errors
+npx vitest run        # 2. Test — must be 0 failures
+npx tsc --noEmit      # 3. Type check — must be 0 errors
+npm run build         # 4. Build — must succeed
+```
+
+If any check fails, fix the issue before proceeding. This is mandatory — no exceptions.
+
 ## UI/CSS Changes
 
 - Before making any CSS/layout change, identify the root cause — do NOT trial-and-error CSS adjustments
