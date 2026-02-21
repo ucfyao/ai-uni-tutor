@@ -36,6 +36,7 @@ import {
   saveAssignmentChanges,
   unpublishAssignment,
 } from '@/app/actions/assignments';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { AssignmentOutlineView } from '@/components/rag/AssignmentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
@@ -675,7 +676,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
       </Modal>
 
       {/* Batch answer matching modal */}
-      <Modal
+      <FullScreenModal
         opened={answerModalOpen}
         onClose={() => setAnswerModalOpen(false)}
         title={t.knowledge.batchAnswers}
@@ -736,7 +737,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </FullScreenModal>
     </Box>
   );
 }

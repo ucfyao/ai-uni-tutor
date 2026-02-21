@@ -177,30 +177,23 @@ export async function updateAssignmentItems(
       await service.deleteItemsByIds(parsed.deletedIds);
     }
 
-    // Parallel content updates
+    // Parallel content updates with inline re-validation
     if (parsed.updates.length > 0) {
-      await Promise.all(
-        parsed.updates.map((update) => {
-          const meta = update.metadata;
-          return service.updateItem(update.id, {
-            content: update.content,
-            referenceAnswer: (meta.referenceAnswer as string) || undefined,
-            explanation: (meta.explanation as string) || undefined,
-            points: meta.points != null ? Number(meta.points) : undefined,
-            difficulty: (meta.difficulty as string) || undefined,
-            type: (meta.type as string) || undefined,
-            metadata: meta,
-          });
-        }),
-      );
-
-      // Re-validate edited items and update warnings
       await Promise.all(
         parsed.updates.map((update) => {
           const meta = update.metadata;
           const refAnswer = (meta.referenceAnswer as string) || '';
           const newWarnings = service.validateItemContent(update.content, refAnswer);
-          return service.updateItem(update.id, { warnings: newWarnings });
+          return service.updateItem(update.id, {
+            content: update.content,
+            referenceAnswer: refAnswer || undefined,
+            explanation: (meta.explanation as string) || undefined,
+            points: meta.points != null ? Number(meta.points) : undefined,
+            difficulty: (meta.difficulty as string) || undefined,
+            type: (meta.type as string) || undefined,
+            metadata: meta,
+            warnings: newWarnings,
+          });
         }),
       );
 

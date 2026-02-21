@@ -189,7 +189,15 @@ export class AssignmentService {
     matches: Array<{ itemId: string; referenceAnswer: string }>,
   ): Promise<void> {
     await Promise.all(
-      matches.map((m) => this.repo.updateItem(m.itemId, { referenceAnswer: m.referenceAnswer })),
+      matches.map(async (m) => {
+        const item = await this.repo.findItemById(m.itemId);
+        const content = item?.content ?? '';
+        const warnings = this.validateItemContent(content, m.referenceAnswer);
+        await this.repo.updateItem(m.itemId, {
+          referenceAnswer: m.referenceAnswer,
+          warnings,
+        });
+      }),
     );
   }
 

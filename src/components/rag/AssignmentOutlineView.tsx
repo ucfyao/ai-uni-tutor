@@ -632,7 +632,7 @@ function ItemCard({
           {item.warnings && item.warnings.length > 0 && expanded && (
             <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}>
               <Text size="xs" fw={600} c="orange" mb={2}>
-                Warnings
+                {t.knowledge.hasWarnings}
               </Text>
               <Stack gap={2}>
                 {item.warnings.map((w, i) => (

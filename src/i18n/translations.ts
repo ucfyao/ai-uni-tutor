@@ -382,6 +382,7 @@ export const translations = {
       answerCoverage: '答案覆盖',
       needsReview: '需要校对',
       noAnswers: '无答案',
+      answersUpdated: '{count} 个答案已更新',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -1215,6 +1216,7 @@ export const translations = {
       answerCoverage: 'Answer coverage',
       needsReview: 'Needs review',
       noAnswers: 'No answers',
+      answersUpdated: '{count} answers updated',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',

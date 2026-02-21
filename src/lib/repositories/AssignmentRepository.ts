@@ -489,6 +489,8 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (assignmentIds.length === 0) return new Map();
 
     const supabase = await createClient();
+    // Ideally select('assignment_id, reference_answer, warnings') but
+    // 'warnings' isn't in generated Supabase types yet, so use select('*').
     const { data, error } = await supabase
       .from('assignment_items')
       .select('*')

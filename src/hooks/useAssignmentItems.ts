@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import {
   addAssignmentItem,
+  batchUpdateAnswers,
   fetchAssignmentItems,
   mergeAssignmentItems,
   renameAssignment,
@@ -113,6 +114,24 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     },
   });
 
+  const batchAnswersMutation = useMutation({
+    mutationFn: async (matches: Array<{ itemId: string; referenceAnswer: string }>) => {
+      const result = await batchUpdateAnswers({ assignmentId, matches });
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    onSuccess: (data) => {
+      showNotification({
+        message: t.knowledge.answersUpdated.replace('{count}', String(data!.updated)),
+        color: 'green',
+      });
+      invalidateItems();
+    },
+    onError: (error: Error) => {
+      showNotification({ title: t.common.error, message: error.message, color: 'red' });
+    },
+  });
+
   return {
     items: query.data ?? [],
     isLoading: query.isLoading,
@@ -124,6 +143,7 @@ export function useAssignmentItems(assignmentId: string, initialData: Assignment
     isMerging: mergeMutation.isPending,
     split: splitMutation.mutateAsync,
     isSplitting: splitMutation.isPending,
+    batchUpdateAnswers: batchAnswersMutation.mutateAsync,
     invalidateItems,
   };
 }
