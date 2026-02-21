@@ -394,7 +394,7 @@ describe('POST /api/chat/stream', () => {
 
       expect(response.status).toBe(500);
       expect(body.error).toContain('AI service error');
-      expect(body.isRetryable).toBe(true);
+      expect(body.isRetryable).toBe(false);
     });
 
     it('returns 429 for Gemini rate limit errors thrown before stream', async () => {

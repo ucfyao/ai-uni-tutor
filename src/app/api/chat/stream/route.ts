@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
 
     return errorResponse(appErr.message, retryable ? 429 : 500, {
       isLimitError: false,
-      isRetryable: true,
+      isRetryable: retryable,
       code: appErr.code,
     });
   }

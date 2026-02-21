@@ -2,13 +2,18 @@ import { GEMINI_MODELS, genAI, parseGeminiError } from '../gemini';
 import { RAG_CONFIG } from './config';
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const result = await genAI.models.embedContent({
-    model: GEMINI_MODELS.embedding,
-    contents: text,
-    config: {
-      outputDimensionality: RAG_CONFIG.embeddingDimension,
-    },
-  });
+  let result;
+  try {
+    result = await genAI.models.embedContent({
+      model: GEMINI_MODELS.embedding,
+      contents: text,
+      config: {
+        outputDimensionality: RAG_CONFIG.embeddingDimension,
+      },
+    });
+  } catch (error) {
+    throw parseGeminiError(error);
+  }
   return result.embeddings?.[0]?.values || [];
 }
 

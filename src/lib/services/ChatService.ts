@@ -150,25 +150,31 @@ Guidelines:
       systemInstruction = ragResult.systemInstruction;
     }
 
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODELS.chat,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `Explain "${concept}" briefly. Context from conversation: "${context.slice(0, 500)}"`,
-            },
-          ],
+    let text: string | undefined;
+    try {
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODELS.chat,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `Explain "${concept}" briefly. Context from conversation: "${context.slice(0, 500)}"`,
+              },
+            ],
+          },
+        ],
+        config: {
+          systemInstruction,
+          temperature: 0.5,
         },
-      ],
-      config: {
-        systemInstruction,
-        temperature: 0.5,
-      },
-    });
+      });
+      text = response.text;
+    } catch (error) {
+      throw parseGeminiError(error);
+    }
 
-    return response.text || 'Unable to generate explanation.';
+    return text || 'Unable to generate explanation.';
   }
 
   // ==================== Private Methods ====================
