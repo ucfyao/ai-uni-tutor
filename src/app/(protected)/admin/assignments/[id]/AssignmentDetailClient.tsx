@@ -1,7 +1,18 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Pencil, Plus, Send, Trash2, Upload } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Hash,
+  Pencil,
+  Plus,
+  Send,
+  Trash2,
+  Trophy,
+  Upload,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -10,6 +21,7 @@ import {
   Badge,
   Box,
   Button,
+  Card,
   Divider,
   Group,
   ScrollArea,
@@ -381,25 +393,30 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
 
           {/* Metadata info bar */}
           {assignment.metadata && Object.values(assignment.metadata).some(Boolean) && (
-            <Box>
+            <Card withBorder radius="lg" p="md">
               <Group gap="sm" mb={assignment.metadata.instructions ? 'xs' : 0}>
                 {assignment.metadata.totalPoints != null && (
-                  <Badge variant="light" color="blue" size="lg">
+                  <Badge variant="light" color="blue" size="lg" leftSection={<Trophy size={14} />}>
                     {t.documentDetail.totalPoints}: {assignment.metadata.totalPoints}
                   </Badge>
                 )}
                 {assignment.metadata.totalQuestions != null && (
-                  <Badge variant="light" color="blue" size="lg">
+                  <Badge variant="light" color="blue" size="lg" leftSection={<Hash size={14} />}>
                     {t.documentDetail.totalQuestions}: {assignment.metadata.totalQuestions}
                   </Badge>
                 )}
                 {assignment.metadata.duration && (
-                  <Badge variant="light" color="blue" size="lg">
+                  <Badge variant="light" color="blue" size="lg" leftSection={<Clock size={14} />}>
                     {t.documentDetail.metaDuration}: {assignment.metadata.duration}
                   </Badge>
                 )}
                 {assignment.metadata.examDate && (
-                  <Badge variant="light" color="gray" size="lg">
+                  <Badge
+                    variant="light"
+                    color="gray"
+                    size="lg"
+                    leftSection={<Calendar size={14} />}
+                  >
                     {t.documentDetail.examDate}: {assignment.metadata.examDate}
                   </Badge>
                 )}
@@ -409,7 +426,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
                   {t.documentDetail.instructions}: {assignment.metadata.instructions}
                 </Text>
               )}
-            </Box>
+            </Card>
           )}
 
           {/* Assignment outline view */}

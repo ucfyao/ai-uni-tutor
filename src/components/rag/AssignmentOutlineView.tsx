@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  FileText,
   Pencil,
   Plus,
   Trash2,
@@ -17,7 +18,6 @@ import {
   Box,
   Button,
   Card,
-  Divider,
   Group,
   NumberInput,
   Select,
@@ -95,11 +95,6 @@ function getType(item: AssignmentItemEntity): string {
   const m = item.metadata;
   if (m && typeof m.type === 'string') return m.type;
   return '';
-}
-
-function truncate(str: string, max: number): string {
-  if (str.length <= max) return str;
-  return str.slice(0, max) + '...';
 }
 
 /* ── Markdown Toggle Field ── */
@@ -456,12 +451,12 @@ function ItemCard({
   const isParent = depth === 0;
   const [expanded, setExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   const difficulty = getDifficulty(item);
   const qType = getType(item);
 
-  const contentTruncated = item.content.length > 200;
-  const shownContent = expanded ? item.content : truncate(item.content, 200);
+  const contentLong = item.content.length > 200;
 
   const handleDelete = () => {
     modals.openConfirmModal({
@@ -484,6 +479,8 @@ function ItemCard({
     <Box
       px="sm"
       py="sm"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 'var(--mantine-radius-md)',
         background: isParent
@@ -499,6 +496,8 @@ function ItemCard({
           : '2px solid var(--mantine-color-gray-3)',
         transition: 'all 0.15s ease',
         opacity: isDeleting ? 0.5 : 1,
+        boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+        cursor: 'default',
       }}
     >
       {isEditing ? (
@@ -557,9 +556,9 @@ function ItemCard({
               </Badge>
             )}
             {item.points > 0 && (
-              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+              <Badge size="xs" variant="light" color="violet" style={{ flexShrink: 0 }}>
                 {item.points} {t.knowledge.pts}
-              </Text>
+              </Badge>
             )}
             <Box style={{ flex: 1 }} />
             <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
@@ -584,10 +583,26 @@ function ItemCard({
           </Group>
 
           {/* Content */}
-          <Text size="sm" style={{ lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
-            {shownContent}
-          </Text>
-          {contentTruncated && (
+          {!expanded && contentLong ? (
+            <Box style={{ maxHeight: 120, overflow: 'hidden', position: 'relative' }}>
+              <MarkdownRenderer content={item.content} compact />
+              <Box
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 40,
+                  background: isParent
+                    ? 'linear-gradient(transparent, light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6)))'
+                    : 'linear-gradient(transparent, light-dark(var(--mantine-color-white), var(--mantine-color-dark-7)))',
+                }}
+              />
+            </Box>
+          ) : (
+            <MarkdownRenderer content={item.content} compact />
+          )}
+          {contentLong && (
             <Text
               size="xs"
               c="indigo"
@@ -704,7 +719,16 @@ function TreeNode({
         t={t}
       />
       {hasChildren && !collapsed && (
-        <Stack gap="xs" mt="xs">
+        <Stack
+          gap="xs"
+          mt="xs"
+          style={{
+            borderLeft:
+              '2px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+            marginLeft: 12,
+            paddingLeft: 12,
+          }}
+        >
           {node.children.map((child) => (
             <TreeNode
               key={child.id}
@@ -791,9 +815,17 @@ export function AssignmentOutlineView({
     <Stack gap="md">
       {/* Empty state */}
       {items.length === 0 && !showAddForm && (
-        <Text c="dimmed" ta="center" py="xl">
-          {t.documentDetail.noItemsYet}
-        </Text>
+        <Card withBorder radius="lg" p="xl">
+          <Stack align="center" gap={8}>
+            <FileText size={32} color="var(--mantine-color-dimmed)" />
+            <Text size="sm" c="dimmed">
+              {t.documentDetail.emptyTableTitle}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {t.documentDetail.emptyTableHint}
+            </Text>
+          </Stack>
+        </Card>
       )}
 
       {/* Expand / Collapse all */}
@@ -806,7 +838,7 @@ export function AssignmentOutlineView({
             leftSection={allCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
             onClick={handleToggleAll}
           >
-            {allCollapsed ? t.documentDetail.showMore : t.documentDetail.showLess}
+            {allCollapsed ? t.knowledge.expandAll : t.knowledge.collapseAll}
           </Button>
         </Group>
       )}
@@ -828,8 +860,6 @@ export function AssignmentOutlineView({
           t={t}
         />
       ))}
-
-      <Divider />
 
       {/* Add item form or button */}
       {showAddForm ? (
