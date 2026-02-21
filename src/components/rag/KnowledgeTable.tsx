@@ -39,11 +39,16 @@ export interface KnowledgeDocument {
   item_count?: number;
 }
 
+export interface AssignmentStatsMap {
+  [id: string]: { itemCount: number; withAnswer: number; warningCount: number };
+}
+
 interface KnowledgeTableProps {
   documents: KnowledgeDocument[];
   readOnly?: boolean;
   isLoading?: boolean;
   onDeleted?: (id: string) => void;
+  assignmentStats?: AssignmentStatsMap;
 }
 
 function TableSkeleton({ rows = 4 }: { rows?: number }) {
@@ -78,7 +83,13 @@ function TableSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: KnowledgeTableProps) {
+export function KnowledgeTable({
+  documents,
+  readOnly,
+  isLoading,
+  onDeleted,
+  assignmentStats,
+}: KnowledgeTableProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -169,6 +180,35 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
       );
     }
     return null;
+  };
+
+  const renderAssignmentStats = (doc: KnowledgeDocument) => {
+    if (!assignmentStats) return null;
+    const stat = assignmentStats[doc.id];
+    if (!stat || stat.itemCount === 0) return null;
+
+    const coverage = Math.round((stat.withAnswer / stat.itemCount) * 100);
+
+    return (
+      <Group gap={4} wrap="nowrap">
+        <Tooltip label={t.knowledge.answerCoverage}>
+          <Badge
+            variant="light"
+            color={coverage === 100 ? 'green' : coverage > 50 ? 'yellow' : 'red'}
+            size="xs"
+          >
+            {coverage}%
+          </Badge>
+        </Tooltip>
+        {stat.warningCount > 0 && (
+          <Tooltip label={t.knowledge.needsReview}>
+            <Badge variant="light" color="orange" size="xs">
+              {stat.warningCount}⚠
+            </Badge>
+          </Tooltip>
+        )}
+      </Group>
+    );
   };
 
   const deleteModal = (
@@ -304,9 +344,12 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                 </Group>
 
                 <Group justify="space-between">
-                  <Text size="xs" c="dimmed" suppressHydrationWarning>
-                    {new Date(doc.created_at).toLocaleDateString()}
-                  </Text>
+                  <Group gap="xs">
+                    <Text size="xs" c="dimmed" suppressHydrationWarning>
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </Text>
+                    {renderAssignmentStats(doc)}
+                  </Group>
                   {renderStatusBadge(doc)}
                 </Group>
               </Card>
@@ -431,7 +474,12 @@ export function KnowledgeTable({ documents, readOnly, isLoading, onDeleted }: Kn
                       {new Date(doc.created_at).toLocaleDateString()}
                     </Text>
                   </Table.Td>
-                  <Table.Td>{renderStatusBadge(doc)}</Table.Td>
+                  <Table.Td>
+                    <Group gap={6} wrap="nowrap">
+                      {renderStatusBadge(doc)}
+                      {renderAssignmentStats(doc)}
+                    </Group>
+                  </Table.Td>
                   {!readOnly && (
                     <Table.Td>
                       <Group gap={4} className={classes.actions}>

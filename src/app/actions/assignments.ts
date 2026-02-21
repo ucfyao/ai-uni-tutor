@@ -177,19 +177,22 @@ export async function updateAssignmentItems(
       await service.deleteItemsByIds(parsed.deletedIds);
     }
 
-    // Parallel content updates
+    // Parallel content updates with inline re-validation
     if (parsed.updates.length > 0) {
       await Promise.all(
         parsed.updates.map((update) => {
           const meta = update.metadata;
+          const refAnswer = (meta.referenceAnswer as string) || '';
+          const newWarnings = service.validateItemContent(update.content, refAnswer);
           return service.updateItem(update.id, {
             content: update.content,
-            referenceAnswer: (meta.referenceAnswer as string) || undefined,
+            referenceAnswer: refAnswer || undefined,
             explanation: (meta.explanation as string) || undefined,
             points: meta.points != null ? Number(meta.points) : undefined,
             difficulty: (meta.difficulty as string) || undefined,
             type: (meta.type as string) || undefined,
             metadata: meta,
+            warnings: newWarnings,
           });
         }),
       );
@@ -274,5 +277,122 @@ export async function unpublishAssignment(assignmentId: string): Promise<ActionR
     if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
     console.error('unpublishAssignment error:', error);
     return { success: false, error: 'Failed to unpublish' };
+  }
+}
+
+// ── Merge & Split ──
+
+const mergeSchema = z.object({
+  assignmentId: z.string().uuid(),
+  itemIds: z.array(z.string().uuid()).min(2),
+});
+
+const splitSchema = z.object({
+  assignmentId: z.string().uuid(),
+  itemId: z.string().uuid(),
+  splitContent: z.tuple([z.string().min(1), z.string().min(1)]),
+});
+
+export async function mergeAssignmentItems(
+  input: z.infer<typeof mergeSchema>,
+): Promise<ActionResult<{ keepId: string }>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = mergeSchema.parse(input);
+    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
+
+    const service = getAssignmentService();
+    const keepId = await service.mergeItems(parsed.assignmentId, parsed.itemIds);
+    return { success: true, data: { keepId } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    console.error('mergeAssignmentItems error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to merge items',
+    };
+  }
+}
+
+export async function splitAssignmentItem(
+  input: z.infer<typeof splitSchema>,
+): Promise<ActionResult<{ firstId: string; secondId: string }>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = splitSchema.parse(input);
+    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
+
+    const service = getAssignmentService();
+    const result = await service.splitItem(parsed.assignmentId, parsed.itemId, parsed.splitContent);
+    return { success: true, data: result };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    console.error('splitAssignmentItem error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to split item',
+    };
+  }
+}
+
+// ── Assignment Stats ──
+
+export async function fetchAssignmentStats(
+  assignmentIds: string[],
+): Promise<
+  ActionResult<Record<string, { itemCount: number; withAnswer: number; warningCount: number }>>
+> {
+  try {
+    await requireAnyAdmin();
+    const service = getAssignmentService();
+    const stats = await service.getAssignmentStats(assignmentIds);
+    const result: Record<string, { itemCount: number; withAnswer: number; warningCount: number }> =
+      {};
+    for (const [id, stat] of stats) {
+      result[id] = stat;
+    }
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('fetchAssignmentStats error:', error);
+    return { success: false, error: 'Failed to fetch stats' };
+  }
+}
+
+// ── Batch Answer Matching ──
+
+const batchUpdateAnswersSchema = z.object({
+  assignmentId: z.string().uuid(),
+  matches: z.array(
+    z.object({
+      itemId: z.string().uuid(),
+      referenceAnswer: z.string(),
+    }),
+  ),
+});
+
+export async function batchUpdateAnswers(
+  input: z.infer<typeof batchUpdateAnswersSchema>,
+): Promise<ActionResult<{ updated: number }>> {
+  try {
+    const { user, role } = await requireAnyAdmin();
+    const parsed = batchUpdateAnswersSchema.parse(input);
+    await requireAssignmentAccess(parsed.assignmentId, user.id, role);
+
+    const service = getAssignmentService();
+    const itemIds = parsed.matches.map((m) => m.itemId);
+    if (itemIds.length > 0) {
+      const valid = await service.verifyItemsBelongToAssignment(itemIds, parsed.assignmentId);
+      if (!valid) return { success: false, error: 'Invalid item IDs' };
+    }
+
+    await service.batchUpdateAnswers(parsed.matches);
+    return { success: true, data: { updated: parsed.matches.length } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    console.error('batchUpdateAnswers error:', error);
+    return { success: false, error: 'Failed to update answers' };
   }
 }

@@ -39,6 +39,7 @@ function mapItemRow(row: Record<string, unknown>): AssignmentItemEntity {
     points: (row.points as number) || 0,
     difficulty: (row.difficulty as string) || '',
     metadata: (row.metadata as Record<string, unknown>) ?? {},
+    warnings: (Array.isArray(row.warnings) ? row.warnings : []) as string[],
     createdAt: row.created_at as string,
   };
 }
@@ -192,6 +193,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     }>,
   ): Promise<void> {
     const supabase = await createClient();
@@ -206,6 +208,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty: item.difficulty ?? '',
       metadata: (item.metadata ?? {}) as Json,
       embedding: item.embedding ?? null,
+      warnings: item.warnings ?? [],
     }));
 
     const { error } = await supabase.from('assignment_items').insert(rows);
@@ -242,6 +245,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     },
   ): Promise<AssignmentItemEntity> {
     const supabase = await createClient();
@@ -258,6 +262,7 @@ export class AssignmentRepository implements IAssignmentRepository {
         difficulty: data.difficulty ?? '',
         metadata: (data.metadata ?? {}) as Json,
         embedding: data.embedding ?? null,
+        warnings: data.warnings ?? [],
       })
       .select('*')
       .single();
@@ -266,6 +271,20 @@ export class AssignmentRepository implements IAssignmentRepository {
       throw new DatabaseError(`Failed to insert assignment item: ${error?.message}`, error);
     }
     return mapItemRow(row as Record<string, unknown>);
+  }
+
+  async findItemById(itemId: string): Promise<AssignmentItemEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignment_items')
+      .select('*')
+      .eq('id', itemId)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch assignment item: ${error.message}`, error);
+    }
+    return mapItemRow(data as Record<string, unknown>);
   }
 
   async findItemsByAssignmentId(assignmentId: string): Promise<AssignmentItemEntity[]> {
@@ -326,6 +345,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (data.points !== undefined) updates.points = data.points;
     if (data.difficulty !== undefined) updates.difficulty = data.difficulty;
     if (data.metadata !== undefined) updates.metadata = data.metadata as Json;
+    if (data.warnings !== undefined) updates.warnings = data.warnings;
 
     if (Object.keys(updates).length === 0) return;
 
@@ -399,6 +419,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     }>,
   ): Promise<{ id: string }[]> {
     if (items.length === 0) return [];
@@ -414,6 +435,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       difficulty: item.difficulty ?? '',
       metadata: (item.metadata ?? {}) as Json,
       embedding: item.embedding ?? null,
+      warnings: item.warnings ?? [],
     }));
 
     const { data, error } = await supabase.from('assignment_items').insert(rows).select('id');
@@ -459,6 +481,45 @@ export class AssignmentRepository implements IAssignmentRepository {
       .update({ embedding })
       .eq('id', itemId);
     if (error) throw new DatabaseError(`Failed to update item embedding: ${error.message}`, error);
+  }
+
+  async getStats(
+    assignmentIds: string[],
+  ): Promise<Map<string, { itemCount: number; withAnswer: number; warningCount: number }>> {
+    if (assignmentIds.length === 0) return new Map();
+
+    const supabase = await createClient();
+    // Ideally select('assignment_id, reference_answer, warnings') but
+    // 'warnings' isn't in generated Supabase types yet, so use select('*').
+    const { data, error } = await supabase
+      .from('assignment_items')
+      .select('*')
+      .in('assignment_id', assignmentIds);
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch assignment stats: ${error.message}`, error);
+    }
+
+    const statsMap = new Map<
+      string,
+      { itemCount: number; withAnswer: number; warningCount: number }
+    >();
+
+    for (const id of assignmentIds) {
+      statsMap.set(id, { itemCount: 0, withAnswer: 0, warningCount: 0 });
+    }
+
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const id = row.assignment_id as string;
+      const stat = statsMap.get(id);
+      if (!stat) continue;
+      stat.itemCount++;
+      if ((row.reference_answer as string)?.trim()) stat.withAnswer++;
+      const warnings = row.warnings as string[] | null;
+      if (warnings && warnings.length > 0) stat.warningCount++;
+    }
+
+    return statsMap;
   }
 }
 

@@ -77,20 +77,20 @@ For each ITEM (question):
 - options: Array of option texts for multiple choice (empty array if not MC)
 - referenceAnswer: The reference answer if present in the document (empty string if none)
 - explanation: Step-by-step solution explanation if present (empty string if none)
-- points: Point value (0 if not specified)
+- score: Point value (0 if not specified)
 - type: Question type (choice/fill_blank/short_answer/calculation/proof/essay)
 - difficulty: Estimated difficulty (easy/medium/hard)
 - section: Title of the parent section
 - sourcePages: Array of page numbers where this question appears
 
-Rules:
-- Extract EVERY question — do not skip any
-- For multi-part questions (a, b, c), treat each part as a separate item
-- Preserve all mathematical notation in KaTeX format
+Critical rules:
+- Extract EVERY question — do not skip any. After extraction, verify your item count matches the total number of questions visible in the document. If the document states a total (e.g. "共15题"), return exactly that many items.
+- ALL mathematical expressions MUST be in KaTeX format. Use $...$ for inline math and $$...$$ for display math. Never output raw Unicode math symbols (×, ÷, √, π, ∑, ∫, etc.) — always convert to KaTeX equivalents ($\\times$, $\\div$, $\\sqrt{}$, $\\pi$, $\\sum$, $\\int$, etc.).
+- Each item's referenceAnswer must correspond to THAT specific question. If the document has a separate answer section, carefully match answers to questions by their number.
+- For questions with sub-parts (a), (b), (c): if the sub-parts are independent questions, extract each as a separate item with orderNum reflecting the overall sequence. If they share context (e.g. "Given X, find: (a)... (b)..."), keep as ONE item with all sub-parts in the content field.
 - Group questions into sections using the document's natural structure
 - If no clear sections exist, group by question type
 - Do NOT include instructions or headers as questions
-- If reference answers are provided in the document, extract them. If not, leave empty.
 
 Return ONLY a valid JSON object with "sections" and "items" arrays. No markdown, no explanation.
 
