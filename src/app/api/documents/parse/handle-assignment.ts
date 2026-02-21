@@ -21,6 +21,22 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     });
     parsedItems = parseResult.items;
     warnings = parseResult.warnings;
+
+    // ── Save document-level metadata ──
+    const metadata = parseResult.metadata;
+    if (metadata && Object.keys(metadata).length > 0) {
+      try {
+        await assignmentService.updateMetadata(documentId, metadata);
+        send('log', { message: 'Document metadata saved', level: 'success' });
+      } catch (e) {
+        console.error('Failed to save assignment metadata:', e);
+        send('log', {
+          message: `Failed to save metadata: ${e instanceof Error ? e.message : 'Unknown'}`,
+          level: 'warning',
+        });
+        // Non-fatal — continue with questions
+      }
+    }
   } catch (e) {
     sendGeminiError(send, e, 'extraction');
     return;

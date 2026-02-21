@@ -68,7 +68,7 @@ export async function parseAssignment(
   reportProgress(options, 0, `Sending ${pages.length} pages to AI...`);
 
   const extraction = await extractAssignmentQuestions(pages, options?.signal);
-  const { items, warnings } = extraction;
+  const { items, metadata, warnings } = extraction;
 
   // Per-item validation
   const itemWarnings = validateAssignmentItems(items);
@@ -83,6 +83,7 @@ export async function parseAssignment(
     reportProgress(options, 100, 'No questions found');
     return {
       items: [],
+      metadata,
       outline: buildOutline(options?.assignmentId ?? '', []),
       warnings,
     };
@@ -91,5 +92,5 @@ export async function parseAssignment(
   reportProgress(options, 100, `Extracted ${items.length} questions`);
 
   const outline = buildOutline(options?.assignmentId ?? '', items);
-  return { items, outline, warnings };
+  return { items, metadata, outline, warnings };
 }
