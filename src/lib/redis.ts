@@ -212,9 +212,7 @@ export async function incrementModelStats(model: string): Promise<void> {
 /**
  * Get per-model usage stats: today's count + monthly total.
  */
-export async function getModelStats(
-  model: string,
-): Promise<{ today: number; monthly: number }> {
+export async function getModelStats(model: string): Promise<{ today: number; monthly: number }> {
   const r = getRedis();
   const today = new Date().toISOString().split('T')[0];
   const monthPrefix = today.slice(0, 7); // "YYYY-MM"
@@ -227,7 +225,7 @@ export async function getModelStats(
   let monthly = 0;
   if (keys.length > 0) {
     const values = await r.mget<(number | null)[]>(...keys);
-    monthly = values.reduce((sum, v) => sum + (v || 0), 0);
+    monthly = values.reduce<number>((sum, v) => sum + (v || 0), 0);
   }
 
   return { today: todayCount || 0, monthly };
