@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, TextSelect } from 'lucide-react';
+import { ChevronDown, TextSelect } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Accordion,
@@ -14,11 +14,14 @@ import {
   ThemeIcon,
 } from '@mantine/core';
 import { fetchCardConversations } from '@/app/actions/knowledge-cards';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
 import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
 import type { UserCardEntity } from '@/lib/domain/models/UserCard';
 import KnowledgeCardItem from './KnowledgeCardItem';
+
+const LectureIcon = getDocIcon('lecture');
 
 interface KnowledgePanelProps {
   officialCards: KnowledgeCardSummary[];
@@ -310,8 +313,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
           }}
         >
           <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-            <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
-              <BookOpen size={16} />
+            <ThemeIcon size="sm" radius="md" variant="light" color={getDocColor('lecture')}>
+              <LectureIcon size={16} />
             </ThemeIcon>
             <Text size="sm" fw={600} lineClamp={1} style={{ lineHeight: 1.1 }}>
               {t.chat.knowledgeCards}
@@ -371,7 +374,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                     size={36}
                     radius="xl"
                     variant="light"
-                    color="indigo"
+                    color={getDocColor('lecture')}
                     style={{ flexShrink: 0 }}
                   >
                     <TextSelect size={18} />
@@ -445,7 +448,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             h={6}
                             style={{
                               borderRadius: 99,
-                              background: 'var(--mantine-color-indigo-6)',
+                              background: `var(--mantine-color-${getDocColor('lecture')}-6)`,
                               boxShadow: '0 0 0 2px rgba(79, 70, 229, 0.12)',
                               flexShrink: 0,
                             }}
@@ -455,7 +458,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                           </Text>
                         </Group>
                         <Badge
-                          color="indigo"
+                          color={getDocColor('lecture')}
                           variant="light"
                           size="xs"
                           radius="xl"
@@ -510,7 +513,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                             h={6}
                             style={{
                               borderRadius: 99,
-                              background: 'var(--mantine-color-indigo-4)',
+                              background: `var(--mantine-color-${getDocColor('lecture')}-4)`,
                               boxShadow: '0 0 0 2px rgba(79, 70, 229, 0.12)',
                               flexShrink: 0,
                             }}
@@ -520,7 +523,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                           </Text>
                         </Group>
                         <Badge
-                          color="indigo"
+                          color={getDocColor('lecture')}
                           variant="light"
                           size="xs"
                           radius="xl"

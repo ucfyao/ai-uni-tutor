@@ -41,7 +41,7 @@ import { FullScreenModal } from '@/components/FullScreenModal';
 import { AssignmentOutlineView } from '@/components/rag/AssignmentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
-import { DOC_TYPES } from '@/constants/doc-types';
+import { DOC_TYPES, getDocColor } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAssignmentItems } from '@/hooks/useAssignmentItems';
@@ -203,7 +203,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
         <Tooltip label={t.documentDetail.uploadPdf}>
           <ActionIcon
             variant={showUploadZone ? 'filled' : 'default'}
-            color={showUploadZone ? 'indigo' : 'gray'}
+            color={showUploadZone ? getDocColor('assignment') : 'gray'}
             size="md"
             onClick={() => setShowUploadZone((v) => !v)}
           >
@@ -356,7 +356,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
               </>
             )}
             {/* Document attributes */}
-            <Badge variant="light" color="indigo" size="sm">
+            <Badge variant="light" color={getDocColor('assignment')} size="sm">
               {(t.knowledge.docTypeLabel as Record<string, string>)?.assignment ?? 'Assignment'}
             </Badge>
             <Badge variant="light" color={statusColor(assignment.status)} size="sm">

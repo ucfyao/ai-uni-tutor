@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Compass, FileQuestion, Presentation } from 'lucide-react';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { TutoringMode } from '../types/index';
 
 export interface ModeMetadata {
@@ -17,8 +17,8 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
   'Lecture Helper': {
     id: 'lecture',
     label: 'Lecture Helper',
-    icon: Presentation,
-    color: 'indigo',
+    icon: getDocIcon('lecture'),
+    color: getDocColor('lecture'),
     desc: 'Simplify & Explain',
     intro:
       '**Lecture Helper Mode Active**\n\nI break down complex theories into simple, digestible parts using analogies. What concept needs clarifying?',
@@ -33,12 +33,12 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
   'Assignment Coach': {
     id: 'assignment',
     label: 'Assignment Coach',
-    icon: Compass,
-    color: 'violet',
+    icon: getDocIcon('assignment'),
+    color: getDocColor('assignment'),
     desc: 'Guide & Debug',
     intro:
       "**Assignment Coach Mode Active**\n\nI guide you through code, writing, and analysis without giving direct answers, so you learn the 'why'.",
-    hoverClass: 'hover:border-violet-300 hover:shadow-[0_8px_30px_rgba(124,58,237,0.15)]',
+    hoverClass: 'hover:border-teal-300 hover:shadow-[0_8px_30px_rgba(20,184,166,0.15)]',
     suggestedPrompts: [
       'Help me break down this assignment prompt',
       'Review my logic (without giving the answer)',
@@ -49,12 +49,12 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
   'Mock Exam': {
     id: 'exam/mock',
     label: 'Mock Exam',
-    icon: FileQuestion,
-    color: 'emerald',
+    icon: getDocIcon('exam'),
+    color: getDocColor('exam'),
     desc: 'Practice with real past exams',
     intro:
       "**Mock Exam Mode Active**\n\nI generate exam variants from real past papers for your course. Let's practice!",
-    hoverClass: 'hover:border-emerald-300 hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)]',
+    hoverClass: 'hover:border-orange-300 hover:shadow-[0_8px_30px_rgba(249,115,22,0.15)]',
   },
 };
 

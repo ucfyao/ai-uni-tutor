@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BookOpen, Check, Lightbulb, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,7 +32,7 @@ import { AdminContent } from '@/components/admin/AdminContent';
 import { DocumentOutlineView, type SectionEditData } from '@/components/rag/DocumentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
-import { DOC_TYPES } from '@/constants/doc-types';
+import { DOC_TYPES, getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -72,6 +72,8 @@ interface LectureDetailClientProps {
   document: SerializedLectureDocument;
   chunks: Chunk[];
 }
+
+const LectureIcon = getDocIcon('lecture');
 
 export function LectureDetailClient({ document: doc, chunks }: LectureDetailClientProps) {
   const isMobile = useIsMobile();
@@ -425,7 +427,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
                 </>
               )}
               {/* Document attributes */}
-              <Badge variant="light" color="indigo" size="sm">
+              <Badge variant="light" color={getDocColor('lecture')} size="sm">
                 {(t.knowledge.docTypeLabel as Record<string, string>)?.lecture ?? 'Lecture'}
               </Badge>
               <Badge variant="light" color={currentStatus === 'ready' ? 'green' : 'blue'} size="sm">
@@ -444,7 +446,10 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
                   />
                   <Tooltip label={`${chunks.length} ${t.knowledge.sections}`} withArrow>
                     <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
-                      <BookOpen size={12} color="var(--mantine-color-indigo-5)" />
+                      <LectureIcon
+                        size={12}
+                        color={`var(--mantine-color-${getDocColor('lecture')}-5)`}
+                      />
                       <Text size="xs" c="dimmed">
                         {chunks.length}
                       </Text>
@@ -472,7 +477,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             <Tooltip label={t.documentDetail.addSection}>
               <ActionIcon
                 variant="subtle"
-                color="indigo"
+                color={getDocColor('lecture')}
                 size="md"
                 onClick={() => setAddSectionOpen(true)}
               >
@@ -482,7 +487,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             <Tooltip label={t.knowledge.upload}>
               <ActionIcon
                 variant={showUpload ? 'filled' : 'subtle'}
-                color="indigo"
+                color={getDocColor('lecture')}
                 size="md"
                 onClick={() => setShowUpload((v) => !v)}
               >
@@ -505,7 +510,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
                 onChange={() => publishAction?.()}
                 disabled={!canPublish || isPublishing}
                 size="xs"
-                color="indigo"
+                color={getDocColor('lecture')}
               />
             </Box>
           </Tooltip>

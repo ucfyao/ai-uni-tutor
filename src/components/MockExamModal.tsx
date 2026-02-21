@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Shuffle, Sparkles, X } from 'lucide-react';
+import { Shuffle, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import {
@@ -20,6 +20,7 @@ import {
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
@@ -32,6 +33,8 @@ interface MockExamModalProps {
 }
 
 /* ── Design tokens (4px grid · whole-pixel type scale) ── */
+const ExamIcon = getDocIcon('exam');
+const examColor = getDocColor('exam');
 const R = 8;
 
 const inputStyles = {
@@ -174,7 +177,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       value: 'real',
       label: (
         <Group gap={6} wrap="nowrap" justify="center">
-          <FileText size={14} />
+          <ExamIcon size={14} />
           <span>{t.exam.realExam}</span>
         </Group>
       ),
@@ -250,7 +253,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
             fullWidth
             size="md"
             radius={R}
-            color="emerald"
+            color={examColor}
             withItemsBorders={false}
             styles={{
               root: { padding: 4 },
@@ -362,7 +365,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               onClick={() => handleStart('practice')}
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'practice'}
-              color="emerald"
+              color={examColor}
               styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {t.exam.practiceMode}
@@ -378,7 +381,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
               disabled={isStartDisabled || isPending}
               loading={isPending && pendingMode === 'exam'}
               variant="light"
-              color="emerald"
+              color={examColor}
               styles={{ label: { fontWeight: 600, fontSize: '13px' } }}
             >
               {t.exam.examMode}

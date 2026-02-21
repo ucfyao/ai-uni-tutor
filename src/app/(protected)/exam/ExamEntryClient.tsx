@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, FileText, Filter, Shuffle, Sparkles } from 'lucide-react';
+import { Check, Filter, Shuffle, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
@@ -23,11 +23,14 @@ import {
   generateMockFromTopic,
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
 
 type Source = 'real' | 'random' | 'ai';
+
+const ExamIcon = getDocIcon('exam');
 
 export function ExamEntryClient() {
   const router = useRouter();
@@ -192,7 +195,7 @@ export function ExamEntryClient() {
                 active={source === 'real'}
                 title={t.exam.realExam}
                 description={t.exam.realExamDesc}
-                icon={<FileText size={18} />}
+                icon={<ExamIcon size={18} />}
                 onClick={() => setSource('real')}
               />
               <SourceCard
@@ -216,7 +219,7 @@ export function ExamEntryClient() {
           {source === 'real' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
             <Paper p="lg" radius="md" withBorder>
               <Group>
-                <ThemeIcon size={40} radius="md" variant="light" color="indigo">
+                <ThemeIcon size={40} radius="md" variant="light" color={getDocColor('exam')}>
                   <Filter size={20} />
                 </ThemeIcon>
                 <Box flex={1}>
@@ -246,7 +249,7 @@ export function ExamEntryClient() {
           {source === 'random' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
             <Paper p="lg" radius="md" withBorder>
               <Group>
-                <ThemeIcon size={40} radius="md" variant="light" color="indigo">
+                <ThemeIcon size={40} radius="md" variant="light" color={getDocColor('exam')}>
                   <Filter size={20} />
                 </ThemeIcon>
                 <Box flex={1}>
@@ -335,7 +338,7 @@ export function ExamEntryClient() {
             size="lg"
             radius="md"
             variant="gradient"
-            gradient={{ from: 'indigo.7', to: 'indigo.3' }}
+            gradient={{ from: `${getDocColor('exam')}.7`, to: `${getDocColor('exam')}.3` }}
             leftSection={<Sparkles size={20} />}
             loading={isPending}
             disabled={isStartDisabled}
@@ -371,8 +374,10 @@ function SourceCard({
         p="md"
         style={{
           position: 'relative',
-          borderColor: active ? 'var(--mantine-color-indigo-5)' : 'var(--mantine-color-gray-3)',
-          backgroundColor: active ? 'var(--mantine-color-indigo-0)' : undefined,
+          borderColor: active
+            ? `var(--mantine-color-${getDocColor('exam')}-5)`
+            : 'var(--mantine-color-gray-3)',
+          backgroundColor: active ? `var(--mantine-color-${getDocColor('exam')}-0)` : undefined,
           cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
@@ -381,7 +386,7 @@ function SourceCard({
           <ThemeIcon
             size={20}
             radius="xl"
-            color="indigo"
+            color={getDocColor('exam')}
             style={{ position: 'absolute', top: 8, right: 8 }}
           >
             <Check size={12} />
@@ -420,8 +425,10 @@ function ModeCard({
         p="md"
         style={{
           position: 'relative',
-          borderColor: active ? 'var(--mantine-color-indigo-5)' : 'var(--mantine-color-gray-3)',
-          backgroundColor: active ? 'var(--mantine-color-indigo-0)' : undefined,
+          borderColor: active
+            ? `var(--mantine-color-${getDocColor('exam')}-5)`
+            : 'var(--mantine-color-gray-3)',
+          backgroundColor: active ? `var(--mantine-color-${getDocColor('exam')}-0)` : undefined,
           cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
@@ -430,7 +437,7 @@ function ModeCard({
           <ThemeIcon
             size={20}
             radius="xl"
-            color="indigo"
+            color={getDocColor('exam')}
             style={{ position: 'absolute', top: 8, right: 8 }}
           >
             <Check size={12} />

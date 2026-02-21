@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button, Card, Group, Stack, Textarea, TextInput } from '@mantine/core';
+import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Chunk, DocType } from './types';
 
@@ -26,6 +27,7 @@ export function ChunkEditForm({
     return (
       <LectureEditForm
         chunkId={chunk.id}
+        docType={docType}
         meta={meta}
         initialContent={initialContent}
         onSave={onSave}
@@ -38,6 +40,7 @@ export function ChunkEditForm({
     return (
       <ExamEditForm
         chunkId={chunk.id}
+        docType={docType}
         meta={meta}
         initialContent={initialContent}
         onSave={onSave}
@@ -50,6 +53,7 @@ export function ChunkEditForm({
     return (
       <AssignmentEditForm
         chunkId={chunk.id}
+        docType={docType}
         meta={meta}
         initialContent={initialContent}
         onSave={onSave}
@@ -61,6 +65,7 @@ export function ChunkEditForm({
   return (
     <FallbackEditForm
       chunkId={chunk.id}
+      docType={docType}
       meta={meta}
       initialContent={initialContent}
       onSave={onSave}
@@ -83,12 +88,14 @@ function extractBodyText(content: string): string {
 
 function LectureEditForm({
   chunkId,
+  docType,
   meta,
   initialContent,
   onSave,
   onCancel,
 }: {
   chunkId: string;
+  docType: DocType;
   meta: Record<string, unknown>;
   initialContent: string;
   onSave: (id: string, content: string, meta: Record<string, unknown>) => void;
@@ -107,7 +114,7 @@ function LectureEditForm({
   };
 
   return (
-    <Card withBorder radius="lg" p="md" bg="var(--mantine-color-indigo-0)">
+    <Card withBorder radius="lg" p="md" bg={`var(--mantine-color-${getDocColor(docType)}-0)`}>
       <Stack gap="sm">
         <TextInput
           label={t.documentDetail.title}
@@ -133,7 +140,7 @@ function LectureEditForm({
           <Button variant="default" size="sm" onClick={onCancel} radius="md">
             {t.documentDetail.cancel}
           </Button>
-          <Button color="indigo" size="sm" onClick={handleSave} radius="md">
+          <Button color={getDocColor(docType)} size="sm" onClick={handleSave} radius="md">
             {t.documentDetail.save}
           </Button>
         </Group>
@@ -146,12 +153,14 @@ function LectureEditForm({
 
 function ExamEditForm({
   chunkId,
+  docType,
   meta,
   initialContent,
   onSave,
   onCancel,
 }: {
   chunkId: string;
+  docType: DocType;
   meta: Record<string, unknown>;
   initialContent: string;
   onSave: (id: string, content: string, meta: Record<string, unknown>) => void;
@@ -184,7 +193,7 @@ function ExamEditForm({
   };
 
   return (
-    <Card withBorder radius="lg" p="md" bg="var(--mantine-color-indigo-0)">
+    <Card withBorder radius="lg" p="md" bg={`var(--mantine-color-${getDocColor(docType)}-0)`}>
       <Stack gap="sm">
         <Group grow>
           <TextInput
@@ -224,7 +233,7 @@ function ExamEditForm({
           <Button variant="default" size="sm" onClick={onCancel} radius="md">
             {t.documentDetail.cancel}
           </Button>
-          <Button color="indigo" size="sm" onClick={handleSave} radius="md">
+          <Button color={getDocColor(docType)} size="sm" onClick={handleSave} radius="md">
             {t.documentDetail.save}
           </Button>
         </Group>
@@ -237,12 +246,14 @@ function ExamEditForm({
 
 function AssignmentEditForm({
   chunkId,
+  docType,
   meta,
   initialContent,
   onSave,
   onCancel,
 }: {
   chunkId: string;
+  docType: DocType;
   meta: Record<string, unknown>;
   initialContent: string;
   onSave: (id: string, content: string, meta: Record<string, unknown>) => void;
@@ -268,7 +279,7 @@ function AssignmentEditForm({
   };
 
   return (
-    <Card withBorder radius="lg" p="md" bg="var(--mantine-color-indigo-0)">
+    <Card withBorder radius="lg" p="md" bg={`var(--mantine-color-${getDocColor(docType)}-0)`}>
       <Stack gap="sm">
         <Textarea
           label={t.documentDetail.content}
@@ -308,7 +319,7 @@ function AssignmentEditForm({
           <Button variant="default" size="sm" onClick={onCancel} radius="md">
             {t.documentDetail.cancel}
           </Button>
-          <Button color="indigo" size="sm" onClick={handleSave} radius="md">
+          <Button color={getDocColor(docType)} size="sm" onClick={handleSave} radius="md">
             {t.documentDetail.save}
           </Button>
         </Group>
@@ -321,12 +332,14 @@ function AssignmentEditForm({
 
 function FallbackEditForm({
   chunkId,
+  docType,
   meta,
   initialContent,
   onSave,
   onCancel,
 }: {
   chunkId: string;
+  docType: DocType;
   meta: Record<string, unknown>;
   initialContent: string;
   onSave: (id: string, content: string, meta: Record<string, unknown>) => void;
@@ -340,7 +353,7 @@ function FallbackEditForm({
   };
 
   return (
-    <Card withBorder radius="lg" p="md" bg="var(--mantine-color-indigo-0)">
+    <Card withBorder radius="lg" p="md" bg={`var(--mantine-color-${getDocColor(docType)}-0)`}>
       <Stack gap="sm">
         <Textarea
           label={t.documentDetail.content}
@@ -353,7 +366,7 @@ function FallbackEditForm({
           <Button variant="default" size="sm" onClick={onCancel} radius="md">
             {t.documentDetail.cancel}
           </Button>
-          <Button color="indigo" size="sm" onClick={handleSave} radius="md">
+          <Button color={getDocColor(docType)} size="sm" onClick={handleSave} radius="md">
             {t.documentDetail.save}
           </Button>
         </Group>

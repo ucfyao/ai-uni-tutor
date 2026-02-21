@@ -3,6 +3,7 @@
 import { CircleCheck } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Badge, Box, Card, Group, Paper, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { MockExamQuestion } from '@/types/exam';
 
@@ -35,12 +36,12 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
     >
       <Stack gap="md">
         <Group justify="space-between">
-          <Badge variant="light" color="indigo">
+          <Badge variant="light" color={getDocColor('exam')}>
             Q{index + 1}/{total}
           </Badge>
           <Group gap="xs">
             <Badge variant="dot">{question.type}</Badge>
-            <Badge variant="light" color="violet">
+            <Badge variant="light" color={getDocColor('exam')}>
               {question.points} {t.exam.points}
             </Badge>
           </Group>
@@ -63,9 +64,11 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
                   style={{
                     cursor: disabled ? 'default' : 'pointer',
                     borderColor: isSelected
-                      ? 'var(--mantine-color-violet-5)'
+                      ? `var(--mantine-color-${getDocColor('exam')}-5)`
                       : 'var(--mantine-color-gray-3)',
-                    backgroundColor: isSelected ? 'var(--mantine-color-violet-0)' : undefined,
+                    backgroundColor: isSelected
+                      ? `var(--mantine-color-${getDocColor('exam')}-0)`
+                      : undefined,
                     transition: 'all 150ms ease',
                   }}
                 >
@@ -74,14 +77,19 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
                       size="lg"
                       circle
                       variant={isSelected ? 'filled' : 'light'}
-                      color={isSelected ? 'violet' : 'gray'}
+                      color={isSelected ? getDocColor('exam') : 'gray'}
                     >
                       {key}
                     </Badge>
                     <Text size="sm" style={{ flex: 1 }}>
                       {text}
                     </Text>
-                    {isSelected && <CircleCheck size={20} color="var(--mantine-color-violet-5)" />}
+                    {isSelected && (
+                      <CircleCheck
+                        size={20}
+                        color={`var(--mantine-color-${getDocColor('exam')}-5)`}
+                      />
+                    )}
                   </Group>
                 </Paper>
               );

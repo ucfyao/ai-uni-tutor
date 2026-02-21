@@ -1,10 +1,13 @@
 'use client';
 
-import { FileText, Upload, X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { useActionState, useRef, useState } from 'react';
 import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core';
 import { Dropzone, MIME_TYPES } from '@mantine/dropzone';
 import { uploadAndParseExamPaper, type ExamPaperUploadState } from '@/app/actions/exam-papers';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
+
+const ExamIcon = getDocIcon('exam');
 
 interface Props {
   opened: boolean;
@@ -45,13 +48,17 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
           >
             <Group justify="center" gap="xl" mih={120} style={{ pointerEvents: 'none' }}>
               <Dropzone.Accept>
-                <Upload size={40} strokeWidth={1.5} color="var(--mantine-color-violet-6)" />
+                <Upload
+                  size={40}
+                  strokeWidth={1.5}
+                  color={`var(--mantine-color-${getDocColor('exam')}-6)`}
+                />
               </Dropzone.Accept>
               <Dropzone.Reject>
                 <X size={40} strokeWidth={1.5} color="var(--mantine-color-red-6)" />
               </Dropzone.Reject>
               <Dropzone.Idle>
-                <FileText size={40} strokeWidth={1.5} style={{ opacity: 0.4 }} />
+                <ExamIcon size={40} strokeWidth={1.5} style={{ opacity: 0.4 }} />
               </Dropzone.Idle>
               <div>
                 <Text size="sm" inline>
@@ -66,7 +73,7 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
 
           {file && (
             <Group gap="xs" p="xs" className="bg-surface-subtle" style={{ borderRadius: 8 }}>
-              <FileText size={16} style={{ opacity: 0.6 }} />
+              <ExamIcon size={16} style={{ opacity: 0.6 }} />
               <Text size="sm" fw={500} style={{ flex: 1 }} lineClamp={1}>
                 {file.name}
               </Text>

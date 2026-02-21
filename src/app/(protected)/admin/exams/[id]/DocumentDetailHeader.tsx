@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ActionIcon, Badge, Box, Button, Group, Text, TextInput, Tooltip } from '@mantine/core';
+import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { statusColor } from './types';
 
@@ -124,7 +125,7 @@ export function DocumentDetailHeader({
           </>
         )}
         {/* Document attributes */}
-        <Badge variant="light" color="indigo" size="sm">
+        <Badge variant="light" color={getDocColor(docType)} size="sm">
           {(t.knowledge.docTypeLabel as Record<string, string>)?.[docType] ?? docType}
         </Badge>
         <Tooltip

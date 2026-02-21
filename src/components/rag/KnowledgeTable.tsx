@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Eye, FileText, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
@@ -19,6 +19,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { deleteDocument } from '@/app/actions/documents';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -285,11 +286,16 @@ export function KnowledgeTable({
               >
                 <Group justify="space-between" mb="xs">
                   <Group gap="xs" style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
-                    <FileText
-                      size={18}
-                      color="var(--mantine-color-indigo-4)"
-                      style={{ flexShrink: 0 }}
-                    />
+                    {(() => {
+                      const DocIcon = getDocIcon(doc.doc_type);
+                      return (
+                        <DocIcon
+                          size={18}
+                          color={`var(--mantine-color-${getDocColor(doc.doc_type)}-4)`}
+                          style={{ flexShrink: 0 }}
+                        />
+                      );
+                    })()}
                     <Tooltip label={doc.name} multiline maw={280} openDelay={300}>
                       <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
                         {doc.name}
@@ -442,13 +448,24 @@ export function KnowledgeTable({
                 >
                   <Table.Td>
                     <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
-                      <FileText
-                        size={16}
-                        color="var(--mantine-color-indigo-4)"
-                        style={{ flexShrink: 0 }}
-                      />
+                      {(() => {
+                        const DocIcon = getDocIcon(doc.doc_type);
+                        return (
+                          <DocIcon
+                            size={16}
+                            color={`var(--mantine-color-${getDocColor(doc.doc_type)}-4)`}
+                            style={{ flexShrink: 0 }}
+                          />
+                        );
+                      })()}
                       <Tooltip label={doc.name} multiline maw={300} openDelay={300}>
-                        <Text size="sm" fw={500} truncate c="indigo" className={classes.fileName}>
+                        <Text
+                          size="sm"
+                          fw={500}
+                          truncate
+                          c={getDocColor(doc.doc_type)}
+                          className={classes.fileName}
+                        >
                           {doc.name}
                         </Text>
                       </Tooltip>

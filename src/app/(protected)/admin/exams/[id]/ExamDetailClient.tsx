@@ -15,7 +15,7 @@ import {
 import { AdminContent } from '@/components/admin/AdminContent';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
-import { DOC_TYPES } from '@/constants/doc-types';
+import { DOC_TYPES, getDocColor } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -388,7 +388,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
                 </Text>
               </Group>
               <Button
-                color="indigo"
+                color={getDocColor('exam')}
                 leftSection={<Save size={16} />}
                 loading={saving}
                 disabled={pendingChanges === 0 || saving}

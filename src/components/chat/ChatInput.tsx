@@ -1,4 +1,4 @@
-import { ArrowUp, FileText, Paperclip, Square, Upload } from 'lucide-react';
+import { ArrowUp, Paperclip, Square, Upload } from 'lucide-react';
 import React, { useCallback, useState } from 'react';
 import {
   ActionIcon,
@@ -12,8 +12,11 @@ import {
   Textarea,
   Tooltip,
 } from '@mantine/core';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ACCEPTED_FILE_TYPES, getFileDisplayName } from '@/lib/file-utils';
+
+const LectureDocIcon = getDocIcon('lecture');
 
 interface ChatInputProps {
   input: string;
@@ -121,21 +124,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 gap: 6,
                 padding: '4px 10px',
                 borderRadius: 8,
-                backgroundColor:
-                  'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))',
-                border:
-                  '1px solid light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))',
+                backgroundColor: `light-dark(var(--mantine-color-${getDocColor('lecture')}-0), var(--mantine-color-${getDocColor('lecture')}-9))`,
+                border: `1px solid light-dark(var(--mantine-color-${getDocColor('lecture')}-2), var(--mantine-color-${getDocColor('lecture')}-7))`,
               }}
             >
-              <FileText size={14} color="var(--mantine-color-indigo-5)" />
-              <Text size="xs" fw={500} c="indigo" style={{ maxWidth: 200 }} truncate="end">
+              <LectureDocIcon size={14} color={`var(--mantine-color-${getDocColor('lecture')}-5)`} />
+              <Text
+                size="xs"
+                fw={500}
+                c={getDocColor('lecture')}
+                style={{ maxWidth: 200 }}
+                truncate="end"
+              >
                 {getFileDisplayName(attachedDocument.name)}
               </Text>
               <CloseButton
                 size="xs"
                 radius="xl"
                 variant="subtle"
-                color="indigo"
+                color={getDocColor('lecture')}
                 onClick={onRemoveDocument}
               />
             </Box>

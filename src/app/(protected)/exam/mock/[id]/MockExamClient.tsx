@@ -23,6 +23,7 @@ import {
 import { batchSubmitMockAnswers, submitMockAnswer } from '@/app/actions/mock-exams';
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
+import { getDocColor } from '@/constants/doc-types';
 import type { MockExam, MockExamResponse } from '@/types/exam';
 
 interface Props {
@@ -301,7 +302,7 @@ export function MockExamClient({ initialMock }: Props) {
 
       {/* Progress bar */}
       <Box className="animate-fade-in-up animate-delay-100" style={{ opacity: 0 }}>
-        <Progress value={progressValue} size="sm" color="indigo" />
+        <Progress value={progressValue} size="sm" color={getDocColor('exam')} />
       </Box>
 
       {/* Two-column layout */}
@@ -341,9 +342,11 @@ export function MockExamClient({ initialMock }: Props) {
                       p="xs"
                       style={{
                         borderLeft: isActive
-                          ? '3px solid var(--mantine-color-indigo-5)'
+                          ? `3px solid var(--mantine-color-${getDocColor('exam')}-5)`
                           : '3px solid transparent',
-                        backgroundColor: isActive ? 'var(--mantine-color-indigo-0)' : undefined,
+                        backgroundColor: isActive
+                          ? `var(--mantine-color-${getDocColor('exam')}-0)`
+                          : undefined,
                         transition: 'all 150ms ease',
                       }}
                     >
@@ -535,7 +538,7 @@ export function MockExamClient({ initialMock }: Props) {
                     loading={isPending}
                     disabled={answeredCount === 0}
                     onClick={handleBatchSubmit}
-                    color="indigo"
+                    color={getDocColor('exam')}
                   >
                     Submit All ({answeredCount}/{totalQuestions})
                   </Button>

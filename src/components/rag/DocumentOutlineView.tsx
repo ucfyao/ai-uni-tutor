@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  BookOpen,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
@@ -32,6 +31,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import type { Json } from '@/types/database';
@@ -229,7 +229,7 @@ function SectionEditView({
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: 'var(--mantine-color-indigo-5)',
+                background: `var(--mantine-color-${getDocColor('lecture')}-5)`,
                 flexShrink: 0,
                 marginTop: 10,
               }}
@@ -260,8 +260,8 @@ function SectionEditView({
         ))}
         <UnstyledButton onClick={addKP} py={2}>
           <Group gap={4} wrap="nowrap">
-            <Plus size={13} color="var(--mantine-color-indigo-5)" />
-            <Text size="xs" c="indigo" fw={500}>
+            <Plus size={13} color={`var(--mantine-color-${getDocColor('lecture')}-5)`} />
+            <Text size="xs" c={getDocColor('lecture')} fw={500}>
               Add knowledge point
             </Text>
           </Group>
@@ -273,7 +273,7 @@ function SectionEditView({
           Cancel
         </Button>
         <Button
-          color="indigo"
+          color={getDocColor('lecture')}
           size="compact-sm"
           onClick={handleSave}
           loading={saving}
@@ -344,7 +344,7 @@ function AddSectionForm({
           {t.common.cancel}
         </Button>
         <Button
-          color="indigo"
+          color={getDocColor('lecture')}
           size="compact-sm"
           onClick={handleSave}
           loading={saving}
@@ -379,7 +379,7 @@ function KnowledgePointCard({ kp }: { kp: KPItem }) {
               width: 6,
               height: 6,
               borderRadius: '50%',
-              background: 'var(--mantine-color-indigo-5)',
+              background: `var(--mantine-color-${getDocColor('lecture')}-5)`,
               flexShrink: 0,
               marginTop: 5,
             }}
@@ -462,9 +462,9 @@ function SectionCard({
       style={{
         borderLeftWidth: 3,
         borderLeftColor: isSelected
-          ? 'var(--mantine-color-indigo-6)'
-          : 'var(--mantine-color-indigo-3)',
-        background: isSelected ? 'var(--mantine-color-indigo-0)' : undefined,
+          ? `var(--mantine-color-${getDocColor('lecture')}-6)`
+          : `var(--mantine-color-${getDocColor('lecture')}-3)`,
+        background: isSelected ? `var(--mantine-color-${getDocColor('lecture')}-0)` : undefined,
         transition: 'all 0.15s ease',
       }}
     >
@@ -474,7 +474,7 @@ function SectionCard({
             checked={isSelected}
             onChange={() => onToggleSelect(chunk.id)}
             size="sm"
-            color="indigo"
+            color={getDocColor('lecture')}
             mt={2}
             style={{ flexShrink: 0 }}
           />
@@ -514,11 +514,17 @@ function SectionCard({
                       style={{ flexShrink: 0 }}
                     />
                   ))}
-                <Badge size="sm" variant="filled" color="indigo" circle style={{ flexShrink: 0 }}>
+                <Badge
+                  size="sm"
+                  variant="filled"
+                  color={getDocColor('lecture')}
+                  circle
+                  style={{ flexShrink: 0 }}
+                >
                   {index + 1}
                 </Badge>
                 {editing ? (
-                  <Text fw={600} size="sm" c="indigo">
+                  <Text fw={600} size="sm" c={getDocColor('lecture')}>
                     Editing
                   </Text>
                 ) : (
@@ -535,7 +541,7 @@ function SectionCard({
                     </Text>
                   )}
                   {hasKPs && (
-                    <Badge size="xs" variant="light" color="indigo">
+                    <Badge size="xs" variant="light" color={getDocColor('lecture')}>
                       {knowledgePoints.length} KPs
                     </Badge>
                   )}
@@ -748,9 +754,11 @@ export function DocumentOutlineView({
           style={{
             borderRadius: 'var(--mantine-radius-md)',
             border: hasSelection
-              ? '1px solid var(--mantine-color-indigo-2)'
+              ? `1px solid var(--mantine-color-${getDocColor('lecture')}-2)`
               : '1px solid transparent',
-            background: hasSelection ? 'var(--mantine-color-indigo-0)' : 'transparent',
+            background: hasSelection
+              ? `var(--mantine-color-${getDocColor('lecture')}-0)`
+              : 'transparent',
             transition: 'background 0.2s ease, border-color 0.2s ease',
           }}
         >
@@ -766,7 +774,7 @@ export function DocumentOutlineView({
                   indeterminate={hasSelection && !allSelected}
                   onChange={() => onSelectAll?.()}
                   size="sm"
-                  color="indigo"
+                  color={getDocColor('lecture')}
                 />
               </Tooltip>
             )}
@@ -787,7 +795,15 @@ export function DocumentOutlineView({
               <>
                 <Tooltip label={`${chunks.length} sections`} withArrow>
                   <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
-                    <BookOpen size={13} color="var(--mantine-color-indigo-5)" />
+                    {(() => {
+                      const SectionIcon = getDocIcon('lecture');
+                      return (
+                        <SectionIcon
+                          size={13}
+                          color={`var(--mantine-color-${getDocColor('lecture')}-5)`}
+                        />
+                      );
+                    })()}
                     <Text size="xs" fw={500} c="dimmed">
                       {chunks.length} sections
                     </Text>
@@ -842,14 +858,18 @@ export function DocumentOutlineView({
                 width: 56,
                 height: 56,
                 borderRadius: '50%',
-                background:
-                  'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
+                background: `light-dark(var(--mantine-color-${getDocColor('lecture')}-0), color-mix(in srgb, var(--mantine-color-${getDocColor('lecture')}-9) 15%, var(--mantine-color-dark-6)))`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <FileText size={24} color="var(--mantine-color-indigo-4)" />
+              {(() => {
+                const EmptyIcon = getDocIcon('lecture');
+                return (
+                  <EmptyIcon size={24} color={`var(--mantine-color-${getDocColor('lecture')}-4)`} />
+                );
+              })()}
             </Box>
             <Stack align="center" gap={4}>
               <Text size="md" fw={600}>
@@ -862,7 +882,7 @@ export function DocumentOutlineView({
             {onAddSection && (
               <Button
                 variant="light"
-                color="indigo"
+                color={getDocColor('lecture')}
                 size="sm"
                 leftSection={<Plus size={16} />}
                 onClick={onToggleAddSection}

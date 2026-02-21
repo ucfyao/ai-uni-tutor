@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronUp, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useState, type CSSProperties } from 'react';
 import {
   ActionIcon,
@@ -18,6 +18,7 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -116,14 +117,14 @@ export function ChunkTable({
         {!hideToolbar && (
           <Group justify="space-between" align="center">
             <Group gap="xs">
-              <Badge variant="filled" color="indigo" size="lg">
+              <Badge variant="filled" color={getDocColor(docType)} size="lg">
                 {chunks.length} {countLabel}
               </Badge>
               {onAddItem && (
                 <Button
                   leftSection={<Plus size={12} />}
                   variant="light"
-                  color="indigo"
+                  color={getDocColor(docType)}
                   size="xs"
                   onClick={() => setEffectiveShowAddForm(true)}
                 >
@@ -156,7 +157,7 @@ export function ChunkTable({
         {chunks.length === 0 && (
           <Card withBorder radius="lg" p="xl">
             <Stack align="center" gap={8}>
-              <FileText size={32} color="var(--mantine-color-dimmed)" strokeWidth={1.5} />
+              {(() => { const I = getDocIcon(docType); return <I size={32} color="var(--mantine-color-dimmed)" strokeWidth={1.5} />; })()}
               <Text size="sm" c="dimmed">
                 {t.documentDetail.emptyTableTitle}
               </Text>
@@ -195,14 +196,14 @@ export function ChunkTable({
       {!hideToolbar && (
         <Group justify="space-between" align="center">
           <Group gap="xs">
-            <Badge variant="filled" color="indigo" size="lg">
+            <Badge variant="filled" color={getDocColor(docType)} size="lg">
               {chunks.length} {countLabel}
             </Badge>
             {onAddItem && (
               <Button
                 leftSection={<Plus size={14} />}
                 variant="light"
-                color="indigo"
+                color={getDocColor(docType)}
                 size="xs"
                 onClick={() => setEffectiveShowAddForm(true)}
               >
@@ -328,7 +329,7 @@ export function ChunkTable({
               <Table.Tr>
                 <Table.Td colSpan={6} py={48} style={{ textAlign: 'center' }}>
                   <Stack align="center" gap={8}>
-                    <FileText size={32} color="var(--mantine-color-dimmed)" strokeWidth={1.5} />
+                    {(() => { const I = getDocIcon(docType); return <I size={32} color="var(--mantine-color-dimmed)" strokeWidth={1.5} />; })()}
                     <Text size="sm" c="dimmed">
                       {t.documentDetail.emptyTableTitle}
                     </Text>
@@ -425,7 +426,7 @@ function DesktopChunkRows({
           <>
             <Table.Td>
               {(meta.questionNumber as string) && (
-                <Badge variant="filled" color="indigo" size="sm">
+                <Badge variant="filled" color={getDocColor(docType)} size="sm">
                   Q{meta.questionNumber as string}
                 </Badge>
               )}
@@ -437,7 +438,7 @@ function DesktopChunkRows({
             </Table.Td>
             <Table.Td>
               {meta.score != null && (
-                <Badge variant="light" color="orange" size="sm">
+                <Badge variant="light" color={getDocColor(docType)} size="sm">
                   {String(meta.score)} pts
                 </Badge>
               )}
@@ -459,7 +460,7 @@ function DesktopChunkRows({
             </Table.Td>
             <Table.Td>
               {meta.points != null && Number(meta.points) > 0 && (
-                <Badge variant="light" color="violet" size="sm">
+                <Badge variant="light" color={getDocColor(docType)} size="sm">
                   {String(meta.points)} pts
                 </Badge>
               )}
@@ -661,12 +662,12 @@ function MobileChunkRow({
             </Badge>
           )}
         {docType === 'exam' && meta.score != null && (
-          <Badge variant="light" color="orange" size="xs">
+          <Badge variant="light" color={getDocColor(docType)} size="xs">
             {String(meta.score)} pts
           </Badge>
         )}
         {docType === 'assignment' && meta.points != null && Number(meta.points) > 0 && (
-          <Badge variant="light" color="violet" size="xs">
+          <Badge variant="light" color={getDocColor(docType)} size="xs">
             {String(meta.points)} pts
           </Badge>
         )}
@@ -701,7 +702,7 @@ function AddForm({
         <AddKnowledgePointForm onSubmit={onSubmit} onCancel={onCancel} />
       </Card>
     );
-  return <AddQuestionForm onSubmit={onSubmit} onCancel={onCancel} />;
+  return <AddQuestionForm docType={docType} onSubmit={onSubmit} onCancel={onCancel} />;
 }
 
 export function AddKnowledgePointForm({
@@ -762,7 +763,7 @@ export function AddKnowledgePointForm({
           {t.documentDetail.cancel}
         </Button>
         <Button
-          color="indigo"
+          color={getDocColor('lecture')}
           size="sm"
           onClick={handleSubmit}
           loading={isSaving}
@@ -776,9 +777,11 @@ export function AddKnowledgePointForm({
 }
 
 function AddQuestionForm({
+  docType,
   onSubmit,
   onCancel,
 }: {
+  docType: string;
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -892,7 +895,7 @@ function AddQuestionForm({
             {t.documentDetail.cancel}
           </Button>
           <Button
-            color="indigo"
+            color={getDocColor(docType)}
             size="sm"
             onClick={handleSubmit}
             loading={isSaving}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from '@mantine/core';
+import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';
 
@@ -17,7 +18,9 @@ export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) =>
 
   const text = (mode && THINKING_TEXT[mode]) || t.chat.thinking;
   const color =
-    mode === 'Assignment Coach' ? 'var(--mantine-color-violet-5)' : 'var(--mantine-color-indigo-5)';
+    mode === 'Assignment Coach'
+      ? `var(--mantine-color-${getDocColor('assignment')}-5)`
+      : `var(--mantine-color-${getDocColor('lecture')}-5)`;
 
   return (
     <Box p="xs">
