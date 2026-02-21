@@ -113,9 +113,7 @@ export function DocumentDetailHeader({
         )}
         <Tooltip
           label={
-            status === 'draft'
-              ? t.documentDetail.clickToPublish
-              : t.documentDetail.clickToUnpublish
+            status === 'draft' ? t.documentDetail.clickToPublish : t.documentDetail.clickToUnpublish
           }
           disabled={!onStatusClick}
         >

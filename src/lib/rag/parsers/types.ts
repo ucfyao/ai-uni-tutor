@@ -73,3 +73,48 @@ export interface ParseLectureResult {
   outline?: DocumentOutline;
   warnings: string[];
 }
+
+// ── Assignment parser types ──
+
+export interface AssignmentOutlineSection {
+  title: string;
+  type?: string;
+  itemCount: number;
+  items: { orderNum: number; title: string }[];
+}
+
+export interface AssignmentOutline {
+  assignmentId: string;
+  title: string;
+  subject: string;
+  totalItems: number;
+  sections: AssignmentOutlineSection[];
+  summary: string;
+}
+
+export interface AssignmentSection {
+  title: string;
+  type: string;
+  sourcePages: number[];
+  itemIndices: number[];
+}
+
+export interface EnrichedAssignmentItem {
+  orderNum: number;
+  content: string;
+  options?: string[];
+  referenceAnswer: string;
+  explanation: string;
+  score: number;
+  type: string;
+  difficulty: string;
+  section: string;
+  sourcePages: number[];
+}
+
+export interface ParseAssignmentResult {
+  sections: AssignmentSection[];
+  items: EnrichedAssignmentItem[];
+  outline: AssignmentOutline;
+  warnings: string[];
+}

@@ -88,8 +88,7 @@ export class AdminRepository {
       p_course_ids: courseIds,
       p_assigned_by: assignedBy,
     });
-    if (error)
-      throw new DatabaseError(`Failed to set admin courses: ${error.message}`, error);
+    if (error) throw new DatabaseError(`Failed to set admin courses: ${error.message}`, error);
   }
 
   async getAssignedCourseIds(adminId: string): Promise<string[]> {

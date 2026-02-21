@@ -2,7 +2,11 @@
  * Repository Interface - Assignment Repository
  */
 
-import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
+import type {
+  AssignmentEntity,
+  AssignmentItemEntity,
+  CreateAssignmentItemDTO,
+} from '@/lib/domain/models/Assignment';
 
 export interface IAssignmentRepository {
   create(data: {
@@ -33,6 +37,7 @@ export interface IAssignmentRepository {
       points?: number;
       difficulty?: string;
       metadata?: Record<string, unknown>;
+      embedding?: number[] | null;
     }>,
   ): Promise<void>;
 
@@ -42,4 +47,15 @@ export interface IAssignmentRepository {
     data: Partial<Omit<AssignmentItemEntity, 'id' | 'assignmentId' | 'createdAt'>>,
   ): Promise<void>;
   deleteItem(itemId: string): Promise<void>;
+
+  // New methods
+  updateTitle(id: string, title: string): Promise<void>;
+  bulkUpdateOrder(assignmentId: string, orderedIds: string[]): Promise<void>;
+  findItemsByAssignmentIdWithEmbeddings(
+    assignmentId: string,
+  ): Promise<(AssignmentItemEntity & { embedding: number[] | null })[]>;
+  insertItemsAndReturn(items: CreateAssignmentItemDTO[]): Promise<{ id: string }[]>;
+  deleteItemsByAssignmentId(assignmentId: string): Promise<void>;
+  verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean>;
+  updateItemEmbedding(itemId: string, embedding: number[]): Promise<void>;
 }

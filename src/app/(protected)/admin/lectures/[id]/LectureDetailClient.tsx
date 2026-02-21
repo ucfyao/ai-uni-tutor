@@ -20,7 +20,6 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   addDocumentChunk,
   deleteDocument,
@@ -34,14 +33,28 @@ import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentStatus } from '@/lib/domain/models/Document';
-import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
+import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import type { Json } from '@/types/database';
-import type { Chunk } from '../../knowledge/[id]/types';
-import { metaStr } from '../../knowledge/[id]/types';
+
+interface Chunk {
+  id: string;
+  content: string;
+  metadata: Json;
+  embedding: number[] | null;
+}
+
+function metaStr(meta: Json, key: string): string {
+  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+    const val = (meta as Record<string, Json | undefined>)[key];
+    return typeof val === 'string' ? val : '';
+  }
+  return '';
+}
 
 interface SerializedLectureDocument {
   id: string;
@@ -78,9 +91,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const [showUpload, setShowUpload] = useState(chunks.length === 0);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const outline = doc.outline
-    ? (doc.outline as unknown as DocumentOutline)
-    : null;
+  const outline = doc.outline ? (doc.outline as unknown as DocumentOutline) : null;
 
   const totalKPs = useMemo(() => {
     let count = 0;
@@ -224,9 +235,17 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         knowledgePoints: data.knowledgePoints,
       };
       const fullContent = [`## ${data.title}`, data.summary, '', data.content].join('\n');
-      const result = await updateDocumentChunks(doc.id, [{ id: chunkId, content: fullContent, metadata }], []);
+      const result = await updateDocumentChunks(
+        doc.id,
+        [{ id: chunkId, content: fullContent, metadata }],
+        [],
+      );
       if (result.status === 'success') {
-        showNotification({ message: t.toast.changesSaved, color: 'green', icon: <Check size={16} /> });
+        showNotification({
+          message: t.toast.changesSaved,
+          color: 'green',
+          icon: <Check size={16} />,
+        });
         router.refresh();
       } else {
         showNotification({ title: t.common.error, message: result.message, color: 'red' });
@@ -404,14 +423,18 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
               <Tooltip label={`${chunks.length} sections`} withArrow>
                 <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
                   <BookOpen size={12} color="var(--mantine-color-indigo-5)" />
-                  <Text size="xs" c="dimmed">{chunks.length}</Text>
+                  <Text size="xs" c="dimmed">
+                    {chunks.length}
+                  </Text>
                 </Group>
               </Tooltip>
               {totalKPs > 0 && (
                 <Tooltip label={`${totalKPs} knowledge points`} withArrow>
                   <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, cursor: 'default' }}>
                     <Lightbulb size={12} color="var(--mantine-color-yellow-6)" />
-                    <Text size="xs" c="dimmed">{totalKPs}</Text>
+                    <Text size="xs" c="dimmed">
+                      {totalKPs}
+                    </Text>
                   </Group>
                 </Tooltip>
               )}
@@ -539,7 +562,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
           />
         </Stack>
       </ScrollArea>
-
     </Box>
   );
 }

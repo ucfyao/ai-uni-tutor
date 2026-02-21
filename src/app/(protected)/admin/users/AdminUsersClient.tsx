@@ -33,7 +33,6 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { modals } from '@mantine/modals';
 import {
   disableUser,
@@ -46,6 +45,7 @@ import type { AdminUserItem } from '@/app/actions/admin';
 import { fetchCourses } from '@/app/actions/courses';
 import type { CourseListItem } from '@/app/actions/courses';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { showNotification } from '@/lib/notifications';
 
 const ROLE_COLORS: Record<string, string> = {

@@ -49,6 +49,17 @@ function mapItemRow(row: Record<string, unknown>): AssignmentItemEntity {
   };
 }
 
+function sortBySourcePages(items: AssignmentItemEntity[]): AssignmentItemEntity[] {
+  return [...items].sort((a, b) => {
+    const metaA = a.metadata ?? {};
+    const metaB = b.metadata ?? {};
+    const pageA = Array.isArray(metaA.sourcePages) ? (metaA.sourcePages[0] as number) : Infinity;
+    const pageB = Array.isArray(metaB.sourcePages) ? (metaB.sourcePages[0] as number) : Infinity;
+    if (pageA !== pageB) return pageA - pageB;
+    return a.orderNum - b.orderNum;
+  });
+}
+
 export class AssignmentRepository implements IAssignmentRepository {
   async create(data: {
     userId: string;
@@ -274,7 +285,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (error) {
       throw new DatabaseError(`Failed to fetch assignment items: ${error.message}`, error);
     }
-    return (data ?? []).map((r: Record<string, unknown>) => mapItemRow(r));
+    return sortBySourcePages((data ?? []).map((r: Record<string, unknown>) => mapItemRow(r)));
   }
 
   async searchItemsByEmbedding(
@@ -336,6 +347,111 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (error) {
       throw new DatabaseError(`Failed to delete assignment item: ${error.message}`, error);
     }
+  }
+
+  async updateTitle(id: string, title: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.from('assignments').update({ title }).eq('id', id);
+    if (error)
+      throw new DatabaseError(`Failed to update assignment title: ${error.message}`, error);
+  }
+
+  async bulkUpdateOrder(assignmentId: string, orderedIds: string[]): Promise<void> {
+    const supabase = await createClient();
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await supabase
+        .from('assignment_items')
+        .update({ order_num: i + 1 })
+        .eq('id', orderedIds[i])
+        .eq('assignment_id', assignmentId);
+      if (error)
+        throw new DatabaseError(`Failed to reorder item ${orderedIds[i]}: ${error.message}`, error);
+    }
+  }
+
+  async findItemsByAssignmentIdWithEmbeddings(
+    assignmentId: string,
+  ): Promise<(AssignmentItemEntity & { embedding: number[] | null })[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignment_items')
+      .select('*, embedding')
+      .eq('assignment_id', assignmentId)
+      .order('order_num', { ascending: true });
+
+    if (error)
+      throw new DatabaseError(`Failed to fetch items with embeddings: ${error.message}`, error);
+
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      ...mapItemRow(r),
+      embedding: (r.embedding as number[]) ?? null,
+    }));
+  }
+
+  async insertItemsAndReturn(
+    items: Array<{
+      assignmentId: string;
+      orderNum: number;
+      type?: string;
+      content: string;
+      referenceAnswer?: string;
+      explanation?: string;
+      points?: number;
+      difficulty?: string;
+      metadata?: Record<string, unknown>;
+      embedding?: number[] | null;
+    }>,
+  ): Promise<{ id: string }[]> {
+    if (items.length === 0) return [];
+    const supabase = await createClient();
+    const rows = items.map((item) => ({
+      assignment_id: item.assignmentId,
+      order_num: item.orderNum,
+      type: item.type ?? '',
+      content: item.content,
+      reference_answer: item.referenceAnswer ?? '',
+      explanation: item.explanation ?? '',
+      points: item.points ?? 0,
+      difficulty: item.difficulty ?? '',
+      metadata: (item.metadata ?? {}) as Json,
+      embedding: item.embedding ?? null,
+    }));
+
+    const { data, error } = await supabase.from('assignment_items').insert(rows).select('id');
+    if (error)
+      throw new DatabaseError(`Failed to insert assignment items: ${error.message}`, error);
+    return (data ?? []).map((r) => ({ id: r.id as string }));
+  }
+
+  async deleteItemsByAssignmentId(assignmentId: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('assignment_items')
+      .delete()
+      .eq('assignment_id', assignmentId);
+    if (error)
+      throw new DatabaseError(`Failed to delete assignment items: ${error.message}`, error);
+  }
+
+  async verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean> {
+    if (itemIds.length === 0) return true;
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignment_items')
+      .select('id')
+      .in('id', itemIds)
+      .eq('assignment_id', assignmentId);
+    if (error) throw new DatabaseError(`Failed to verify items: ${error.message}`, error);
+    return data?.length === itemIds.length;
+  }
+
+  async updateItemEmbedding(itemId: string, embedding: number[]): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('assignment_items')
+      .update({ embedding })
+      .eq('id', itemId);
+    if (error) throw new DatabaseError(`Failed to update item embedding: ${error.message}`, error);
   }
 }
 

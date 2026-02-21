@@ -31,9 +31,7 @@ describe('lecture-parser', () => {
           title: 'Binary Search Trees',
           summary: 'Introduction to BST',
           sourcePages: [5],
-          knowledgePoints: [
-            { title: 'BST', content: 'Binary search tree', sourcePages: [5] },
-          ],
+          knowledgePoints: [{ title: 'BST', content: 'Binary search tree', sourcePages: [5] }],
         },
       ];
       setupDefaultMocks(sections);

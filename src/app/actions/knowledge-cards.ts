@@ -255,7 +255,13 @@ export async function askCardQuestion(
   courseId?: string,
 ): Promise<ActionResult<string>> {
   try {
-    const parsed = askCardQuestionSchema.safeParse({ cardId, cardType, question, courseCode, courseId });
+    const parsed = askCardQuestionSchema.safeParse({
+      cardId,
+      cardType,
+      question,
+      courseCode,
+      courseId,
+    });
     if (!parsed.success) {
       return { success: false, error: 'Invalid question parameters.' };
     }

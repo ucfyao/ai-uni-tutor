@@ -3,8 +3,8 @@ import React, { ReactNode, useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Box, Group, Menu, Text, ThemeIcon } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { MODES_METADATA } from '@/constants/modes';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatSession } from '@/types';
 

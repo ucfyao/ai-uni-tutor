@@ -311,9 +311,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               size={32}
               radius="xl"
               variant="filled"
-              color={input.trim() || attachedFiles.length > 0 || attachedDocument ? 'indigo' : 'gray.4'}
+              color={
+                input.trim() || attachedFiles.length > 0 || attachedDocument ? 'indigo' : 'gray.4'
+              }
               onClick={onSend}
-              disabled={(!input.trim() && attachedFiles.length === 0 && !attachedDocument) || isTyping}
+              disabled={
+                (!input.trim() && attachedFiles.length === 0 && !attachedDocument) || isTyping
+              }
               mr={2}
               mb={4}
               className="transition-all duration-200 active:scale-90"

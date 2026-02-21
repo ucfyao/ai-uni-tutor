@@ -237,4 +237,3 @@ export async function deleteChatSession(sessionId: string): Promise<void> {
   const sessionService = getSessionService();
   await sessionService.deleteSession(sessionId, user.id);
 }
-

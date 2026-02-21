@@ -29,3 +29,16 @@ export interface AssignmentItemEntity {
   metadata: Record<string, unknown>;
   createdAt: string;
 }
+
+export interface CreateAssignmentItemDTO {
+  assignmentId: string;
+  orderNum: number;
+  type?: string;
+  content: string;
+  referenceAnswer?: string;
+  explanation?: string;
+  points?: number;
+  difficulty?: string;
+  metadata?: Record<string, unknown>;
+  embedding?: number[] | null;
+}

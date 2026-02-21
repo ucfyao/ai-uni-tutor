@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getAssignmentRepository } from '@/lib/repositories/AssignmentRepository';
+import { getAssignmentService } from '@/lib/services/AssignmentService';
 import { requireAnyAdmin } from '@/lib/supabase/server';
 import { AssignmentDetailClient } from './AssignmentDetailClient';
 
@@ -10,9 +10,9 @@ export default async function AssignmentDetailPage({
 }) {
   const { id } = await params;
   await requireAnyAdmin();
-  const assignmentRepo = getAssignmentRepository();
-  const assignment = await assignmentRepo.findById(id);
+  const service = getAssignmentService();
+  const assignment = await service.findById(id);
   if (!assignment) notFound();
-  const items = await assignmentRepo.findItemsByAssignmentId(id);
-  return <AssignmentDetailClient assignment={assignment} items={items} />;
+  const items = await service.getItems(id);
+  return <AssignmentDetailClient assignment={assignment} initialItems={items} />;
 }

@@ -43,9 +43,7 @@ export class KnowledgeCardService {
    * Generates embeddings in batches for performance.
    * Returns a map from KP title → card ID for linking in chunk metadata.
    */
-  async saveFromKnowledgePoints(
-    points: KnowledgePoint[],
-  ): Promise<Map<string, string>> {
+  async saveFromKnowledgePoints(points: KnowledgePoint[]): Promise<Map<string, string>> {
     const titleToCardId = new Map<string, string>();
     if (points.length === 0) return titleToCardId;
 

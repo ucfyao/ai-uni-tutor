@@ -128,7 +128,9 @@ export async function extractSections(
   // Validation failed — attempt partial recovery
   const warnings: string[] = [];
   const issues = result.error.issues;
-  warnings.push(`Schema validation failed: ${issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
+  warnings.push(
+    `Schema validation failed: ${issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
+  );
 
   const rawObj = raw as Record<string, unknown>;
   const rawSections = Array.isArray(rawObj?.sections) ? rawObj.sections : [];

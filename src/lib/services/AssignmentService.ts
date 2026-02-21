@@ -5,6 +5,7 @@
  * Uses AssignmentRepository for data access.
  */
 
+import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import {
   getAssignmentRepository,
@@ -18,10 +19,6 @@ export class AssignmentService {
     this.repo = repo ?? getAssignmentRepository();
   }
 
-  /**
-   * Create an empty assignment with 'draft' status.
-   * Returns the new assignment ID.
-   */
   async createEmpty(
     userId: string,
     data: {
@@ -41,10 +38,6 @@ export class AssignmentService {
     });
   }
 
-  /**
-   * Add a single item to an existing assignment.
-   * Automatically assigns the next order_num and generates an embedding.
-   */
   async addItem(
     assignmentId: string,
     data: {
@@ -59,13 +52,11 @@ export class AssignmentService {
     const maxOrderNum = await this.repo.getMaxOrderNum(assignmentId);
     const orderNum = maxOrderNum + 1;
 
-    // Generate embedding for RAG retrieval
     let embedding: number[] | null = null;
     try {
       embedding = await generateEmbeddingWithRetry(`Question ${orderNum}: ${data.content}`);
     } catch (e) {
       console.error('Assignment item embedding generation failed:', e);
-      // Continue without embedding — item still saves, just no RAG
     }
 
     return this.repo.insertSingleItem(assignmentId, {
@@ -80,9 +71,6 @@ export class AssignmentService {
     });
   }
 
-  /**
-   * Publish an assignment (draft → ready). Requires at least one item.
-   */
   async publish(assignmentId: string): Promise<void> {
     const items = await this.repo.findItemsByAssignmentId(assignmentId);
     if (items.length === 0) {
@@ -91,11 +79,69 @@ export class AssignmentService {
     await this.repo.publish(assignmentId);
   }
 
-  /**
-   * Unpublish an assignment (ready → draft).
-   */
   async unpublish(assignmentId: string): Promise<void> {
     await this.repo.unpublish(assignmentId);
+  }
+
+  // ── New methods ──
+
+  async findById(id: string): Promise<AssignmentEntity | null> {
+    return this.repo.findById(id);
+  }
+
+  async getItems(assignmentId: string): Promise<AssignmentItemEntity[]> {
+    return this.repo.findItemsByAssignmentId(assignmentId);
+  }
+
+  async getItemsWithEmbeddings(assignmentId: string) {
+    return this.repo.findItemsByAssignmentIdWithEmbeddings(assignmentId);
+  }
+
+  async saveItemsAndReturn(items: Parameters<AssignmentRepository['insertItemsAndReturn']>[0]) {
+    return this.repo.insertItemsAndReturn(items);
+  }
+
+  async rename(assignmentId: string, newTitle: string): Promise<void> {
+    await this.repo.updateTitle(assignmentId, newTitle);
+  }
+
+  async reorder(assignmentId: string, orderedIds: string[]): Promise<void> {
+    await this.repo.bulkUpdateOrder(assignmentId, orderedIds);
+  }
+
+  async deleteItemsByAssignmentId(assignmentId: string): Promise<void> {
+    return this.repo.deleteItemsByAssignmentId(assignmentId);
+  }
+
+  async verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean> {
+    return this.repo.verifyItemsBelongToAssignment(itemIds, assignmentId);
+  }
+
+  async updateItem(
+    itemId: string,
+    data: Partial<Omit<AssignmentItemEntity, 'id' | 'assignmentId' | 'createdAt'>>,
+  ) {
+    return this.repo.updateItem(itemId, data);
+  }
+
+  async deleteItem(itemId: string): Promise<void> {
+    return this.repo.deleteItem(itemId);
+  }
+
+  async updateItemEmbedding(itemId: string, embedding: number[]): Promise<void> {
+    return this.repo.updateItemEmbedding(itemId, embedding);
+  }
+
+  async deleteAssignment(id: string): Promise<void> {
+    await this.repo.deleteItemsByAssignmentId(id);
+    await this.repo.delete(id);
+  }
+
+  async getAssignmentsForAdmin(courseIds?: string[]) {
+    if (courseIds && courseIds.length > 0) {
+      return this.repo.findByCourseIds(courseIds);
+    }
+    return this.repo.findAllForAdmin();
   }
 }
 

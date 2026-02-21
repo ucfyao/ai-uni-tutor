@@ -502,46 +502,11 @@ describe('Document Actions', () => {
       });
     });
 
-    describe('assignment — requireAssignmentAccess', () => {
-      it('should deny admin access to assignment with null courseId', async () => {
-        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
-        mockAssignmentRepo.findCourseId.mockResolvedValue(null);
-
+    describe('assignment — redirects to dedicated action', () => {
+      it('should throw when attempting to delete assignment via deleteDocument', async () => {
         await expect(deleteDocument('assign-1', 'assignment')).rejects.toThrow(
-          'No access to this assignment',
+          'Use deleteAssignment action instead',
         );
-        expect(mockAssignmentRepo.delete).not.toHaveBeenCalled();
-      });
-
-      it('should allow super_admin access to assignment with null courseId', async () => {
-        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
-        mockAssignmentRepo.delete.mockResolvedValue(undefined);
-
-        await deleteDocument('assign-1', 'assignment');
-
-        expect(mockAssignmentRepo.findCourseId).not.toHaveBeenCalled();
-        expect(mockAssignmentRepo.delete).toHaveBeenCalledWith('assign-1');
-      });
-
-      it('should allow admin access to assignment with assigned courseId', async () => {
-        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
-        mockAssignmentRepo.findCourseId.mockResolvedValue('course-1');
-        mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
-        mockAssignmentRepo.delete.mockResolvedValue(undefined);
-
-        await deleteDocument('assign-1', 'assignment');
-
-        expect(mockRequireCourseAdmin).toHaveBeenCalledWith('course-1');
-        expect(mockAssignmentRepo.delete).toHaveBeenCalledWith('assign-1');
-      });
-
-      it('should deny admin access to assignment with unassigned courseId', async () => {
-        mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
-        mockAssignmentRepo.findCourseId.mockResolvedValue('unassigned-course');
-        mockRequireCourseAdmin.mockRejectedValue(new ForbiddenError('No access'));
-
-        await expect(deleteDocument('assign-1', 'assignment')).rejects.toThrow(ForbiddenError);
-        expect(mockAssignmentRepo.delete).not.toHaveBeenCalled();
       });
     });
   });

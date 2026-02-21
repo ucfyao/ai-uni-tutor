@@ -1,6 +1,14 @@
 'use client';
 
-import { AlertTriangle, Check, CircleAlert, FileText, Loader2, RefreshCw, Upload } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  CircleAlert,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Upload,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Box, Button, Group, Progress, ScrollArea, Stack, Text } from '@mantine/core';
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
@@ -88,7 +96,9 @@ function StepIndicator({
                 style={{
                   width: 12,
                   height: 1,
-                  background: isDone ? 'var(--mantine-color-teal-3)' : 'var(--mantine-color-gray-3)',
+                  background: isDone
+                    ? 'var(--mantine-color-teal-3)'
+                    : 'var(--mantine-color-gray-3)',
                   flexShrink: 0,
                 }}
               />
@@ -143,9 +153,12 @@ const LOG_COLORS: Record<PipelineLogEntry['level'], string> = {
 };
 
 function LogIcon({ level }: { level: PipelineLogEntry['level'] }) {
-  if (level === 'success') return <Check size={LOG_ICON_SIZE} color={LOG_COLORS.success} strokeWidth={3} />;
-  if (level === 'warning') return <CircleAlert size={LOG_ICON_SIZE} color={LOG_COLORS.warning} strokeWidth={2.5} />;
-  if (level === 'error') return <AlertTriangle size={LOG_ICON_SIZE} color={LOG_COLORS.error} strokeWidth={2.5} />;
+  if (level === 'success')
+    return <Check size={LOG_ICON_SIZE} color={LOG_COLORS.success} strokeWidth={3} />;
+  if (level === 'warning')
+    return <CircleAlert size={LOG_ICON_SIZE} color={LOG_COLORS.warning} strokeWidth={2.5} />;
+  if (level === 'error')
+    return <AlertTriangle size={LOG_ICON_SIZE} color={LOG_COLORS.error} strokeWidth={2.5} />;
   return (
     <Box
       style={{
@@ -164,13 +177,7 @@ function formatElapsed(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function PipelineLog({
-  logs,
-  isBusy,
-}: {
-  logs: PipelineLogEntry[];
-  isBusy: boolean;
-}) {
+function PipelineLog({ logs, isBusy }: { logs: PipelineLogEntry[]; isBusy: boolean }) {
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -198,7 +205,11 @@ function PipelineLog({
             <Text
               size="xs"
               c={entry.level === 'error' ? 'red' : entry.level === 'warning' ? 'yellow' : 'dimmed'}
-              style={{ fontFamily: 'var(--mantine-font-family-monospace)', fontSize: 11, lineHeight: 1.5 }}
+              style={{
+                fontFamily: 'var(--mantine-font-family-monospace)',
+                fontSize: 11,
+                lineHeight: 1.5,
+              }}
             >
               <Text span c="dimmed" style={{ fontSize: 10 }}>
                 {formatElapsed(entry.timestamp)}
@@ -217,7 +228,9 @@ function PipelineLog({
                 style={{ animation: 'spin 1s linear infinite' }}
               />
             </Box>
-            <Text size="xs" c="dimmed" style={{ fontSize: 11 }}>...</Text>
+            <Text size="xs" c="dimmed" style={{ fontSize: 11 }}>
+              ...
+            </Text>
           </Group>
         )}
       </Stack>
@@ -315,8 +328,12 @@ export function PdfUploadZone({
                   }}
                 >
                   <Stack gap={0} align="flex-start">
-                    <Text size="sm" fw={600}>{t.knowledge.reparseReplaceAll}</Text>
-                    <Text size="xs" c="dimmed" fw={400}>{t.knowledge.reparseReplaceAllDesc}</Text>
+                    <Text size="sm" fw={600}>
+                      {t.knowledge.reparseReplaceAll}
+                    </Text>
+                    <Text size="xs" c="dimmed" fw={400}>
+                      {t.knowledge.reparseReplaceAllDesc}
+                    </Text>
                   </Stack>
                 </Button>
                 <Button
@@ -332,8 +349,12 @@ export function PdfUploadZone({
                   }}
                 >
                   <Stack gap={0} align="flex-start">
-                    <Text size="sm" fw={600}>{t.knowledge.reparseAppend}</Text>
-                    <Text size="xs" c="dimmed" fw={400}>{t.knowledge.reparseAppendDesc}</Text>
+                    <Text size="sm" fw={600}>
+                      {t.knowledge.reparseAppend}
+                    </Text>
+                    <Text size="xs" c="dimmed" fw={400}>
+                      {t.knowledge.reparseAppendDesc}
+                    </Text>
                   </Stack>
                 </Button>
               </Stack>
@@ -375,11 +396,19 @@ export function PdfUploadZone({
                   <Stack gap={4}>
                     {duplicates.map((d) => (
                       <Group key={d.id} gap="xs" wrap="nowrap">
-                        <FileText size={14} style={{ flexShrink: 0 }} color="var(--mantine-color-dimmed)" />
+                        <FileText
+                          size={14}
+                          style={{ flexShrink: 0 }}
+                          color="var(--mantine-color-dimmed)"
+                        />
                         <Text size="sm" truncate style={{ minWidth: 0 }}>
                           {d.name}
                         </Text>
-                        <Badge size="xs" color={getDuplicateMatchColor(d.matchType)} variant="light">
+                        <Badge
+                          size="xs"
+                          color={getDuplicateMatchColor(d.matchType)}
+                          variant="light"
+                        >
                           {getDuplicateMatchLabel(d.matchType, t)}
                         </Badge>
                       </Group>
@@ -445,8 +474,8 @@ export function PdfUploadZone({
     const isError = stage === 'error';
     const isComplete = stage === 'complete';
     const currentStepIndex = isError
-      ? STAGE_INDEX[Object.keys(parseState.stageTimes).pop() ?? 'parsing_pdf'] ?? 0
-      : STAGE_INDEX[stage] ?? 0;
+      ? (STAGE_INDEX[Object.keys(parseState.stageTimes).pop() ?? 'parsing_pdf'] ?? 0)
+      : (STAGE_INDEX[stage] ?? 0);
 
     const progressColor = isError ? 'red' : isComplete ? 'teal' : 'indigo';
 

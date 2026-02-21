@@ -18,10 +18,10 @@ import {
   Title,
 } from '@mantine/core';
 import { FullScreenModal } from '@/components/FullScreenModal';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useHeader } from '@/context/HeaderContext';
 import { useProfile } from '@/context/ProfileContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 

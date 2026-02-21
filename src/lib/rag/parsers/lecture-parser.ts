@@ -75,10 +75,15 @@ export async function parseLectureMultiPass(
     return { sections: [], knowledgePoints: [], warnings };
   }
 
-  reportProgress(options, 100, `Extracted ${sections.length} sections, ${totalKP} knowledge points`, {
-    totalPages: pages.length,
-    knowledgePointCount: totalKP,
-  });
+  reportProgress(
+    options,
+    100,
+    `Extracted ${sections.length} sections, ${totalKP} knowledge points`,
+    {
+      totalPages: pages.length,
+      knowledgePointCount: totalKP,
+    },
+  );
 
   let outline: DocumentOutline | undefined;
   if (options?.documentId) {

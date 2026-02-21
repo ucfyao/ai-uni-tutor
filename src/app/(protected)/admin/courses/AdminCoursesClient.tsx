@@ -24,7 +24,6 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   createCourse,
   createUniversity,
@@ -37,6 +36,7 @@ import {
 } from '@/app/actions/courses';
 import type { CourseListItem, UniversityListItem } from '@/app/actions/courses';
 import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
