@@ -600,8 +600,17 @@ function ItemCard({
 
           {/* Answer */}
           {item.referenceAnswer?.trim() && (
-            <Box mt={4} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
-              <Text size="xs" fw={600} c="dimmed" mb={2}>
+            <Box
+              mt={8}
+              p="sm"
+              style={{
+                borderRadius: 'var(--mantine-radius-sm)',
+                background:
+                  'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
+                borderLeft: '3px solid var(--mantine-color-indigo-4)',
+              }}
+            >
+              <Text size="xs" fw={700} c="indigo" mb={4} tt="uppercase" lts={0.5}>
                 {t.documentDetail.answer}
               </Text>
               <MarkdownRenderer content={item.referenceAnswer} compact />
@@ -610,8 +619,17 @@ function ItemCard({
 
           {/* Explanation */}
           {item.explanation?.trim() && (
-            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
-              <Text size="xs" fw={600} c="dimmed" mb={2}>
+            <Box
+              mt={6}
+              p="sm"
+              style={{
+                borderRadius: 'var(--mantine-radius-sm)',
+                background:
+                  'light-dark(var(--mantine-color-yellow-0), color-mix(in srgb, var(--mantine-color-yellow-9) 12%, var(--mantine-color-dark-6)))',
+                borderLeft: '3px solid var(--mantine-color-yellow-5)',
+              }}
+            >
+              <Text size="xs" fw={700} c="yellow.7" mb={4} tt="uppercase" lts={0.5}>
                 {t.documentDetail.explanation}
               </Text>
               <MarkdownRenderer content={item.explanation} compact />
