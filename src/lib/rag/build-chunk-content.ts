@@ -39,7 +39,8 @@ export function buildAssignmentItemContent(
   if (parentContent) {
     parts.push(`Context: ${parentContent}`);
   }
-  parts.push(`## Q${item.orderNum}: ${item.content}`);
+  const heading = item.title || `Q${item.orderNum}`;
+  parts.push(`## ${heading}: ${item.content}`);
 
   if (item.options && item.options.length > 0) {
     parts.push(
