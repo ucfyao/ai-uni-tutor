@@ -325,7 +325,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
               (prev) => prev?.filter((d) => d.id !== doc.id),
             );
           }
-          router.push('/admin/knowledge');
+          router.push('/admin/knowledge?tab=lecture');
         } catch (e) {
           showNotification({
             title: t.common.error,
@@ -358,7 +358,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         <Group gap="sm" wrap="nowrap" style={{ flex: 1, overflow: 'hidden' }}>
           <Button
             component={Link}
-            href="/admin/knowledge"
+            href="/admin/knowledge?tab=lecture"
             variant="subtle"
             color="gray"
             size="compact-sm"

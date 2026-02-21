@@ -5,8 +5,13 @@ import { getCurrentUser } from '@/lib/supabase/server';
 import { KnowledgeClient } from './KnowledgeClient';
 
 const DEFAULT_DOC_TYPE = 'lecture';
+const VALID_TABS = new Set(['lecture', 'assignment', 'exam']);
 
-export default async function KnowledgePage() {
+export default async function KnowledgePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   // AdminLayout already enforces auth + admin role
   const user = await getCurrentUser();
 
@@ -20,8 +25,13 @@ export default async function KnowledgePage() {
     );
   }
 
-  // fetchDocuments already handles admin role filtering (super_admin sees all, admin sees assigned courses)
-  const initialDocuments = await fetchDocuments(DEFAULT_DOC_TYPE);
+  // Respect ?tab= param so back navigation lands on the correct tab
+  const params = await searchParams;
+  const tabParam = typeof params.tab === 'string' ? params.tab : undefined;
+  const docType = tabParam && VALID_TABS.has(tabParam) ? tabParam : DEFAULT_DOC_TYPE;
 
-  return <KnowledgeClient initialDocuments={initialDocuments} initialDocType={DEFAULT_DOC_TYPE} />;
+  // fetchDocuments already handles admin role filtering (super_admin sees all, admin sees assigned courses)
+  const initialDocuments = await fetchDocuments(docType);
+
+  return <KnowledgeClient initialDocuments={initialDocuments} initialDocType={docType} />;
 }

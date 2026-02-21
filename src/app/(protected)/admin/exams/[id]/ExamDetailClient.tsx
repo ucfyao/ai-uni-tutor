@@ -232,7 +232,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
         );
       }
       showNotification({ message: t.toast.changesSaved, color: 'green' });
-      router.push('/admin/knowledge');
+      router.push('/admin/knowledge?tab=exam');
     } catch {
       showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
     }
@@ -270,7 +270,7 @@ export function ExamDetailClient({ paper, questions }: ExamDetailClientProps) {
         school={school}
         course={course}
         status={paper.status}
-        backHref="/admin/knowledge"
+        backHref="/admin/knowledge?tab=exam"
         onSaveName={async () => {
           // Exam title rename not yet supported
         }}
