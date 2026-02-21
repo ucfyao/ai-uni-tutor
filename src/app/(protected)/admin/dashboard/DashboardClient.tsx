@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Cpu, CreditCard, Database, RefreshCw } from 'lucide-react';
+import type { ReactNode } from 'react';
 import {
   ActionIcon,
   Alert,
@@ -265,11 +266,11 @@ function ServiceCard<T>({
 }: {
   queryKey: string;
   service: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   badgeLabel: string;
   badgeColor: string;
-  children: (data: T) => React.ReactNode;
+  children: (data: T) => ReactNode;
 }) {
   const {
     data,
