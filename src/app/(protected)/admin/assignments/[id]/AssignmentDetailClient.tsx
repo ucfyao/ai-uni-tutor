@@ -168,7 +168,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
           );
         }
         showNotification({ message: t.knowledge.deleted, color: 'green' });
-        router.push('/admin/knowledge');
+        router.push('/admin/knowledge?tab=assignment');
       } else {
         showNotification({ title: t.common.error, message: result.error, color: 'red' });
       }
@@ -287,7 +287,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
         <Group gap="sm" wrap="nowrap" style={{ flex: 1, overflow: 'hidden' }}>
           <Button
             component={Link}
-            href="/admin/knowledge"
+            href="/admin/knowledge?tab=assignment"
             variant="subtle"
             color="gray"
             size="compact-sm"
