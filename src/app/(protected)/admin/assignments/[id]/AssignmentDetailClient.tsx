@@ -43,10 +43,6 @@ function statusColor(status: string): string {
   switch (status) {
     case 'ready':
       return 'green';
-    case 'processing':
-      return 'yellow';
-    case 'error':
-      return 'red';
     case 'draft':
       return 'blue';
     default:
@@ -73,7 +69,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const courseId = assignment.courseId || '';
 
   /* -- use hook for data management -- */
-  const { items, addItem, rename, invalidateItems } = useAssignmentItems(
+  const { items, addItem, isAddingItem, rename, invalidateItems } = useAssignmentItems(
     assignment.id,
     initialItems,
   );
@@ -208,7 +204,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
       const deletedArr = Array.from(deletedChunkIds);
 
       const result = await saveAssignmentChanges(assignment.id, updates, deletedArr);
-      if (result.status === 'success') {
+      if (result.success) {
         showNotification({
           message: t.toast.changesSaved,
           color: 'green',
@@ -220,7 +216,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
         setSelectedIds(new Set());
         invalidateItems();
       } else {
-        showNotification({ title: t.common.error, message: result.message, color: 'red' });
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
       }
     } catch {
       showNotification({
@@ -358,16 +354,18 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
                     : t.documentDetail.publish
                 }
               >
-                <ActionIcon
-                  variant="light"
-                  color="green"
-                  size="md"
-                  loading={isPublishing}
-                  disabled={visibleItems.length === 0}
-                  onClick={handlePublish}
-                >
-                  <Send size={16} />
-                </ActionIcon>
+                <span style={{ display: 'inline-flex' }}>
+                  <ActionIcon
+                    variant="light"
+                    color="green"
+                    size="md"
+                    loading={isPublishing}
+                    disabled={visibleItems.length === 0}
+                    onClick={handlePublish}
+                  >
+                    <Send size={16} />
+                  </ActionIcon>
+                </span>
               </Tooltip>
             )}
             {assignment.status === 'ready' && (
@@ -544,6 +542,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             onBulkSetDifficulty={handleBulkSetDifficulty}
             onBulkSetPoints={handleBulkSetPoints}
             onAddItem={handleAddItem}
+            isAddingItem={isAddingItem}
             addFormOpen={addFormOpen}
             onAddFormOpenChange={setAddFormOpen}
           />
@@ -565,7 +564,7 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
               width: 48,
               height: 48,
               borderRadius: '50%',
-              background: 'var(--mantine-color-red-0)',
+              background: 'light-dark(var(--mantine-color-red-0), var(--mantine-color-red-9))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

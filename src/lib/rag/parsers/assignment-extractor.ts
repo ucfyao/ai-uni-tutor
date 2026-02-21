@@ -33,7 +33,7 @@ const itemSchema = z.object({
   options: z.array(z.string()).optional().default([]),
   referenceAnswer: z.string().optional().default(''),
   explanation: z.string().optional().default(''),
-  score: z.number().optional().default(0),
+  points: z.number().optional().default(0),
   type: z.string().optional().default(''),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional().default('medium'),
   section: z.string().optional().default('General'),
@@ -77,7 +77,7 @@ For each ITEM (question):
 - options: Array of option texts for multiple choice (empty array if not MC)
 - referenceAnswer: The reference answer if present in the document (empty string if none)
 - explanation: Step-by-step solution explanation if present (empty string if none)
-- score: Point value (0 if not specified)
+- points: Point value (0 if not specified)
 - type: Question type (choice/fill_blank/short_answer/calculation/proof/essay)
 - difficulty: Estimated difficulty (easy/medium/hard)
 - section: Title of the parent section

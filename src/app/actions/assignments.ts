@@ -35,13 +35,10 @@ export async function createEmptyAssignment(
     const parsed = createEmptySchema.parse(input);
 
     // Look up university short name and course code for denormalized fields
-    const { getCourseRepository } = await import('@/lib/repositories/CourseRepository');
-    const courseRepo = getCourseRepository();
-    const course = await courseRepo.findById(parsed.courseId);
-
-    const { getUniversityRepository } = await import('@/lib/repositories/UniversityRepository');
-    const uniRepo = getUniversityRepository();
-    const university = await uniRepo.findById(parsed.universityId);
+    const { getCourseService } = await import('@/lib/services/CourseService');
+    const courseService = getCourseService();
+    const course = await courseService.getCourseById(parsed.courseId);
+    const university = await courseService.getUniversityById(parsed.universityId);
 
     const service = getAssignmentService();
     const id = await service.createEmpty(user.id, {
@@ -175,27 +172,38 @@ export async function updateAssignmentItems(
       if (!valid) return { success: false, error: 'Invalid item IDs' };
     }
 
-    for (const id of parsed.deletedIds) {
-      await service.deleteItem(id);
+    // Batch delete in a single query
+    if (parsed.deletedIds.length > 0) {
+      await service.deleteItemsByIds(parsed.deletedIds);
     }
 
-    for (const update of parsed.updates) {
-      const meta = update.metadata;
-      await service.updateItem(update.id, {
-        content: update.content,
-        referenceAnswer: (meta.referenceAnswer as string) || undefined,
-        explanation: (meta.explanation as string) || undefined,
-        points: meta.points != null ? Number(meta.points) : undefined,
-        difficulty: (meta.difficulty as string) || undefined,
-        type: (meta.type as string) || undefined,
-        metadata: meta,
-      });
+    // Parallel content updates
+    if (parsed.updates.length > 0) {
+      await Promise.all(
+        parsed.updates.map((update) => {
+          const meta = update.metadata;
+          return service.updateItem(update.id, {
+            content: update.content,
+            referenceAnswer: (meta.referenceAnswer as string) || undefined,
+            explanation: (meta.explanation as string) || undefined,
+            points: meta.points != null ? Number(meta.points) : undefined,
+            difficulty: (meta.difficulty as string) || undefined,
+            type: (meta.type as string) || undefined,
+            metadata: meta,
+          });
+        }),
+      );
+
+      // Batch embedding generation, then parallel DB updates
       try {
-        const { generateEmbeddingWithRetry } = await import('@/lib/rag/embedding');
-        const embedding = await generateEmbeddingWithRetry(update.content);
-        await service.updateItemEmbedding(update.id, embedding);
+        const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+        const contents = parsed.updates.map((u) => u.content);
+        const embeddings = await generateEmbeddingBatch(contents);
+        await Promise.all(
+          parsed.updates.map((update, i) => service.updateItemEmbedding(update.id, embeddings[i])),
+        );
       } catch (e) {
-        console.error('Re-embedding failed for item:', update.id, e);
+        console.error('Re-embedding failed for items:', e);
       }
     }
 
@@ -208,27 +216,29 @@ export async function updateAssignmentItems(
 }
 
 /**
- * Save assignment item changes (3-arg signature, { status, message } return).
+ * Save assignment item changes (3-arg convenience wrapper).
  * Delegates to updateAssignmentItems internally.
  */
 export async function saveAssignmentChanges(
   assignmentId: string,
   updates: { id: string; content: string; metadata: Record<string, unknown> }[],
   deletedIds: string[],
-): Promise<{ status: 'success' | 'error'; message: string }> {
-  const result = await updateAssignmentItems({ assignmentId, updates, deletedIds });
-  if (result.success) return { status: 'success', message: 'Changes saved' };
-  return { status: 'error', message: result.error ?? 'Failed to save changes' };
+): Promise<ActionResult<null>> {
+  return updateAssignmentItems({ assignmentId, updates, deletedIds });
 }
+
+const assignmentIdSchema = z.string().uuid();
 
 export async function deleteAssignment(assignmentId: string): Promise<ActionResult<null>> {
   try {
+    const id = assignmentIdSchema.parse(assignmentId);
     const { user, role } = await requireAnyAdmin();
-    await requireAssignmentAccess(assignmentId, user.id, role);
+    await requireAssignmentAccess(id, user.id, role);
     const service = getAssignmentService();
-    await service.deleteAssignment(assignmentId);
+    await service.deleteAssignment(id);
     return { success: true, data: null };
   } catch (error) {
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid assignment ID' };
     if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
     console.error('deleteAssignment error:', error);
     return { success: false, error: 'Failed to delete assignment' };
@@ -237,12 +247,14 @@ export async function deleteAssignment(assignmentId: string): Promise<ActionResu
 
 export async function publishAssignment(assignmentId: string): Promise<ActionResult<null>> {
   try {
+    const id = assignmentIdSchema.parse(assignmentId);
     const { user, role } = await requireAnyAdmin();
-    await requireAssignmentAccess(assignmentId, user.id, role);
+    await requireAssignmentAccess(id, user.id, role);
     const service = getAssignmentService();
-    await service.publish(assignmentId);
+    await service.publish(id);
     return { success: true, data: null };
   } catch (error) {
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid assignment ID' };
     if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
     console.error('publishAssignment error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to publish' };
@@ -251,12 +263,14 @@ export async function publishAssignment(assignmentId: string): Promise<ActionRes
 
 export async function unpublishAssignment(assignmentId: string): Promise<ActionResult<null>> {
   try {
+    const id = assignmentIdSchema.parse(assignmentId);
     const { user, role } = await requireAnyAdmin();
-    await requireAssignmentAccess(assignmentId, user.id, role);
+    await requireAssignmentAccess(id, user.id, role);
     const service = getAssignmentService();
-    await service.unpublish(assignmentId);
+    await service.unpublish(id);
     return { success: true, data: null };
   } catch (error) {
+    if (error instanceof z.ZodError) return { success: false, error: 'Invalid assignment ID' };
     if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
     console.error('unpublishAssignment error:', error);
     return { success: false, error: 'Failed to unpublish' };

@@ -128,8 +128,16 @@ export class AssignmentService {
     return this.repo.deleteItem(itemId);
   }
 
+  async deleteItemsByIds(ids: string[]): Promise<void> {
+    return this.repo.deleteItemsByIds(ids);
+  }
+
   async updateItemEmbedding(itemId: string, embedding: number[]): Promise<void> {
     return this.repo.updateItemEmbedding(itemId, embedding);
+  }
+
+  async findCourseId(assignmentId: string): Promise<string | null> {
+    return this.repo.findCourseId(assignmentId);
   }
 
   async deleteAssignment(id: string): Promise<void> {

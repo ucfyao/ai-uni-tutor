@@ -36,6 +36,10 @@ export class CourseService {
     return result;
   }
 
+  async getUniversityById(id: string): Promise<UniversityEntity | null> {
+    return this.uniRepo.findById(id);
+  }
+
   async deleteUniversity(id: string): Promise<void> {
     await this.uniRepo.delete(id);
     await invalidateCache(CACHE_KEYS.universitiesList);

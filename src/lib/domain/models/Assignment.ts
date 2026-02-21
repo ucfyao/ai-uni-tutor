@@ -30,6 +30,18 @@ export interface AssignmentItemEntity {
   createdAt: string;
 }
 
+export interface MatchedAssignmentItem {
+  id: string;
+  assignmentId: string;
+  orderNum: number;
+  content: string;
+  referenceAnswer: string;
+  explanation: string;
+  points: number;
+  difficulty: string;
+  similarity: number;
+}
+
 export interface CreateAssignmentItemDTO {
   assignmentId: string;
   orderNum: number;
