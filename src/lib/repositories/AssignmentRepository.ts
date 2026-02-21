@@ -40,6 +40,7 @@ function mapItemRow(row: Record<string, unknown>): AssignmentItemEntity {
     difficulty: (row.difficulty as string) || '',
     metadata: (row.metadata as Record<string, unknown>) ?? {},
     warnings: (Array.isArray(row.warnings) ? row.warnings : []) as string[],
+    parentItemId: (row.parent_item_id as string) ?? null,
     createdAt: row.created_at as string,
   };
 }
@@ -194,6 +195,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
       warnings?: string[];
+      parentItemId?: string | null;
     }>,
   ): Promise<void> {
     const supabase = await createClient();
@@ -209,6 +211,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       metadata: (item.metadata ?? {}) as Json,
       embedding: item.embedding ?? null,
       warnings: item.warnings ?? [],
+      parent_item_id: item.parentItemId ?? null,
     }));
 
     const { error } = await supabase.from('assignment_items').insert(rows);
@@ -246,6 +249,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
       warnings?: string[];
+      parentItemId?: string | null;
     },
   ): Promise<AssignmentItemEntity> {
     const supabase = await createClient();
@@ -263,6 +267,7 @@ export class AssignmentRepository implements IAssignmentRepository {
         metadata: (data.metadata ?? {}) as Json,
         embedding: data.embedding ?? null,
         warnings: data.warnings ?? [],
+        parent_item_id: data.parentItemId ?? null,
       })
       .select('*')
       .single();
@@ -346,6 +351,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (data.difficulty !== undefined) updates.difficulty = data.difficulty;
     if (data.metadata !== undefined) updates.metadata = data.metadata as Json;
     if (data.warnings !== undefined) updates.warnings = data.warnings;
+    if (data.parentItemId !== undefined) updates.parent_item_id = data.parentItemId;
 
     if (Object.keys(updates).length === 0) return;
 
@@ -420,6 +426,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
       warnings?: string[];
+      parentItemId?: string | null;
     }>,
   ): Promise<{ id: string }[]> {
     if (items.length === 0) return [];
@@ -436,6 +443,7 @@ export class AssignmentRepository implements IAssignmentRepository {
       metadata: (item.metadata ?? {}) as Json,
       embedding: item.embedding ?? null,
       warnings: item.warnings ?? [],
+      parent_item_id: item.parentItemId ?? null,
     }));
 
     const { data, error } = await supabase.from('assignment_items').insert(rows).select('id');
@@ -481,6 +489,15 @@ export class AssignmentRepository implements IAssignmentRepository {
       .update({ embedding })
       .eq('id', itemId);
     if (error) throw new DatabaseError(`Failed to update item embedding: ${error.message}`, error);
+  }
+
+  async moveItem(itemId: string, newParentId: string | null): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('assignment_items')
+      .update({ parent_item_id: newParentId })
+      .eq('id', itemId);
+    if (error) throw new DatabaseError(`Failed to move item: ${error.message}`, error);
   }
 
   async getStats(
