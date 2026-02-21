@@ -22,6 +22,14 @@ export const ERROR_MAP = {
 
 type ErrorCode = keyof typeof ERROR_MAP;
 
+/** HTTP status → ErrorCode. 429/400 need message inspection so handled in from(). */
+const HTTP_STATUS_MAP: Partial<Record<number, ErrorCode>> = {
+  401: 'GEMINI_INVALID_KEY',
+  403: 'GEMINI_INVALID_KEY',
+  500: 'GEMINI_UNAVAILABLE',
+  503: 'GEMINI_UNAVAILABLE',
+};
+
 export class AppError extends Error {
   constructor(
     public code: ErrorCode,
@@ -29,6 +37,36 @@ export class AppError extends Error {
   ) {
     super(message ?? ERROR_MAP[code]);
     this.name = 'AppError';
+  }
+
+  /** Map any error (with optional .status) into AppError using HTTP_STATUS_MAP. */
+  static from(error: unknown, fallbackCode: ErrorCode = 'GEMINI_ERROR'): AppError {
+    if (error instanceof AppError) return error;
+
+    const status = (error as { status?: number })?.status;
+    const msg = error instanceof Error ? error.message : '';
+
+    if (typeof status === 'number') {
+      const mapped = HTTP_STATUS_MAP[status];
+      if (mapped) return new AppError(mapped);
+      if (status === 429) {
+        const isQuota = /RESOURCE_EXHAUSTED|quota/i.test(msg);
+        return new AppError(isQuota ? 'GEMINI_QUOTA_EXCEEDED' : 'GEMINI_RATE_LIMITED');
+      }
+      if (status === 400) {
+        const isBlocked = /safety|blocked|HARM_CATEGORY/i.test(msg);
+        return new AppError(isBlocked ? 'GEMINI_CONTENT_BLOCKED' : fallbackCode);
+      }
+    }
+
+    // Plain Error fallback: check message patterns
+    if (msg) {
+      if (/429|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(msg))
+        return new AppError('GEMINI_RATE_LIMITED');
+      if (/safety|blocked|HARM_CATEGORY/i.test(msg)) return new AppError('GEMINI_CONTENT_BLOCKED');
+    }
+
+    return new AppError(fallbackCode);
   }
 }
 

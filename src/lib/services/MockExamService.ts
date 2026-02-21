@@ -7,7 +7,7 @@
 
 import { parseAIResponse } from '@/lib/ai-utils';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
@@ -233,7 +233,7 @@ ${typesInstruction}
       });
       responseText = response.text ?? '';
     } catch (error) {
-      throw parseGeminiError(error);
+      throw AppError.from(error);
     }
 
     const parsed = parseAIResponse<{
@@ -433,7 +433,7 @@ Return JSON with these exact fields:
               sourceQuestionId: q.id,
             } satisfies MockExamQuestion;
           } catch (err) {
-            const geminiErr = err instanceof AppError ? err : parseGeminiError(err);
+            const geminiErr = AppError.from(err);
             console.warn(
               `Variant generation failed [${geminiErr.code}] for question ${q.id}, using original`,
             );
@@ -526,7 +526,7 @@ Return JSON with these exact fields:
         aiFeedback: parsed.feedback || 'Unable to generate feedback.',
       };
     } catch (err) {
-      const geminiErr = err instanceof AppError ? err : parseGeminiError(err);
+      const geminiErr = AppError.from(err);
       console.warn(`AI judging failed [${geminiErr.code}], falling back to simple matching`);
 
       const normalizedUser = userAnswer.trim().toLowerCase();

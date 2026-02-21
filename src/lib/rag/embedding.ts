@@ -1,4 +1,5 @@
-import { GEMINI_MODELS, genAI, parseGeminiError } from '../gemini';
+import { AppError } from '../errors';
+import { GEMINI_MODELS, genAI } from '../gemini';
 import { RAG_CONFIG } from './config';
 
 export async function generateEmbedding(text: string): Promise<number[]> {
@@ -12,7 +13,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       },
     });
   } catch (error) {
-    throw parseGeminiError(error);
+    throw AppError.from(error);
   }
   return result.embeddings?.[0]?.values || [];
 }
@@ -22,7 +23,7 @@ export async function generateEmbeddingWithRetry(text: string, maxRetries = 3): 
     try {
       return await generateEmbedding(text);
     } catch (error) {
-      if (attempt === maxRetries - 1) throw parseGeminiError(error);
+      if (attempt === maxRetries - 1) throw AppError.from(error);
       await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
     }
   }

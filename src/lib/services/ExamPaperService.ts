@@ -9,7 +9,7 @@
 import { parseAIResponse } from '@/lib/ai-utils';
 import type { PaginatedResult } from '@/lib/domain/models/Pagination';
 import { AppError, ForbiddenError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { parsePDF } from '@/lib/pdf';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
@@ -101,7 +101,7 @@ export class ExamPaperService {
         });
         responseText = response.text ?? '';
       } catch (error) {
-        throw parseGeminiError(error);
+        throw AppError.from(error);
       }
 
       const parsed = parseAIResponse<{

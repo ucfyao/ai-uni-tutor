@@ -8,7 +8,7 @@
 import type { Content, Part } from '@google/genai';
 import { MODE_CONFIGS, type ModeConfig } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import { appendRagContext } from '@/lib/prompts';
 import type { ChatSource } from '@/types';
 import { ChatMessage, Course, TutoringMode } from '@/types';
@@ -171,7 +171,7 @@ Guidelines:
       });
       text = response.text;
     } catch (error) {
-      throw parseGeminiError(error);
+      throw AppError.from(error);
     }
 
     return text || 'Unable to generate explanation.';
@@ -305,7 +305,7 @@ Guidelines:
         if (!text) throw new Error('Empty response from AI model.');
         return text;
       } catch (error: unknown) {
-        const geminiErr = parseGeminiError(error);
+        const geminiErr = AppError.from(error);
         lastError = geminiErr;
 
         if (

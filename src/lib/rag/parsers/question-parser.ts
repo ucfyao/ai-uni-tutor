@@ -1,5 +1,6 @@
 import 'server-only';
-import { GEMINI_MODELS, getGenAI, parseGeminiError } from '@/lib/gemini';
+import { AppError } from '@/lib/errors';
+import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
 import type { PDFPage } from '@/lib/pdf';
 import type { ParsedQuestion } from './types';
 
@@ -42,7 +43,7 @@ ${pagesText}`;
     });
     text = response.text ?? '';
   } catch (error) {
-    throw parseGeminiError(error);
+    throw AppError.from(error);
   }
 
   const parsed = JSON.parse(text) as ParsedQuestion[];
