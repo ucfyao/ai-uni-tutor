@@ -69,10 +69,18 @@ export function createSSEStream() {
     start(c) {
       controller = c;
     },
+    cancel() {
+      controller = null;
+    },
   });
 
   function send<K extends keyof SSEEventMap>(event: K, data: SSEEventMap[K]) {
-    controller?.enqueue(encoder.encode(sseEvent(event, data)));
+    try {
+      controller?.enqueue(encoder.encode(sseEvent(event, data)));
+    } catch {
+      // Client disconnected — controller already closed
+      controller = null;
+    }
   }
 
   function close() {

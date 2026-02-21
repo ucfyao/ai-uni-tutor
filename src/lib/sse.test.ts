@@ -62,6 +62,29 @@ describe('sse', () => {
       expect(lines[3]).toBe('');
     });
 
+    it('should not throw when send is called after stream cancel', async () => {
+      const { stream, send } = createSSEStream();
+
+      // Simulate client disconnect by cancelling the stream
+      await stream.cancel();
+
+      // send() after cancel should silently no-op
+      expect(() =>
+        send('status', { stage: 'extracting', message: 'too late' }),
+      ).not.toThrow();
+    });
+
+    it('should not throw when send is called after close', () => {
+      const { close, send } = createSSEStream();
+
+      close();
+
+      // send() after close should silently no-op
+      expect(() =>
+        send('status', { stage: 'complete', message: 'done' }),
+      ).not.toThrow();
+    });
+
     it('should send multiple events in order', async () => {
       const { stream, send, close } = createSSEStream();
 
