@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, ClipboardCheck, FileText, Plus, Search, Upload, X } from 'lucide-react';
+import { BookOpen, FileText, Plus, Search, Upload, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -10,7 +10,6 @@ import {
   Button,
   Group,
   ScrollArea,
-  SegmentedControl,
   Select,
   Skeleton,
   Stack,
@@ -25,7 +24,7 @@ import { createExam, createLecture, fetchDocuments } from '@/app/actions/documen
 import { AdminContent } from '@/components/admin/AdminContent';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
-import { DOC_TYPES } from '@/constants/doc-types';
+import { DOC_TYPES, getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCourseData } from '@/hooks/useCourseData';
@@ -225,6 +224,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   }, [searchExpanded]);
 
   // ── Shared Layout ──
+  const ActiveDocIcon = getDocIcon(activeTab);
   return (
     <Box h="100%" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Desktop Header */}
@@ -248,41 +248,35 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         <AdminContent>
           {/* ── Toolbar: SegmentedControl + Search + Create ── */}
           <Group gap="sm" justify="space-between" wrap="nowrap">
-            <SegmentedControl
-              value={activeTab}
-              onChange={(v) => setActiveTab(v)}
-              data={DOC_TYPES.map((dt) => ({
-                value: dt.value,
-                label: (
-                  <Group gap={6} wrap="nowrap" justify="center">
-                    <Box
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        backgroundColor: `var(--mantine-color-${dt.color}-5)`,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span>{dt.label}</span>
-                  </Group>
-                ),
-              }))}
-              radius="xl"
-              size="sm"
-              withItemsBorders={false}
-              styles={{
-                root: {
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                },
-                indicator: {
-                  backgroundColor: 'var(--mantine-color-body)',
-                  border: '1px solid var(--mantine-color-default-border)',
-                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
-                },
-              }}
-            />
+            <Group gap={6}>
+              {DOC_TYPES.map((dt) => {
+                const isActive = activeTab === dt.value;
+                const Icon = dt.icon;
+                return (
+                  <Button
+                    key={dt.value}
+                    variant={isActive ? 'filled' : 'subtle'}
+                    color={isActive ? dt.color : 'gray'}
+                    size="sm"
+                    radius="xl"
+                    leftSection={<Icon size={15} strokeWidth={isActive ? 2.2 : 1.8} />}
+                    onClick={() => setActiveTab(dt.value)}
+                    styles={{
+                      root: {
+                        fontWeight: isActive ? 600 : 500,
+                        boxShadow: isActive
+                          ? `0 2px 10px color-mix(in srgb, var(--mantine-color-${dt.color}-5) 30%, transparent)`
+                          : 'none',
+                        transition:
+                          'background 0.25s ease, color 0.25s ease, box-shadow 0.3s ease, font-weight 0.15s ease',
+                      },
+                    }}
+                  >
+                    {dt.label}
+                  </Button>
+                );
+              })}
+            </Group>
 
             <Group gap={8} wrap="nowrap">
               {/* Search: animated expand/collapse */}
@@ -416,21 +410,8 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             </Stack>
           ) : (
             <Stack align="center" gap="md" py={60}>
-              <ThemeIcon
-                size={64}
-                radius="xl"
-                variant="light"
-                color={
-                  activeTab === 'exam' ? 'orange' : activeTab === 'assignment' ? 'violet' : 'indigo'
-                }
-              >
-                {activeTab === 'exam' ? (
-                  <FileText size={32} />
-                ) : activeTab === 'assignment' ? (
-                  <ClipboardCheck size={32} />
-                ) : (
-                  <BookOpen size={32} />
-                )}
+              <ThemeIcon size={64} radius="xl" variant="light" color={getDocColor(activeTab)}>
+                <ActiveDocIcon size={32} />
               </ThemeIcon>
               <Text fw={600} fz="lg" c="dimmed">
                 {activeTab === 'exam'
@@ -443,9 +424,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 leftSection={<Plus size={16} />}
                 onClick={() => setUploadModalOpen(true)}
                 variant="filled"
-                color={
-                  activeTab === 'exam' ? 'orange' : activeTab === 'assignment' ? 'violet' : 'indigo'
-                }
+                color={getDocColor(activeTab)}
                 radius="md"
               >
                 {activeTab === 'exam'
@@ -528,7 +507,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             disabled={!isFormValid}
             loading={isCreating}
             onClick={handleCreate}
-            color="indigo"
+            color={getDocColor(activeTab)}
             size="md"
             radius="md"
             fullWidth

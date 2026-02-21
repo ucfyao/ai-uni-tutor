@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Trash2,
   User,
+  Users,
   X,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
@@ -24,7 +25,6 @@ import {
   MultiSelect,
   Popover,
   ScrollArea,
-  SegmentedControl,
   Select,
   Stack,
   Table,
@@ -51,7 +51,7 @@ import { showNotification } from '@/lib/notifications';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'red',
-  admin: 'blue',
+  admin: 'violet',
   user: 'gray',
 };
 
@@ -60,6 +60,13 @@ const ROLE_ICONS: Record<string, typeof User> = {
   admin: Shield,
   user: User,
 };
+
+const ROLE_TABS = [
+  { value: 'all', label: 'All', color: 'indigo', icon: Users },
+  { value: 'user', label: 'User', color: 'gray', icon: User },
+  { value: 'admin', label: 'Admin', color: 'violet', icon: Shield },
+  { value: 'super_admin', label: 'Super', color: 'red', icon: ShieldCheck },
+];
 
 interface Props {
   currentUserId: string;
@@ -493,29 +500,35 @@ export function AdminUsersClient({ currentUserId }: Props) {
         <AdminContent>
           {/* ── Toolbar: SegmentedControl (left) + Search (right) ── */}
           <Group gap="sm" justify="space-between" wrap="nowrap">
-            <SegmentedControl
-              size="sm"
-              value={roleFilter}
-              onChange={setRoleFilter}
-              data={[
-                { value: 'all', label: 'All' },
-                { value: 'user', label: 'User' },
-                { value: 'admin', label: 'Admin' },
-                { value: 'super_admin', label: 'Super' },
-              ]}
-              radius="xl"
-              withItemsBorders={false}
-              styles={{
-                root: {
-                  backgroundColor: 'var(--mantine-color-default-hover)',
-                  border: '1px solid var(--mantine-color-default-border)',
-                },
-                indicator: {
-                  backgroundColor: 'var(--mantine-color-body)',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                },
-              }}
-            />
+            <Group gap={6}>
+              {ROLE_TABS.map((tab) => {
+                const isActive = roleFilter === tab.value;
+                const Icon = tab.icon;
+                return (
+                  <Button
+                    key={tab.value}
+                    variant={isActive ? 'filled' : 'subtle'}
+                    color={isActive ? tab.color : 'gray'}
+                    size="sm"
+                    radius="xl"
+                    leftSection={<Icon size={15} strokeWidth={isActive ? 2.2 : 1.8} />}
+                    onClick={() => setRoleFilter(tab.value)}
+                    styles={{
+                      root: {
+                        fontWeight: isActive ? 600 : 500,
+                        boxShadow: isActive
+                          ? `0 2px 10px color-mix(in srgb, var(--mantine-color-${tab.color}-5) 30%, transparent)`
+                          : 'none',
+                        transition:
+                          'background 0.25s ease, color 0.25s ease, box-shadow 0.3s ease, font-weight 0.15s ease',
+                      },
+                    }}
+                  >
+                    {tab.label}
+                  </Button>
+                );
+              })}
+            </Group>
 
             {/* Search: animated expand/collapse */}
             <Box

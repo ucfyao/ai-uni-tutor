@@ -1,4 +1,5 @@
 import { Box, Container } from '@mantine/core';
+import { getDocColor } from '@/constants/doc-types';
 import { ExamEntryClient } from './ExamEntryClient';
 
 export default function ExamPage() {
@@ -12,8 +13,7 @@ export default function ExamPage() {
           transform: 'translateX(-50%)',
           width: '120%',
           height: 200,
-          background:
-            'radial-gradient(ellipse at center, var(--mantine-color-indigo-0) 0%, transparent 70%)',
+          background: `radial-gradient(ellipse at center, var(--mantine-color-${getDocColor('exam')}-0) 0%, transparent 70%)`,
           pointerEvents: 'none',
           zIndex: 0,
           opacity: 0.7,

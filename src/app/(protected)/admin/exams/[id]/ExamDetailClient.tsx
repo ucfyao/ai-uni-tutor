@@ -23,7 +23,7 @@ import { AdminContent } from '@/components/admin/AdminContent';
 import { ExamQuestionList } from '@/components/rag/ExamQuestionList';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
-import { DOC_TYPES } from '@/constants/doc-types';
+import { DOC_TYPES, getDocColor } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useExamQuestions } from '@/hooks/useExamQuestions';
@@ -189,7 +189,7 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
         <Tooltip label={t.documentDetail.uploadPdf}>
           <ActionIcon
             variant={showUploadZone ? 'filled' : 'default'}
-            color={showUploadZone ? 'indigo' : 'gray'}
+            color={showUploadZone ? getDocColor('exam') : 'gray'}
             size="md"
             onClick={() => setShowUploadZone((v) => !v)}
           >
@@ -342,7 +342,7 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
                 />
               </>
             )}
-            <Badge variant="light" color="indigo" size="sm">
+            <Badge variant="light" color={getDocColor('exam')} size="sm">
               {(t.knowledge.docTypeLabel as Record<string, string>)?.exam ?? 'Exam'}
             </Badge>
             <Badge variant="light" color={statusColor(paper.status)} size="sm">

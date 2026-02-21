@@ -1,5 +1,6 @@
 import { Anchor, Box, Button, Center, Container, Stack, Text, Title } from '@mantine/core';
 import { getMockExamDetail } from '@/app/actions/mock-exams';
+import { getDocColor } from '@/constants/doc-types';
 import { MockExamClient } from './MockExamClient';
 
 export default async function MockExamPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,8 +39,7 @@ export default async function MockExamPage({ params }: { params: Promise<{ id: s
           transform: 'translateX(-50%)',
           width: '120%',
           height: 200,
-          background:
-            'radial-gradient(ellipse at center, var(--mantine-color-indigo-0) 0%, transparent 70%)',
+          background: `radial-gradient(ellipse at center, var(--mantine-color-${getDocColor('exam')}-0) 0%, transparent 70%)`,
           pointerEvents: 'none',
           zIndex: 0,
           opacity: 0.7,

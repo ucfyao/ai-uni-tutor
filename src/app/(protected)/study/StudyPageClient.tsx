@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUp, Compass, FileQuestion, Presentation } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import { Box, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
@@ -8,6 +8,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { Logo } from '@/components/Logo';
 import MockExamModal from '@/components/MockExamModal';
 import NewSessionModal from '@/components/NewSessionModal';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { MODES_METADATA } from '@/constants/modes';
 import { useSessions } from '@/context/SessionContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -21,24 +22,24 @@ function getFeatureCards(t: TranslationKey) {
       subtitle: t.study.lectureHelperSubtitle,
       cta: t.study.lectureHelperCta,
       mode: 'Lecture Helper' as TutoringMode,
-      icon: Presentation,
-      color: 'indigo',
+      icon: getDocIcon('lecture'),
+      color: getDocColor('lecture'),
     },
     {
       label: t.study.assignmentCoach,
       subtitle: t.study.assignmentCoachSubtitle,
       cta: t.study.assignmentCoachCta,
       mode: 'Assignment Coach' as TutoringMode,
-      icon: Compass,
-      color: 'violet',
+      icon: getDocIcon('assignment'),
+      color: getDocColor('assignment'),
     },
     {
       label: t.study.mockExam,
       subtitle: t.study.mockExamSubtitle,
       cta: t.study.mockExamCta,
       mode: 'Mock Exam' as TutoringMode,
-      icon: FileQuestion,
-      color: 'emerald',
+      icon: getDocIcon('exam'),
+      color: getDocColor('exam'),
     },
   ];
 }

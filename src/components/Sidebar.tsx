@@ -4,9 +4,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
-  Compass,
   Ellipsis,
-  FileQuestion,
   Gauge,
   GraduationCap,
   LifeBuoy,
@@ -18,7 +16,6 @@ import {
   Pin,
   PinOff,
   Plus,
-  Presentation,
   Settings,
   Share,
   ShieldCheck,
@@ -43,6 +40,7 @@ import {
 } from '@mantine/core';
 import { signOut } from '@/app/actions/auth';
 import { Logo } from '@/components/Logo';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -62,20 +60,20 @@ const CHAT_MODULES = [
   {
     mode: 'Lecture Helper' as TutoringMode,
     labelKey: 'lectures' as const,
-    icon: Presentation,
-    color: 'indigo',
+    icon: getDocIcon('lecture'),
+    color: getDocColor('lecture'),
   },
   {
     mode: 'Assignment Coach' as TutoringMode,
     labelKey: 'assignments' as const,
-    icon: Compass,
-    color: 'violet',
+    icon: getDocIcon('assignment'),
+    color: getDocColor('assignment'),
   },
   {
     mode: 'Mock Exam' as TutoringMode,
     labelKey: 'mockExams' as const,
-    icon: FileQuestion,
-    color: 'emerald',
+    icon: getDocIcon('exam'),
+    color: getDocColor('exam'),
   },
 ];
 

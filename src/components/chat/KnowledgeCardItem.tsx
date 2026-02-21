@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { BookOpen, ChevronRight, Send, Trash2 } from 'lucide-react';
+import { ChevronRight, Send, Trash2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import React, { memo } from 'react';
 import {
@@ -14,6 +14,7 @@ import {
   TextInput,
   type MantineColor,
 } from '@mantine/core';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { PLACEHOLDERS } from '@/constants/placeholders';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
@@ -22,6 +23,8 @@ const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
   ssr: false,
   loading: () => <Box style={{ minHeight: 20 }} />,
 });
+
+const LectureIcon = getDocIcon('lecture');
 
 interface CardItemData {
   id: string;
@@ -60,7 +63,7 @@ const KnowledgeCardItem = memo(
     setRef,
   }: KnowledgeCardItemProps) => {
     const { t } = useLanguage();
-    const accentColor: MantineColor = cardType === 'user' ? 'violet' : 'indigo';
+    const accentColor: MantineColor = cardType === 'user' ? 'violet' : getDocColor('lecture');
     const panelId = `kc-panel-${card.id}`;
 
     const handleAsk = () => {
@@ -98,7 +101,7 @@ const KnowledgeCardItem = memo(
           }}
         >
           <Box className="knowledge-card__icon" style={{ flexShrink: 0 }}>
-            <BookOpen
+            <LectureIcon
               size={16}
               style={{
                 color: isActive ? 'var(--kc-accent)' : 'var(--mantine-color-gray-5)',
@@ -170,7 +173,13 @@ const KnowledgeCardItem = memo(
               {cardType === 'knowledge' && card.keyConcepts && card.keyConcepts.length > 0 && (
                 <Group gap={6} mb={10} wrap="wrap">
                   {card.keyConcepts.map((concept) => (
-                    <Badge key={concept} size="xs" variant="light" color="indigo" radius="sm">
+                    <Badge
+                      key={concept}
+                      size="xs"
+                      variant="light"
+                      color={getDocColor('lecture')}
+                      radius="sm"
+                    >
                       {concept}
                     </Badge>
                   ))}

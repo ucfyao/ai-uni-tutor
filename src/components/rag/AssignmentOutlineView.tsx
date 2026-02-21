@@ -7,7 +7,6 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
-  FileText,
   Hash,
   Pencil,
   Plus,
@@ -32,6 +31,7 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AssignmentItemEntity, AssignmentItemTree } from '@/lib/domain/models/Assignment';
 import { buildItemTree, computeDisplayLabels } from '@/lib/domain/models/Assignment';
@@ -135,7 +135,7 @@ function MarkdownToggleField({
         <Button.Group>
           <Button
             variant={mode === 'edit' ? 'filled' : 'default'}
-            color="indigo"
+            color={getDocColor('assignment')}
             size="compact-xs"
             onClick={() => setMode('edit')}
           >
@@ -143,7 +143,7 @@ function MarkdownToggleField({
           </Button>
           <Button
             variant={mode === 'preview' ? 'filled' : 'default'}
-            color="indigo"
+            color={getDocColor('assignment')}
             size="compact-xs"
             onClick={() => setMode('preview')}
           >
@@ -300,7 +300,7 @@ function ItemEditForm({
           {t.common.cancel}
         </Button>
         <Button
-          color="indigo"
+          color={getDocColor('assignment')}
           size="compact-sm"
           onClick={handleSave}
           loading={isSaving}
@@ -461,7 +461,7 @@ function AddItemForm({
           {t.common.cancel}
         </Button>
         <Button
-          color="indigo"
+          color={getDocColor('assignment')}
           size="compact-sm"
           onClick={handleAdd}
           loading={saving}
@@ -549,7 +549,7 @@ function ItemCard({
             : 'var(--mantine-color-default-border)'
         }`,
         borderLeft: isParent
-          ? '3px solid var(--mantine-color-indigo-5)'
+          ? `3px solid var(--mantine-color-${getDocColor('assignment')}-5)`
           : '2px solid var(--mantine-color-gray-3)',
         transition: 'all 0.15s ease',
         opacity: isDeleting ? 0.5 : 1,
@@ -580,7 +580,7 @@ function ItemCard({
               <Badge
                 size={isParent ? 'sm' : 'xs'}
                 variant={isParent ? 'filled' : 'light'}
-                color={isParent ? 'indigo' : 'gray'}
+                color={isParent ? getDocColor('assignment') : 'gray'}
                 circle={isParent}
                 style={{ flexShrink: 0 }}
               >
@@ -621,7 +621,12 @@ function ItemCard({
                 </Badge>
               )}
               {item.points > 0 && (
-                <Badge size="xs" variant="light" color="violet" style={{ flexShrink: 0 }}>
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={getDocColor('assignment')}
+                  style={{ flexShrink: 0 }}
+                >
                   {item.points} {t.knowledge.pts}
                 </Badge>
               )}
@@ -629,7 +634,7 @@ function ItemCard({
             <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
               <ActionIcon
                 variant="subtle"
-                color="indigo"
+                color={getDocColor('assignment')}
                 size="xs"
                 onClick={() => onAddChild(item.id)}
               >
@@ -681,7 +686,7 @@ function ItemCard({
               {contentLong && (
                 <Text
                   size="xs"
-                  c="indigo"
+                  c={getDocColor('assignment')}
                   style={{ cursor: 'pointer' }}
                   onClick={() => setExpanded((v) => !v)}
                 >
@@ -696,12 +701,18 @@ function ItemCard({
                   p="sm"
                   style={{
                     borderRadius: 'var(--mantine-radius-sm)',
-                    background:
-                      'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
-                    borderLeft: '3px solid var(--mantine-color-indigo-4)',
+                    background: `light-dark(var(--mantine-color-${getDocColor('assignment')}-0), color-mix(in srgb, var(--mantine-color-${getDocColor('assignment')}-9) 15%, var(--mantine-color-dark-6)))`,
+                    borderLeft: `3px solid var(--mantine-color-${getDocColor('assignment')}-4)`,
                   }}
                 >
-                  <Text size="xs" fw={700} c="indigo" mb={4} tt="uppercase" lts={0.5}>
+                  <Text
+                    size="xs"
+                    fw={700}
+                    c={getDocColor('assignment')}
+                    mb={4}
+                    tt="uppercase"
+                    lts={0.5}
+                  >
                     {t.documentDetail.answer}
                   </Text>
                   <MarkdownRenderer content={item.referenceAnswer} compact />
@@ -912,14 +923,21 @@ export function AssignmentOutlineView({
                 width: 56,
                 height: 56,
                 borderRadius: '50%',
-                background:
-                  'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
+                background: `light-dark(var(--mantine-color-${getDocColor('assignment')}-0), color-mix(in srgb, var(--mantine-color-${getDocColor('assignment')}-9) 15%, var(--mantine-color-dark-6)))`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <FileText size={24} color="var(--mantine-color-indigo-4)" />
+              {(() => {
+                const EmptyIcon = getDocIcon('assignment');
+                return (
+                  <EmptyIcon
+                    size={24}
+                    color={`var(--mantine-color-${getDocColor('assignment')}-4)`}
+                  />
+                );
+              })()}
             </Box>
             <Stack align="center" gap={4}>
               <Text size="md" fw={600}>
@@ -931,7 +949,7 @@ export function AssignmentOutlineView({
             </Stack>
             <Button
               variant="light"
-              color="indigo"
+              color={getDocColor('assignment')}
               size="sm"
               leftSection={<Plus size={16} />}
               onClick={() => setShowAddForm(true)}
@@ -948,7 +966,7 @@ export function AssignmentOutlineView({
           <Group gap="sm" style={{ flex: 1 }}>
             <Tooltip label={`${items.length} ${t.documentDetail.items}`} withArrow>
               <Group gap={4} wrap="nowrap" style={{ cursor: 'default' }}>
-                <Hash size={13} color="var(--mantine-color-indigo-5)" />
+                <Hash size={13} color={`var(--mantine-color-${getDocColor('assignment')}-5)`} />
                 <Text size="xs" fw={500} c="dimmed">
                   {items.length} {t.documentDetail.items}
                 </Text>

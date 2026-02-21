@@ -14,6 +14,7 @@ import { Badge, Box, Button, Group, Progress, ScrollArea, Stack, Text } from '@m
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone';
 import { modals } from '@mantine/modals';
 import { checkDuplicateDocuments, type DuplicateMatch } from '@/app/actions/documents';
+import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import type { PipelineLogEntry } from '@/hooks/useStreamingParse';
 import { useStreamingParse } from '@/hooks/useStreamingParse';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -69,10 +70,12 @@ function StepIndicator({
   steps,
   currentIndex,
   isError,
+  activeColor,
 }: {
   steps: string[];
   currentIndex: number;
   isError: boolean;
+  activeColor: string;
 }) {
   return (
     <Group gap={4} wrap="nowrap">
@@ -86,7 +89,7 @@ function StepIndicator({
           : isDone
             ? 'var(--mantine-color-teal-6)'
             : isActive
-              ? 'var(--mantine-color-indigo-6)'
+              ? `var(--mantine-color-${activeColor}-6)`
               : 'var(--mantine-color-dimmed)';
 
         return (
@@ -129,7 +132,7 @@ function StepIndicator({
               <Text
                 size="xs"
                 fw={isActive || isFailed ? 600 : 400}
-                c={isFailed ? 'red' : isDone ? 'teal' : isActive ? 'indigo' : 'dimmed'}
+                c={isFailed ? 'red' : isDone ? 'teal' : isActive ? activeColor : 'dimmed'}
               >
                 {label}
               </Text>
@@ -145,27 +148,35 @@ function StepIndicator({
 /* ── Pipeline log ── */
 
 const LOG_ICON_SIZE = 10;
-const LOG_COLORS: Record<PipelineLogEntry['level'], string> = {
-  info: 'var(--mantine-color-indigo-5)',
-  success: 'var(--mantine-color-teal-5)',
-  warning: 'var(--mantine-color-yellow-6)',
-  error: 'var(--mantine-color-red-5)',
-};
+function getLogColors(infoColor: string): Record<PipelineLogEntry['level'], string> {
+  return {
+    info: `var(--mantine-color-${infoColor}-5)`,
+    success: 'var(--mantine-color-teal-5)',
+    warning: 'var(--mantine-color-yellow-6)',
+    error: 'var(--mantine-color-red-5)',
+  };
+}
 
-function LogIcon({ level }: { level: PipelineLogEntry['level'] }) {
+function LogIcon({
+  level,
+  logColors,
+}: {
+  level: PipelineLogEntry['level'];
+  logColors: Record<PipelineLogEntry['level'], string>;
+}) {
   if (level === 'success')
-    return <Check size={LOG_ICON_SIZE} color={LOG_COLORS.success} strokeWidth={3} />;
+    return <Check size={LOG_ICON_SIZE} color={logColors.success} strokeWidth={3} />;
   if (level === 'warning')
-    return <CircleAlert size={LOG_ICON_SIZE} color={LOG_COLORS.warning} strokeWidth={2.5} />;
+    return <CircleAlert size={LOG_ICON_SIZE} color={logColors.warning} strokeWidth={2.5} />;
   if (level === 'error')
-    return <AlertTriangle size={LOG_ICON_SIZE} color={LOG_COLORS.error} strokeWidth={2.5} />;
+    return <AlertTriangle size={LOG_ICON_SIZE} color={logColors.error} strokeWidth={2.5} />;
   return (
     <Box
       style={{
         width: 5,
         height: 5,
         borderRadius: '50%',
-        background: LOG_COLORS.info,
+        background: logColors.info,
         flexShrink: 0,
       }}
     />
@@ -177,7 +188,15 @@ function formatElapsed(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function PipelineLog({ logs, isBusy }: { logs: PipelineLogEntry[]; isBusy: boolean }) {
+function PipelineLog({
+  logs,
+  isBusy,
+  logColors,
+}: {
+  logs: PipelineLogEntry[];
+  isBusy: boolean;
+  logColors: Record<PipelineLogEntry['level'], string>;
+}) {
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -200,7 +219,7 @@ function PipelineLog({ logs, isBusy }: { logs: PipelineLogEntry[]; isBusy: boole
         {logs.map((entry) => (
           <Group key={entry.id} gap={6} wrap="nowrap" align="flex-start">
             <Box mt={3} style={{ flexShrink: 0 }}>
-              <LogIcon level={entry.level} />
+              <LogIcon level={entry.level} logColors={logColors} />
             </Box>
             <Text
               size="xs"
@@ -223,7 +242,7 @@ function PipelineLog({ logs, isBusy }: { logs: PipelineLogEntry[]; isBusy: boole
             <Box mt={3} style={{ flexShrink: 0 }}>
               <Loader2
                 size={LOG_ICON_SIZE}
-                color={LOG_COLORS.info}
+                color={logColors.info}
                 strokeWidth={2.5}
                 style={{ animation: 'spin 1s linear infinite' }}
               />
@@ -338,7 +357,7 @@ export function PdfUploadZone({
                 </Button>
                 <Button
                   variant="light"
-                  color="indigo"
+                  color={getDocColor(docType)}
                   fullWidth
                   justify="flex-start"
                   leftSection={<Upload size={16} />}
@@ -365,7 +384,7 @@ export function PdfUploadZone({
         startParseFile(file);
       }
     },
-    [existingItemCount, startParseFile, t],
+    [docType, existingItemCount, startParseFile, t],
   );
 
   const handleDrop = useCallback(
@@ -419,7 +438,7 @@ export function PdfUploadZone({
                       {t.documentDetail.cancel}
                     </Button>
                     <Button
-                      color="indigo"
+                      color={getDocColor(docType)}
                       size="sm"
                       onClick={() => {
                         modals.closeAll();
@@ -443,7 +462,7 @@ export function PdfUploadZone({
 
       proceedWithUpload(file);
     },
-    [courseId, documentId, proceedWithUpload, t],
+    [courseId, docType, documentId, proceedWithUpload, t],
   );
 
   const handleReject = useCallback(() => {
@@ -477,7 +496,10 @@ export function PdfUploadZone({
       ? (STAGE_INDEX[Object.keys(parseState.stageTimes).pop() ?? 'parsing_pdf'] ?? 0)
       : (STAGE_INDEX[stage] ?? 0);
 
-    const progressColor = isError ? 'red' : isComplete ? 'teal' : 'indigo';
+    const docColor = getDocColor(docType);
+    const DocIcon = getDocIcon(docType);
+    const logColors = getLogColors(docColor);
+    const progressColor = isError ? 'red' : isComplete ? 'teal' : docColor;
 
     return (
       <Box
@@ -500,14 +522,14 @@ export function PdfUploadZone({
         <Stack gap={10}>
           {/* Row 1: file info */}
           <Group gap="xs" wrap="nowrap">
-            <FileText
+            <DocIcon
               size={15}
               color={
                 isError
                   ? 'var(--mantine-color-red-5)'
                   : isComplete
                     ? 'var(--mantine-color-teal-5)'
-                    : 'var(--mantine-color-indigo-5)'
+                    : `var(--mantine-color-${docColor}-5)`
               }
               style={{ flexShrink: 0 }}
             />
@@ -524,6 +546,7 @@ export function PdfUploadZone({
             steps={stepLabels}
             currentIndex={isComplete ? 3 : currentStepIndex}
             isError={isError}
+            activeColor={docColor}
           />
 
           {/* Row 3: progress bar */}
@@ -537,7 +560,7 @@ export function PdfUploadZone({
           />
 
           {/* Row 4: pipeline log */}
-          <PipelineLog logs={parseState.pipelineLogs} isBusy={isBusy} />
+          <PipelineLog logs={parseState.pipelineLogs} isBusy={isBusy} logColors={logColors} />
 
           {/* Row 5: actions */}
           {(isError || isComplete) && (
@@ -545,7 +568,7 @@ export function PdfUploadZone({
               {isError && (
                 <Button
                   variant="light"
-                  color="indigo"
+                  color={docColor}
                   size="compact-xs"
                   onClick={() => parseState.retry()}
                 >
@@ -579,10 +602,10 @@ export function PdfUploadZone({
       radius="md"
       py="xl"
       style={{
-        borderColor: 'var(--mantine-color-indigo-3)',
+        borderColor: `var(--mantine-color-${getDocColor(docType)}-3)`,
         borderStyle: 'dashed',
         borderWidth: 1,
-        background: 'var(--mantine-color-indigo-0)',
+        background: `var(--mantine-color-${getDocColor(docType)}-0)`,
         cursor: checkingDuplicate ? 'wait' : 'pointer',
       }}
     >
@@ -591,7 +614,7 @@ export function PdfUploadZone({
           <>
             <Loader2
               size={28}
-              color="var(--mantine-color-indigo-4)"
+              color={`var(--mantine-color-${getDocColor(docType)}-4)`}
               style={{ animation: 'spin 1s linear infinite' }}
             />
             <Text size="sm" c="dimmed" ta="center">
@@ -601,13 +624,13 @@ export function PdfUploadZone({
         ) : (
           <>
             <Dropzone.Accept>
-              <Upload size={28} color="var(--mantine-color-indigo-6)" />
+              <Upload size={28} color={`var(--mantine-color-${getDocColor(docType)}-6)`} />
             </Dropzone.Accept>
             <Dropzone.Reject>
               <FileText size={28} color="var(--mantine-color-red-6)" />
             </Dropzone.Reject>
             <Dropzone.Idle>
-              <Upload size={28} color="var(--mantine-color-indigo-4)" />
+              <Upload size={28} color={`var(--mantine-color-${getDocColor(docType)}-4)`} />
             </Dropzone.Idle>
             <Text size="sm" c="dimmed" ta="center">
               {t.knowledge.dropPdfHere}
