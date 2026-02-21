@@ -7,6 +7,7 @@
 
 import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
+import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
 import {
   getAssignmentRepository,
   type AssignmentRepository,
@@ -105,6 +106,10 @@ export class AssignmentService {
 
   async rename(assignmentId: string, newTitle: string): Promise<void> {
     await this.repo.updateTitle(assignmentId, newTitle);
+  }
+
+  async updateMetadata(assignmentId: string, metadata: AssignmentMetadata): Promise<void> {
+    return this.repo.updateMetadata(assignmentId, metadata);
   }
 
   async reorder(assignmentId: string, orderedIds: string[]): Promise<void> {

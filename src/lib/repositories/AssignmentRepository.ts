@@ -9,6 +9,7 @@ import type {
   MatchedAssignmentItem,
 } from '@/lib/domain/models/Assignment';
 import { DatabaseError } from '@/lib/errors';
+import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
 import { createClient } from '@/lib/supabase/server';
 import type { Database, Json } from '@/types/database';
 
@@ -24,6 +25,7 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentEntity {
     courseId: (row.course_id as string) ?? null,
     status: row.status as 'draft' | 'ready',
     createdAt: row.created_at as string,
+    metadata: (row.metadata as AssignmentMetadata) ?? undefined,
   };
 }
 
@@ -374,6 +376,16 @@ export class AssignmentRepository implements IAssignmentRepository {
     const { error } = await supabase.from('assignments').update({ title }).eq('id', id);
     if (error)
       throw new DatabaseError(`Failed to update assignment title: ${error.message}`, error);
+  }
+
+  async updateMetadata(assignmentId: string, metadata: AssignmentMetadata): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('assignments')
+      .update({ metadata: metadata as unknown as Json })
+      .eq('id', assignmentId);
+    if (error)
+      throw new DatabaseError(`Failed to update assignment metadata: ${error.message}`, error);
   }
 
   async bulkUpdateOrder(assignmentId: string, orderedIds: string[]): Promise<void> {
