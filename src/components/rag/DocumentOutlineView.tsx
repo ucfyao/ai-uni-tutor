@@ -13,7 +13,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -31,6 +31,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import type { Json } from '@/types/database';
@@ -285,14 +286,16 @@ function SectionEditView({
   );
 }
 
-/* ── Inline Section Form (add new) ── */
+/* ── Add Section Form (modal content) ── */
 
-function InlineSectionForm({
+function AddSectionForm({
   onSave,
   onCancel,
+  t,
 }: {
   onSave: (title: string, content: string, summary: string) => Promise<void>;
   onCancel: () => void;
+  t: ReturnType<typeof useLanguage>['t'];
 }) {
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
@@ -312,72 +315,45 @@ function InlineSectionForm({
   };
 
   return (
-    <Card
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        borderStyle: 'dashed',
-        borderColor: 'var(--mantine-color-indigo-3)',
-        borderLeftWidth: 3,
-        borderLeftColor: 'var(--mantine-color-indigo-3)',
-      }}
-    >
-      <Stack gap="sm">
-        <Text size="sm" fw={600} c="indigo">
-          New Section
-        </Text>
-        <TextInput
-          label="Title"
-          placeholder="Section title"
-          value={title}
-          onChange={(e) => setTitle(e.currentTarget.value)}
-          required
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              onCancel();
-            }
-          }}
-        />
-        <TextInput
-          label="Summary"
-          placeholder="Summary (optional)"
-          value={summary}
-          onChange={(e) => setSummary(e.currentTarget.value)}
-        />
-        <Textarea
-          label="Content"
-          placeholder="Section content..."
-          value={content}
-          onChange={(e) => setContent(e.currentTarget.value)}
-          minRows={3}
-          autosize
-          maxRows={10}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              onCancel();
-            }
-          }}
-        />
-        <Group justify="flex-end" gap="sm">
-          <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button
-            color="indigo"
-            size="compact-sm"
-            onClick={handleSave}
-            loading={saving}
-            disabled={!title.trim()}
-          >
-            Add Section
-          </Button>
-        </Group>
-      </Stack>
-    </Card>
+    <Stack gap="sm">
+      <TextInput
+        label="Title"
+        placeholder="Section title"
+        value={title}
+        onChange={(e) => setTitle(e.currentTarget.value)}
+        required
+        autoFocus
+      />
+      <TextInput
+        label="Summary"
+        placeholder="Summary (optional)"
+        value={summary}
+        onChange={(e) => setSummary(e.currentTarget.value)}
+      />
+      <Textarea
+        label="Content"
+        placeholder="Section content..."
+        value={content}
+        onChange={(e) => setContent(e.currentTarget.value)}
+        minRows={3}
+        autosize
+        maxRows={10}
+      />
+      <Group justify="flex-end" gap="sm">
+        <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
+          {t.common.cancel}
+        </Button>
+        <Button
+          color="indigo"
+          size="compact-sm"
+          onClick={handleSave}
+          loading={saving}
+          disabled={!title.trim()}
+        >
+          {t.documentDetail.addSection}
+        </Button>
+      </Group>
+    </Stack>
   );
 }
 
@@ -707,7 +683,6 @@ export function DocumentOutlineView({
   onAddSection,
 }: DocumentOutlineViewProps) {
   const { t } = useLanguage();
-  const addSectionRef = useRef<HTMLDivElement>(null);
 
   const interactive = !!(onToggleSelect || onSaveSection || onDelete);
 
@@ -742,13 +717,6 @@ export function DocumentOutlineView({
   const toggleAll = useCallback(() => {
     setExpandedIds(allExpanded ? new Set() : new Set(allIds));
   }, [allExpanded, allIds]);
-
-  // Scroll to add section form when opened
-  useEffect(() => {
-    if (addSectionOpen && addSectionRef.current) {
-      addSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, [addSectionOpen]);
 
   // Build a lookup from outline for enriching old-format chunks
   const outlineKPMap = new Map<string, KPItem[]>();
@@ -866,10 +834,44 @@ export function DocumentOutlineView({
       )}
 
       {/* Empty state */}
-      {chunks.length === 0 && (
-        <Text c="dimmed" ta="center" py="xl">
-          No content yet
-        </Text>
+      {chunks.length === 0 && !addSectionOpen && (
+        <Card withBorder radius="lg" p="xl" py={40}>
+          <Stack align="center" gap="md">
+            <Box
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background:
+                  'light-dark(var(--mantine-color-indigo-0), color-mix(in srgb, var(--mantine-color-indigo-9) 15%, var(--mantine-color-dark-6)))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <FileText size={24} color="var(--mantine-color-indigo-4)" />
+            </Box>
+            <Stack align="center" gap={4}>
+              <Text size="md" fw={600}>
+                {t.documentDetail.emptyTableTitle}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {t.documentDetail.emptyTableHint}
+              </Text>
+            </Stack>
+            {onAddSection && (
+              <Button
+                variant="light"
+                color="indigo"
+                size="sm"
+                leftSection={<Plus size={16} />}
+                onClick={onToggleAddSection}
+              >
+                {t.documentDetail.addManually}
+              </Button>
+            )}
+          </Stack>
+        </Card>
       )}
 
       {/* Section list */}
@@ -902,33 +904,20 @@ export function DocumentOutlineView({
         );
       })}
 
-      {/* Add Section: inline form or placeholder button */}
-      {onAddSection &&
-        (addSectionOpen ? (
-          <div ref={addSectionRef}>
-            <InlineSectionForm onSave={onAddSection} onCancel={() => onToggleAddSection?.()} />
-          </div>
-        ) : (
-          <UnstyledButton onClick={onToggleAddSection} style={{ width: '100%' }}>
-            <Card
-              padding="md"
-              radius="md"
-              withBorder
-              style={{
-                borderStyle: 'dashed',
-                borderColor: 'var(--mantine-color-gray-4)',
-                cursor: 'pointer',
-              }}
-            >
-              <Group gap="xs" justify="center">
-                <Plus size={16} color="var(--mantine-color-indigo-5)" />
-                <Text size="sm" c="indigo" fw={500}>
-                  Add Section
-                </Text>
-              </Group>
-            </Card>
-          </UnstyledButton>
-        ))}
+      {/* Add Section modal */}
+      {onAddSection && (
+        <FullScreenModal
+          opened={!!addSectionOpen}
+          onClose={() => onToggleAddSection?.()}
+          title={t.documentDetail.addSection}
+          radius="lg"
+          centered
+          size="lg"
+          padding="md"
+        >
+          <AddSectionForm onSave={onAddSection} onCancel={() => onToggleAddSection?.()} t={t} />
+        </FullScreenModal>
+      )}
     </Stack>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BookOpen, Check, Lightbulb, Pencil, Plus, Upload } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Lightbulb, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -509,6 +509,19 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
               />
             </Box>
           </Tooltip>
+          <Box
+            style={{
+              width: 1,
+              height: 20,
+              background: 'var(--mantine-color-default-border)',
+              flexShrink: 0,
+            }}
+          />
+          <Tooltip label={t.documentDetail.deleteDocument}>
+            <ActionIcon variant="subtle" color="red" size="md" onClick={handleDeleteDoc}>
+              <Trash2 size={16} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </Group>
     ),
@@ -525,6 +538,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       chunks.length,
       totalKPs,
       showUpload,
+      handleDeleteDoc,
       t,
     ],
   );
