@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Center, Loader, Stack, Text } from '@mantine/core';
+import { Anchor, Button, Center, Loader, Stack, Text, Title } from '@mantine/core';
 import {
   getChatMessages,
   getChatSession,
@@ -21,7 +21,7 @@ import { ChatSession } from '@/types';
 
 interface LectureClientProps {
   id: string;
-  initialSession: ChatSession;
+  initialSession: ChatSession | null;
 }
 
 export default function LectureClient({ id, initialSession }: LectureClientProps) {
@@ -54,8 +54,15 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
   useEffect(() => {
     if (!id) return;
 
+    // Server already determined session doesn't exist
+    if (!initialSession) {
+      setSession(null);
+      setLoading(false);
+      return;
+    }
+
     // If initialSession matches the current id, we don't need to fetch
-    if (initialSession && initialSession.id === id) {
+    if (initialSession.id === id) {
       // Check if we need to update messages from sidebar list?
       // For now, assume initialSession is fresh from server.
       // But we still want to respect savedMsgIdsRef initialization
@@ -221,12 +228,20 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
   // Not found state
   if (!session) {
     return (
-      <Center h="100vh">
+      <Center h="100%">
         <Stack align="center" gap="md" ta="center">
-          <Text size="xl" fw={700}>
-            Session Not Found
+          <Title order={1} size={80} c="gray.3" style={{ lineHeight: 1 }}>
+            404
+          </Title>
+          <Title order={2}>Session Not Found</Title>
+          <Text c="dimmed" maw={400}>
+            The session you are looking for does not exist or you do not have permission to view it.
           </Text>
-          <Text c="dimmed">This lecture session could not be found.</Text>
+          <Anchor href="/study" underline="never">
+            <Button variant="light" color="indigo" mt="md">
+              Back to Study
+            </Button>
+          </Anchor>
         </Stack>
       </Center>
     );
