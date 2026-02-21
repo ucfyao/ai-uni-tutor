@@ -1,23 +1,26 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Cpu, CreditCard, Database, RefreshCw } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { AlertCircle, Cpu, CreditCard, Database, LayoutDashboard, RefreshCw } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import {
   ActionIcon,
   Alert,
   Badge,
+  Box,
   Card,
   Divider,
   Group,
   Loader,
   Progress,
+  ScrollArea,
   SimpleGrid,
   Stack,
   Text,
-  Title,
   Tooltip,
 } from '@mantine/core';
+import { useHeader } from '@/context/HeaderContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // ---------------------------------------------------------------------------
 // Types matching AdminDashboardService response
@@ -314,70 +317,133 @@ function ServiceCard<T>({
 export function DashboardClient() {
   const queryClient = useQueryClient();
   const isFetching = queryClient.isFetching({ queryKey: ['admin-dashboard'] }) > 0;
+  const isMobile = useIsMobile();
+  const { setHeaderContent } = useHeader();
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
   };
 
-  return (
-    <Stack gap="lg" p="lg" maw={1200} mx="auto">
-      {/* Header */}
-      <Group justify="space-between" align="center">
-        <Title order={3}>API Dashboard</Title>
-        <Tooltip label="Refresh">
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            onClick={handleRefresh}
-            loading={isFetching}
-            aria-label="Refresh dashboard"
-          >
-            <RefreshCw size={16} />
-          </ActionIcon>
-        </Tooltip>
+  const headerNode = useMemo(
+    () => (
+      <Group gap={8} align="center" wrap="nowrap" px={isMobile ? 6 : 8} py={isMobile ? 4 : 6}>
+        <LayoutDashboard
+          size={isMobile ? 18 : 20}
+          color="var(--mantine-color-indigo-5)"
+        />
+        <Text fw={650} size={isMobile ? 'md' : 'lg'}>
+          API Dashboard
+        </Text>
       </Group>
+    ),
+    [isMobile],
+  );
 
-      {/* Cards grid — each card fetches independently */}
-      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-        <ServiceCard<StripeData | { error: string }>
-          queryKey="stripe"
-          service="stripe"
-          icon={<CreditCard size={18} color="var(--mantine-color-violet-5)" />}
-          title="Stripe"
-          badgeLabel="Payment"
-          badgeColor="violet"
-        >
-          {(data) =>
-            isError(data) ? <CardError message={data.error} /> : <StripeContent data={data} />
-          }
-        </ServiceCard>
+  useEffect(() => {
+    if (isMobile) {
+      setHeaderContent(headerNode);
+    } else {
+      setHeaderContent(null);
+    }
+    return () => setHeaderContent(null);
+  }, [isMobile, headerNode, setHeaderContent]);
 
-        <ServiceCard<UpstashData | { error: string }>
-          queryKey="upstash"
-          service="upstash"
-          icon={<Database size={18} color="var(--mantine-color-teal-5)" />}
-          title="Upstash"
-          badgeLabel="Cache"
-          badgeColor="teal"
+  return (
+    <Box
+      h="100%"
+      style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+    >
+      {/* Desktop Header */}
+      {!isMobile && (
+        <Box
+          px="md"
+          h={52}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            flexShrink: 0,
+          }}
         >
-          {(data) =>
-            isError(data) ? <CardError message={data.error} /> : <UpstashContent data={data} />
-          }
-        </ServiceCard>
+          {headerNode}
+          <Tooltip label="Refresh">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={handleRefresh}
+              loading={isFetching}
+              aria-label="Refresh dashboard"
+            >
+              <RefreshCw size={16} />
+            </ActionIcon>
+          </Tooltip>
+        </Box>
+      )}
 
-        <ServiceCard<GeminiData | { error: string }>
-          queryKey="gemini"
-          service="gemini"
-          icon={<Cpu size={18} color="var(--mantine-color-blue-5)" />}
-          title="Gemini"
-          badgeLabel="LLM"
-          badgeColor="blue"
-        >
-          {(data) =>
-            isError(data) ? <CardError message={data.error} /> : <GeminiContent data={data} />
-          }
-        </ServiceCard>
-      </SimpleGrid>
-    </Stack>
+      {/* Scrollable Content */}
+      <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
+        <Stack gap="lg" p="lg" maw={1200} mx="auto">
+          {/* Mobile: show refresh button inline since header only has title */}
+          {isMobile && (
+            <Group justify="flex-end">
+              <Tooltip label="Refresh">
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  onClick={handleRefresh}
+                  loading={isFetching}
+                  aria-label="Refresh dashboard"
+                >
+                  <RefreshCw size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          )}
+
+          {/* Cards grid — each card fetches independently */}
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+            <ServiceCard<StripeData | { error: string }>
+              queryKey="stripe"
+              service="stripe"
+              icon={<CreditCard size={18} color="var(--mantine-color-violet-5)" />}
+              title="Stripe"
+              badgeLabel="Payment"
+              badgeColor="violet"
+            >
+              {(data) =>
+                isError(data) ? <CardError message={data.error} /> : <StripeContent data={data} />
+              }
+            </ServiceCard>
+
+            <ServiceCard<UpstashData | { error: string }>
+              queryKey="upstash"
+              service="upstash"
+              icon={<Database size={18} color="var(--mantine-color-teal-5)" />}
+              title="Upstash"
+              badgeLabel="Cache"
+              badgeColor="teal"
+            >
+              {(data) =>
+                isError(data) ? <CardError message={data.error} /> : <UpstashContent data={data} />
+              }
+            </ServiceCard>
+
+            <ServiceCard<GeminiData | { error: string }>
+              queryKey="gemini"
+              service="gemini"
+              icon={<Cpu size={18} color="var(--mantine-color-blue-5)" />}
+              title="Gemini"
+              badgeLabel="LLM"
+              badgeColor="blue"
+            >
+              {(data) =>
+                isError(data) ? <CardError message={data.error} /> : <GeminiContent data={data} />
+              }
+            </ServiceCard>
+          </SimpleGrid>
+        </Stack>
+      </ScrollArea>
+    </Box>
   );
 }
