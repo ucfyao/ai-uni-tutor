@@ -9,6 +9,7 @@ export const queryKeys = {
   documents: {
     all: ['documents'] as const,
     byType: (docType: string) => ['documents', docType] as const,
+    stats: (docType: string, ids: string[]) => ['documents', 'stats', docType, ids] as const,
   },
   sessions: {
     all: ['sessions'] as const,

@@ -62,6 +62,8 @@ interface AssignmentOutlineViewProps {
   /** Controlled add-form visibility (from parent header button). */
   addFormOpen?: boolean;
   onAddFormOpenChange?: (open: boolean) => void;
+  onMerge?: () => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
 }
 
 /* ── Constants ── */
@@ -209,12 +211,14 @@ function ItemEditForm({
   editedItems,
   onSave,
   onCancel,
+  onSplit,
   t,
 }: {
   item: AssignmentItemEntity;
   editedItems: Map<string, { content: string; metadata: Record<string, unknown> }>;
   onSave: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onCancel: () => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const edited = editedItems.get(item.id);
@@ -247,14 +251,13 @@ function ItemEditForm({
 
   return (
     <Stack gap="sm" p="sm">
-      <Textarea
+      <MarkdownToggleField
         label={t.documentDetail.content}
         value={content}
-        onChange={(e) => setContent(e.currentTarget.value)}
+        onChange={setContent}
         minRows={2}
-        autosize
         maxRows={8}
-        autoFocus
+        t={t}
       />
       <MarkdownToggleField
         label={t.documentDetail.answer}
@@ -296,6 +299,22 @@ function ItemEditForm({
         />
       </Group>
       <Group justify="flex-end" gap="sm">
+        {onSplit && (
+          <Button
+            variant="subtle"
+            color="orange"
+            size="compact-sm"
+            onClick={() => {
+              const parts = content.split(/\n---\n/);
+              if (parts.length >= 2) {
+                onSplit(item.id, [parts[0].trim(), parts.slice(1).join('\n---\n').trim()]);
+              }
+            }}
+            disabled={!content.includes('\n---\n')}
+          >
+            {t.knowledge.split}
+          </Button>
+        )}
         <Button variant="subtle" color="gray" size="compact-sm" onClick={onCancel}>
           {t.common.cancel}
         </Button>
@@ -452,6 +471,7 @@ function ItemCard({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  onSplit,
   t,
 }: {
   item: AssignmentItemEntity;
@@ -464,6 +484,7 @@ function ItemCard({
   onCancelEdit: () => void;
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -489,7 +510,13 @@ function ItemCard({
         background: isSelected
           ? 'light-dark(var(--mantine-color-indigo-0), var(--mantine-color-indigo-9))'
           : 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
-        border: `1px solid ${isSelected ? 'light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))' : 'var(--mantine-color-default-border)'}`,
+        border: `1px solid ${
+          isSelected
+            ? 'light-dark(var(--mantine-color-indigo-2), var(--mantine-color-indigo-7))'
+            : item.warnings && item.warnings.length > 0
+              ? 'var(--mantine-color-orange-3)'
+              : 'var(--mantine-color-default-border)'
+        }`,
         transition: 'all 0.15s ease',
       }}
     >
@@ -499,6 +526,7 @@ function ItemCard({
           editedItems={editedItems}
           onSave={onSaveEdit}
           onCancel={onCancelEdit}
+          onSplit={onSplit}
           t={t}
         />
       ) : (
@@ -528,6 +556,20 @@ function ItemCard({
                 style={{ flexShrink: 0 }}
               >
                 {(t.knowledge.difficulties as TranslationMap)[difficulty] ?? difficulty}
+              </Badge>
+            )}
+            {item.warnings && item.warnings.length > 0 && (
+              <Badge
+                size="xs"
+                variant="light"
+                color="orange"
+                style={{ flexShrink: 0, cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded((v) => !v);
+                }}
+              >
+                ⚠ {item.warnings.length}
               </Badge>
             )}
             {item.points > 0 && (
@@ -585,6 +627,22 @@ function ItemCard({
               <MarkdownRenderer content={displayExplanation} compact />
             </Box>
           )}
+
+          {/* Warnings */}
+          {item.warnings && item.warnings.length > 0 && expanded && (
+            <Box mt={2} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-orange-3)' }}>
+              <Text size="xs" fw={600} c="orange" mb={2}>
+                {t.knowledge.hasWarnings}
+              </Text>
+              <Stack gap={2}>
+                {item.warnings.map((w, i) => (
+                  <Text key={i} size="xs" c="dimmed">
+                    • {w}
+                  </Text>
+                ))}
+              </Stack>
+            </Box>
+          )}
         </Stack>
       )}
     </Box>
@@ -607,6 +665,7 @@ function SectionCard({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  onSplit,
   t,
 }: {
   sectionName: string;
@@ -622,6 +681,7 @@ function SectionCard({
   onCancelEdit: () => void;
   onSaveEdit: (id: string, content: string, metadata: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
+  onSplit?: (itemId: string, splitContent: [string, string]) => void;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const visibleCount = sectionItems.filter((i) => !deletedItemIds.has(i.id)).length;
@@ -689,6 +749,7 @@ function SectionCard({
               onCancelEdit={onCancelEdit}
               onSaveEdit={onSaveEdit}
               onDelete={onDelete}
+              onSplit={onSplit}
               t={t}
             />
           ))}
@@ -719,6 +780,8 @@ export function AssignmentOutlineView({
   isAddingItem,
   addFormOpen,
   onAddFormOpenChange,
+  onMerge,
+  onSplit,
 }: AssignmentOutlineViewProps) {
   const { t } = useLanguage();
 
@@ -726,6 +789,7 @@ export function AssignmentOutlineView({
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [warningFilter, setWarningFilter] = useState(false);
   const [internalAddForm, setInternalAddForm] = useState(false);
 
   // Use controlled state from parent when provided, otherwise internal
@@ -769,11 +833,15 @@ export function AssignmentOutlineView({
       result = result.filter((i) => typeFilter.includes(getType(i)));
     }
 
+    if (warningFilter) {
+      result = result.filter((i) => i.warnings && i.warnings.length > 0);
+    }
+
     return result;
-  }, [liveItems, search, difficultyFilter, typeFilter]);
+  }, [liveItems, search, difficultyFilter, typeFilter, warningFilter]);
 
   const hasActiveFilters =
-    search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0;
+    search.trim() !== '' || difficultyFilter.length > 0 || typeFilter.length > 0 || warningFilter;
 
   // Group by section
   const sections = useMemo(() => {
@@ -823,6 +891,7 @@ export function AssignmentOutlineView({
     setSearch('');
     setDifficultyFilter([]);
     setTypeFilter([]);
+    setWarningFilter(false);
   };
 
   return (
@@ -924,6 +993,10 @@ export function AssignmentOutlineView({
                     </Group>
                   </Box>
                   <Menu.Divider />
+                  <Menu.Item onClick={() => onMerge?.()} disabled={selectedCount < 2}>
+                    {t.knowledge.merge} ({selectedCount})
+                  </Menu.Item>
+                  <Menu.Divider />
                   <Menu.Item color="red" leftSection={<Trash2 size={14} />} onClick={onBulkDelete}>
                     {t.common.delete} ({selectedCount})
                   </Menu.Item>
@@ -985,6 +1058,14 @@ export function AssignmentOutlineView({
                 style={{ minWidth: 160 }}
               />
             )}
+            <Button
+              variant={warningFilter ? 'filled' : 'light'}
+              color="orange"
+              size="compact-xs"
+              onClick={() => setWarningFilter((v) => !v)}
+            >
+              ⚠ {t.knowledge.hasWarnings}
+            </Button>
             {hasActiveFilters && (
               <Text size="xs" c="dimmed">
                 {filteredItems.length} {t.knowledge.results}
@@ -1018,6 +1099,7 @@ export function AssignmentOutlineView({
           onCancelEdit={onCancelEdit}
           onSaveEdit={onSaveEdit}
           onDelete={onDelete}
+          onSplit={onSplit}
           t={t}
         />
       ))}

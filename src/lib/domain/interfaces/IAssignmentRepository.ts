@@ -40,6 +40,7 @@ export interface IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     }>,
   ): Promise<void>;
 
@@ -56,9 +57,11 @@ export interface IAssignmentRepository {
       difficulty?: string;
       metadata?: Record<string, unknown>;
       embedding?: number[] | null;
+      warnings?: string[];
     },
   ): Promise<AssignmentItemEntity>;
 
+  findItemById(itemId: string): Promise<AssignmentItemEntity | null>;
   findItemsByAssignmentId(assignmentId: string): Promise<AssignmentItemEntity[]>;
   searchItemsByEmbedding(
     embedding: number[],
@@ -81,4 +84,7 @@ export interface IAssignmentRepository {
   deleteItemsByAssignmentId(assignmentId: string): Promise<void>;
   verifyItemsBelongToAssignment(itemIds: string[], assignmentId: string): Promise<boolean>;
   updateItemEmbedding(itemId: string, embedding: number[]): Promise<void>;
+  getStats(
+    assignmentIds: string[],
+  ): Promise<Map<string, { itemCount: number; withAnswer: number; warningCount: number }>>;
 }

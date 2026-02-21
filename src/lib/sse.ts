@@ -16,6 +16,7 @@ interface SSEItemEvent {
   index: number;
   type: 'knowledge_point' | 'question';
   data: KnowledgePoint | ParsedQuestion | EnrichedAssignmentItem;
+  warnings?: string[];
 }
 
 interface SSEBatchSavedEvent {

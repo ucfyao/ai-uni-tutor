@@ -1,7 +1,17 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Pencil, Plus, Save, Send, Trash2, Upload } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  ListChecks,
+  Pencil,
+  Plus,
+  Save,
+  Send,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -16,6 +26,7 @@ import {
   ScrollArea,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Tooltip,
 } from '@mantine/core';
@@ -25,6 +36,7 @@ import {
   saveAssignmentChanges,
   unpublishAssignment,
 } from '@/app/actions/assignments';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { AssignmentOutlineView } from '@/components/rag/AssignmentOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
@@ -50,6 +62,21 @@ function statusColor(status: string): string {
   }
 }
 
+function parseAnswerText(text: string): Array<{ orderNum: number; answer: string }> {
+  const results: Array<{ orderNum: number; answer: string }> = [];
+  const pattern = /(?:^|\n)\s*(?:Q|第)?(\d+)[.):\s:、题]+\s*/gi;
+  const matches = [...text.matchAll(pattern)];
+
+  for (let i = 0; i < matches.length; i++) {
+    const orderNum = parseInt(matches[i][1], 10);
+    const start = matches[i].index! + matches[i][0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+    const answer = text.slice(start, end).trim();
+    if (answer) results.push({ orderNum, answer });
+  }
+  return results;
+}
+
 /* ── Component ── */
 
 interface AssignmentDetailClientProps {
@@ -69,10 +96,16 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const courseId = assignment.courseId || '';
 
   /* -- use hook for data management -- */
-  const { items, addItem, isAddingItem, rename, invalidateItems } = useAssignmentItems(
-    assignment.id,
-    initialItems,
-  );
+  const {
+    items,
+    addItem,
+    isAddingItem,
+    rename,
+    merge,
+    split,
+    batchUpdateAnswers: batchAnswers,
+    invalidateItems,
+  } = useAssignmentItems(assignment.id, initialItems);
 
   /* -- editing state -- */
   const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
@@ -86,6 +119,8 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [showUploadZone, setShowUploadZone] = useState(initialItems.length === 0);
   const [addFormOpen, setAddFormOpen] = useState(false);
+  const [answerModalOpen, setAnswerModalOpen] = useState(false);
+  const [answerText, setAnswerText] = useState('');
 
   /* -- inline name editing -- */
   const [editingName, setEditingName] = useState(false);
@@ -97,6 +132,15 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
     [items, deletedChunkIds],
   );
   const pendingChanges = editedChunks.size + deletedChunkIds.size;
+
+  const parsedAnswers = useMemo(() => {
+    if (!answerText.trim()) return [];
+    const parsed = parseAnswerText(answerText);
+    return parsed.map((p) => {
+      const item = items.find((i) => i.orderNum === p.orderNum);
+      return { ...p, itemId: item?.id ?? null, matched: !!item };
+    });
+  }, [answerText, items]);
 
   /* -- editing handlers -- */
   const handleSaveEdit = useCallback(
@@ -191,6 +235,32 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
     },
     [selectedIds, items],
   );
+
+  /* -- merge / split handlers -- */
+  const handleMerge = useCallback(async () => {
+    if (selectedIds.size < 2) return;
+    await merge(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  }, [selectedIds, merge]);
+
+  const handleSplit = useCallback(
+    async (itemId: string, splitContent: [string, string]) => {
+      await split({ itemId, splitContent });
+      setEditingChunkId(null);
+    },
+    [split],
+  );
+
+  /* -- batch answer matching handler -- */
+  const handleApplyAnswers = useCallback(async () => {
+    const matched = parsedAnswers.filter(
+      (p): p is typeof p & { itemId: string } => p.itemId !== null,
+    );
+    if (matched.length === 0) return;
+    await batchAnswers(matched.map((m) => ({ itemId: m.itemId, referenceAnswer: m.answer })));
+    setAnswerModalOpen(false);
+    setAnswerText('');
+  }, [parsedAnswers, batchAnswers]);
 
   /* -- save changes handler -- */
   const handleSaveChanges = useCallback(async () => {
@@ -326,6 +396,16 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
         <Tooltip label={t.documentDetail.addManually}>
           <ActionIcon variant="default" color="gray" size="md" onClick={() => setAddFormOpen(true)}>
             <Plus size={16} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label={t.knowledge.batchAnswers}>
+          <ActionIcon
+            variant="default"
+            color="gray"
+            size="md"
+            onClick={() => setAnswerModalOpen(true)}
+          >
+            <ListChecks size={16} />
           </ActionIcon>
         </Tooltip>
 
@@ -545,6 +625,8 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
             isAddingItem={isAddingItem}
             addFormOpen={addFormOpen}
             onAddFormOpenChange={setAddFormOpen}
+            onMerge={handleMerge}
+            onSplit={handleSplit}
           />
         </Stack>
       </ScrollArea>
@@ -592,6 +674,70 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
           </Button>
         </Group>
       </Modal>
+
+      {/* Batch answer matching modal */}
+      <FullScreenModal
+        opened={answerModalOpen}
+        onClose={() => setAnswerModalOpen(false)}
+        title={t.knowledge.batchAnswers}
+        centered
+        size="lg"
+        radius="lg"
+      >
+        <Stack gap="md">
+          <Textarea
+            placeholder={t.knowledge.pasteAnswersHere}
+            minRows={6}
+            maxRows={12}
+            autosize
+            value={answerText}
+            onChange={(e) => setAnswerText(e.currentTarget.value)}
+          />
+          {parsedAnswers.length > 0 && (
+            <>
+              <Text fz="sm" fw={600}>
+                {t.knowledge.matchPreview}
+              </Text>
+              <Stack gap={4}>
+                {parsedAnswers.map((p, i) => (
+                  <Group key={i} gap="xs" wrap="nowrap">
+                    <Badge
+                      variant="light"
+                      color={p.matched ? 'green' : 'red'}
+                      size="sm"
+                      style={{ flexShrink: 0 }}
+                    >
+                      Q{p.orderNum}
+                    </Badge>
+                    <Text fz="xs" truncate style={{ flex: 1 }}>
+                      {p.answer.slice(0, 100)}
+                      {p.answer.length > 100 ? '…' : ''}
+                    </Text>
+                    {!p.matched && (
+                      <Badge variant="light" color="red" size="xs" style={{ flexShrink: 0 }}>
+                        {t.knowledge.unmatched}
+                      </Badge>
+                    )}
+                  </Group>
+                ))}
+              </Stack>
+            </>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={() => setAnswerModalOpen(false)} radius="md">
+              {t.common.cancel}
+            </Button>
+            <Button
+              color="indigo"
+              radius="md"
+              disabled={parsedAnswers.filter((p) => p.matched).length === 0}
+              onClick={handleApplyAnswers}
+            >
+              {t.knowledge.applyMatches} ({parsedAnswers.filter((p) => p.matched).length})
+            </Button>
+          </Group>
+        </Stack>
+      </FullScreenModal>
     </Box>
   );
 }

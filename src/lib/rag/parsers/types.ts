@@ -110,6 +110,7 @@ export interface EnrichedAssignmentItem {
   difficulty: string;
   section: string;
   sourcePages: number[];
+  warnings?: string[];
 }
 
 export interface ParseAssignmentResult {

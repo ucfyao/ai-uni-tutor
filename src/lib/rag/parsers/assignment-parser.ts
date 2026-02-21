@@ -1,6 +1,7 @@
 import 'server-only';
 import type { PDFPage } from '@/lib/pdf';
 import { extractAssignmentQuestions } from './assignment-extractor';
+import { validateAssignmentItems } from './assignment-validator';
 import type { AssignmentOutline, ParseAssignmentResult, PipelineProgress } from './types';
 
 interface ParseAssignmentOptions {
@@ -53,6 +54,15 @@ export async function parseAssignment(
 
   const extraction = await extractAssignmentQuestions(pages, options?.signal);
   const { sections, items, warnings } = extraction;
+
+  // Per-item validation
+  const itemWarnings = validateAssignmentItems(items);
+  for (const item of items) {
+    const w = itemWarnings.get(item.orderNum);
+    if (w && w.length > 0) {
+      item.warnings = w;
+    }
+  }
 
   if (items.length === 0) {
     reportProgress(options, 100, 'No questions found');
