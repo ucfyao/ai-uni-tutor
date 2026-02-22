@@ -193,40 +193,48 @@ export async function getLLMUsage(userId: string) {
   return usage || 0;
 }
 
-/**
- * Increment per-model platform-wide usage counter.
- * Key: stats:llm:{model}:{YYYY-MM-DD}, expires after 31 days.
- */
-export async function incrementModelStats(model: string): Promise<void> {
+// ==================== Gemini Key Pool State ====================
+
+const POOL_KEY = 'gemini:pool';
+const POOL_TTL_S = 31 * 24 * 60 * 60; // 31 days
+
+export interface PoolState {
+  cd: number[];
+  stats: Record<string, number>;
+}
+
+export async function loadPoolState(): Promise<PoolState> {
   try {
-    const date = new Date().toISOString().split('T')[0];
-    const key = `stats:llm:${model}:${date}`;
-    const r = getRedis();
-    await r.incr(key);
-    await r.expire(key, 31 * 86400);
-  } catch (error) {
-    console.error('[Redis] Failed to increment model stats:', error);
+    return (await getRedis().get<PoolState>(POOL_KEY)) ?? { cd: [], stats: {} };
+  } catch {
+    return { cd: [], stats: {} };
+  }
+}
+
+export async function savePoolState(state: PoolState): Promise<void> {
+  try {
+    await getRedis().set(POOL_KEY, state, { ex: POOL_TTL_S });
+  } catch {
+    // Redis unavailable — fail-open
   }
 }
 
 /**
- * Get per-model usage stats: today's count + monthly total.
+ * Get per-model usage stats from the unified pool state.
  */
 export async function getModelStats(model: string): Promise<{ today: number; monthly: number }> {
-  const r = getRedis();
+  const state = await loadPoolState();
   const today = new Date().toISOString().split('T')[0];
-  const monthPrefix = today.slice(0, 7); // "YYYY-MM"
+  const monthPrefix = today.slice(0, 7);
 
-  const [todayCount, keys] = await Promise.all([
-    r.get<number>(`stats:llm:${model}:${today}`),
-    r.keys(`stats:llm:${model}:${monthPrefix}-*`),
-  ]);
+  const todayCount = state.stats[`${model}:${today}`] ?? 0;
 
   let monthly = 0;
-  if (keys.length > 0) {
-    const values = await r.mget<(number | null)[]>(...keys);
-    monthly = values.reduce<number>((sum, v) => sum + (v || 0), 0);
+  for (const [key, count] of Object.entries(state.stats)) {
+    if (key.startsWith(`${model}:${monthPrefix}`)) {
+      monthly += count;
+    }
   }
 
-  return { today: todayCount || 0, monthly };
+  return { today: todayCount, monthly };
 }

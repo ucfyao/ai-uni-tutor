@@ -7,7 +7,6 @@ import { QuotaService } from './QuotaService';
 vi.mock('@/lib/redis', () => ({
   checkLLMUsage: vi.fn(),
   getLLMUsage: vi.fn(),
-  incrementModelStats: vi.fn().mockResolvedValue(undefined),
   llmFreeRatelimit: { limit: vi.fn().mockResolvedValue({ success: true }) },
   llmProRatelimit: { limit: vi.fn().mockResolvedValue({ success: true }) },
 }));
@@ -184,45 +183,5 @@ describe('QuotaService', () => {
     );
 
     consoleSpy.mockRestore();
-  });
-
-  it('should increment model stats when quota check succeeds and model is provided', async () => {
-    const mockSupabase = {
-      from: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: { subscription_status: 'inactive' } }),
-    } as unknown as MockSupabaseClient;
-    vi.mocked(supabaseServer.createClient).mockResolvedValue(mockSupabase as any);
-
-    vi.mocked(redisLib.checkLLMUsage).mockResolvedValue({
-      success: true,
-      count: 1,
-      remaining: 9,
-    });
-
-    await quotaService.checkAndConsume('user-123', 'gemini-2.5-flash');
-
-    expect(redisLib.incrementModelStats).toHaveBeenCalledWith('gemini-2.5-flash');
-  });
-
-  it('should NOT increment model stats when model is not provided', async () => {
-    const mockSupabase = {
-      from: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: { subscription_status: 'inactive' } }),
-    } as unknown as MockSupabaseClient;
-    vi.mocked(supabaseServer.createClient).mockResolvedValue(mockSupabase as any);
-
-    vi.mocked(redisLib.checkLLMUsage).mockResolvedValue({
-      success: true,
-      count: 1,
-      remaining: 9,
-    });
-
-    await quotaService.checkAndConsume('user-123');
-
-    expect(redisLib.incrementModelStats).not.toHaveBeenCalled();
   });
 });

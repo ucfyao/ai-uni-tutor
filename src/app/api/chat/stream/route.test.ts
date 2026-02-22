@@ -434,7 +434,7 @@ describe('POST /api/chat/stream', () => {
       const response = await POST(makeRequest(VALID_BODY));
       await readStream(response);
 
-      expect(mockQuotaService.checkAndConsume).toHaveBeenCalledWith('user-1', expect.any(String));
+      expect(mockQuotaService.checkAndConsume).toHaveBeenCalledWith('user-1');
     });
 
     it('passes parsed options to chatService.generateStream', async () => {
