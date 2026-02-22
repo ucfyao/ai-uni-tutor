@@ -295,6 +295,7 @@ export const translations = {
       emptyAssignmentTitle: '还没有作业',
       emptyAssignmentCTA: '添加第一份作业',
       items: '条目',
+      outline: '大纲',
       uploadCTA: '上传文档',
       processingDocument: '正在处理文档...',
       bulkDelete: '批量删除',
@@ -383,6 +384,12 @@ export const translations = {
       needsReview: '需要校对',
       noAnswers: '无答案',
       answersUpdated: '{count} 个答案已更新',
+      editLecture: '编辑讲义',
+      editExam: '编辑试卷',
+      editAssignment: '编辑作业',
+      editDocument: '编辑',
+      save: '保存',
+      updateSuccess: '更新成功',
     },
     documentDetail: {
       backToKnowledge: '返回知识库',
@@ -427,6 +434,7 @@ export const translations = {
       explanation: '解释',
       difficulty: '难度',
       items: '题目',
+      outline: '大纲',
       sourcePages: '来源页码',
       emptyTableTitle: '暂无内容',
       emptyTableHint: '请上传 PDF 或手动添加',
@@ -574,6 +582,7 @@ export const translations = {
       delete: '删除',
       confirm: '确认',
       close: '关闭',
+      edit: '编辑',
     },
     // Pricing Page
     pricing: {
@@ -1137,6 +1146,7 @@ export const translations = {
       emptyAssignmentTitle: 'No assignments yet',
       emptyAssignmentCTA: 'Add your first assignment',
       items: 'Items',
+      outline: 'Outline',
       uploadCTA: 'Upload Document',
       processingDocument: 'Processing document...',
       bulkDelete: 'Delete Selected',
@@ -1227,6 +1237,12 @@ export const translations = {
       needsReview: 'Needs review',
       noAnswers: 'No answers',
       answersUpdated: '{count} answers updated',
+      editLecture: 'Edit Lecture',
+      editExam: 'Edit Exam',
+      editAssignment: 'Edit Assignment',
+      editDocument: 'Edit',
+      save: 'Save',
+      updateSuccess: 'Updated successfully',
     },
     documentDetail: {
       backToKnowledge: 'Back to Knowledge Base',
@@ -1271,6 +1287,7 @@ export const translations = {
       explanation: 'Explanation',
       difficulty: 'Difficulty',
       items: 'Items',
+      outline: 'Outline',
       sourcePages: 'Pages',
       emptyTableTitle: 'No content yet',
       emptyTableHint: 'Upload a PDF or add manually',
@@ -1422,6 +1439,7 @@ export const translations = {
       delete: 'Delete',
       confirm: 'Confirm',
       close: 'Close',
+      edit: 'Edit',
     },
     // Pricing Page
     pricing: {

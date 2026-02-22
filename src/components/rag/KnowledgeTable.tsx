@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Eye, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
@@ -12,6 +12,7 @@ import {
   Card,
   Group,
   Modal,
+  Popover,
   Skeleton,
   Stack,
   Table,
@@ -24,6 +25,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import classes from './KnowledgeTable.module.css';
+import { OutlineEditModal } from './OutlineEditModal';
 
 export interface KnowledgeDocument {
   id: string;
@@ -38,6 +40,11 @@ export interface KnowledgeDocument {
     [key: string]: any;
   } | null;
   item_count?: number;
+  outline_summary?: {
+    count: number;
+    totalKPs: number;
+    sections: { title: string; desc: string; kps: string[] }[];
+  } | null;
 }
 
 export interface AssignmentStatsMap {
@@ -49,6 +56,7 @@ interface KnowledgeTableProps {
   readOnly?: boolean;
   isLoading?: boolean;
   onDeleted?: (id: string) => void;
+  onEdit?: (doc: KnowledgeDocument) => void;
   assignmentStats?: AssignmentStatsMap;
 }
 
@@ -89,12 +97,14 @@ export function KnowledgeTable({
   readOnly,
   isLoading,
   onDeleted,
+  onEdit,
   assignmentStats,
 }: KnowledgeTableProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeDocument | null>(null);
+  const [editOutlineTarget, setEditOutlineTarget] = useState<KnowledgeDocument | null>(null);
 
   // Sort state
   type SortField = 'name' | 'date' | null;
@@ -306,6 +316,14 @@ export function KnowledgeTable({
                     <ActionIcon
                       variant="subtle"
                       color="gray"
+                      onClick={() => onEdit?.(doc)}
+                      aria-label={t.knowledge.editDocument}
+                    >
+                      <Pencil size={16} />
+                    </ActionIcon>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
                       onClick={() => router.push(getDocDetailPath(doc))}
                       aria-label="View document details"
                     >
@@ -337,7 +355,16 @@ export function KnowledgeTable({
                   <Badge variant="dot" color="gray" size="xs">
                     {doc.metadata?.course || 'General'}
                   </Badge>
-                  {doc.item_count != null && doc.item_count > 0 && (
+                  {doc.doc_type === 'lecture' && doc.outline_summary ? (
+                    <>
+                      <Text size="xs" c="dimmed">
+                        &middot;
+                      </Text>
+                      <Badge variant="light" color="teal" size="xs">
+                        {doc.outline_summary.count} Sec · {doc.outline_summary.totalKPs} KPs
+                      </Badge>
+                    </>
+                  ) : doc.item_count != null && doc.item_count > 0 ? (
                     <>
                       <Text size="xs" c="dimmed">
                         &middot;
@@ -346,7 +373,7 @@ export function KnowledgeTable({
                         {doc.item_count} {t.knowledge.items}
                       </Text>
                     </>
-                  )}
+                  ) : null}
                 </Group>
 
                 <Group justify="space-between">
@@ -403,17 +430,17 @@ export function KnowledgeTable({
                   {renderSortIcon('name')}
                 </Group>
               </Table.Th>
-              <Table.Th w="13%" style={thStyle}>
+              <Table.Th w="12%" style={thStyle}>
                 {t.knowledge.university}
               </Table.Th>
-              <Table.Th w="13%" style={thStyle}>
+              <Table.Th w="12%" style={thStyle}>
                 {t.knowledge.course}
               </Table.Th>
-              <Table.Th w="8%" style={thStyle}>
-                {t.knowledge.items}
+              <Table.Th w="12%" style={thStyle}>
+                {t.knowledge.outline}
               </Table.Th>
               <Table.Th
-                w="12%"
+                w="10%"
                 style={{ ...thStyle, cursor: 'pointer', userSelect: 'none' }}
                 onClick={() => toggleSort('date')}
               >
@@ -482,9 +509,69 @@ export function KnowledgeTable({
                     </Badge>
                   </Table.Td>
                   <Table.Td>
-                    <Text size="sm" c="dimmed" ta="center">
-                      {doc.item_count ?? '—'}
-                    </Text>
+                    {doc.doc_type === 'lecture' && doc.outline_summary ? (
+                      <Popover
+                        width={320}
+                        position="bottom"
+                        shadow="md"
+                        withArrow
+                        opened={editOutlineTarget?.id === doc.id ? false : undefined}
+                      >
+                        <Popover.Target>
+                          <Badge
+                            variant="light"
+                            color="teal"
+                            size="sm"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {doc.outline_summary.count} Sec · {doc.outline_summary.totalKPs} KPs
+                          </Badge>
+                        </Popover.Target>
+                        <Popover.Dropdown p="sm" style={{ maxHeight: 320, overflow: 'auto' }}>
+                          <Group justify="space-between" mb={8}>
+                            <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts={0.5}>
+                              {t.knowledge.outline}
+                            </Text>
+                            {!readOnly && (
+                              <ActionIcon
+                                size="xs"
+                                variant="subtle"
+                                color="gray"
+                                onClick={() => setEditOutlineTarget(doc)}
+                              >
+                                <Pencil size={12} />
+                              </ActionIcon>
+                            )}
+                          </Group>
+                          <Stack gap={8}>
+                            {doc.outline_summary.sections.map((section, i) => (
+                              <Box key={i}>
+                                <Text size="xs" fw={600} lineClamp={1}>
+                                  {i + 1}. {section.title}
+                                </Text>
+                                {section.kps.length > 0 && (
+                                  <Stack gap={2} ml="md" mt={2}>
+                                    {section.kps.map((kp, j) => (
+                                      <Text key={j} size="xs" c="dimmed" lineClamp={1}>
+                                        • {kp}
+                                      </Text>
+                                    ))}
+                                  </Stack>
+                                )}
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Popover.Dropdown>
+                      </Popover>
+                    ) : doc.item_count != null && doc.item_count > 0 ? (
+                      <Text size="sm" c="dimmed">
+                        {doc.item_count} {t.knowledge.items}
+                      </Text>
+                    ) : (
+                      <Text size="sm" c="dimmed" ta="center">
+                        —
+                      </Text>
+                    )}
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed" suppressHydrationWarning>
@@ -500,6 +587,14 @@ export function KnowledgeTable({
                   {!readOnly && (
                     <Table.Td>
                       <Group gap={4} className={classes.actions}>
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          onClick={() => onEdit?.(doc)}
+                          aria-label={t.knowledge.editDocument}
+                        >
+                          <Pencil size={16} />
+                        </ActionIcon>
                         <ActionIcon
                           variant="subtle"
                           color="gray"
@@ -528,6 +623,20 @@ export function KnowledgeTable({
           </Table.Tbody>
         </Table>
       </Card>
+      {editOutlineTarget?.outline_summary && (
+        <OutlineEditModal
+          opened={!!editOutlineTarget}
+          onClose={() => setEditOutlineTarget(null)}
+          documentId={editOutlineTarget.id}
+          documentName={editOutlineTarget.name}
+          sections={editOutlineTarget.outline_summary.sections.map((s) => ({
+            title: s.title,
+            briefDescription: s.desc,
+            knowledgePoints: s.kps,
+          }))}
+          onSaved={() => router.refresh()}
+        />
+      )}
     </>
   );
 }

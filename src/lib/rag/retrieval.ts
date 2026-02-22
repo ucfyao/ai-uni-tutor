@@ -136,13 +136,11 @@ export async function retrieveOutlineContext(
         .filter(Boolean)
         .map((o) => {
           const outline = o as {
-            title?: string;
-            summary?: string;
             sections?: Array<{ title: string; briefDescription: string }>;
           };
           const sections =
             outline.sections?.map((s) => `- ${s.title}: ${s.briefDescription}`).join('\n') ?? '';
-          return `${outline.title ?? 'Document'}:\n${outline.summary ?? ''}\n${sections}`;
+          return sections;
         });
 
       if (outlines.length > 0) {
