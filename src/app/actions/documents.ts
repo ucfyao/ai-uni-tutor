@@ -7,6 +7,7 @@ import { ForbiddenError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import {
+  getCurrentUser,
   requireAnyAdmin,
   requireAssignmentAccess,
   requireCourseAdmin,
@@ -655,5 +656,49 @@ export async function addExamQuestion(
     if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
     console.error('addExamQuestion error:', error);
     return { success: false, error: 'Failed to add question' };
+  }
+}
+
+// ── Lecture outlines (for chat summary) ──
+
+interface OutlineSection {
+  title: string;
+  briefDescription: string;
+  knowledgePoints: string[];
+  knowledgePointDetails?: { title: string; content: string; sourcePages?: number[] }[];
+  sourcePages?: number[];
+}
+
+interface DocumentOutlineData {
+  title: string;
+  summary: string;
+  sections: OutlineSection[];
+}
+
+export async function getLectureOutlines(
+  courseId: string,
+): Promise<
+  | { success: true; data: Array<{ id: string; outline: DocumentOutlineData }> }
+  | { success: false; error: string }
+> {
+  try {
+    await getCurrentUser();
+
+    const parsed = z.string().uuid().safeParse(courseId);
+    if (!parsed.success) return { success: false, error: 'Invalid course ID' };
+
+    const service = getLectureDocumentService();
+    const rows = await service.findOutlinesByCourseId(parsed.data);
+
+    const outlines = rows
+      .filter((r) => r.outline != null)
+      .map((r) => ({
+        id: r.id,
+        outline: r.outline as unknown as DocumentOutlineData,
+      }));
+
+    return { success: true, data: outlines };
+  } catch {
+    return { success: false, error: 'Failed to fetch outlines' };
   }
 }

@@ -13,6 +13,8 @@ export interface ModeMetadata {
   suggestedPrompts?: string[];
 }
 
+export const SUMMARY_PROMPT = 'Summarize the key concepts of the last lecture';
+
 export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
   'Lecture Helper': {
     id: 'lecture',
@@ -24,7 +26,7 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
       '**Lecture Helper Mode Active**\n\nI break down complex theories into simple, digestible parts using analogies. What concept needs clarifying?',
     hoverClass: 'hover:border-indigo-300 hover:shadow-[0_8px_30px_rgba(79,70,229,0.15)]',
     suggestedPrompts: [
-      'Summarize the key concepts of the last lecture',
+      SUMMARY_PROMPT,
       'Explain this concept like I am 5',
       'Connect this topic to real-world examples',
       'What are the most common misconceptions here?',
@@ -171,8 +173,7 @@ Tone: Direct, supportive, efficient. Like a smart upperclassman who's been throu
         /检查|check|对[吗不]|is\s*.*(right|correct)|答案|review\s*my|做完|帮我看|result|对不对/i;
       const stuckPatterns =
         /怎么做|how\s*to|从哪|where.*start|approach|stuck|卡住|不会做|hint|提示|第一步|first\s*step/i;
-      const explainPatterns =
-        /为什么|why|explain|什么意思|不懂|understand|概念|concept|解释|mean/i;
+      const explainPatterns = /为什么|why|explain|什么意思|不懂|understand|概念|concept|解释|mean/i;
 
       let mode = 'ADAPTIVE';
       if (checkPatterns.test(input)) mode = 'QUICK_CHECK';
