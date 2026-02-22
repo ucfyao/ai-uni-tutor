@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPooledProxy, KeyPool } from './gemini-key-pool';
 
-// Mock GoogleGenAI before importing KeyPool
+// Mock GoogleGenAI
 vi.mock('@google/genai', () => {
   class MockGoogleGenAI {
     _key: string;
@@ -10,7 +10,6 @@ vi.mock('@google/genai', () => {
       this._key = apiKey;
       this.models = {
         generateContent: vi.fn().mockResolvedValue({ text: 'ok' }),
-        generateContentStream: vi.fn().mockResolvedValue({ stream: true }),
         embedContent: vi.fn().mockResolvedValue({ embeddings: [] }),
       };
     }
@@ -25,180 +24,221 @@ vi.mock('@google/genai', () => {
   return { GoogleGenAI: MockGoogleGenAI, ApiError: MockApiError };
 });
 
+// Mock Redis — single JSON value
+let redisValue: number[] | null = null;
+const mockSet = vi.fn(async (_key: string, value: number[]) => {
+  redisValue = value;
+});
+
+vi.mock('@/lib/redis', () => ({
+  getRedis: () => ({
+    get: vi.fn(async () => redisValue),
+    set: mockSet,
+  }),
+}));
+
 describe('KeyPool', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
+    redisValue = null;
+    mockSet.mockClear();
   });
 
   describe('constructor', () => {
     it('creates entries from comma-separated keys', () => {
       const pool = new KeyPool('key1,key2,key3');
-      const status = pool.getStatus();
-      expect(status).toHaveLength(3);
-      expect(status.every((s) => s.status === 'healthy')).toBe(true);
+      expect(pool.getStatus()).toHaveLength(3);
     });
 
-    it('trims whitespace from keys', () => {
-      const pool = new KeyPool(' key1 , key2 ');
-      expect(pool.getStatus()).toHaveLength(2);
+    it('trims whitespace', () => {
+      expect(new KeyPool(' k1 , k2 ').getStatus()).toHaveLength(2);
     });
 
-    it('works with single key', () => {
-      const pool = new KeyPool('single-key');
-      expect(pool.getStatus()).toHaveLength(1);
-    });
-
-    it('throws if no keys provided', () => {
+    it('throws if empty', () => {
       expect(() => new KeyPool('')).toThrow('Missing GEMINI_API_KEY');
     });
   });
 
-  describe('acquire (round-robin)', () => {
-    it('cycles through healthy keys', () => {
-      const pool = new KeyPool('k1,k2,k3');
-      const ids = [pool.acquire().id, pool.acquire().id, pool.acquire().id, pool.acquire().id];
-      expect(ids).toEqual([0, 1, 2, 0]);
-    });
-
-    it('skips cooldown keys', () => {
-      const pool = new KeyPool('k1,k2,k3');
-      pool.reportFailure(0, 429); // k1 → cooldown
-      const ids = [pool.acquire().id, pool.acquire().id, pool.acquire().id];
-      expect(ids).toEqual([1, 2, 1]);
-    });
-
-    it('skips disabled keys', () => {
-      const pool = new KeyPool('k1,k2');
-      pool.reportFailure(0, 401); // k1 → disabled
-      const ids = [pool.acquire().id, pool.acquire().id];
-      expect(ids).toEqual([1, 1]);
-    });
-
-    it('throws when all keys unavailable', () => {
+  describe('withRetry', () => {
+    it('calls fn with first available key', async () => {
       const pool = new KeyPool('k1');
-      pool.reportFailure(0, 401);
-      expect(() => pool.acquire()).toThrow();
-    });
-  });
-
-  describe('reportFailure', () => {
-    it('marks 429 as cooldown', () => {
-      const pool = new KeyPool('k1,k2');
-      pool.reportFailure(0, 429);
-      expect(pool.getStatus()[0].status).toBe('cooldown');
+      const result = await pool.withRetry((genAI) =>
+        genAI.models.generateContent({ model: 'test', contents: '' }),
+      );
+      expect(result).toEqual({ text: 'ok' });
     });
 
-    it('marks 500/503 as cooldown', () => {
+    it('does not write Redis on clean success', async () => {
       const pool = new KeyPool('k1');
-      pool.reportFailure(0, 500);
-      expect(pool.getStatus()[0].status).toBe('cooldown');
+      await pool.withRetry((genAI) =>
+        genAI.models.generateContent({ model: 'test', contents: '' }),
+      );
+      expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('marks 401/403 as disabled', () => {
+    it('retries next key on 429 and marks 30s cooldown (first failure)', async () => {
+      const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
-      pool.reportFailure(0, 401);
-      expect(pool.getStatus()[0].status).toBe('disabled');
+
+      const k1 = pool['entries'][0].genAI;
+      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new ApiError({ status: 429, message: 'rate limited' }),
+      );
+
+      const result = await pool.withRetry((genAI) =>
+        genAI.models.generateContent({ model: 'test', contents: '' }),
+      );
+
+      expect(result).toEqual({ text: 'ok' });
+      // k1 marked with 30s cooldown
+      const cooldown = redisValue![0];
+      expect(cooldown).toBeGreaterThan(Date.now());
+      expect(cooldown).toBeLessThanOrEqual(Date.now() + 30_000);
+      expect(mockSet).toHaveBeenCalledTimes(1);
     });
 
-    it('increments error count', () => {
+    it('marks 24h cooldown on second failure (on notice)', async () => {
+      // k1 has expired cooldown → "on notice"
+      redisValue = [1, 0];
+
+      const { ApiError } = await import('@google/genai');
+      const pool = new KeyPool('k1,k2');
+
+      const k1 = pool['entries'][0].genAI;
+      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new ApiError({ status: 429, message: 'rate limited' }),
+      );
+
+      const result = await pool.withRetry((genAI) =>
+        genAI.models.generateContent({ model: 'test', contents: '' }),
+      );
+
+      expect(result).toEqual({ text: 'ok' });
+      // k1 now has 24h cooldown
+      const cooldown = redisValue![0];
+      expect(cooldown).toBeGreaterThan(Date.now() + 60_000);
+    });
+
+    it('retries on 500/503', async () => {
+      const { ApiError } = await import('@google/genai');
+      const pool = new KeyPool('k1,k2');
+
+      const k1 = pool['entries'][0].genAI;
+      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new ApiError({ status: 503, message: 'unavailable' }),
+      );
+
+      const result = await pool.withRetry((genAI) =>
+        genAI.models.generateContent({ model: 'test', contents: '' }),
+      );
+      expect(result).toEqual({ text: 'ok' });
+    });
+
+    it('does not retry on 400', async () => {
+      const { ApiError } = await import('@google/genai');
+      const pool = new KeyPool('k1,k2');
+
+      const k1 = pool['entries'][0].genAI;
+      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new ApiError({ status: 400, message: 'bad request' }),
+      );
+
+      await expect(
+        pool.withRetry((genAI) => genAI.models.generateContent({ model: 'test', contents: '' })),
+      ).rejects.toThrow('bad request');
+    });
+
+    it('skips 401/403 keys permanently', async () => {
+      const { ApiError } = await import('@google/genai');
+      const pool = new KeyPool('k1,k2');
+
+      const k1 = pool['entries'][0].genAI;
+      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new ApiError({ status: 401, message: 'unauthorized' }),
+      );
+
+      const result = await pool.withRetry((genAI) =>
+        genAI.models.generateContent({ model: 'test', contents: '' }),
+      );
+      expect(result).toEqual({ text: 'ok' });
+      expect(pool.getStatus()[0].disabled).toBe(true);
+    });
+
+    it('throws when all keys fail', async () => {
+      const { ApiError } = await import('@google/genai');
+      const pool = new KeyPool('k1,k2');
+
+      for (const entry of pool['entries']) {
+        (entry.genAI.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
+          new ApiError({ status: 429, message: 'rate limited' }),
+        );
+      }
+
+      await expect(
+        pool.withRetry((genAI) => genAI.models.generateContent({ model: 'test', contents: '' })),
+      ).rejects.toThrow('rate limited');
+
+      // Both keys marked 24h
+      expect(redisValue![0]).toBeGreaterThan(Date.now());
+      expect(redisValue![1]).toBeGreaterThan(Date.now());
+    });
+
+    it('skips keys in cooldown from previous requests', async () => {
+      // Simulate k1 already in 24h cooldown (from another instance)
+      redisValue = [Date.now() + 86400000, 0];
+
+      const pool = new KeyPool('k1,k2');
+      const spy = vi.fn();
+
+      await pool.withRetry((genAI) => {
+        spy((genAI as unknown as { _key: string })._key);
+        return genAI.models.generateContent({ model: 'test', contents: '' });
+      });
+
+      // Should have skipped k1 and used k2
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith('k2');
+    });
+
+    it('clears cooldown on success and writes state', async () => {
+      // k1 has expired cooldown (on notice)
+      redisValue = [1, 0];
+
       const pool = new KeyPool('k1');
-      pool.reportFailure(0, 500);
-      expect(pool.getStatus()[0].stats.errors).toBe(1);
-    });
-  });
+      await pool.withRetry((genAI) =>
+        genAI.models.generateContent({ model: 'test', contents: '' }),
+      );
 
-  describe('cooldown recovery', () => {
-    it('recovers after 30s cooldown on first failure', () => {
-      const pool = new KeyPool('k1,k2');
-      pool.reportFailure(0, 429);
-      expect(pool.getStatus()[0].status).toBe('cooldown');
-
-      // Advance past 30s cooldown
-      vi.advanceTimersByTime(31_000);
-
-      // acquire() should return k1 again (auto-recovered)
-      const entry = pool.acquire();
-      expect(entry.id).toBe(0);
-    });
-
-    it('disables for 24h on second consecutive failure', () => {
-      const pool = new KeyPool('k1,k2');
-
-      // First failure: 30s cooldown
-      pool.reportFailure(0, 429);
-      vi.advanceTimersByTime(31_000);
-      pool.acquire(); // recovers k1
-
-      // Second failure: disabled for 24h
-      pool.reportFailure(0, 429);
-      expect(pool.getStatus()[0].status).toBe('cooldown');
-
-      // Still disabled after 1 hour
-      vi.advanceTimersByTime(60 * 60 * 1000);
-      expect(() => {
-        // Only k2 should be available
-        const a = pool.acquire();
-        const b = pool.acquire();
-        expect(a.id).toBe(1);
-        expect(b.id).toBe(1);
-      }).not.toThrow();
-
-      // Recovers after 24h total
-      vi.advanceTimersByTime(23 * 60 * 60 * 1000 + 1000);
-      const entry = pool.acquire(); // k1 recovered (pointer was at 0)
-      expect(entry.id).toBe(0);
-    });
-  });
-
-  describe('reportSuccess', () => {
-    it('resets cooldown step on success', () => {
-      const pool = new KeyPool('k1,k2');
-      pool.reportFailure(0, 429); // step 0 → cooldown 30s
-      vi.advanceTimersByTime(31_000);
-      pool.reportSuccess(0); // reset step
-
-      // Next failure should be 30s again (not 60s)
-      pool.reportFailure(0, 429);
-      vi.advanceTimersByTime(31_000);
-      const entry = pool.acquire();
-      expect(entry.id).toBe(0); // recovered at 31s, confirming 30s cooldown
-    });
-
-    it('increments request count', () => {
-      const pool = new KeyPool('k1');
-      pool.reportSuccess(0);
-      pool.reportSuccess(0);
-      expect(pool.getStatus()[0].stats.requests).toBe(2);
-    });
-  });
-
-  describe('getStatus', () => {
-    it('returns masked keys', () => {
-      const pool = new KeyPool('AIzaSyAbcdefghij');
-      const status = pool.getStatus();
-      expect(status[0].maskedKey).not.toContain('AIzaSyAbcdefghij');
-      expect(status[0].maskedKey).toContain('****');
+      // Cooldown cleared, state saved
+      expect(redisValue![0]).toBe(0);
+      expect(mockSet).toHaveBeenCalledTimes(1);
     });
   });
 });
 
 describe('createPooledProxy', () => {
-  it('delegates generateContent to acquired key', async () => {
+  beforeEach(() => {
+    redisValue = null;
+    mockSet.mockClear();
+  });
+
+  it('proxies models.generateContent', async () => {
     const pool = new KeyPool('k1');
     const proxy = createPooledProxy(pool);
     const result = await proxy.models.generateContent({ model: 'test', contents: '' });
     expect(result).toEqual({ text: 'ok' });
-    expect(pool.getStatus()[0].stats.requests).toBe(1);
   });
 
-  it('retries with next key on retryable error', async () => {
+  it('proxies models.embedContent', async () => {
+    const pool = new KeyPool('k1');
+    const proxy = createPooledProxy(pool);
+    const result = await proxy.models.embedContent({ model: 'test', contents: '' });
+    expect(result).toEqual({ embeddings: [] });
+  });
+
+  it('retries transparently through proxy', async () => {
     const { ApiError } = await import('@google/genai');
     const pool = new KeyPool('k1,k2');
 
-    // Make k1's generateContent throw 429
     const k1 = pool['entries'][0].genAI;
     (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new ApiError({ status: 429, message: 'rate limited' }),
@@ -206,49 +246,6 @@ describe('createPooledProxy', () => {
 
     const proxy = createPooledProxy(pool);
     const result = await proxy.models.generateContent({ model: 'test', contents: '' });
-
-    // Should succeed via k2
     expect(result).toEqual({ text: 'ok' });
-    expect(pool.getStatus()[0].status).toBe('cooldown');
-    expect(pool.getStatus()[1].stats.requests).toBe(1);
-  });
-
-  it('does not retry on non-retryable error (400)', async () => {
-    const { ApiError } = await import('@google/genai');
-    const pool = new KeyPool('k1,k2');
-
-    const k1 = pool['entries'][0].genAI;
-    (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new ApiError({ status: 400, message: 'bad request' }),
-    );
-
-    const proxy = createPooledProxy(pool);
-    await expect(proxy.models.generateContent({ model: 'test', contents: '' })).rejects.toThrow();
-
-    // k2 should not have been tried
-    expect(pool.getStatus()[1].stats.requests).toBe(0);
-  });
-
-  it('throws last error when all keys fail', async () => {
-    const { ApiError } = await import('@google/genai');
-    const pool = new KeyPool('k1,k2');
-
-    for (const entry of pool['entries']) {
-      (entry.genAI.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new ApiError({ status: 503, message: 'unavailable' }),
-      );
-    }
-
-    const proxy = createPooledProxy(pool);
-    await expect(proxy.models.generateContent({ model: 'test', contents: '' })).rejects.toThrow(
-      'unavailable',
-    );
-  });
-
-  it('delegates embedContent', async () => {
-    const pool = new KeyPool('k1');
-    const proxy = createPooledProxy(pool);
-    const result = await proxy.models.embedContent({ model: 'test', contents: '' });
-    expect(result).toEqual({ embeddings: [] });
   });
 });
