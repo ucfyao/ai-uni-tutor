@@ -11,6 +11,7 @@ const MOCK_USER = { id: 'user-1', email: 'test@example.com' };
 const mockRequireAnyAdmin = vi.fn();
 const mockRequireCourseAdmin = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
+  getCurrentUser: () => Promise.resolve(MOCK_USER),
   requireAnyAdmin: () => mockRequireAnyAdmin(),
   requireCourseAdmin: (courseId: string) => mockRequireCourseAdmin(courseId),
   requireAssignmentAccess: async (assignmentId: string, _userId: string, role: string) => {
@@ -50,6 +51,7 @@ const mockDocumentService = {
   verifyChunksBelongToLectureDocument: vi.fn(),
   saveChunksAndReturn: vi.fn(),
   getDocumentsForAdmin: vi.fn(),
+  findOutlinesByCourseId: vi.fn(),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
   getLectureDocumentService: () => mockDocumentService,
@@ -138,6 +140,7 @@ const {
   regenerateEmbeddings,
   retryDocument,
   updateDocumentMeta,
+  getLectureOutlines,
 } = await import('./documents');
 
 // ---------------------------------------------------------------------------
@@ -520,6 +523,62 @@ describe('Document Actions', () => {
 
         expect(mockAssignmentService.deleteAssignment).toHaveBeenCalledWith('assign-1');
       });
+    });
+  });
+
+  // =========================================================================
+  // getLectureOutlines
+  // =========================================================================
+  describe('getLectureOutlines', () => {
+    it('should return outlines for a course', async () => {
+      mockDocumentService.findOutlinesByCourseId.mockResolvedValue([
+        {
+          id: 'doc-1',
+          outline: {
+            title: 'Algorithms',
+            summary: '3 sections, 5 knowledge points.',
+            sections: [
+              {
+                title: 'Sorting',
+                briefDescription: 'Overview of sorting algorithms',
+                knowledgePoints: ['Bubble Sort', 'Merge Sort'],
+                knowledgePointDetails: [
+                  { title: 'Bubble Sort', content: 'Simple comparison-based sort' },
+                  { title: 'Merge Sort', content: 'Divide-and-conquer sort' },
+                ],
+              },
+            ],
+          },
+        },
+      ]);
+
+      const result = await getLectureOutlines('a0000000-0000-4000-a000-000000000001');
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0].outline.title).toBe('Algorithms');
+      }
+    });
+
+    it('should return empty array when no outlines exist', async () => {
+      mockDocumentService.findOutlinesByCourseId.mockResolvedValue([]);
+
+      const result = await getLectureOutlines('a0000000-0000-4000-a000-000000000001');
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(0);
+      }
+    });
+
+    it('should return error for invalid course ID', async () => {
+      const result = await getLectureOutlines('not-a-uuid');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('Invalid course ID');
+      }
     });
   });
 });
