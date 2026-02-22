@@ -48,6 +48,10 @@ export class LectureDocumentService {
     return this.docRepo.findDuplicatesInCourse(courseId, fileName, fileHash, excludeDocumentId);
   }
 
+  async findOutlinesByCourseId(courseId: string): Promise<Array<{ id: string; outline: Json }>> {
+    return this.docRepo.findOutlinesByCourseId(courseId);
+  }
+
   async createDocument(
     userId: string,
     name: string,
