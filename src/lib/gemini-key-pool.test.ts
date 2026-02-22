@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { KeyPool } from './gemini-key-pool';
+import { createPooledProxy, KeyPool } from './gemini-key-pool';
 
 // Mock GoogleGenAI before importing KeyPool
 vi.mock('@google/genai', () => {
@@ -111,12 +111,12 @@ describe('KeyPool', () => {
   });
 
   describe('cooldown recovery', () => {
-    it('recovers after cooldown period expires', () => {
+    it('recovers after 30s cooldown on first failure', () => {
       const pool = new KeyPool('k1,k2');
       pool.reportFailure(0, 429);
       expect(pool.getStatus()[0].status).toBe('cooldown');
 
-      // Advance past first cooldown (30s)
+      // Advance past 30s cooldown
       vi.advanceTimersByTime(31_000);
 
       // acquire() should return k1 again (auto-recovered)
@@ -124,7 +124,7 @@ describe('KeyPool', () => {
       expect(entry.id).toBe(0);
     });
 
-    it('uses exponential backoff on repeated failures', () => {
+    it('disables for 24h on second consecutive failure', () => {
       const pool = new KeyPool('k1,k2');
 
       // First failure: 30s cooldown
@@ -132,16 +132,23 @@ describe('KeyPool', () => {
       vi.advanceTimersByTime(31_000);
       pool.acquire(); // recovers k1
 
-      // Second failure: 60s cooldown
+      // Second failure: disabled for 24h
       pool.reportFailure(0, 429);
-      vi.advanceTimersByTime(31_000);
-      // Still in cooldown at 31s (needs 60s)
       expect(pool.getStatus()[0].status).toBe('cooldown');
 
-      vi.advanceTimersByTime(30_000); // total 61s
-      // pointer is at 1 from first recovery, so acquire returns k2 first
-      pool.acquire(); // k2
-      const entry = pool.acquire(); // k1, now recovered
+      // Still disabled after 1 hour
+      vi.advanceTimersByTime(60 * 60 * 1000);
+      expect(() => {
+        // Only k2 should be available
+        const a = pool.acquire();
+        const b = pool.acquire();
+        expect(a.id).toBe(1);
+        expect(b.id).toBe(1);
+      }).not.toThrow();
+
+      // Recovers after 24h total
+      vi.advanceTimersByTime(23 * 60 * 60 * 1000 + 1000);
+      const entry = pool.acquire(); // k1 recovered (pointer was at 0)
       expect(entry.id).toBe(0);
     });
   });
@@ -175,5 +182,73 @@ describe('KeyPool', () => {
       expect(status[0].maskedKey).not.toContain('AIzaSyAbcdefghij');
       expect(status[0].maskedKey).toContain('****');
     });
+  });
+});
+
+describe('createPooledProxy', () => {
+  it('delegates generateContent to acquired key', async () => {
+    const pool = new KeyPool('k1');
+    const proxy = createPooledProxy(pool);
+    const result = await proxy.models.generateContent({ model: 'test', contents: '' });
+    expect(result).toEqual({ text: 'ok' });
+    expect(pool.getStatus()[0].stats.requests).toBe(1);
+  });
+
+  it('retries with next key on retryable error', async () => {
+    const { ApiError } = await import('@google/genai');
+    const pool = new KeyPool('k1,k2');
+
+    // Make k1's generateContent throw 429
+    const k1 = pool['entries'][0].genAI;
+    (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new ApiError({ status: 429, message: 'rate limited' }),
+    );
+
+    const proxy = createPooledProxy(pool);
+    const result = await proxy.models.generateContent({ model: 'test', contents: '' });
+
+    // Should succeed via k2
+    expect(result).toEqual({ text: 'ok' });
+    expect(pool.getStatus()[0].status).toBe('cooldown');
+    expect(pool.getStatus()[1].stats.requests).toBe(1);
+  });
+
+  it('does not retry on non-retryable error (400)', async () => {
+    const { ApiError } = await import('@google/genai');
+    const pool = new KeyPool('k1,k2');
+
+    const k1 = pool['entries'][0].genAI;
+    (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new ApiError({ status: 400, message: 'bad request' }),
+    );
+
+    const proxy = createPooledProxy(pool);
+    await expect(proxy.models.generateContent({ model: 'test', contents: '' })).rejects.toThrow();
+
+    // k2 should not have been tried
+    expect(pool.getStatus()[1].stats.requests).toBe(0);
+  });
+
+  it('throws last error when all keys fail', async () => {
+    const { ApiError } = await import('@google/genai');
+    const pool = new KeyPool('k1,k2');
+
+    for (const entry of pool['entries']) {
+      (entry.genAI.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new ApiError({ status: 503, message: 'unavailable' }),
+      );
+    }
+
+    const proxy = createPooledProxy(pool);
+    await expect(proxy.models.generateContent({ model: 'test', contents: '' })).rejects.toThrow(
+      'unavailable',
+    );
+  });
+
+  it('delegates embedContent', async () => {
+    const pool = new KeyPool('k1');
+    const proxy = createPooledProxy(pool);
+    const result = await proxy.models.embedContent({ model: 'test', contents: '' });
+    expect(result).toEqual({ embeddings: [] });
   });
 });

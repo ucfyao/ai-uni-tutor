@@ -1,7 +1,8 @@
-import { GoogleGenAI } from '@google/genai';
+import { ApiError, GoogleGenAI } from '@google/genai';
 
-/** Cooldown steps in milliseconds: 30s, 60s, 5m, 15m */
-const COOLDOWN_STEPS_MS = [30_000, 60_000, 300_000, 900_000];
+/** First retry after 30s; if still failing, disable for 24h. */
+const RETRY_COOLDOWN_MS = 30_000;
+const RATE_LIMIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 type KeyStatus = 'healthy' | 'cooldown' | 'disabled';
 
@@ -116,14 +117,19 @@ export class KeyPool {
     }
 
     if (isRetryableStatus(httpStatus)) {
-      const step = Math.min(entry.cooldownStep, COOLDOWN_STEPS_MS.length - 1);
-      const duration = COOLDOWN_STEPS_MS[step];
-      entry.status = 'cooldown';
-      entry.cooldownUntil = Date.now() + duration;
-      entry.cooldownStep++;
-      console.warn(
-        `[KeyPool] Key ${entry.maskedKey} COOLDOWN ${duration / 1000}s (HTTP ${httpStatus})`,
-      );
+      if (entry.cooldownStep === 0) {
+        // First failure: short cooldown, will retry once
+        entry.status = 'cooldown';
+        entry.cooldownUntil = Date.now() + RETRY_COOLDOWN_MS;
+        entry.cooldownStep = 1;
+        console.warn(`[KeyPool] Key ${entry.maskedKey} COOLDOWN 30s (HTTP ${httpStatus})`);
+      } else {
+        // Second failure after retry: disable for 24h
+        entry.status = 'cooldown';
+        entry.cooldownUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+        entry.cooldownStep = 2;
+        console.warn(`[KeyPool] Key ${entry.maskedKey} DISABLED 24h (HTTP ${httpStatus})`);
+      }
     }
   }
 
@@ -142,4 +148,53 @@ export class KeyPool {
   get size(): number {
     return this.entries.length;
   }
+}
+
+/** Extract HTTP status from SDK errors. */
+function extractStatus(error: unknown): number | undefined {
+  if (error instanceof ApiError) return error.status;
+  return (error as { status?: number })?.status;
+}
+
+/**
+ * Create a GoogleGenAI-shaped Proxy that transparently does
+ * round-robin key selection + auto-retry on retryable errors.
+ */
+export function createPooledProxy(pool: KeyPool): GoogleGenAI {
+  const modelsProxy = new Proxy({} as GoogleGenAI['models'], {
+    get(_, method: string) {
+      return async (...args: unknown[]) => {
+        let lastError: unknown;
+
+        for (let i = 0; i < pool.size; i++) {
+          const { id, genAI } = pool.acquire();
+          try {
+            const result = await (genAI.models as unknown as Record<string, Function>)[method](
+              ...args,
+            );
+            pool.reportSuccess(id);
+            return result;
+          } catch (err) {
+            lastError = err;
+            const status = extractStatus(err);
+            if (status !== undefined) {
+              pool.reportFailure(id, status);
+              if (isRetryableStatus(status) && i < pool.size - 1) continue;
+            }
+            throw err;
+          }
+        }
+
+        throw lastError;
+      };
+    },
+  });
+
+  return new Proxy({} as GoogleGenAI, {
+    get(_, prop) {
+      if (prop === 'models') return modelsProxy;
+      // Fallback: delegate to first healthy key for any other property
+      return (pool.acquire().genAI as unknown as Record<string, unknown>)[prop as string];
+    },
+  });
 }

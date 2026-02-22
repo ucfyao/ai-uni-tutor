@@ -1,5 +1,6 @@
 import { ApiError, GoogleGenAI } from '@google/genai';
 import { AppError } from '@/lib/errors';
+import { createPooledProxy, KeyPool } from '@/lib/gemini-key-pool';
 
 export const GEMINI_MODELS = {
   chat: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash',
@@ -7,17 +8,18 @@ export const GEMINI_MODELS = {
   embedding: process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001',
 } as const;
 
-let _genAI: GoogleGenAI | null = null;
+let _pooledProxy: GoogleGenAI | null = null;
 
 /** Lazy: validated on first use so pages/tests without GEMINI_API_KEY don't crash at import. */
 export function getGenAI(): GoogleGenAI {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('Missing GEMINI_API_KEY in environment variables');
   }
-  if (!_genAI) {
-    _genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  if (!_pooledProxy) {
+    const pool = new KeyPool(process.env.GEMINI_API_KEY);
+    _pooledProxy = createPooledProxy(pool);
   }
-  return _genAI;
+  return _pooledProxy;
 }
 
 /** @deprecated Prefer getGenAI() for lazy validation. Kept for backward compatibility. */
