@@ -1,15 +1,18 @@
 import dynamic from 'next/dynamic';
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Drawer, Loader, Stack } from '@mantine/core';
+import { getLectureOutlines } from '@/app/actions/documents';
 import { askCardQuestion } from '@/app/actions/knowledge-cards';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
 import { UsageLimitModal } from '@/components/UsageLimitModal';
+import { SUMMARY_PROMPT } from '@/constants/modes';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useKnowledgeCards } from '@/hooks/useKnowledgeCards';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { isDocumentFile, isImageFile, MAX_FILE_SIZE_BYTES } from '@/lib/file-utils';
+import { formatOutlineToMarkdown } from '@/lib/format-outline';
 import { showNotification } from '@/lib/notifications';
 import { ChatMessage, ChatSession } from '@/types';
 
@@ -321,6 +324,45 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   };
 
+  const handleSummaryAction = async () => {
+    if (!session?.course?.id) {
+      handleSend(SUMMARY_PROMPT);
+      return;
+    }
+
+    const result = await getLectureOutlines(session.course.id);
+
+    if (!result.success || result.data.length === 0) {
+      // Fallback to regular RAG
+      handleSend(SUMMARY_PROMPT);
+      return;
+    }
+
+    // Format outlines to markdown
+    const markdown = result.data
+      .map((doc) => formatOutlineToMarkdown(doc.outline))
+      .join('\n\n---\n\n');
+
+    // Display as user prompt + assistant response
+    const userMsg: ChatMessage = {
+      id: `u_${Date.now()}`,
+      role: 'user',
+      content: SUMMARY_PROMPT,
+      timestamp: Date.now(),
+    };
+    const aiMsg: ChatMessage = {
+      id: `a_${Date.now()}`,
+      role: 'assistant',
+      content: markdown,
+      timestamp: Date.now(),
+    };
+    setSession({
+      ...session,
+      messages: [...session.messages, userMsg, aiMsg],
+      lastUpdated: Date.now(),
+    });
+  };
+
   const handleRegenerate = async (messageId: string) => {
     if (!session || isStreaming) return;
 
@@ -454,7 +496,13 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onAddCard={handleAddCard}
             isKnowledgeMode={true}
             courseCode={session.course?.code ?? ''}
-            onPromptSelect={(prompt) => handleSend(prompt)}
+            onPromptSelect={(prompt) => {
+              if (prompt === SUMMARY_PROMPT) {
+                handleSummaryAction();
+              } else {
+                handleSend(prompt);
+              }
+            }}
             onRegenerate={handleRegenerate}
             contentClassName="chat-scroll-content-offset"
           />
