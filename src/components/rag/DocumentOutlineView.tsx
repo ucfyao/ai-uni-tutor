@@ -33,7 +33,6 @@ import {
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import type { Json } from '@/types/database';
 
 /* ── Types ── */
@@ -59,7 +58,6 @@ export interface SectionEditData {
 }
 
 interface DocumentOutlineViewProps {
-  outline?: DocumentOutline | null;
   chunks: SectionChunk[];
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
@@ -675,7 +673,6 @@ function SectionCard({
 /* ── Main View ── */
 
 export function DocumentOutlineView({
-  outline,
   chunks,
   selectedIds,
   onToggleSelect,
@@ -723,23 +720,6 @@ export function DocumentOutlineView({
   const toggleAll = useCallback(() => {
     setExpandedIds(allExpanded ? new Set() : new Set(allIds));
   }, [allExpanded, allIds]);
-
-  // Build a lookup from outline for enriching old-format chunks
-  const outlineKPMap = new Map<string, KPItem[]>();
-  if (outline) {
-    for (const s of outline.sections) {
-      if (s.knowledgePointDetails?.length) {
-        outlineKPMap.set(
-          s.title.trim().toLowerCase(),
-          s.knowledgePointDetails.map((kp) => ({
-            title: kp.title,
-            content: kp.content,
-            sourcePages: kp.sourcePages,
-          })),
-        );
-      }
-    }
-  }
 
   return (
     <Stack gap="md">
@@ -898,12 +878,6 @@ export function DocumentOutlineView({
       {chunks.map((chunk, index) => {
         const meta = getChunkMeta(chunk);
 
-        let kps = meta.knowledgePoints;
-        if (kps.length > 0 && !kps[0].content) {
-          const outlineKPs = outlineKPMap.get(meta.title.trim().toLowerCase());
-          if (outlineKPs) kps = outlineKPs;
-        }
-
         return (
           <SectionCard
             key={chunk.id}
@@ -912,7 +886,7 @@ export function DocumentOutlineView({
             title={meta.title || 'Untitled Section'}
             summary={meta.summary}
             sourcePages={meta.sourcePages}
-            knowledgePoints={kps}
+            knowledgePoints={meta.knowledgePoints}
             expanded={expandedIds.has(chunk.id)}
             isSelected={selectedIds?.has(chunk.id) ?? false}
             interactive={interactive}

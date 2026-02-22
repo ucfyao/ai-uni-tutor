@@ -535,8 +535,6 @@ describe('Document Actions', () => {
         {
           id: 'doc-1',
           outline: {
-            title: 'Algorithms',
-            summary: '3 sections, 5 knowledge points.',
             sections: [
               {
                 title: 'Sorting',
@@ -557,7 +555,7 @@ describe('Document Actions', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toHaveLength(1);
-        expect(result.data[0].outline.title).toBe('Algorithms');
+        expect(result.data[0].outline.sections[0].title).toBe('Sorting');
       }
     });
 

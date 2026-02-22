@@ -41,7 +41,8 @@ describe('lecture-parser', () => {
 
       expect(result.knowledgePoints).toHaveLength(1);
       expect(result.outline).toBeDefined();
-      expect(result.outline?.documentId).toBe('doc-1');
+      expect(result.outline?.sections).toHaveLength(1);
+      expect(result.outline?.sections[0].title).toBe('Binary Search Trees');
       expect(mockExtractSections).toHaveBeenCalledWith(pages, undefined);
     });
 
@@ -87,7 +88,7 @@ describe('lecture-parser', () => {
       expect(mockExtractSections).toHaveBeenCalledWith(pages, controller.signal);
     });
 
-    it('skips outline when no documentId provided', async () => {
+    it('builds outline even without documentId', async () => {
       const sections: ExtractedSection[] = [
         {
           title: 'Section 1',
@@ -100,7 +101,8 @@ describe('lecture-parser', () => {
 
       const result = await parseLectureMultiPass([{ page: 1, text: 'P1' }]);
 
-      expect(result.outline).toBeUndefined();
+      expect(result.outline).toBeDefined();
+      expect(result.outline?.sections).toHaveLength(1);
     });
 
     it('returns empty result when no sections extracted', async () => {

@@ -22,6 +22,11 @@ interface DocumentListItem {
   doc_type: string;
   metadata: { school?: string; course?: string; [key: string]: unknown } | null;
   item_count?: number;
+  outline_summary?: {
+    count: number;
+    totalKPs: number;
+    sections: { title: string; desc: string; kps: string[] }[];
+  } | null;
 }
 
 const docTypeSchema = z.enum(['lecture', 'exam', 'assignment']);
@@ -75,18 +80,40 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
       courseIds = await getAdminService().getAssignedCourseIds(user.id);
     }
     const { data: entities } = await service.getDocumentsForAdmin(courseIds);
-    return entities.map((doc) => ({
-      id: doc.id,
-      name: doc.name,
-      status: doc.status,
-      created_at: doc.createdAt.toISOString(),
-      doc_type: 'lecture',
-      metadata:
-        doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
-          ? (doc.metadata as DocumentListItem['metadata'])
-          : null,
-      item_count: doc.chunkCount ?? 0,
-    }));
+    return entities.map((doc) => {
+      const outline = doc.outline as {
+        sections?: Array<{ title?: string; briefDescription?: string; knowledgePoints?: string[] }>;
+      } | null;
+      const sections = Array.isArray(outline?.sections) ? outline.sections : [];
+      return {
+        id: doc.id,
+        name: doc.name,
+        status: doc.status,
+        created_at: doc.createdAt.toISOString(),
+        doc_type: 'lecture',
+        metadata:
+          doc.metadata && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
+            ? (doc.metadata as DocumentListItem['metadata'])
+            : null,
+        item_count: doc.chunkCount ?? 0,
+        outline_summary:
+          sections.length > 0
+            ? {
+                count: sections.length,
+                totalKPs: sections.reduce(
+                  (sum, s) =>
+                    sum + (Array.isArray(s.knowledgePoints) ? s.knowledgePoints.length : 0),
+                  0,
+                ),
+                sections: sections.map((s) => ({
+                  title: s.title ?? 'Untitled',
+                  desc: s.briefDescription ?? '',
+                  kps: Array.isArray(s.knowledgePoints) ? s.knowledgePoints : [],
+                })),
+              }
+            : null,
+      };
+    });
   }
 
   if (parsed.data === 'exam') {
@@ -670,8 +697,6 @@ interface OutlineSection {
 }
 
 interface DocumentOutlineData {
-  title: string;
-  summary: string;
   sections: OutlineSection[];
 }
 
@@ -700,5 +725,53 @@ export async function getLectureOutlines(
     return { success: true, data: outlines };
   } catch {
     return { success: false, error: 'Failed to fetch outlines' };
+  }
+}
+
+const outlineSectionSchema = z.object({
+  title: z.string().min(1),
+  briefDescription: z.string(),
+  knowledgePoints: z.array(z.string()),
+});
+
+const outlineSchema = z.object({
+  sections: z.array(outlineSectionSchema),
+});
+
+export async function updateDocumentOutline(
+  documentId: string,
+  outline: { sections: { title: string; briefDescription: string; knowledgePoints: string[] }[] },
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const { user } = await requireAnyAdmin();
+
+    const idParsed = z.string().uuid().safeParse(documentId);
+    if (!idParsed.success) return { success: false, error: 'Invalid document ID' };
+
+    const outlineParsed = outlineSchema.safeParse(outline);
+    if (!outlineParsed.success) return { success: false, error: 'Invalid outline data' };
+
+    const service = getLectureDocumentService();
+    const doc = await service.findById(idParsed.data);
+    if (!doc) return { success: false, error: 'Document not found' };
+
+    // Verify access
+    if (doc.userId !== user.id) {
+      const { getAdminService } = await import('@/lib/services/AdminService');
+      const courseIds = await getAdminService().getAssignedCourseIds(user.id);
+      if (!doc.courseId || !courseIds.includes(doc.courseId)) {
+        return { success: false, error: 'Unauthorized' };
+      }
+    }
+
+    const { getLectureDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
+    await getLectureDocumentRepository().saveOutline(
+      idParsed.data,
+      outlineParsed.data as unknown as Json,
+    );
+
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Failed to update outline' };
   }
 }

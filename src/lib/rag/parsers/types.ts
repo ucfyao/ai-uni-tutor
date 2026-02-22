@@ -26,23 +26,12 @@ export interface ParsedQuestion {
 
 export interface OutlineSection {
   title: string;
-  knowledgePoints: string[];
   briefDescription: string;
-  sourcePages?: number[];
-  knowledgePointDetails?: {
-    title: string;
-    content: string;
-    sourcePages?: number[];
-  }[];
+  knowledgePoints: string[];
 }
 
 export interface DocumentOutline {
-  documentId: string;
-  title: string;
-  subject: string;
-  totalKnowledgePoints: number;
   sections: OutlineSection[];
-  summary: string;
 }
 
 export interface CourseTopic {

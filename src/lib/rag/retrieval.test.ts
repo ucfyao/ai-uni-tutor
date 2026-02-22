@@ -215,7 +215,7 @@ describe('retrieveOutlineContext', () => {
 
     const result = await retrieveOutlineContext('what is BST?', 'course-1');
 
-    expect(result.documentOutline).toContain('Lecture 1');
+    expect(result.documentOutline).toContain('- BST: Binary search trees');
     expect(result.courseOutline).toContain('Data Structures');
   });
 });

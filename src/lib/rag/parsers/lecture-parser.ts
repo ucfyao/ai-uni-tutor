@@ -26,28 +26,13 @@ function reportProgress(
   options.onProgress({ phase: 'extraction', phaseProgress, totalProgress, detail, ...extra });
 }
 
-function buildOutlineFromSections(
-  documentId: string,
-  sections: ExtractedSection[],
-): DocumentOutline {
-  const totalKP = sections.reduce((sum, s) => sum + s.knowledgePoints.length, 0);
+function buildOutlineFromSections(sections: ExtractedSection[]): DocumentOutline {
   return {
-    documentId,
-    title: sections[0]?.title ?? 'Untitled',
-    subject: '',
-    totalKnowledgePoints: totalKP,
     sections: sections.map((s) => ({
       title: s.title,
-      knowledgePoints: s.knowledgePoints.map((kp) => kp.title),
       briefDescription: s.summary,
-      sourcePages: s.sourcePages,
-      knowledgePointDetails: s.knowledgePoints.map((kp) => ({
-        title: kp.title,
-        content: kp.content,
-        sourcePages: kp.sourcePages,
-      })),
+      knowledgePoints: s.knowledgePoints.map((kp) => kp.title),
     })),
-    summary: `${sections.length} sections, ${totalKP} knowledge points.`,
   };
 }
 
@@ -85,10 +70,8 @@ export async function parseLectureMultiPass(
     },
   );
 
-  let outline: DocumentOutline | undefined;
-  if (options?.documentId) {
-    outline = buildOutlineFromSections(options.documentId, sections);
-  }
+  const outline: DocumentOutline | undefined =
+    sections.length > 0 ? buildOutlineFromSections(sections) : undefined;
 
   // Flatten knowledge points with sourcePages from parent section
   const knowledgePoints = sections.flatMap((s) =>

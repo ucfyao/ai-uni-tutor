@@ -39,7 +39,6 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import type { DocumentStatus } from '@/lib/domain/models/Document';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
-import type { DocumentOutline } from '@/lib/rag/parsers/types';
 import type { Json } from '@/types/database';
 
 interface Chunk {
@@ -94,7 +93,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const [showUpload, setShowUpload] = useState(chunks.length === 0);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const outline = doc.outline ? (doc.outline as unknown as DocumentOutline) : null;
 
   const totalKPs = useMemo(() => {
     let count = 0;
@@ -592,7 +590,6 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
 
           {/* Content: section list */}
           <DocumentOutlineView
-            outline={outline}
             chunks={chunks}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}

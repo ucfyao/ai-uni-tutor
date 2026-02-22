@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, Plus, Search, Upload, X } from 'lucide-react';
+import { BookOpen, Check, FileText, Plus, Search, Upload, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -20,7 +20,12 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { createEmptyAssignment, fetchAssignmentStats } from '@/app/actions/assignments';
-import { createExam, createLecture, fetchDocuments } from '@/app/actions/documents';
+import {
+  createExam,
+  createLecture,
+  fetchDocuments,
+  updateDocumentMeta,
+} from '@/app/actions/documents';
 import { AdminContent } from '@/components/admin/AdminContent';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
@@ -54,6 +59,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState<KnowledgeDocument | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editUniId, setEditUniId] = useState<string | null>(null);
+  const [editCourseId, setEditCourseId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch documents by type via server action
   const queryClient = useQueryClient();
@@ -95,7 +107,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
-  const { universities, courses: filteredCourses } = useCourseData(selectedUniId);
+  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
+
+  // Courses filtered by edit modal's university selection
+  const editFilteredCourses = useMemo(
+    () => (editUniId ? allCourses.filter((c) => c.universityId === editUniId) : allCourses),
+    [allCourses, editUniId],
+  );
 
   const isFormValid = title.trim() && selectedUniId && selectedCourseId;
 
@@ -399,6 +417,27 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             <KnowledgeTable
               documents={filteredDocuments}
               onDeleted={handleDocumentDeleted}
+              onEdit={(doc) => {
+                setEditName(doc.name);
+                // Try to find matching university/course from metadata
+                const school = doc.metadata?.school ?? '';
+                const course = doc.metadata?.course ?? '';
+                const matchedUni = universities.find(
+                  (u) => u.shortName === school || u.name === school,
+                );
+                if (matchedUni) {
+                  setEditUniId(matchedUni.id);
+                  // Match course from all courses filtered by this uni
+                  const uniCourses = allCourses.filter((c) => c.universityId === matchedUni.id);
+                  const matchedCourse = uniCourses.find(
+                    (c) => c.code === course || c.name === course,
+                  );
+                  if (matchedCourse) setEditCourseId(matchedCourse.id);
+                } else {
+                  setEditUniId(selectedUniId);
+                }
+                setEditTarget(doc);
+              }}
               assignmentStats={activeTab === 'assignment' ? assignmentStats : undefined}
             />
           ) : debouncedSearch ? (
@@ -513,6 +552,126 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
             fullWidth
           >
             {t.knowledge.createAndEdit}
+          </Button>
+        </Stack>
+      </FullScreenModal>
+
+      {/* ── Edit Modal ── */}
+      <FullScreenModal
+        opened={editTarget !== null}
+        onClose={() => {
+          if (!isSaving) setEditTarget(null);
+        }}
+        title={
+          activeTab === 'exam'
+            ? t.knowledge.editExam
+            : activeTab === 'assignment'
+              ? t.knowledge.editAssignment
+              : t.knowledge.editLecture
+        }
+        centered
+        size="md"
+        radius="lg"
+        closeOnClickOutside={!isSaving}
+        closeOnEscape={!isSaving}
+        withCloseButton={!isSaving}
+        overlayProps={{ backgroundOpacity: 0.3, blur: 8, color: '#1a1b1e' }}
+        styles={{
+          content: {
+            border: '1px solid var(--mantine-color-default-border)',
+            background: 'var(--mantine-color-body)',
+          },
+        }}
+      >
+        <Stack gap="md">
+          <TextInput
+            label={t.knowledge.title}
+            placeholder={t.knowledge.titlePlaceholder}
+            value={editName}
+            onChange={(e) => setEditName(e.currentTarget.value)}
+            required
+            size="sm"
+            radius="md"
+          />
+          <Select
+            label={t.knowledge.university}
+            placeholder={t.knowledge.university}
+            data={universities.map((u) => ({ value: u.id, label: u.name }))}
+            value={editUniId}
+            onChange={(val) => {
+              setEditUniId(val);
+              setEditCourseId(null);
+            }}
+            searchable
+            size="sm"
+            radius="md"
+          />
+          <Select
+            label={t.knowledge.course}
+            placeholder={t.knowledge.course}
+            data={editFilteredCourses.map((c) => ({
+              value: c.id,
+              label: `${c.code}: ${c.name}`,
+            }))}
+            value={editCourseId}
+            onChange={setEditCourseId}
+            disabled={!editUniId}
+            searchable
+            size="sm"
+            radius="md"
+          />
+          <Button
+            leftSection={<Check size={14} />}
+            disabled={!editName.trim()}
+            loading={isSaving}
+            onClick={async () => {
+              if (!editTarget || !editName.trim()) return;
+              setIsSaving(true);
+              try {
+                // Find school/course labels from selected IDs
+                const selectedUni = universities.find((u) => u.id === editUniId);
+                const selectedCourse = editFilteredCourses.find((c) => c.id === editCourseId);
+
+                const result = await updateDocumentMeta(editTarget.id, {
+                  name: editName.trim(),
+                  ...(selectedUni && { school: selectedUni.shortName || selectedUni.name }),
+                  ...(selectedCourse && { course: selectedCourse.code }),
+                });
+
+                if (result.status === 'success') {
+                  showNotification({
+                    message: t.knowledge.updateSuccess,
+                    color: 'green',
+                    icon: <Check size={16} />,
+                  });
+                  // Refresh document list
+                  queryClient.invalidateQueries({
+                    queryKey: queryKeys.documents.byType(activeTab),
+                  });
+                  setEditTarget(null);
+                } else {
+                  showNotification({
+                    title: t.knowledge.error,
+                    message: result.message,
+                    color: 'red',
+                  });
+                }
+              } catch (error) {
+                showNotification({
+                  title: t.knowledge.error,
+                  message: error instanceof Error ? error.message : 'Failed to update',
+                  color: 'red',
+                });
+              } finally {
+                setIsSaving(false);
+              }
+            }}
+            color={getDocColor(activeTab)}
+            size="md"
+            radius="md"
+            fullWidth
+          >
+            {t.knowledge.save}
           </Button>
         </Stack>
       </FullScreenModal>

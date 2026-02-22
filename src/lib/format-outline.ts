@@ -2,24 +2,22 @@ interface OutlineSection {
   title: string;
   briefDescription: string;
   knowledgePoints: string[];
-  knowledgePointDetails?: { title: string; content: string }[];
 }
 
 interface DocumentOutline {
-  title: string;
-  summary: string;
   sections: OutlineSection[];
 }
 
-export function formatOutlineToMarkdown(outline: DocumentOutline): string {
+export function formatOutlineToMarkdown(outline: DocumentOutline, docName?: string): string {
   const lines: string[] = [];
 
-  lines.push(`## ${outline.title}`);
-  lines.push('');
+  if (docName) {
+    lines.push(`## ${docName}`);
+    lines.push('');
+  }
 
   if (outline.sections.length === 0) return lines.join('\n');
 
-  // Outline section — hierarchical structure
   lines.push('### Outline');
   for (const section of outline.sections) {
     lines.push(`- **${section.title}** — ${section.briefDescription}`);
@@ -28,16 +26,6 @@ export function formatOutlineToMarkdown(outline: DocumentOutline): string {
     }
   }
   lines.push('');
-
-  // Key Concepts section — detailed explanations
-  const allDetails = outline.sections.flatMap((s) => s.knowledgePointDetails ?? []);
-  if (allDetails.length > 0) {
-    lines.push('### Key Concepts');
-    allDetails.forEach((detail, i) => {
-      lines.push(`${i + 1}. **${detail.title}** — ${detail.content}`);
-    });
-    lines.push('');
-  }
 
   return lines.join('\n');
 }
