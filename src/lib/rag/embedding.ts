@@ -1,11 +1,11 @@
 import { AppError } from '../errors';
-import { GEMINI_MODELS, genAI } from '../gemini';
+import { GEMINI_MODELS, getGenAI } from '../gemini';
 import { RAG_CONFIG } from './config';
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   let result;
   try {
-    result = await genAI.models.embedContent({
+    result = await getGenAI().models.embedContent({
       model: GEMINI_MODELS.embedding,
       contents: text,
       config: {
@@ -45,7 +45,7 @@ export async function generateEmbeddingBatch(
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
     try {
-      const result = await genAI.models.embedContent({
+      const result = await getGenAI().models.embedContent({
         model: GEMINI_MODELS.embedding,
         contents: batch,
         config: {

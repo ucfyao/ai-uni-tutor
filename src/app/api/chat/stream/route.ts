@@ -9,7 +9,6 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { MODE_CONFIGS } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS } from '@/lib/gemini';
 import { getChatService } from '@/lib/services/ChatService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -104,7 +103,7 @@ export async function POST(req: NextRequest) {
 
   // 4. Check Usage Limits
   const quotaService = getQuotaService();
-  const quota = await quotaService.checkAndConsume(user.id, GEMINI_MODELS.chat);
+  const quota = await quotaService.checkAndConsume(user.id);
 
   if (!quota.allowed) {
     return errorResponse(quota.error || 'Daily limit reached. Please upgrade your plan.', 429, {

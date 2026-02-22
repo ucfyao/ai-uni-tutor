@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPooledProxy, KeyPool } from './gemini-key-pool';
+import type { PoolState } from '@/lib/redis';
+import { KeyPool } from './gemini';
 
 // Mock GoogleGenAI
 vi.mock('@google/genai', () => {
@@ -24,23 +25,21 @@ vi.mock('@google/genai', () => {
   return { GoogleGenAI: MockGoogleGenAI, ApiError: MockApiError };
 });
 
-// Mock Redis — single JSON value
-let redisValue: number[] | null = null;
-const mockSet = vi.fn(async (_key: string, value: number[]) => {
-  redisValue = value;
+// Mock Redis — unified PoolState
+let state: PoolState = { cd: [], stats: {} };
+const mockSave = vi.fn(async (s: PoolState) => {
+  state = s;
 });
 
 vi.mock('@/lib/redis', () => ({
-  getRedis: () => ({
-    get: vi.fn(async () => redisValue),
-    set: mockSet,
-  }),
+  loadPoolState: vi.fn(async () => state),
+  savePoolState: (...args: unknown[]) => mockSave(...(args as [PoolState])),
 }));
 
 describe('KeyPool', () => {
   beforeEach(() => {
-    redisValue = null;
-    mockSet.mockClear();
+    state = { cd: [], stats: {} };
+    mockSave.mockClear();
   });
 
   describe('constructor', () => {
@@ -67,12 +66,23 @@ describe('KeyPool', () => {
       expect(result).toEqual({ text: 'ok' });
     });
 
-    it('does not write Redis on clean success', async () => {
+    it('always writes state back (1 GET + 1 SET)', async () => {
       const pool = new KeyPool('k1');
       await pool.withRetry((genAI) =>
         genAI.models.generateContent({ model: 'test', contents: '' }),
       );
-      expect(mockSet).not.toHaveBeenCalled();
+      expect(mockSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('tracks model stats on success', async () => {
+      const pool = new KeyPool('k1');
+      await pool.withRetry(
+        (genAI) => genAI.models.generateContent({ model: 'test', contents: '' }),
+        'gemini-2.5-flash',
+      );
+
+      const today = new Date().toISOString().split('T')[0];
+      expect(state.stats[`gemini-2.5-flash:${today}`]).toBe(1);
     });
 
     it('retries next key on 429 and marks 30s cooldown (first failure)', async () => {
@@ -90,15 +100,14 @@ describe('KeyPool', () => {
 
       expect(result).toEqual({ text: 'ok' });
       // k1 marked with 30s cooldown
-      const cooldown = redisValue![0];
+      const cooldown = state.cd[0];
       expect(cooldown).toBeGreaterThan(Date.now());
       expect(cooldown).toBeLessThanOrEqual(Date.now() + 30_000);
-      expect(mockSet).toHaveBeenCalledTimes(1);
     });
 
     it('marks 24h cooldown on second failure (on notice)', async () => {
       // k1 has expired cooldown → "on notice"
-      redisValue = [1, 0];
+      state = { cd: [1, 0], stats: {} };
 
       const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
@@ -114,7 +123,7 @@ describe('KeyPool', () => {
 
       expect(result).toEqual({ text: 'ok' });
       // k1 now has 24h cooldown
-      const cooldown = redisValue![0];
+      const cooldown = state.cd[0];
       expect(cooldown).toBeGreaterThan(Date.now() + 60_000);
     });
 
@@ -177,14 +186,14 @@ describe('KeyPool', () => {
         pool.withRetry((genAI) => genAI.models.generateContent({ model: 'test', contents: '' })),
       ).rejects.toThrow('rate limited');
 
-      // Both keys marked 24h
-      expect(redisValue![0]).toBeGreaterThan(Date.now());
-      expect(redisValue![1]).toBeGreaterThan(Date.now());
+      // Both keys have cooldowns
+      expect(state.cd[0]).toBeGreaterThan(Date.now());
+      expect(state.cd[1]).toBeGreaterThan(Date.now());
     });
 
     it('skips keys in cooldown from previous requests', async () => {
       // Simulate k1 already in 24h cooldown (from another instance)
-      redisValue = [Date.now() + 86400000, 0];
+      state = { cd: [Date.now() + 86400000, 0], stats: {} };
 
       const pool = new KeyPool('k1,k2');
       const spy = vi.fn();
@@ -198,41 +207,33 @@ describe('KeyPool', () => {
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy).toHaveBeenCalledWith('k2');
     });
-
-    it('clears cooldown on success and writes state', async () => {
-      // k1 has expired cooldown (on notice)
-      redisValue = [1, 0];
-
-      const pool = new KeyPool('k1');
-      await pool.withRetry((genAI) =>
-        genAI.models.generateContent({ model: 'test', contents: '' }),
-      );
-
-      // Cooldown cleared, state saved
-      expect(redisValue![0]).toBe(0);
-      expect(mockSet).toHaveBeenCalledTimes(1);
-    });
   });
 });
 
-describe('createPooledProxy', () => {
+describe('KeyPool.asProxy', () => {
   beforeEach(() => {
-    redisValue = null;
-    mockSet.mockClear();
+    state = { cd: [], stats: {} };
+    mockSave.mockClear();
   });
 
   it('proxies models.generateContent', async () => {
-    const pool = new KeyPool('k1');
-    const proxy = createPooledProxy(pool);
+    const proxy = new KeyPool('k1').asProxy();
     const result = await proxy.models.generateContent({ model: 'test', contents: '' });
     expect(result).toEqual({ text: 'ok' });
   });
 
   it('proxies models.embedContent', async () => {
-    const pool = new KeyPool('k1');
-    const proxy = createPooledProxy(pool);
+    const proxy = new KeyPool('k1').asProxy();
     const result = await proxy.models.embedContent({ model: 'test', contents: '' });
     expect(result).toEqual({ embeddings: [] });
+  });
+
+  it('extracts model from args and tracks stats', async () => {
+    const proxy = new KeyPool('k1').asProxy();
+    await proxy.models.generateContent({ model: 'gemini-2.5-flash', contents: '' });
+
+    const today = new Date().toISOString().split('T')[0];
+    expect(state.stats[`gemini-2.5-flash:${today}`]).toBe(1);
   });
 
   it('retries transparently through proxy', async () => {
@@ -244,8 +245,7 @@ describe('createPooledProxy', () => {
       new ApiError({ status: 429, message: 'rate limited' }),
     );
 
-    const proxy = createPooledProxy(pool);
-    const result = await proxy.models.generateContent({ model: 'test', contents: '' });
+    const result = await pool.asProxy().models.generateContent({ model: 'test', contents: '' });
     expect(result).toEqual({ text: 'ok' });
   });
 });

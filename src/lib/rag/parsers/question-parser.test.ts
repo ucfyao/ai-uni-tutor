@@ -12,7 +12,6 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
   mockGemini = createMockGemini();
   return {
     ...actual,
-    genAI: mockGemini.client,
     getGenAI: () => mockGemini.client,
   };
 });

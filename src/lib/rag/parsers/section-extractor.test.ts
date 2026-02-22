@@ -9,7 +9,7 @@ let mockGemini: MockGeminiResult;
 vi.mock('@/lib/gemini', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/gemini')>();
   mockGemini = createMockGemini();
-  return { ...actual, genAI: mockGemini.client, getGenAI: () => mockGemini.client };
+  return { ...actual, getGenAI: () => mockGemini.client };
 });
 
 const { extractSections } = await import('./section-extractor');

@@ -4,7 +4,6 @@ import { QuotaExceededError } from '@/lib/errors';
 import { parsePDF } from '@/lib/pdf';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
-import { GEMINI_MODELS } from '@/lib/gemini';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
@@ -129,7 +128,7 @@ export async function POST(request: Request) {
 
       // ── Quota (after auth + course permission, so unauthorized requests don't consume quota) ──
       try {
-        await getQuotaService().enforce(user.id, GEMINI_MODELS.parse);
+        await getQuotaService().enforce(user.id);
       } catch (error) {
         if (error instanceof QuotaExceededError) {
           send('error', { message: error.message, code: 'QUOTA_EXCEEDED' });
