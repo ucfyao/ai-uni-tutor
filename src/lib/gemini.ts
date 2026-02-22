@@ -1,5 +1,6 @@
 import { ApiError, GoogleGenAI } from '@google/genai';
 import { AppError } from '@/lib/errors';
+import { loadPoolState, savePoolState } from '@/lib/redis';
 
 export const GEMINI_MODELS = {
   chat: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash',
@@ -7,25 +8,139 @@ export const GEMINI_MODELS = {
   embedding: process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001',
 } as const;
 
-let _genAI: GoogleGenAI | null = null;
+// ==================== Key Pool ====================
+
+const RETRY_COOLDOWN_MS = 30_000;
+const RATE_LIMIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const RETRYABLE = new Set([429, 500, 503]);
+
+function maskKey(key: string): string {
+  if (key.length <= 8) return '****';
+  return `${key.slice(0, 4)}****${key.slice(-2)}`;
+}
+
+export interface KeyStatusInfo {
+  id: number;
+  maskedKey: string;
+  disabled: boolean;
+}
+
+/** @internal Exported for testing only */
+export class KeyPool {
+  private entries: { id: number; maskedKey: string; genAI: GoogleGenAI; disabled: boolean }[];
+  private pointer = 0;
+
+  constructor(keysEnv: string) {
+    const keys = keysEnv
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    if (keys.length === 0) {
+      throw new Error('Missing GEMINI_API_KEY in environment variables');
+    }
+
+    this.entries = keys.map((key, i) => ({
+      id: i,
+      maskedKey: maskKey(key),
+      genAI: new GoogleGenAI({ apiKey: key }),
+      disabled: false,
+    }));
+  }
+
+  /**
+   * Execute `fn` with automatic key rotation, failover, and stats tracking.
+   * 1 GET + 1 SET = 2 Redis calls per request.
+   */
+  async withRetry<T>(fn: (genAI: GoogleGenAI) => Promise<T>, model?: string): Promise<T> {
+    const state = await loadPoolState();
+    const now = Date.now();
+    let lastError: unknown;
+
+    try {
+      const start = this.pointer;
+      for (let i = 0; i < this.entries.length; i++) {
+        const idx = (start + i) % this.entries.length;
+        const entry = this.entries[idx];
+
+        if (entry.disabled || (state.cd[idx] ?? 0) > now) continue;
+
+        try {
+          const result = await fn(entry.genAI);
+          this.pointer = (idx + 1) % this.entries.length;
+          if (model) {
+            const statsKey = `${model}:${new Date().toISOString().split('T')[0]}`;
+            state.stats[statsKey] = (state.stats[statsKey] ?? 0) + 1;
+          }
+          return result;
+        } catch (err) {
+          lastError = err;
+          const status =
+            err instanceof ApiError ? err.status : (err as { status?: number })?.status;
+
+          if (status === 401 || status === 403) {
+            entry.disabled = true;
+            console.error(`[KeyPool] Key ${entry.maskedKey} DISABLED permanently (HTTP ${status})`);
+            continue;
+          }
+
+          if (status && RETRYABLE.has(status)) {
+            const isRepeat = !!state.cd[idx];
+            state.cd[idx] = now + (isRepeat ? RATE_LIMIT_COOLDOWN_MS : RETRY_COOLDOWN_MS);
+            console.warn(
+              `[KeyPool] Key ${entry.maskedKey} ${isRepeat ? 'DISABLED 24h' : 'COOLDOWN 30s'} (HTTP ${status})`,
+            );
+            continue;
+          }
+
+          throw err;
+        }
+      }
+
+      throw lastError ?? new Error('All Gemini API keys are unavailable');
+    } finally {
+      await savePoolState(state);
+    }
+  }
+
+  /** Create a GoogleGenAI-compatible proxy that routes all calls through the pool. */
+  asProxy(): GoogleGenAI {
+    const modelsProxy = new Proxy({} as GoogleGenAI['models'], {
+      get:
+        (_, method: string) =>
+        (...args: unknown[]) => {
+          const model = (args[0] as { model?: string })?.model;
+          return this.withRetry(
+            (genAI) => (genAI.models as unknown as Record<string, Function>)[method](...args),
+            model,
+          );
+        },
+    });
+
+    return new Proxy({} as GoogleGenAI, {
+      get: (_, prop) => (prop === 'models' ? modelsProxy : undefined),
+    });
+  }
+
+  getStatus(): KeyStatusInfo[] {
+    return this.entries.map((e) => ({ id: e.id, maskedKey: e.maskedKey, disabled: e.disabled }));
+  }
+}
+
+// ==================== Public API ====================
+
+let _pooledProxy: GoogleGenAI | null = null;
 
 /** Lazy: validated on first use so pages/tests without GEMINI_API_KEY don't crash at import. */
 export function getGenAI(): GoogleGenAI {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('Missing GEMINI_API_KEY in environment variables');
   }
-  if (!_genAI) {
-    _genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  if (!_pooledProxy) {
+    _pooledProxy = new KeyPool(process.env.GEMINI_API_KEY).asProxy();
   }
-  return _genAI;
+  return _pooledProxy;
 }
-
-/** @deprecated Prefer getGenAI() for lazy validation. Kept for backward compatibility. */
-export const genAI = new Proxy({} as GoogleGenAI, {
-  get(_, prop) {
-    return (getGenAI() as unknown as Record<string, unknown>)[prop as string];
-  },
-});
 
 /**
  * Parse any error thrown by the Gemini SDK into a structured AppError.

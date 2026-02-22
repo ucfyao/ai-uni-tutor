@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const store = new Map<string, number>();
+const store = new Map<string, unknown>();
 
 vi.mock('@upstash/redis', () => {
   class Redis {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     constructor(_opts: { url: string; token: string }) {}
 
+    // Simulates Redis EVAL for Lua scripts (used by checkLLMUsage)
     async eval(_script: string, keys: string[], args: string[]) {
       const key = keys[0];
       const limit = Number(args[0]);
-      const current = store.get(key) ?? 0;
+      const current = (store.get(key) as number) ?? 0;
 
       if (current >= limit) return [0, current];
 
@@ -21,11 +22,16 @@ vi.mock('@upstash/redis', () => {
 
     async get<T>(key: string): Promise<T | null> {
       const value = store.get(key);
-      return (value ?? null) as unknown as T | null;
+      return (value ?? null) as T | null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async set(key: string, value: any): Promise<void> {
+      store.set(key, value);
     }
 
     async incr(key: string): Promise<number> {
-      const current = store.get(key) ?? 0;
+      const current = (store.get(key) as number) ?? 0;
       const next = current + 1;
       store.set(key, next);
       return next;
@@ -97,71 +103,7 @@ describe('LLM daily limit counter', () => {
   });
 });
 
-describe('incrementModelStats', () => {
-  beforeEach(() => {
-    store.clear();
-    vi.resetModules();
-    vi.restoreAllMocks();
-    process.env.UPSTASH_REDIS_REST_URL = 'http://localhost:8079';
-    process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
-  });
-
-  it('should increment the correct key with date-based format', async () => {
-    const { incrementModelStats } = await import('./redis');
-
-    await incrementModelStats('gemini-2.0-flash');
-
-    const today = new Date().toISOString().split('T')[0];
-    const key = `stats:llm:gemini-2.0-flash:${today}`;
-    expect(store.get(key)).toBe(1);
-  });
-
-  it('should increment the counter on repeated calls', async () => {
-    const { incrementModelStats } = await import('./redis');
-
-    await incrementModelStats('gemini-2.0-flash');
-    await incrementModelStats('gemini-2.0-flash');
-    await incrementModelStats('gemini-2.0-flash');
-
-    const today = new Date().toISOString().split('T')[0];
-    const key = `stats:llm:gemini-2.0-flash:${today}`;
-    expect(store.get(key)).toBe(3);
-  });
-
-  it('should track different models independently', async () => {
-    const { incrementModelStats } = await import('./redis');
-
-    await incrementModelStats('gemini-2.0-flash');
-    await incrementModelStats('gemini-2.0-pro');
-    await incrementModelStats('gemini-2.0-flash');
-
-    const today = new Date().toISOString().split('T')[0];
-    expect(store.get(`stats:llm:gemini-2.0-flash:${today}`)).toBe(2);
-    expect(store.get(`stats:llm:gemini-2.0-pro:${today}`)).toBe(1);
-  });
-
-  it('should catch and log errors without throwing', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    // Clear env to force getRedis() to throw
-    delete process.env.UPSTASH_REDIS_REST_URL;
-    delete process.env.UPSTASH_REDIS_REST_TOKEN;
-
-    const { incrementModelStats } = await import('./redis');
-
-    // Should not throw
-    await expect(incrementModelStats('gemini-2.0-flash')).resolves.toBeUndefined();
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[Redis] Failed to increment model stats:',
-      expect.any(Error),
-    );
-
-    consoleSpy.mockRestore();
-  });
-});
-
-describe('getModelStats', () => {
+describe('pool state (loadPoolState / savePoolState / getModelStats)', () => {
   beforeEach(() => {
     store.clear();
     vi.resetModules();
@@ -169,54 +111,39 @@ describe('getModelStats', () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
   });
 
-  it('should return 0s when no data exists', async () => {
-    const { getModelStats } = await import('./redis');
-
-    const result = await getModelStats('gemini-2.0-flash');
-    expect(result).toEqual({ today: 0, monthly: 0 });
+  it('loadPoolState returns empty state when key missing', async () => {
+    const { loadPoolState } = await import('./redis');
+    const s = await loadPoolState();
+    expect(s).toEqual({ cd: [], stats: {} });
   });
 
-  it('should return today count and monthly total', async () => {
-    const { getModelStats, incrementModelStats } = await import('./redis');
-
-    // Simulate some usage today
-    await incrementModelStats('gemini-2.0-flash');
-    await incrementModelStats('gemini-2.0-flash');
-    await incrementModelStats('gemini-2.0-flash');
-
-    const result = await getModelStats('gemini-2.0-flash');
-    expect(result.today).toBe(3);
-    expect(result.monthly).toBe(3);
+  it('savePoolState + loadPoolState round-trip', async () => {
+    const { loadPoolState, savePoolState } = await import('./redis');
+    const data = { cd: [0, Date.now() + 30000], stats: { 'gemini-2.5-flash:2026-02-22': 5 } };
+    await savePoolState(data);
+    const loaded = await loadPoolState();
+    expect(loaded).toEqual(data);
   });
 
-  it('should include past days in monthly total', async () => {
-    const { getModelStats } = await import('./redis');
-
+  it('getModelStats returns today and monthly from pool state', async () => {
+    const { getModelStats, savePoolState } = await import('./redis');
     const today = new Date().toISOString().split('T')[0];
-    const monthPrefix = today.slice(0, 7); // "YYYY-MM"
+    const monthPrefix = today.slice(0, 7);
 
-    // Seed store with today + past days this month
-    store.set(`stats:llm:gemini-2.0-flash:${today}`, 5);
-    store.set(`stats:llm:gemini-2.0-flash:${monthPrefix}-01`, 10);
-    store.set(`stats:llm:gemini-2.0-flash:${monthPrefix}-15`, 20);
+    await savePoolState({
+      cd: [],
+      stats: {
+        [`gemini-2.5-flash:${today}`]: 5,
+        [`gemini-2.5-flash:${monthPrefix}-01`]: 10,
+        [`gemini-2.0-flash:${today}`]: 3,
+      },
+    });
 
-    const result = await getModelStats('gemini-2.0-flash');
+    const result = await getModelStats('gemini-2.5-flash');
     expect(result.today).toBe(5);
-    // Monthly total includes all days with the month prefix pattern
-    expect(result.monthly).toBeGreaterThanOrEqual(5); // At minimum today's count
-  });
+    expect(result.monthly).toBeGreaterThanOrEqual(5);
 
-  it('should not include other models in stats', async () => {
-    const { getModelStats, incrementModelStats } = await import('./redis');
-
-    await incrementModelStats('gemini-2.0-flash');
-    await incrementModelStats('gemini-2.0-flash');
-    await incrementModelStats('gemini-2.0-pro');
-
-    const flashResult = await getModelStats('gemini-2.0-flash');
-    const proResult = await getModelStats('gemini-2.0-pro');
-
-    expect(flashResult.today).toBe(2);
-    expect(proResult.today).toBe(1);
+    const other = await getModelStats('gemini-2.0-flash');
+    expect(other.today).toBe(3);
   });
 });

@@ -9,15 +9,13 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
   mockGemini = createMockGemini();
   return {
     ...actual,
-    genAI: mockGemini.client,
     getGenAI: () => mockGemini.client,
   };
 });
 
 // Import after mock setup
-const { generateEmbedding, generateEmbeddingWithRetry, generateEmbeddingBatch } = await import(
-  './embedding'
-);
+const { generateEmbedding, generateEmbeddingWithRetry, generateEmbeddingBatch } =
+  await import('./embedding');
 const { GEMINI_MODELS } = await import('@/lib/gemini');
 
 describe('embedding', () => {

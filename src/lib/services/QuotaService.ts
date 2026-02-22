@@ -8,13 +8,7 @@
 
 import { getEnv, getRateLimitConfig, isRateLimitEnabled } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
-import {
-  checkLLMUsage,
-  getLLMUsage,
-  incrementModelStats,
-  llmFreeRatelimit,
-  llmProRatelimit,
-} from '@/lib/redis';
+import { checkLLMUsage, getLLMUsage, llmFreeRatelimit, llmProRatelimit } from '@/lib/redis';
 import { getProfileRepository } from '@/lib/repositories';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
 
@@ -85,14 +79,10 @@ export class QuotaService {
   }
 
   /**
-   * Check and consume quota (call before AI requests)
+   * Check and consume quota (call before AI requests).
+   * Model stats are tracked automatically by the Gemini proxy on success.
    */
-  async checkAndConsume(userId: string, model?: string): Promise<QuotaCheckResult> {
-    // Always track per-model stats (fire-and-forget), even in dev
-    if (model) {
-      incrementModelStats(model).catch(() => {});
-    }
-
+  async checkAndConsume(userId: string): Promise<QuotaCheckResult> {
     // Skip rate limiting in development unless explicitly enabled
     if (!isRateLimitEnabled()) {
       return {
@@ -159,8 +149,8 @@ export class QuotaService {
   /**
    * Enforce quota - throws if limit reached
    */
-  async enforce(userId: string, model?: string): Promise<QuotaCheckResult> {
-    const result = await this.checkAndConsume(userId, model);
+  async enforce(userId: string): Promise<QuotaCheckResult> {
+    const result = await this.checkAndConsume(userId);
 
     if (!result.allowed) {
       throw new QuotaExceededError(result.usage, result.limit);
