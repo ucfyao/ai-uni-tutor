@@ -19,7 +19,7 @@ export default {
       ],
     ],
     'scope-enum': [
-      2,
+      1,
       'always',
       [
         'chat',

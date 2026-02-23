@@ -96,17 +96,21 @@ function LoginForm() {
         const res = await signup(formData);
         if (res?.error) {
           setError(res.error);
+          setLoading(false);
           setShake(true);
           setTimeout(() => setShake(false), 600);
         } else if (res?.success) {
           setSuccessMsg(res.success);
+          setLoading(false);
         }
       } else {
         const res = await login(formData);
         if (res.success) {
           router.push('/study');
+          // Keep loading true while router.push is working
         } else {
           setError(res.error);
+          setLoading(false);
           setShake(true);
           setTimeout(() => setShake(false), 600);
         }
@@ -115,10 +119,9 @@ function LoginForm() {
       console.error(err);
       const msg = err instanceof Error ? err.message : t.login.unexpectedError;
       setError(msg);
+      setLoading(false);
       setShake(true);
       setTimeout(() => setShake(false), 600);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -428,6 +431,7 @@ function LoginForm() {
                     transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                   }}
                   className="login-submit-btn"
+                  onMouseEnter={() => router.prefetch('/study')}
                 >
                   {isSignUp ? t.login.createAccount : t.login.signIn}
                 </Button>

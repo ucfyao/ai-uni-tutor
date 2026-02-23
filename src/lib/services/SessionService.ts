@@ -86,10 +86,12 @@ export class SessionService {
    * Get all sessions for a user (without messages)
    */
   async getUserSessions(userId: string): Promise<ChatSession[]> {
-    const sessions = await this.sessionRepo.findAllByUserId(userId);
     const courseService = getCourseService();
-    const allCourses = await courseService.getAllCourses();
-    const courseMap = new Map(allCourses.map((c) => [c.id, c]));
+    const [sessions, allCourses] = await Promise.all([
+      this.sessionRepo.findAllByUserId(userId),
+      courseService.getAllCourses(),
+    ]);
+    const courseMap = new Map<string, any>(allCourses.map((c) => [c.id, c]));
 
     return sessions.map((s) => {
       const courseEntity = s.courseId ? courseMap.get(s.courseId) : null;
