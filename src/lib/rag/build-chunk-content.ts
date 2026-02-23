@@ -1,18 +1,4 @@
-import type { PDFPage } from '@/lib/pdf';
-import type { EnrichedAssignmentItem, ExtractedSection, ParsedQuestion } from './parsers/types';
-
-/**
- * Build section chunk content for embedding and RAG retrieval.
- * Format: "## Section Title\nSummary\n\nRaw PDF text from source pages"
- */
-export function buildSectionChunkContent(section: ExtractedSection, pages: PDFPage[]): string {
-  const rawText = section.sourcePages
-    .map((p) => pages[p - 1]?.text)
-    .filter(Boolean)
-    .join('\n');
-
-  return [`## ${section.title}`, section.summary, '', rawText].join('\n');
-}
+import type { EnrichedAssignmentItem, ParsedQuestion } from './parsers/types';
 
 /**
  * Build question chunk content for embedding (exam/assignment -- unchanged).

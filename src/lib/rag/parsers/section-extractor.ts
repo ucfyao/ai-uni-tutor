@@ -1,37 +1,8 @@
 import 'server-only';
 import { z } from 'zod';
 import { extractFromPDF } from '@/lib/rag/pdf-extractor';
+import { sourcePagesSchema } from './schema-utils';
 import type { ExtractedSection } from './types';
-
-/**
- * Coerce sourcePages from various Gemini output formats to number[].
- */
-function coerceSourcePages(val: unknown): number[] {
-  if (Array.isArray(val)) {
-    return val.map(Number).filter((n) => !isNaN(n) && n > 0);
-  }
-  if (typeof val === 'number' && val > 0) {
-    return [val];
-  }
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    const rangeMatch = trimmed.match(/^(\d+)\s*[-–]\s*(\d+)$/);
-    if (rangeMatch) {
-      const start = parseInt(rangeMatch[1], 10);
-      const end = parseInt(rangeMatch[2], 10);
-      if (start > 0 && end >= start && end - start < 200) {
-        return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-      }
-    }
-    return trimmed
-      .split(/[,\s]+/)
-      .map(Number)
-      .filter((n) => !isNaN(n) && n > 0);
-  }
-  return [];
-}
-
-const sourcePagesSchema = z.preprocess(coerceSourcePages, z.array(z.number()).default([]));
 
 const knowledgePointSchema = z.object({
   title: z.string().min(1),

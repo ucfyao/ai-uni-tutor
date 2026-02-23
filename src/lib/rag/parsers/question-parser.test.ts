@@ -119,7 +119,7 @@ describe('question-parser', () => {
 
       await parseQuestions(dummyBuffer, false);
 
-      expect(mockExtractFromPDF).toHaveBeenCalledWith(dummyBuffer, expect.any(String));
+      expect(mockExtractFromPDF).toHaveBeenCalledWith(dummyBuffer, expect.any(String), undefined);
     });
 
     it('should handle empty buffer', async () => {

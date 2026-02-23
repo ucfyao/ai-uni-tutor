@@ -19,7 +19,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
       send('progress', { current, total });
     };
     const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-    const questions = await parseQuestions(fileBuffer, hasAnswers, onBatchProgress);
+    const questions = await parseQuestions(fileBuffer, hasAnswers, onBatchProgress, signal);
 
     // ── Validation (shared with Assignment) ──
     const { validateQuestionItems } = await import('@/lib/rag/parsers/question-validator');
@@ -104,7 +104,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
     const q = item.data;
     return {
       orderNum: maxOrderNum + idx + 1,
-      type: '',
+      type: q.type || '',
       content: q.content,
       options: q.options
         ? Object.fromEntries(q.options.map((opt, j) => [String.fromCharCode(65 + j), opt]))

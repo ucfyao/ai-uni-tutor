@@ -12,8 +12,10 @@ export async function parseQuestions(
   fileBuffer: Buffer,
   hasAnswers: boolean,
   onBatchProgress?: (current: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<ParsedQuestion[]> {
   if (fileBuffer.length === 0) return [];
+  if (signal?.aborted) return [];
 
   onBatchProgress?.(0, 1);
 
@@ -26,6 +28,7 @@ export async function parseQuestions(
 For each question, extract:
 - questionNumber: The question number/label as shown (e.g. "1", "1a", "Q1")
 - content: Full question content in Markdown (use KaTeX for math: $...$ inline, $$...$$ block). Do NOT include the question label/number in content — that belongs in the questionNumber field.
+- type: Question type — one of "choice", "fill_blank", "short_answer", "calculation", "proof", "essay", "true_false"
 - parentIndex: If this is a sub-question (like (a), (b), (i), (ii)), the 0-based index of its parent in the results array. null for top-level questions.
 - options: Array of answer options if it's a multiple choice question (omit if not MC)
 ${answerInstruction}
@@ -42,7 +45,7 @@ Parent-child structure rules:
 
 Return ONLY a valid JSON array of questions. No markdown, no explanation.`;
 
-  const { result, warnings } = await extractFromPDF<ParsedQuestion[]>(fileBuffer, prompt);
+  const { result, warnings } = await extractFromPDF<ParsedQuestion[]>(fileBuffer, prompt, signal);
 
   if (warnings.length > 0) {
     for (const w of warnings) console.warn('[question-parser]', w);

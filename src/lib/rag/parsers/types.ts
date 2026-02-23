@@ -18,6 +18,7 @@ export interface ExtractionResult {
 export interface ParsedQuestion {
   questionNumber: string;
   content: string;
+  type?: string;
   options?: string[];
   referenceAnswer?: string;
   score?: number;

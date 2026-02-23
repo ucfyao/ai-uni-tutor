@@ -69,8 +69,6 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       level: 'info',
     });
 
-    const { buildSectionChunkContent } = await import('@/lib/rag/build-chunk-content');
-
     const existingChunksForDedup = await lectureService.getChunksWithEmbeddings(documentId);
     const existingTitles = new Set(
       existingChunksForDedup.map((c) => {

@@ -6,48 +6,11 @@
  * Uses ExamPaperRepository for data access.
  */
 
-import { parseAIResponse } from '@/lib/ai-utils';
 import type { PaginatedResult } from '@/lib/domain/models/Pagination';
 import { AppError, ForbiddenError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
-import { parsePDF } from '@/lib/pdf';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaper, ExamQuestion, PaperFilters } from '@/types/exam';
-
-// ---------- Gemini prompt ----------
-
-const EXTRACTION_PROMPT = `You are an expert exam paper analyzer. Given the full text of an exam paper, extract every question into a structured JSON array.
-
-For each question, extract:
-- "order_num": sequential question number starting from 1
-- "type": one of "choice", "fill_blank", "short_answer", "calculation", "proof", "essay", "true_false"
-- "content": the question text in Markdown format. Use KaTeX for math (inline: $...$, block: $$...$$)
-- "options": for "choice" or "true_false" questions, an object like {"A": "...", "B": "...", ...}. null for other types
-- "answer": the correct answer. If the paper does not contain answers, generate the correct answer yourself
-- "explanation": a brief explanation of the answer. If not provided in the paper, generate one
-- "points": the point value of the question. If not specified, estimate based on difficulty
-- "knowledge_point": the main topic or concept tested
-- "difficulty": one of "easy", "medium", "hard"
-
-Also extract:
-- "title": a concise title for the exam paper (e.g. "2024 Fall Midterm - Linear Algebra")
-
-Return a JSON object with:
-{
-  "title": "...",
-  "questions": [ { ... }, ... ]
-}
-
-Important:
-- Preserve ALL mathematical notation using KaTeX syntax
-- If the paper has no answers section, generate correct answers and explanations
-- Keep the original question numbering as order_num
-- parent_index: If this is a sub-question (like (a), (b), (i), (ii)), the 0-based index of its parent in the questions array. null for top-level questions.
-- Be thorough — do not skip any questions
-
-Exam paper text:
-`;
 
 // ---------- Service class ----------
 
@@ -60,6 +23,7 @@ export class ExamPaperService {
 
   /**
    * Parse an exam paper PDF using AI to extract structured questions.
+   * Uses the shared one-shot PDF → JSON extraction via Gemini File API.
    */
   async parsePaper(
     userId: string,
@@ -80,77 +44,45 @@ export class ExamPaperService {
     });
 
     try {
-      // Extract text from PDF
-      const pdfData = await parsePDF(fileBuffer);
-      const fullText = pdfData.fullText;
+      // One-shot extraction: PDF → JSON via Gemini File API
+      const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
+      const parsed = await parseQuestions(fileBuffer, true);
 
-      if (!fullText.trim()) {
-        throw new AppError('VALIDATION', 'PDF contains no extractable text');
-      }
-
-      // Call Gemini to extract questions
-      let responseText: string;
-      try {
-        const ai = getGenAI();
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODELS.chat,
-          contents: [{ role: 'user', parts: [{ text: EXTRACTION_PROMPT + fullText }] }],
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.3,
-          },
-        });
-        responseText = response.text ?? '';
-      } catch (error) {
-        throw AppError.from(error);
-      }
-
-      const parsed = parseAIResponse<{
-        title?: string;
-        questions?: Array<{
-          order_num: number;
-          type: string;
-          content: string;
-          options: Record<string, string> | null;
-          answer: string;
-          explanation: string;
-          points: number;
-          knowledge_point?: string;
-          difficulty?: string;
-          parent_index?: number | null;
-        }>;
-      }>(responseText);
-
-      const questions = parsed.questions ?? [];
-      if (questions.length === 0) {
+      if (parsed.length === 0) {
         throw new AppError('VALIDATION', 'AI could not extract any questions from the PDF');
       }
+
+      // Generate embeddings for semantic search
+      const { buildQuestionChunkContent } = await import('@/lib/rag/build-chunk-content');
+      const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+      const contents = parsed.map((q) => buildQuestionChunkContent(q));
+      const embeddings = await generateEmbeddingBatch(contents);
 
       // Batch insert questions hierarchically
       await this.saveHierarchicalQuestions(
         paperId,
-        questions.map((q) => ({
-          type: q.type,
+        parsed.map((q, i) => ({
+          type: q.type || '',
           content: q.content,
-          options: q.options ?? null,
-          answer: q.answer ?? '',
-          explanation: q.explanation ?? '',
-          points: q.points ?? 0,
-          parentIndex: q.parent_index ?? null,
-          metadata: {
-            knowledge_point: q.knowledge_point ?? null,
-            difficulty: q.difficulty ?? null,
-          },
-          orderNum: q.order_num,
+          options: q.options
+            ? Object.fromEntries(q.options.map((opt, j) => [String.fromCharCode(65 + j), opt]))
+            : null,
+          answer: q.referenceAnswer ?? '',
+          explanation: '',
+          points: typeof q.score === 'number' ? q.score : parseInt(String(q.score)) || 0,
+          parentIndex: q.parentIndex ?? null,
+          metadata: { sourcePage: q.sourcePage },
+          orderNum: i + 1,
+          embedding: embeddings[i],
         })),
       );
 
       // Collect unique question types
-      const questionTypes = [...new Set(questions.map((q) => q.type))];
+      const questionTypes = [...new Set(parsed.map((q) => q.type).filter((t): t is string => !!t))];
 
       // Update paper metadata
       await this.repo.updatePaper(paperId, {
-        title: parsed.title || fileName.replace(/\.pdf$/i, ''),
+        title: fileName.replace(/\.pdf$/i, ''),
         questionTypes,
       });
 

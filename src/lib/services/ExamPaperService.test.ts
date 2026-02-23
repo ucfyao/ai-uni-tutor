@@ -1,29 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError, ForbiddenError } from '@/lib/errors';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
-import type { ExamPaper, ExamQuestion } from '@/types/exam';
+import type { ExamPaper } from '@/types/exam';
 import { ExamPaperService } from './ExamPaperService';
 
 // ---------- Module mocks ----------
 
-vi.mock('@/lib/gemini', () => ({
-  GEMINI_MODELS: {
-    chat: 'gemini-2.5-flash',
-    parse: 'gemini-2.0-flash',
-    embedding: 'gemini-embedding-001',
-  },
-  getGenAI: vi.fn(),
+vi.mock('@/lib/rag/parsers/question-parser', () => ({
+  parseQuestions: vi.fn(),
 }));
 
-vi.mock('@/lib/pdf', () => ({
-  parsePDF: vi.fn(),
+vi.mock('@/lib/rag/build-chunk-content', () => ({
+  buildQuestionChunkContent: vi.fn((q: any) => `Q: ${q.content}`),
+}));
+
+vi.mock('@/lib/rag/embedding', () => ({
+  generateEmbeddingBatch: vi.fn(),
 }));
 
 // Import mocked modules after vi.mock
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-const geminiModule = await vi.importMock<typeof import('@/lib/gemini')>('@/lib/gemini');
+const questionParserModule = await vi.importMock<
+  typeof import('@/lib/rag/parsers/question-parser')
+>('@/lib/rag/parsers/question-parser');
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-const pdfModule = await vi.importMock<typeof import('@/lib/pdf')>('@/lib/pdf');
+const embeddingModule =
+  await vi.importMock<typeof import('@/lib/rag/embedding')>('@/lib/rag/embedding');
 
 // ---------- Mock repository ----------
 
@@ -73,71 +75,37 @@ const PAPER: ExamPaper = {
   createdAt: '2025-01-01T00:00:00Z',
 };
 
-const QUESTIONS: ExamQuestion[] = [
+const PARSED_QUESTIONS = [
   {
-    id: 'q1',
-    paperId: PAPER_ID,
-    orderNum: 1,
-    type: 'choice',
+    questionNumber: '1',
     content: 'What is 2+2?',
-    options: { A: '3', B: '4', C: '5', D: '6' },
-    answer: 'B',
-    explanation: '2+2=4',
-    points: 5,
-    parentQuestionId: null,
-    metadata: { knowledge_point: 'arithmetic', difficulty: 'easy' },
+    type: 'choice',
+    options: ['3', '4', '5', '6'],
+    referenceAnswer: 'B',
+    score: 5,
+    parentIndex: null,
+    sourcePage: 1,
   },
   {
-    id: 'q2',
-    paperId: PAPER_ID,
-    orderNum: 2,
-    type: 'short_answer',
+    questionNumber: '2',
     content: 'Explain matrix multiplication.',
-    options: null,
-    answer: 'Row by column dot product.',
-    explanation: 'Matrix multiplication is defined by dot products of rows and columns.',
-    points: 10,
-    parentQuestionId: null,
-    metadata: { knowledge_point: 'linear algebra', difficulty: 'medium' },
+    type: 'short_answer',
+    score: 10,
+    parentIndex: null,
+    sourcePage: 1,
   },
 ];
 
-const AI_EXTRACTION_RESPONSE = JSON.stringify({
-  title: '2024 Fall Midterm - Linear Algebra',
-  questions: [
-    {
-      order_num: 1,
-      type: 'choice',
-      content: 'What is 2+2?',
-      options: { A: '3', B: '4', C: '5', D: '6' },
-      answer: 'B',
-      explanation: '2+2=4',
-      points: 5,
-      knowledge_point: 'arithmetic',
-      difficulty: 'easy',
-    },
-    {
-      order_num: 2,
-      type: 'short_answer',
-      content: 'Explain matrix multiplication.',
-      options: null,
-      answer: 'Row by column dot product.',
-      explanation: 'Matrix multiplication is defined by dot products of rows and columns.',
-      points: 10,
-      knowledge_point: 'linear algebra',
-      difficulty: 'medium',
-    },
-  ],
-});
+const MOCK_EMBEDDINGS = [
+  [0.1, 0.2, 0.3],
+  [0.4, 0.5, 0.6],
+];
 
 // ---------- Helper ----------
 
-function mockAI(responseText: string) {
-  const generateContent = vi.fn().mockResolvedValue({ text: responseText });
-  vi.mocked(geminiModule.getGenAI).mockReturnValue({
-    models: { generateContent },
-  } as unknown as ReturnType<typeof geminiModule.getGenAI>);
-  return generateContent;
+function mockParseQuestions(questions = PARSED_QUESTIONS) {
+  vi.mocked(questionParserModule.parseQuestions).mockResolvedValue(questions);
+  vi.mocked(embeddingModule.generateEmbeddingBatch).mockResolvedValue(MOCK_EMBEDDINGS);
 }
 
 // ---------- Tests ----------
@@ -155,19 +123,13 @@ describe('ExamPaperService', () => {
   // ==================== parsePaper (happy path) ====================
 
   describe('parsePaper', () => {
-    it('should create paper, parse PDF, extract questions via AI, and update paper metadata', async () => {
+    it('should create paper, extract questions via one-shot, generate embeddings, and save', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
         qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
       );
       repo.updatePaper.mockResolvedValue(undefined);
-
-      vi.mocked(pdfModule.parsePDF).mockResolvedValue({
-        fullText: 'Some exam text...',
-        pages: [{ text: 'Some exam text...', page: 1 }],
-      });
-
-      mockAI(AI_EXTRACTION_RESPONSE);
+      mockParseQuestions();
 
       const result = await service.parsePaper(USER_ID, Buffer.from('pdf-data'), 'midterm.pdf', {
         school: 'MIT',
@@ -190,10 +152,18 @@ describe('ExamPaperService', () => {
         }),
       );
 
-      // PDF parsed
-      expect(pdfModule.parsePDF).toHaveBeenCalledWith(Buffer.from('pdf-data'));
+      // One-shot extraction called with buffer and hasAnswers=true
+      expect(questionParserModule.parseQuestions).toHaveBeenCalledWith(
+        Buffer.from('pdf-data'),
+        true,
+      );
 
-      // Questions inserted
+      // Embeddings generated
+      expect(embeddingModule.generateEmbeddingBatch).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.stringContaining('What is 2+2?')]),
+      );
+
+      // Questions inserted with embeddings
       expect(repo.insertQuestionsAndReturn).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
@@ -201,18 +171,20 @@ describe('ExamPaperService', () => {
             orderNum: 1,
             type: 'choice',
             content: 'What is 2+2?',
+            embedding: MOCK_EMBEDDINGS[0],
           }),
           expect.objectContaining({
             paperId: PAPER_ID,
             orderNum: 2,
             type: 'short_answer',
+            embedding: MOCK_EMBEDDINGS[1],
           }),
         ]),
       );
 
-      // Paper metadata updated (title + question types)
+      // Paper metadata updated with question types
       expect(repo.updatePaper).toHaveBeenCalledWith(PAPER_ID, {
-        title: '2024 Fall Midterm - Linear Algebra',
+        title: 'midterm',
         questionTypes: ['choice', 'short_answer'],
       });
     });
@@ -223,12 +195,7 @@ describe('ExamPaperService', () => {
         qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
       );
       repo.updatePaper.mockResolvedValue(undefined);
-
-      vi.mocked(pdfModule.parsePDF).mockResolvedValue({
-        fullText: 'text',
-        pages: [{ text: 'text', page: 1 }],
-      });
-      mockAI(AI_EXTRACTION_RESPONSE);
+      mockParseQuestions();
 
       await service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {});
 
@@ -241,12 +208,7 @@ describe('ExamPaperService', () => {
         qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
       );
       repo.updatePaper.mockResolvedValue(undefined);
-
-      vi.mocked(pdfModule.parsePDF).mockResolvedValue({
-        fullText: 'text',
-        pages: [{ text: 'text', page: 1 }],
-      });
-      mockAI(AI_EXTRACTION_RESPONSE);
+      mockParseQuestions();
 
       await service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {
         visibility: 'public',
@@ -255,32 +217,13 @@ describe('ExamPaperService', () => {
       expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public' }));
     });
 
-    it('should use filename (minus .pdf) as fallback title when AI returns no title', async () => {
+    it('should use filename (minus .pdf) as title', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
         qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
       );
       repo.updatePaper.mockResolvedValue(undefined);
-
-      vi.mocked(pdfModule.parsePDF).mockResolvedValue({
-        fullText: 'content',
-        pages: [{ text: 'content', page: 1 }],
-      });
-
-      const noTitleResponse = JSON.stringify({
-        questions: [
-          {
-            order_num: 1,
-            type: 'choice',
-            content: 'Q?',
-            options: { A: '1', B: '2' },
-            answer: 'A',
-            explanation: 'because',
-            points: 1,
-          },
-        ],
-      });
-      mockAI(noTitleResponse);
+      mockParseQuestions();
 
       await service.parsePaper(USER_ID, Buffer.from('data'), 'MyExam.pdf', {});
 
@@ -292,80 +235,46 @@ describe('ExamPaperService', () => {
 
     // ==================== parsePaper (error paths) ====================
 
-    it('should delete draft paper when PDF has no text', async () => {
+    it('should delete draft paper when no questions extracted', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.delete.mockResolvedValue(undefined);
 
-      vi.mocked(pdfModule.parsePDF).mockResolvedValue({
-        fullText: '   ',
-        pages: [],
-      });
+      vi.mocked(questionParserModule.parseQuestions).mockResolvedValue([]);
 
       await expect(
         service.parsePaper(USER_ID, Buffer.from('empty'), 'empty.pdf', {}),
-      ).rejects.toThrow('PDF contains no extractable text');
-
-      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
-    });
-
-    it('should delete draft paper when AI extracts no questions', async () => {
-      repo.create.mockResolvedValue(PAPER_ID);
-      repo.delete.mockResolvedValue(undefined);
-
-      vi.mocked(pdfModule.parsePDF).mockResolvedValue({
-        fullText: 'some text',
-        pages: [{ text: 'some text', page: 1 }],
-      });
-
-      mockAI(JSON.stringify({ title: 'Empty', questions: [] }));
-
-      await expect(
-        service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {}),
       ).rejects.toThrow('AI could not extract any questions from the PDF');
 
       expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
 
-    it('should delete draft paper when AI returns null questions', async () => {
+    it('should delete draft paper when extraction fails', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.delete.mockResolvedValue(undefined);
 
-      vi.mocked(pdfModule.parsePDF).mockResolvedValue({
-        fullText: 'some text',
-        pages: [{ text: 'some text', page: 1 }],
-      });
-
-      mockAI(JSON.stringify({ title: 'Broken' }));
-
-      await expect(
-        service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {}),
-      ).rejects.toThrow('AI could not extract any questions from the PDF');
-
-      expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
-    });
-
-    it('should delete draft paper when PDF parsing fails', async () => {
-      repo.create.mockResolvedValue(PAPER_ID);
-      repo.delete.mockResolvedValue(undefined);
-
-      vi.mocked(pdfModule.parsePDF).mockRejectedValue(new Error('Corrupt PDF'));
+      vi.mocked(questionParserModule.parseQuestions).mockRejectedValue(
+        new Error('Extraction failed'),
+      );
 
       await expect(
         service.parsePaper(USER_ID, Buffer.from('bad'), 'broken.pdf', {}),
-      ).rejects.toThrow('Corrupt PDF');
+      ).rejects.toThrow('Extraction failed');
 
       expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
 
-    it('should delete draft paper for non-Error throws', async () => {
+    it('should delete draft paper when embedding fails', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
       repo.delete.mockResolvedValue(undefined);
 
-      vi.mocked(pdfModule.parsePDF).mockRejectedValue('string error');
-
-      await expect(service.parsePaper(USER_ID, Buffer.from('bad'), 'broken.pdf', {})).rejects.toBe(
-        'string error',
+      vi.mocked(questionParserModule.parseQuestions).mockResolvedValue(PARSED_QUESTIONS);
+      vi.mocked(embeddingModule.generateEmbeddingBatch).mockRejectedValue(
+        new Error('Embedding failed'),
       );
+
+      await expect(
+        service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {}),
+      ).rejects.toThrow('Embedding failed');
 
       expect(repo.delete).toHaveBeenCalledWith(PAPER_ID);
     });
