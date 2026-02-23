@@ -514,11 +514,22 @@ export class AssignmentRepository implements IAssignmentRepository {
 
   async getStats(
     assignmentIds: string[],
-  ): Promise<Map<string, { itemCount: number; withAnswer: number; warningCount: number }>> {
+  ): Promise<
+    Map<
+      string,
+      {
+        itemCount: number;
+        mainCount: number;
+        subCount: number;
+        withAnswer: number;
+        warningCount: number;
+      }
+    >
+  > {
     if (assignmentIds.length === 0) return new Map();
 
     const supabase = await createClient();
-    // Ideally select('assignment_id, reference_answer, warnings') but
+    // Ideally select('assignment_id, reference_answer, warnings, parent_item_id') but
     // 'warnings' isn't in generated Supabase types yet, so use select('*').
     const { data, error } = await supabase
       .from('assignment_items')
@@ -531,18 +542,31 @@ export class AssignmentRepository implements IAssignmentRepository {
 
     const statsMap = new Map<
       string,
-      { itemCount: number; withAnswer: number; warningCount: number }
+      {
+        itemCount: number;
+        mainCount: number;
+        subCount: number;
+        withAnswer: number;
+        warningCount: number;
+      }
     >();
 
     for (const id of assignmentIds) {
-      statsMap.set(id, { itemCount: 0, withAnswer: 0, warningCount: 0 });
+      statsMap.set(id, { itemCount: 0, mainCount: 0, subCount: 0, withAnswer: 0, warningCount: 0 });
     }
 
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
       const id = row.assignment_id as string;
       const stat = statsMap.get(id);
       if (!stat) continue;
+
       stat.itemCount++;
+      if (row.parent_item_id === null) {
+        stat.mainCount++;
+      } else {
+        stat.subCount++;
+      }
+
       if ((row.reference_answer as string)?.trim()) stat.withAnswer++;
       const warnings = row.warnings as string[] | null;
       if (warnings && warnings.length > 0) stat.warningCount++;
