@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PoolState } from '@/lib/redis';
-import { KeyPool } from './gemini';
+import { GEMINI_MODELS, KeyPool } from './gemini';
 
 // Mock GoogleGenAI
 vi.mock('@google/genai', () => {
@@ -90,7 +90,7 @@ describe('KeyPool', () => {
       );
 
       const today = new Date().toISOString().split('T')[0];
-      expect(state.stats[`gemini:gemini-2.5-flash:${today}`]).toBe(1);
+      expect(state.stats[`gemini:${GEMINI_MODELS.chat}:${today}`]).toBe(1);
     });
 
     it('retries next key on 429 and marks 30s cooldown (first failure)', async () => {
@@ -281,7 +281,7 @@ describe('KeyPool.asProxy', () => {
     await proxy.models.generateContent({ model: 'gemini-2.5-flash', contents: '' });
 
     const today = new Date().toISOString().split('T')[0];
-    expect(state.stats[`gemini:gemini-2.5-flash:${today}`]).toBe(1);
+    expect(state.stats[`gemini:${GEMINI_MODELS.chat}:${today}`]).toBe(1);
   });
 
   it('retries transparently through proxy', async () => {

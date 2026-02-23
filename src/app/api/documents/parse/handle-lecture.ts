@@ -27,6 +27,13 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       send('log', { message: w, level: 'warning' });
     }
 
+    if (sections.length === 0) {
+      send('log', { message: 'No structured content extracted', level: 'warning' });
+      send('progress', { current: 0, total: 0 });
+      send('status', { stage: 'complete', message: 'No content extracted' });
+      return;
+    }
+
     send('log', {
       message: `Extraction complete: ${sections.length} sections, ${knowledgePoints.length} total knowledge points`,
       level: 'success',
