@@ -5,7 +5,7 @@
   /* Marketing container: fluid width with cap */
   --marketing-container: min(90vw, 1600px);
 
-  /* Shadcn/UI Variables */
+  /* Design-system color tokens */
   --background: 220 20% 98%;
   --foreground: 220 20% 15%;
 
