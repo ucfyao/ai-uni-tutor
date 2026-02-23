@@ -58,44 +58,57 @@ describe('KeyPool', () => {
   });
 
   describe('withRetry', () => {
-    it('calls fn with first available key', async () => {
+    it('calls fn with first available entry', async () => {
       const pool = new KeyPool('k1');
-      const result = await pool.withRetry((genAI) =>
-        genAI.models.generateContent({ model: 'test', contents: '' }),
+      const result = await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
       );
       expect(result).toEqual({ text: 'ok' });
     });
 
     it('always writes state back (1 GET + 1 SET)', async () => {
       const pool = new KeyPool('k1');
-      await pool.withRetry((genAI) =>
-        genAI.models.generateContent({ model: 'test', contents: '' }),
+      await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
       );
       expect(mockSave).toHaveBeenCalledTimes(1);
     });
 
-    it('tracks model stats on success', async () => {
+    it('tracks provider:model stats on success', async () => {
       const pool = new KeyPool('k1');
-      await pool.withRetry(
-        (genAI) => genAI.models.generateContent({ model: 'test', contents: '' }),
-        'gemini-2.5-flash',
+      await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
       );
 
       const today = new Date().toISOString().split('T')[0];
-      expect(state.stats[`gemini-2.5-flash:${today}`]).toBe(1);
+      expect(state.stats[`gemini:gemini-2.5-flash:${today}`]).toBe(1);
     });
 
     it('retries next key on 429 and marks 30s cooldown (first failure)', async () => {
       const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
 
-      const k1 = pool['entries'][0].genAI;
-      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      const k1Client = pool['entries'][0].client as unknown as {
+        models: Record<string, ReturnType<typeof vi.fn>>;
+      };
+      k1Client.models.generateContent.mockRejectedValueOnce(
         new ApiError({ status: 429, message: 'rate limited' }),
       );
 
-      const result = await pool.withRetry((genAI) =>
-        genAI.models.generateContent({ model: 'test', contents: '' }),
+      const result = await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
       );
 
       expect(result).toEqual({ text: 'ok' });
@@ -112,13 +125,18 @@ describe('KeyPool', () => {
       const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
 
-      const k1 = pool['entries'][0].genAI;
-      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      const k1Client = pool['entries'][0].client as unknown as {
+        models: Record<string, ReturnType<typeof vi.fn>>;
+      };
+      k1Client.models.generateContent.mockRejectedValueOnce(
         new ApiError({ status: 429, message: 'rate limited' }),
       );
 
-      const result = await pool.withRetry((genAI) =>
-        genAI.models.generateContent({ model: 'test', contents: '' }),
+      const result = await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
       );
 
       expect(result).toEqual({ text: 'ok' });
@@ -131,13 +149,18 @@ describe('KeyPool', () => {
       const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
 
-      const k1 = pool['entries'][0].genAI;
-      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      const k1Client = pool['entries'][0].client as unknown as {
+        models: Record<string, ReturnType<typeof vi.fn>>;
+      };
+      k1Client.models.generateContent.mockRejectedValueOnce(
         new ApiError({ status: 503, message: 'unavailable' }),
       );
 
-      const result = await pool.withRetry((genAI) =>
-        genAI.models.generateContent({ model: 'test', contents: '' }),
+      const result = await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
       );
       expect(result).toEqual({ text: 'ok' });
     });
@@ -146,13 +169,20 @@ describe('KeyPool', () => {
       const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
 
-      const k1 = pool['entries'][0].genAI;
-      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      const k1Client = pool['entries'][0].client as unknown as {
+        models: Record<string, ReturnType<typeof vi.fn>>;
+      };
+      k1Client.models.generateContent.mockRejectedValueOnce(
         new ApiError({ status: 400, message: 'bad request' }),
       );
 
       await expect(
-        pool.withRetry((genAI) => genAI.models.generateContent({ model: 'test', contents: '' })),
+        pool.withRetry((entry) =>
+          (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+            model: 'test',
+            contents: '',
+          }),
+        ),
       ).rejects.toThrow('bad request');
     });
 
@@ -160,13 +190,18 @@ describe('KeyPool', () => {
       const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
 
-      const k1 = pool['entries'][0].genAI;
-      (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
+      const k1Client = pool['entries'][0].client as unknown as {
+        models: Record<string, ReturnType<typeof vi.fn>>;
+      };
+      k1Client.models.generateContent.mockRejectedValue(
         new ApiError({ status: 401, message: 'unauthorized' }),
       );
 
-      const result = await pool.withRetry((genAI) =>
-        genAI.models.generateContent({ model: 'test', contents: '' }),
+      const result = await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
       );
       expect(result).toEqual({ text: 'ok' });
       expect(pool.getStatus()[0].disabled).toBe(true);
@@ -177,13 +212,21 @@ describe('KeyPool', () => {
       const pool = new KeyPool('k1,k2');
 
       for (const entry of pool['entries']) {
-        (entry.genAI.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
+        const client = entry.client as unknown as {
+          models: Record<string, ReturnType<typeof vi.fn>>;
+        };
+        client.models.generateContent.mockRejectedValue(
           new ApiError({ status: 429, message: 'rate limited' }),
         );
       }
 
       await expect(
-        pool.withRetry((genAI) => genAI.models.generateContent({ model: 'test', contents: '' })),
+        pool.withRetry((entry) =>
+          (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+            model: 'test',
+            contents: '',
+          }),
+        ),
       ).rejects.toThrow('rate limited');
 
       // Both keys have cooldowns
@@ -198,9 +241,14 @@ describe('KeyPool', () => {
       const pool = new KeyPool('k1,k2');
       const spy = vi.fn();
 
-      await pool.withRetry((genAI) => {
-        spy((genAI as unknown as { _key: string })._key);
-        return genAI.models.generateContent({ model: 'test', contents: '' });
+      await pool.withRetry((entry) => {
+        spy((entry.client as unknown as { _key: string })._key);
+        return (
+          entry.client as unknown as { models: Record<string, Function> }
+        ).models.generateContent({
+          model: 'test',
+          contents: '',
+        });
       });
 
       // Should have skipped k1 and used k2
@@ -228,20 +276,22 @@ describe('KeyPool.asProxy', () => {
     expect(result).toEqual({ embeddings: [] });
   });
 
-  it('extracts model from args and tracks stats', async () => {
+  it('tracks provider:model stats through proxy', async () => {
     const proxy = new KeyPool('k1').asProxy();
     await proxy.models.generateContent({ model: 'gemini-2.5-flash', contents: '' });
 
     const today = new Date().toISOString().split('T')[0];
-    expect(state.stats[`gemini-2.5-flash:${today}`]).toBe(1);
+    expect(state.stats[`gemini:gemini-2.5-flash:${today}`]).toBe(1);
   });
 
   it('retries transparently through proxy', async () => {
     const { ApiError } = await import('@google/genai');
     const pool = new KeyPool('k1,k2');
 
-    const k1 = pool['entries'][0].genAI;
-    (k1.models.generateContent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+    const k1Client = pool['entries'][0].client as unknown as {
+      models: Record<string, ReturnType<typeof vi.fn>>;
+    };
+    k1Client.models.generateContent.mockRejectedValueOnce(
       new ApiError({ status: 429, message: 'rate limited' }),
     );
 
