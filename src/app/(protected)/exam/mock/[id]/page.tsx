@@ -19,7 +19,7 @@ export default async function MockExamPage({ params }: { params: Promise<{ id: s
             The mock exam you are looking for does not exist or you do not have permission to view
             it.
           </Text>
-          <Anchor href="/exam" underline="never">
+          <Anchor href="/study" underline="never">
             <Button variant="light" color="indigo" mt="md">
               Back to Exams
             </Button>

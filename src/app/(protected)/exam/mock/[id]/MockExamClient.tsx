@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ArrowRight, Check, Send, Target, Trophy, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Flag, Send, Target, Trophy, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import {
@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Group,
+  Modal,
   Paper,
   Progress,
   RingProgress,
@@ -24,6 +25,7 @@ import { batchSubmitMockAnswers, submitMockAnswer } from '@/app/actions/mock-exa
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
 import { getDocColor } from '@/constants/doc-types';
+import { useLanguage } from '@/i18n/LanguageContext';
 import type { MockExam, MockExamResponse } from '@/types/exam';
 
 interface Props {
@@ -40,6 +42,7 @@ function formatTime(seconds: number): string {
 
 export function MockExamClient({ initialMock }: Props) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [mock, setMock] = useState(initialMock);
   const [isPending, startTransition] = useTransition();
 
@@ -60,6 +63,24 @@ export function MockExamClient({ initialMock }: Props) {
   const [examAnswers, setExamAnswers] = useState<Record<number, string>>({});
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [examResults, setExamResults] = useState<MockExamResponse[]>([]);
+
+  // Question marking (exam mode only)
+  const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(new Set());
+
+  const toggleMark = useCallback((index: number) => {
+    setMarkedQuestions((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
+
+  // Submit confirmation modal
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
 
   // Timer
   const [timerEnabled, setTimerEnabled] = useState(false);
@@ -110,6 +131,9 @@ export function MockExamClient({ initialMock }: Props) {
       return hasResponse ? 'submitted' : 'unanswered';
     }
     // Exam mode
+    if (markedQuestions.has(index)) {
+      return examAnswers[index] ? 'marked-answered' : 'marked';
+    }
     return examAnswers[index] ? 'answered' : 'unanswered';
   };
 
@@ -125,6 +149,10 @@ export function MockExamClient({ initialMock }: Props) {
         return 'red';
       case 'answered':
         return 'teal';
+      case 'marked':
+        return 'orange';
+      case 'marked-answered':
+        return 'orange';
       default:
         return 'gray';
     }
@@ -376,6 +404,13 @@ export function MockExamClient({ initialMock }: Props) {
                             </Text>
                           </Group>
                         </div>
+                        {markedQuestions.has(i) && (
+                          <Flag
+                            size={10}
+                            color="var(--mantine-color-orange-5)"
+                            style={{ flexShrink: 0 }}
+                          />
+                        )}
                       </Group>
                     </UnstyledButton>
                   );
@@ -487,6 +522,9 @@ export function MockExamClient({ initialMock }: Props) {
                         : handleExamAnswerChange
                   }
                   disabled={isCompleted || isPracticeAnswered || !!practiceFeedback}
+                  marked={markedQuestions.has(currentQuestionIndex)}
+                  onToggleMark={() => toggleMark(currentQuestionIndex)}
+                  showMarkButton={mode === 'exam' && !isCompleted}
                 />
               )}
 
@@ -537,7 +575,7 @@ export function MockExamClient({ initialMock }: Props) {
                     leftSection={<Send size={16} />}
                     loading={isPending}
                     disabled={answeredCount === 0}
-                    onClick={handleBatchSubmit}
+                    onClick={() => setConfirmModalOpen(true)}
                     color={getDocColor('exam')}
                   >
                     Submit All ({answeredCount}/{totalQuestions})
@@ -562,7 +600,7 @@ export function MockExamClient({ initialMock }: Props) {
 
               {/* Back to exams link */}
               {isCompleted && (
-                <Button variant="subtle" onClick={() => router.push('/exam')} mt="md">
+                <Button variant="subtle" onClick={() => router.push('/study')} mt="md">
                   Back to Exam Practice
                 </Button>
               )}
@@ -596,6 +634,70 @@ export function MockExamClient({ initialMock }: Props) {
           </Group>
         </ScrollArea>
       </Box>
+
+      {/* Submit confirmation modal */}
+      <Modal
+        opened={confirmModalOpen}
+        onClose={() => setConfirmModalOpen(false)}
+        title={t.exam.confirmSubmitTitle}
+        centered
+      >
+        <Stack gap="md">
+          <Text>{t.exam.confirmSubmitAll.replace('{n}', String(totalQuestions))}</Text>
+
+          {/* Unanswered questions warning */}
+          {answeredCount < totalQuestions && (
+            <Box>
+              <Text size="sm" fw={500} c="red" mb="xs">
+                {t.exam.unansweredQuestions} ({totalQuestions - answeredCount})
+              </Text>
+              <Group gap={4} wrap="wrap">
+                {mock.questions.map((_, i) =>
+                  !examAnswers[i]?.trim() ? (
+                    <Badge key={i} size="sm" color="red" variant="light">
+                      Q{i + 1}
+                    </Badge>
+                  ) : null,
+                )}
+              </Group>
+            </Box>
+          )}
+
+          {/* Marked questions reminder */}
+          {markedQuestions.size > 0 && (
+            <Box>
+              <Text size="sm" fw={500} c="orange" mb="xs">
+                {t.exam.markedQuestions} ({markedQuestions.size})
+              </Text>
+              <Group gap={4} wrap="wrap">
+                {Array.from(markedQuestions)
+                  .sort((a, b) => a - b)
+                  .map((i) => (
+                    <Badge key={i} size="sm" color="orange" variant="light">
+                      Q{i + 1}
+                    </Badge>
+                  ))}
+              </Group>
+            </Box>
+          )}
+
+          <Group justify="flex-end" gap="sm" mt="sm">
+            <Button variant="default" onClick={() => setConfirmModalOpen(false)}>
+              {t.exam.continueAnswering}
+            </Button>
+            <Button
+              color={getDocColor('exam')}
+              loading={isPending}
+              onClick={() => {
+                setConfirmModalOpen(false);
+                handleBatchSubmit();
+              }}
+            >
+              {t.exam.confirmSubmit}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* Timer flash animation */}
       <style>{`
