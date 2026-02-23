@@ -1,8 +1,15 @@
 import { Box, Container } from '@mantine/core';
+import { getChatSession } from '@/app/actions/chat';
 import { getDocColor } from '@/constants/doc-types';
-import { ExamEntryClient } from './ExamEntryClient';
+import { ExamEntryClient } from '../ExamEntryClient';
 
-export default function ExamPage() {
+export default async function ExamSessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await getChatSession(id);
+
+  const courseCode = session?.course?.code ?? null;
+  const uniId = session?.course?.universityId ?? null;
+
   return (
     <Container size="md" py={48} style={{ position: 'relative' }}>
       <Box
@@ -20,7 +27,7 @@ export default function ExamPage() {
         }}
       />
       <Box style={{ position: 'relative', zIndex: 1 }}>
-        <ExamEntryClient />
+        <ExamEntryClient initialCourseCode={courseCode} initialUniId={uniId} />
       </Box>
     </Container>
   );
