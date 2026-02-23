@@ -57,7 +57,7 @@ export class ChatService {
     const ragResult = await this.addRAGContext(systemInstruction, processedInput, course, config);
     systemInstruction = ragResult.systemInstruction;
 
-    // Prepare contents for Gemini
+    // Prepare contents
     const contents = this.prepareContents(history, processedInput, images, document);
 
     // Generate via chat pool with automatic retry/failover

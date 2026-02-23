@@ -33,13 +33,6 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
         return fn(fakeEntry);
       }),
     }),
-    // keep getGenAI for RAG internals if needed
-    getGenAI: () => ({
-      models: {
-        generateContent: vi.fn(),
-        generateContentStream: vi.fn(),
-      },
-    }),
   };
 });
 
