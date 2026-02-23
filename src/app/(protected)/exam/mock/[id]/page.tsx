@@ -46,7 +46,7 @@ export default async function MockExamPage({ params }: { params: Promise<{ id: s
         }}
       />
       <Box style={{ position: 'relative', zIndex: 1 }}>
-        <MockExamClient initialMock={mock} />
+        <MockExamClient key={id} initialMock={mock} />
       </Box>
     </Container>
   );

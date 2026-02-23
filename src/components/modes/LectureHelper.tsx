@@ -40,12 +40,14 @@ interface LectureHelperProps {
   session: ChatSession;
   onUpdateSession: (session: ChatSession) => void;
   openDrawerTrigger?: number; // Increment to trigger drawer open
+  isLoading?: boolean;
 }
 
 export const LectureHelper: React.FC<LectureHelperProps> = ({
   session: initialSession,
   onUpdateSession,
   openDrawerTrigger,
+  isLoading = false,
 }) => {
   const { t } = useLanguage();
   const {
@@ -505,6 +507,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             }}
             onRegenerate={handleRegenerate}
             contentClassName="chat-scroll-content-offset"
+            isLoading={isLoading}
           />
 
           <Box

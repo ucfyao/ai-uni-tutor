@@ -244,6 +244,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
           session={session}
           onUpdateSession={handleUpdateSession}
           openDrawerTrigger={knowledgeDrawerTrigger}
+          isLoading={loading}
         />
       </ChatPageLayout>
 

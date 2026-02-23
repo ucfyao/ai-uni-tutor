@@ -5,5 +5,5 @@ export default async function LecturePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const session = await getChatSession(id);
 
-  return <LectureClient id={id} initialSession={session} />;
+  return <LectureClient key={id} id={id} initialSession={session} />;
 }

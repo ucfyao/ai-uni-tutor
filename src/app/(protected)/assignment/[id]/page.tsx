@@ -5,5 +5,5 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const session = await getChatSession(id);
 
-  return <AssignmentClient id={id} initialSession={session} />;
+  return <AssignmentClient key={id} id={id} initialSession={session} />;
 }
