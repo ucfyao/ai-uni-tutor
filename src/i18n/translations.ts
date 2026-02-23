@@ -522,6 +522,26 @@ export const translations = {
       course: '课程',
       selectCourse: '选择课程',
       selectUniversityFirst: '请先选择大学',
+      // Course selection modal
+      selectCourseTitle: '选择课程',
+      selectCourseDesc: '选择你要练习的课程',
+      startSetup: '开始配置',
+      // Progressive disclosure
+      recommended: '推荐',
+      noPapersAvailableShort: '暂无真题',
+      notEnoughPapers: '至少需要 2 套试卷',
+      configureExam: '配置考试',
+      // Question marking
+      markQuestion: '标记此题',
+      unmarkQuestion: '取消标记',
+      marked: '已标记',
+      // Submit confirmation
+      confirmSubmitTitle: '确认提交',
+      confirmSubmitAll: '提交全部 {n} 道题？',
+      unansweredQuestions: '未作答的题目',
+      markedQuestions: '已标记的题目',
+      continueAnswering: '继续答题',
+      confirmSubmit: '确认提交',
     },
     // Sidebar
     sidebar: {
@@ -1383,6 +1403,26 @@ export const translations = {
       course: 'Course',
       selectCourse: 'Select course',
       selectUniversityFirst: 'Select university first',
+      // Course selection modal
+      selectCourseTitle: 'Select Course',
+      selectCourseDesc: 'Choose the course you want to practice',
+      startSetup: 'Start Setup',
+      // Progressive disclosure
+      recommended: 'Recommended',
+      noPapersAvailableShort: 'No papers yet',
+      notEnoughPapers: 'Needs at least 2 papers',
+      configureExam: 'Configure Exam',
+      // Question marking
+      markQuestion: 'Mark this question',
+      unmarkQuestion: 'Unmark question',
+      marked: 'Marked',
+      // Submit confirmation
+      confirmSubmitTitle: 'Confirm Submission',
+      confirmSubmitAll: 'Submit all {n} answers?',
+      unansweredQuestions: 'Unanswered questions',
+      markedQuestions: 'Marked questions',
+      continueAnswering: 'Continue Answering',
+      confirmSubmit: 'Confirm Submit',
     },
     // Sidebar
     sidebar: {
