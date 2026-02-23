@@ -263,6 +263,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           session={session}
           onUpdateSession={handleUpdateSession}
           openDrawerTrigger={knowledgeDrawerTrigger}
+          isLoading={loading}
         />
       </ChatPageLayout>
 
