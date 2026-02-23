@@ -477,6 +477,7 @@ body {
     transform: translateY(0);
     opacity: 0.4;
   }
+
   50% {
     transform: translateY(-6px);
     opacity: 1;
@@ -592,6 +593,7 @@ body {
     opacity: 0;
     transform: scale(0.92) translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -603,6 +605,7 @@ body {
     opacity: 0;
     transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -614,6 +617,7 @@ body {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -626,6 +630,7 @@ body {
     opacity: 0;
     transform: translateY(16px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -682,15 +687,18 @@ body {
   box-shadow: var(--shadow-button);
   transition: all 0.3s;
 }
+
 @media (min-width: 640px) {
   .btn-hero {
     padding: 0.875rem 2rem !important;
   }
 }
+
 .btn-hero:hover {
   box-shadow: var(--shadow-button-hover);
   transform: scale(1.05);
 }
+
 .btn-hero:active {
   transform: scale(1);
 }
@@ -703,11 +711,13 @@ body {
   padding: 0.625rem 1.25rem !important;
   transition: all 0.3s;
 }
+
 @media (min-width: 640px) {
   .btn-hero-outline {
     padding: 0.875rem 2rem !important;
   }
 }
+
 .btn-hero-outline:hover {
   background: hsl(var(--primary) / 0.1) !important;
   border-color: hsl(var(--primary)) !important;
@@ -737,8 +747,8 @@ body {
 
 /* Login page: input focus, button hover */
 .login-input:focus {
-  border-color: var(--mantine-color-indigo-3) !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
+  border-color: var(--mantine-color-violet-3) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
 }
 
 .login-input:-webkit-autofill,
@@ -752,15 +762,15 @@ body {
 
 .login-submit-btn:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4) !important;
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35) !important;
 }
 
 /* Login page: light tech vibe */
 .login-page-bg {
   background-color: var(--mantine-color-slate-0);
   background-image:
-    linear-gradient(rgba(79, 70, 229, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 70, 229, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
   background-size: 24px 24px;
   position: relative;
 }
@@ -771,7 +781,7 @@ body {
   inset: 0;
   background: radial-gradient(
     ellipse 70% 50% at 50% -20%,
-    rgba(79, 70, 229, 0.08) 0%,
+    rgba(139, 92, 246, 0.06) 0%,
     transparent 50%
   );
   pointer-events: none;
@@ -797,15 +807,15 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(79, 70, 229, 0.6),
-    rgba(67, 56, 202, 0.5),
+    rgba(139, 92, 246, 0.45),
+    rgba(124, 58, 237, 0.4),
     transparent
   );
   opacity: 0.9;
 }
 
 .login-page-title {
-  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 50%, #818cf8 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -818,6 +828,7 @@ body {
     opacity: 0;
     transform: translateX(-12px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -829,6 +840,7 @@ body {
     opacity: 0;
     transform: translateX(12px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -849,6 +861,7 @@ body {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -978,8 +991,8 @@ body {
 [data-mantine-color-scheme='dark'] .login-page-bg {
   background-color: var(--mantine-color-dark-8);
   background-image:
-    linear-gradient(rgba(79, 70, 229, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 70, 229, 0.06) 1px, transparent 1px);
+    linear-gradient(rgba(139, 92, 246, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
 }
 
 [data-mantine-color-scheme='dark'] .login-page-card {

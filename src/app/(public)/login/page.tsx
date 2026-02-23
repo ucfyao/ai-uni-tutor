@@ -277,12 +277,12 @@ function LoginForm() {
                   type="submit"
                   loading={resetLoading}
                   variant="gradient"
-                  gradient={{ from: 'indigo.7', to: 'indigo.3', deg: 105 }}
+                  gradient={{ from: 'violet.6', to: 'violet.3', deg: 105 }}
                   mt="sm"
                   fw={600}
                   py={12}
                   style={{
-                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+                    boxShadow: '0 2px 8px rgba(139, 92, 246, 0.25)',
                     transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                   }}
                   className="login-submit-btn"
@@ -295,7 +295,7 @@ function LoginForm() {
                     href="#"
                     size="sm"
                     fw={600}
-                    c="indigo.6"
+                    c="violet.5"
                     onClick={(e) => {
                       e.preventDefault();
                       setIsForgotPassword(false);
@@ -398,7 +398,7 @@ function LoginForm() {
                         href="#"
                         size="sm"
                         fw={600}
-                        c="indigo.6"
+                        c="violet.5"
                         onClick={(e) => {
                           e.preventDefault();
                           setIsForgotPassword(true);
@@ -419,12 +419,12 @@ function LoginForm() {
                   type="submit"
                   loading={loading}
                   variant="gradient"
-                  gradient={{ from: 'indigo.7', to: 'indigo.3', deg: 105 }}
+                  gradient={{ from: 'violet.6', to: 'violet.3', deg: 105 }}
                   mt="sm"
                   fw={600}
                   py={12}
                   style={{
-                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+                    boxShadow: '0 2px 8px rgba(139, 92, 246, 0.25)',
                     transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                   }}
                   className="login-submit-btn"
@@ -483,7 +483,7 @@ function LoginForm() {
                   <Anchor<'a'>
                     href="#"
                     fw={600}
-                    c="indigo.6"
+                    c="violet.5"
                     size="sm"
                     onClick={(e) => {
                       e.preventDefault();
