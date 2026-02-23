@@ -1,8 +1,19 @@
 'use client';
 
-import { CircleCheck } from 'lucide-react';
+import { CircleCheck, Flag } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { Badge, Box, Card, Group, Paper, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Card,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+} from '@mantine/core';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { MockExamQuestion } from '@/types/exam';
@@ -19,9 +30,23 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  // Question marking (exam mode only)
+  marked?: boolean;
+  onToggleMark?: () => void;
+  showMarkButton?: boolean;
 }
 
-export function QuestionCard({ question, index, total, value, onChange, disabled }: Props) {
+export function QuestionCard({
+  question,
+  index,
+  total,
+  value,
+  onChange,
+  disabled,
+  marked,
+  onToggleMark,
+  showMarkButton,
+}: Props) {
   const { t } = useLanguage();
 
   return (
@@ -40,6 +65,18 @@ export function QuestionCard({ question, index, total, value, onChange, disabled
             Q{index + 1}/{total}
           </Badge>
           <Group gap="xs">
+            {showMarkButton && onToggleMark && (
+              <ActionIcon
+                variant={marked ? 'filled' : 'subtle'}
+                color={marked ? 'orange' : 'gray'}
+                size="sm"
+                radius="xl"
+                onClick={onToggleMark}
+                aria-label={marked ? t.exam.unmarkQuestion : t.exam.markQuestion}
+              >
+                <Flag size={14} />
+              </ActionIcon>
+            )}
             <Badge variant="dot">{question.type}</Badge>
             <Badge variant="light" color={getDocColor('exam')}>
               {question.points} {t.exam.points}
