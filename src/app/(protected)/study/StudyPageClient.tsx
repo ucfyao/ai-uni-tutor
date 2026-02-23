@@ -54,11 +54,10 @@ export function StudyPageClient() {
   const FEATURE_CARDS = getFeatureCards(t);
 
   const handleCourseSelected = async (courseId: string, mode: TutoringMode) => {
-    closeModal();
-
     const newId = await addSession(courseId, mode);
     if (!newId) return;
 
+    closeModal();
     const modeRoute = MODES_METADATA[mode].id;
     router.push(`/${modeRoute}/${newId}`);
   };

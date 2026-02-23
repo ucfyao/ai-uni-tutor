@@ -31,8 +31,10 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     const id =
       pathname?.match(/^\/(lecture|assignment)\/([^/]+)/)?.[2] ??
       pathname?.match(/^\/exam\/mock\/([^/]+)/)?.[1] ??
+      pathname?.match(/^\/exam\/([^/]+)/)?.[1] ??
       null;
-    setActiveSessionId(id);
+    // Special case: if match is 'mock', it's the start of /exam/mock/[id], handled by the previous line
+    setActiveSessionId(id === 'mock' ? null : id);
   }, [pathname]);
 
   const { headerContent } = useHeader();
@@ -61,7 +63,6 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   };
 
   const handleStartSession = async (courseId: string, mode: TutoringMode) => {
-    closeModal();
     const newId = await addSession(courseId, mode);
     if (!newId) {
       showNotification({ title: 'Error', message: 'Failed to create session', color: 'red' });
@@ -71,7 +72,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     const modeRoute = MODES_METADATA[mode].id;
     const targetPath = `/${modeRoute}/${newId}`;
     setActiveSessionId(newId);
-    window.history.pushState(null, '', targetPath);
+    closeModal();
     router.push(targetPath);
   };
 

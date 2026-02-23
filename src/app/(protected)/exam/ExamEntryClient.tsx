@@ -2,7 +2,7 @@
 
 import { Check, Filter, Shuffle, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   Badge,
   Box,
@@ -37,25 +37,32 @@ const EXAM_PREFS_KEY = 'exam-course-prefs';
 
 interface ExamEntryClientProps {
   initialCourseCode?: string | null;
+  initialCourseName?: string | null;
   initialUniId?: string | null;
 }
 
-export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryClientProps = {}) {
+export function ExamEntryClient({
+  initialCourseCode,
+  initialCourseName,
+  initialUniId,
+}: ExamEntryClientProps = {}) {
   const router = useRouter();
   const { t } = useLanguage();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const isInitialMount = useRef(true);
 
   // Source selection
   const [source, setSource] = useState<Source>('real');
 
   // University → Course (for real / random)
-  const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
-  const [selectedCourseCode, setSelectedCourseCode] = useState<string | null>(null);
+  const [selectedUniId, setSelectedUniId] = useState<string | null>(initialUniId ?? null);
+  const [selectedCourseCode, setSelectedCourseCode] = useState<string | null>(
+    initialCourseCode ?? null,
+  );
+  const [courseConfirmed, setCourseConfirmed] = useState(!!initialCourseCode);
 
-  // Course selection modal
   const [modalOpen, setModalOpen] = useState(false);
-  const [courseConfirmed, setCourseConfirmed] = useState(false);
 
   // Real exam options
   const [papers, setPapers] = useState<ExamPaper[]>([]);
@@ -72,7 +79,7 @@ export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryCl
   // Mode (shared by all sources)
   const [selectedMode, setSelectedMode] = useState<ExamMode>('practice');
 
-  const { universities, courses: filteredCourses } = useCourseData(selectedUniId);
+  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
 
   // University options
   const uniOptions = useMemo(
@@ -86,15 +93,9 @@ export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryCl
     return filteredCourses.map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
   }, [selectedUniId, filteredCourses]);
 
-  // Initialize from props (session-based) or localStorage
+  // Initialize from localStorage if not provided by props
   useEffect(() => {
-    // Props from session take priority
-    if (initialUniId && initialCourseCode) {
-      setSelectedUniId(initialUniId);
-      setSelectedCourseCode(initialCourseCode);
-      setCourseConfirmed(true);
-      return;
-    }
+    if (courseConfirmed) return; // If course is already confirmed by props, skip localStorage
 
     try {
       const stored = localStorage.getItem(EXAM_PREFS_KEY);
@@ -113,8 +114,7 @@ export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryCl
     } catch {
       setModalOpen(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [courseConfirmed]); // Depend on courseConfirmed to prevent re-running if props set it
 
   // Persist when confirmed
   useEffect(() => {
@@ -131,10 +131,16 @@ export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryCl
 
   // Reset course when university changes
   useEffect(() => {
+    if (isInitialMount.current && initialCourseCode) {
+      isInitialMount.current = false;
+      return;
+    }
+    isInitialMount.current = false; // Ensure it's set to false after the first check
+
     setSelectedCourseCode(null);
     setPapers([]);
     setSelectedPaper(null);
-  }, [selectedUniId]);
+  }, [selectedUniId, initialCourseCode]);
 
   // Fetch papers when course changes
   useEffect(() => {
@@ -272,12 +278,18 @@ export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryCl
         {courseConfirmed && (
           <Group gap="xs" className="animate-fade-in-up">
             <Badge size="lg" variant="light" color={getDocColor('exam')}>
-              {courseOptions.find((c) => c.value === selectedCourseCode)?.label ??
-                selectedCourseCode}
+              {initialCourseName && initialCourseCode
+                ? `${initialCourseCode}: ${initialCourseName}`
+                : (() => {
+                    const course = allCourses.find((c) => c.code === selectedCourseCode);
+                    return course ? `${course.code}: ${course.name}` : selectedCourseCode;
+                  })()}
             </Badge>
-            <Button variant="subtle" size="compact-sm" onClick={() => setModalOpen(true)}>
-              {t.exam.selectCourse}
-            </Button>
+            {!initialCourseCode && (
+              <Button variant="subtle" size="compact-sm" onClick={() => setModalOpen(true)}>
+                {t.exam.selectCourse}
+              </Button>
+            )}
           </Group>
         )}
 
@@ -291,7 +303,6 @@ export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryCl
             style={{
               borderColor: 'var(--mantine-color-gray-2)',
               boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-              opacity: 0,
             }}
           >
             <Stack gap="lg">
