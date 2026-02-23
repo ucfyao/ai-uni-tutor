@@ -40,6 +40,7 @@ function createMockExamPaperRepo(): {
     updatePaper: vi.fn(),
     delete: vi.fn(),
     insertQuestions: vi.fn(),
+    insertQuestionsAndReturn: vi.fn(),
     findQuestionsByPaperId: vi.fn(),
     updateQuestion: vi.fn(),
     deleteQuestion: vi.fn(),
@@ -83,6 +84,7 @@ const QUESTIONS: ExamQuestion[] = [
     answer: 'B',
     explanation: '2+2=4',
     points: 5,
+    parentQuestionId: null,
     metadata: { knowledge_point: 'arithmetic', difficulty: 'easy' },
   },
   {
@@ -95,6 +97,7 @@ const QUESTIONS: ExamQuestion[] = [
     answer: 'Row by column dot product.',
     explanation: 'Matrix multiplication is defined by dot products of rows and columns.',
     points: 10,
+    parentQuestionId: null,
     metadata: { knowledge_point: 'linear algebra', difficulty: 'medium' },
   },
 ];
@@ -154,7 +157,9 @@ describe('ExamPaperService', () => {
   describe('parsePaper', () => {
     it('should create paper, parse PDF, extract questions via AI, and update paper metadata', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.insertQuestions.mockResolvedValue(undefined);
+      repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
+        qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
+      );
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
@@ -189,7 +194,7 @@ describe('ExamPaperService', () => {
       expect(pdfModule.parsePDF).toHaveBeenCalledWith(Buffer.from('pdf-data'));
 
       // Questions inserted
-      expect(repo.insertQuestions).toHaveBeenCalledWith(
+      expect(repo.insertQuestionsAndReturn).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             paperId: PAPER_ID,
@@ -214,7 +219,9 @@ describe('ExamPaperService', () => {
 
     it('should default visibility to private', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.insertQuestions.mockResolvedValue(undefined);
+      repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
+        qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
+      );
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
@@ -230,7 +237,9 @@ describe('ExamPaperService', () => {
 
     it('should use public visibility when specified', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.insertQuestions.mockResolvedValue(undefined);
+      repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
+        qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
+      );
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({
@@ -248,7 +257,9 @@ describe('ExamPaperService', () => {
 
     it('should use filename (minus .pdf) as fallback title when AI returns no title', async () => {
       repo.create.mockResolvedValue(PAPER_ID);
-      repo.insertQuestions.mockResolvedValue(undefined);
+      repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
+        qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
+      );
       repo.updatePaper.mockResolvedValue(undefined);
 
       vi.mocked(pdfModule.parsePDF).mockResolvedValue({

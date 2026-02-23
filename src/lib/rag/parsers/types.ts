@@ -21,6 +21,7 @@ export interface ParsedQuestion {
   options?: string[];
   referenceAnswer?: string;
   score?: number;
+  parentIndex?: number | null;
   sourcePage: number;
 }
 

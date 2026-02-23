@@ -42,6 +42,7 @@ function mapQuestionRow(row: Record<string, unknown>): ExamQuestion {
     answer: row.answer as string,
     explanation: row.explanation as string,
     points: row.points as number,
+    parentQuestionId: (row.parent_question_id as string) ?? null,
     metadata: (row.metadata as { knowledge_point?: string; difficulty?: string }) ?? {},
   };
 }
@@ -256,6 +257,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
       explanation: string;
       points: number;
       metadata: Record<string, unknown>;
+      parentQuestionId?: string | null;
     }>,
   ): Promise<void> {
     const supabase = await createClient();
@@ -269,6 +271,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
       answer: q.answer,
       explanation: q.explanation,
       points: q.points,
+      parent_question_id: q.parentQuestionId ?? null,
       metadata: q.metadata as Json,
     }));
 
@@ -277,6 +280,45 @@ export class ExamPaperRepository implements IExamPaperRepository {
     if (error) {
       throw new DatabaseError(`Failed to insert questions: ${error.message}`, error);
     }
+  }
+
+  async insertQuestionsAndReturn(
+    questions: Array<{
+      paperId: string;
+      orderNum: number;
+      type: string;
+      content: string;
+      options: Record<string, string> | null;
+      answer: string;
+      explanation: string;
+      points: number;
+      metadata: Record<string, unknown>;
+      parentQuestionId?: string | null;
+    }>,
+  ): Promise<{ id: string }[]> {
+    if (questions.length === 0) return [];
+    const supabase = await createClient();
+
+    const rows = questions.map((q) => ({
+      paper_id: q.paperId,
+      order_num: q.orderNum,
+      type: q.type,
+      content: q.content,
+      options: (q.options ?? null) as Json,
+      answer: q.answer,
+      explanation: q.explanation,
+      points: q.points,
+      parent_question_id: q.parentQuestionId ?? null,
+      metadata: q.metadata as Json,
+    }));
+
+    const { data, error } = await supabase.from('exam_questions').insert(rows).select('id');
+
+    if (error) {
+      throw new DatabaseError(`Failed to insert questions and return: ${error.message}`, error);
+    }
+
+    return (data ?? []).map((r) => ({ id: r.id as string }));
   }
 
   async findQuestionsByPaperId(paperId: string): Promise<ExamQuestion[]> {
@@ -300,7 +342,14 @@ export class ExamPaperRepository implements IExamPaperRepository {
     data: Partial<
       Pick<
         ExamQuestion,
-        'content' | 'options' | 'answer' | 'explanation' | 'points' | 'type' | 'orderNum'
+        | 'content'
+        | 'options'
+        | 'answer'
+        | 'explanation'
+        | 'points'
+        | 'type'
+        | 'orderNum'
+        | 'parentQuestionId'
       >
     >,
   ): Promise<void> {
@@ -314,6 +363,8 @@ export class ExamPaperRepository implements IExamPaperRepository {
     if (data.points !== undefined) updatePayload.points = data.points;
     if (data.type !== undefined) updatePayload.type = data.type;
     if (data.orderNum !== undefined) updatePayload.order_num = data.orderNum;
+    if (data.parentQuestionId !== undefined)
+      updatePayload.parent_question_id = data.parentQuestionId;
 
     if (Object.keys(updatePayload).length === 0) return;
 

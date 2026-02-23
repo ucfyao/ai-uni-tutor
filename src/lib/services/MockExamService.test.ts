@@ -47,6 +47,7 @@ function createMockPaperRepo(): {
     updatePaper: vi.fn(),
     delete: vi.fn(),
     insertQuestions: vi.fn(),
+    insertQuestionsAndReturn: vi.fn(),
     findQuestionsByPaperId: vi.fn(),
     updateQuestion: vi.fn(),
     deleteQuestion: vi.fn(),
@@ -91,6 +92,7 @@ const EXAM_QUESTIONS: ExamQuestion[] = [
     answer: 'B',
     explanation: 'd/dx(x^2) = 2x',
     points: 5,
+    parentQuestionId: null,
     metadata: { knowledge_point: 'derivatives', difficulty: 'easy' },
   },
   {
@@ -103,6 +105,7 @@ const EXAM_QUESTIONS: ExamQuestion[] = [
     answer: '-cos(x) + C',
     explanation: 'The antiderivative of sin(x) is -cos(x).',
     points: 10,
+    parentQuestionId: null,
     metadata: { knowledge_point: 'integrals', difficulty: 'medium' },
   },
 ];
@@ -469,6 +472,7 @@ describe('MockExamService', () => {
         answer: 'A',
         explanation: 'explanation',
         points: 2,
+        parentQuestionId: null,
         metadata: {},
       }));
 

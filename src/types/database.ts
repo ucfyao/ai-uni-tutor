@@ -385,6 +385,7 @@ export interface Database {
         Row: {
           id: string;
           paper_id: string;
+          parent_question_id: string | null;
           order_num: number;
           type: string;
           content: string;
@@ -398,6 +399,7 @@ export interface Database {
         Insert: {
           id?: string;
           paper_id: string;
+          parent_question_id?: string | null;
           order_num: number;
           type: string;
           content: string;
@@ -411,6 +413,7 @@ export interface Database {
         Update: {
           id?: string;
           paper_id?: string;
+          parent_question_id?: string | null;
           order_num?: number;
           type?: string;
           content?: string;

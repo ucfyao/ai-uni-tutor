@@ -27,6 +27,7 @@ export interface ExamQuestion {
   answer: string;
   explanation: string;
   points: number;
+  parentQuestionId: string | null;
   metadata: {
     knowledge_point?: string;
     difficulty?: string;

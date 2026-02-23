@@ -20,7 +20,7 @@ import {
 import { modals } from '@mantine/modals';
 import { deleteDocument, publishDocument, unpublishDocument } from '@/app/actions/documents';
 import { AdminContent } from '@/components/admin/AdminContent';
-import { ExamQuestionList } from '@/components/rag/ExamQuestionList';
+import { ExamOutlineView } from '@/components/rag/ExamOutlineView';
 import type { KnowledgeDocument } from '@/components/rag/KnowledgeTable';
 import { PdfUploadZone } from '@/components/rag/PdfUploadZone';
 import { DOC_TYPES, getDocColor } from '@/constants/doc-types';
@@ -83,18 +83,7 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
 
   /* -- question handlers (delegate to hook mutations) -- */
   const handleSaveQuestion = useCallback(
-    async (
-      questionId: string,
-      fields: {
-        content?: string;
-        answer?: string;
-        explanation?: string;
-        points?: number;
-        type?: string;
-        options?: Record<string, string> | null;
-        orderNum?: number;
-      },
-    ) => {
+    async (questionId: string, fields: Partial<ExamQuestion>) => {
       await updateQuestion({ questionId, ...fields });
     },
     [updateQuestion],
@@ -112,10 +101,11 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
       try {
         await addQuestion({
           content: (data.content as string) || '',
-          answer: (data.referenceAnswer as string) || '',
+          answer: (data.answer as string) || '',
           explanation: (data.explanation as string) || '',
           points: (data.points as number) || 0,
           type: (data.type as string) || 'short_answer',
+          parentQuestionId: (data.parentQuestionId as string) || null,
         });
         return true;
       } catch {
@@ -399,12 +389,12 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
             />
           )}
 
-          <ExamQuestionList
-            questions={questions}
-            onSaveQuestion={handleSaveQuestion}
-            onDeleteQuestion={handleDeleteQuestion}
-            onAddQuestion={handleAddQuestion}
-            isAddingQuestion={isAddingQuestion}
+          <ExamOutlineView
+            items={questions}
+            onSaveItem={handleSaveQuestion}
+            onDeleteItem={handleDeleteQuestion}
+            onAddItem={handleAddQuestion}
+            isAddingItem={isAddingQuestion}
             addFormOpen={addFormOpen}
             onAddFormOpenChange={setAddFormOpen}
           />

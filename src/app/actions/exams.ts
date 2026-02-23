@@ -8,11 +8,7 @@ import type { ExamQuestion } from '@/types/exam';
 
 // ── Access control ──
 
-async function requireExamAccess(
-  paperId: string,
-  _userId: string,
-  role: string,
-): Promise<void> {
+async function requireExamAccess(paperId: string, _userId: string, role: string): Promise<void> {
   if (role === 'super_admin') return;
   const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
   const examRepo = getExamPaperRepository();
@@ -45,6 +41,7 @@ const updateQuestionSchema = z.object({
   type: z.string().optional(),
   options: z.record(z.string(), z.string()).nullable().optional(),
   orderNum: z.number().int().min(1).optional(),
+  parentQuestionId: z.string().uuid().nullable().optional(),
 });
 
 const deleteQuestionSchema = z.object({

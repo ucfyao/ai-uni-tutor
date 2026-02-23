@@ -449,6 +449,7 @@ describe('ExamPaperRepository', () => {
           explanation: 'Constant time.',
           points: 5,
           metadata: { difficulty: 'easy' },
+          parent_question_id: null,
         },
       ]);
     });
@@ -529,6 +530,71 @@ describe('ExamPaperRepository', () => {
 
       await expect(repo.insertQuestions(questions)).rejects.toThrow(DatabaseError);
       await expect(repo.insertQuestions(questions)).rejects.toThrow('Failed to insert questions');
+    });
+  });
+
+  // ── insertQuestionsAndReturn ──
+
+  describe('insertQuestionsAndReturn', () => {
+    it('should insert and return questions with IDs', async () => {
+      const dbRows = [
+        { ...questionRow, id: 'q1', order_num: 1 },
+        { ...questionRow, id: 'q2', order_num: 2 },
+      ];
+      mockSupabase.setQueryResponse(dbRows);
+
+      const questions = [
+        {
+          paperId: 'paper-001',
+          orderNum: 1,
+          type: 'mcq' as const,
+          content: 'Q1',
+          options: null,
+          answer: 'A',
+          explanation: 'E',
+          points: 5,
+          metadata: {},
+          parentQuestionId: null,
+        },
+        {
+          paperId: 'paper-001',
+          orderNum: 2,
+          type: 'mcq' as const,
+          content: 'Q2',
+          options: null,
+          answer: 'B',
+          explanation: 'E',
+          points: 5,
+          metadata: {},
+          parentQuestionId: null,
+        },
+      ];
+
+      const result = await repo.insertQuestionsAndReturn(questions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('q1');
+      expect(result[1].id).toBe('q2');
+      expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('id');
+    });
+
+    it('should throw DatabaseError on failure', async () => {
+      mockSupabase.setErrorResponse(dbError('Failed'));
+      const questions = [
+        {
+          paperId: 'p',
+          orderNum: 1,
+          type: 'mcq' as const,
+          content: 'Q',
+          options: null,
+          answer: 'A',
+          explanation: 'E',
+          points: 1,
+          metadata: {},
+          parentQuestionId: null,
+        },
+      ];
+      await expect(repo.insertQuestionsAndReturn(questions)).rejects.toThrow(DatabaseError);
     });
   });
 

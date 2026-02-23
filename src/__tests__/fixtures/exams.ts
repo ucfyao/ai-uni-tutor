@@ -67,6 +67,7 @@ export const questionRow = {
   answer: 'B',
   explanation: 'Binary search halves the search space each step, giving O(log n).',
   points: 5,
+  parent_question_id: null as string | null,
   metadata: { knowledge_point: 'Binary Search', difficulty: 'medium' },
   created_at: '2025-06-01T09:01:00Z',
 };
@@ -94,6 +95,7 @@ export const questionEntity: ExamQuestion = {
   answer: questionRow.answer,
   explanation: questionRow.explanation,
   points: questionRow.points,
+  parentQuestionId: null,
   metadata: questionRow.metadata,
 };
 

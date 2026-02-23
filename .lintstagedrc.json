@@ -1,4 +1,9 @@
 {
-  "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
+  "*.{ts,tsx}": [
+    "eslint --fix",
+    "prettier --write",
+    "bash -c 'tsc --noEmit'",
+    "vitest related --run"
+  ],
   "*.{json,md,mdx,css}": ["prettier --write"]
 }
