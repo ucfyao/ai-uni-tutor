@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Eye, Pencil, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
@@ -289,9 +289,11 @@ export function KnowledgeTable({
                 padding="sm"
                 radius="lg"
                 className={classes.mobileCard}
+                onClick={() => router.push(getDocDetailPath(doc))}
                 style={{
                   borderColor: 'var(--mantine-color-gray-2)',
                   boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                  cursor: 'pointer',
                 }}
               >
                 <Group justify="space-between" mb="xs">
@@ -307,7 +309,14 @@ export function KnowledgeTable({
                       );
                     })()}
                     <Tooltip label={doc.name} multiline maw={280} openDelay={300}>
-                      <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
+                      <Text
+                        size="sm"
+                        fw={500}
+                        truncate
+                        style={{ flex: 1, cursor: 'pointer' }}
+                        className={classes.fileName}
+                        onClick={() => router.push(getDocDetailPath(doc))}
+                      >
                         {doc.name}
                       </Text>
                     </Tooltip>
@@ -316,24 +325,23 @@ export function KnowledgeTable({
                     <ActionIcon
                       variant="subtle"
                       color="gray"
-                      onClick={() => onEdit?.(doc)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit?.(doc);
+                      }}
                       aria-label={t.knowledge.editDocument}
                     >
                       <Pencil size={16} />
                     </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      onClick={() => router.push(getDocDetailPath(doc))}
-                      aria-label="View document details"
-                    >
-                      <Eye size={16} />
-                    </ActionIcon>
+
                     {!readOnly && (
                       <ActionIcon
                         variant="subtle"
                         color="red"
-                        onClick={() => handleDelete(doc)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(doc);
+                        }}
                         loading={
                           deleteMutation.isPending && deleteMutation.variables?.id === doc.id
                         }
@@ -471,7 +479,11 @@ export function KnowledgeTable({
                 <Table.Tr
                   key={doc.id}
                   className={classes.tableRow}
-                  style={{ transition: 'background 0.12s ease' }}
+                  onClick={() => router.push(getDocDetailPath(doc))}
+                  style={{
+                    transition: 'background 0.12s ease',
+                    cursor: 'pointer',
+                  }}
                 >
                   <Table.Td>
                     <Group gap="xs" wrap="nowrap" style={{ overflow: 'hidden' }}>
@@ -492,6 +504,8 @@ export function KnowledgeTable({
                           truncate
                           c={getDocColor(doc.doc_type)}
                           className={classes.fileName}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => router.push(getDocDetailPath(doc))}
                         >
                           {doc.name}
                         </Text>
@@ -523,6 +537,7 @@ export function KnowledgeTable({
                             color="teal"
                             size="sm"
                             style={{ cursor: 'pointer' }}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             {doc.outline_summary.count} Sec · {doc.outline_summary.totalKPs} KPs
                           </Badge>
@@ -590,23 +605,22 @@ export function KnowledgeTable({
                         <ActionIcon
                           variant="subtle"
                           color="gray"
-                          onClick={() => onEdit?.(doc)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit?.(doc);
+                          }}
                           aria-label={t.knowledge.editDocument}
                         >
                           <Pencil size={16} />
                         </ActionIcon>
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          onClick={() => router.push(getDocDetailPath(doc))}
-                          aria-label="View document details"
-                        >
-                          <Eye size={16} />
-                        </ActionIcon>
+
                         <ActionIcon
                           variant="subtle"
                           color="red"
-                          onClick={() => handleDelete(doc)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(doc);
+                          }}
                           loading={
                             deleteMutation.isPending && deleteMutation.variables?.id === doc.id
                           }
