@@ -349,14 +349,33 @@ export async function splitAssignmentItem(
 export async function fetchAssignmentStats(
   assignmentIds: string[],
 ): Promise<
-  ActionResult<Record<string, { itemCount: number; withAnswer: number; warningCount: number }>>
+  ActionResult<
+    Record<
+      string,
+      {
+        itemCount: number;
+        mainCount: number;
+        subCount: number;
+        withAnswer: number;
+        warningCount: number;
+      }
+    >
+  >
 > {
   try {
     await requireAnyAdmin();
     const service = getAssignmentService();
     const stats = await service.getAssignmentStats(assignmentIds);
-    const result: Record<string, { itemCount: number; withAnswer: number; warningCount: number }> =
-      {};
+    const result: Record<
+      string,
+      {
+        itemCount: number;
+        mainCount: number;
+        subCount: number;
+        withAnswer: number;
+        warningCount: number;
+      }
+    > = {};
     for (const [id, stat] of stats) {
       result[id] = stat;
     }

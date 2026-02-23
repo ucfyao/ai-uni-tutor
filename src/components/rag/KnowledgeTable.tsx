@@ -48,16 +48,23 @@ export interface KnowledgeDocument {
 }
 
 export interface AssignmentStatsMap {
-  [id: string]: { itemCount: number; withAnswer: number; warningCount: number };
+  [id: string]: {
+    itemCount: number;
+    mainCount: number;
+    subCount: number;
+    withAnswer: number;
+    warningCount: number;
+  };
 }
 
-interface KnowledgeTableProps {
+export interface KnowledgeTableProps {
   documents: KnowledgeDocument[];
   readOnly?: boolean;
   isLoading?: boolean;
   onDeleted?: (id: string) => void;
   onEdit?: (doc: KnowledgeDocument) => void;
   assignmentStats?: AssignmentStatsMap;
+  doc_type: string;
 }
 
 function TableSkeleton({ rows = 4 }: { rows?: number }) {
@@ -99,6 +106,7 @@ export function KnowledgeTable({
   onDeleted,
   onEdit,
   assignmentStats,
+  doc_type,
 }: KnowledgeTableProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -372,6 +380,20 @@ export function KnowledgeTable({
                         {doc.outline_summary.count} Sec · {doc.outline_summary.totalKPs} KPs
                       </Badge>
                     </>
+                  ) : doc.doc_type === 'assignment' ? (
+                    <>
+                      <Text size="xs" c="dimmed">
+                        &middot;
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {(() => {
+                          const stat = assignmentStats?.[doc.id];
+                          if (stat)
+                            return `${t.knowledge.mainQuestions}: ${stat.mainCount} / ${t.knowledge.subQuestions}: ${stat.subCount}`;
+                          return doc.item_count ? `${doc.item_count} ${t.knowledge.items}` : '-';
+                        })()}
+                      </Text>
+                    </>
                   ) : doc.item_count != null && doc.item_count > 0 ? (
                     <>
                       <Text size="xs" c="dimmed">
@@ -445,7 +467,7 @@ export function KnowledgeTable({
                 {t.knowledge.course}
               </Table.Th>
               <Table.Th w="12%" style={thStyle}>
-                {t.knowledge.outline}
+                {doc_type === 'lecture' ? t.knowledge.outline : t.knowledge.totalQuestions}
               </Table.Th>
               <Table.Th
                 w="10%"
@@ -578,6 +600,24 @@ export function KnowledgeTable({
                           </Stack>
                         </Popover.Dropdown>
                       </Popover>
+                    ) : doc.doc_type === 'assignment' ? (
+                      <div className="flex flex-col gap-0.5">
+                        <Text size="sm" fw={500}>
+                          {(() => {
+                            const stat = assignmentStats?.[doc.id];
+                            if (stat)
+                              return `${t.knowledge.mainQuestions}: ${stat.mainCount} / ${t.knowledge.subQuestions}: ${stat.subCount}`;
+                            return doc.item_count ? `${doc.item_count} ${t.knowledge.items}` : '-';
+                          })()}
+                        </Text>
+                        {assignmentStats?.[doc.id] && (
+                          <Text size="xs" c="dimmed">
+                            {assignmentStats[doc.id].withAnswer}{' '}
+                            {t.knowledge.successfullyExtracted.split(' ')[0]}{' '}
+                            {t.knowledge.questions}
+                          </Text>
+                        )}
+                      </div>
                     ) : doc.item_count != null && doc.item_count > 0 ? (
                       <Text size="sm" c="dimmed">
                         {doc.item_count} {t.knowledge.items}

@@ -416,6 +416,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
           ) : filteredDocuments.length > 0 ? (
             <KnowledgeTable
               documents={filteredDocuments}
+              doc_type={activeTab}
               onDeleted={handleDocumentDeleted}
               onEdit={(doc) => {
                 setEditName(doc.name);
