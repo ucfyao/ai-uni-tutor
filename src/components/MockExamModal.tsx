@@ -2,7 +2,7 @@
 
 import { Shuffle, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useMemo, useState, useTransition } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   Box,
   Button,
@@ -67,6 +67,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const [loadingPapers, setLoadingPapers] = useState(false);
   const [numQuestions, setNumQuestions] = useState<string | null>('10');
   const [pendingMode, setPendingMode] = useState<ExamMode | null>(null);
+  const isInitialLoad = useRef(true);
 
   const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
 
@@ -81,6 +82,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     }
     setSource('real');
     setError(null);
+    isInitialLoad.current = true;
     // Remount SegmentedControl after pop transition (200ms) to fix indicator
     const timer = setTimeout(() => setSegKey((k) => k + 1), 220);
     const lastUni = localStorage.getItem('lastUniId');
@@ -106,6 +108,11 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   }, [selectedUniId, filteredCourses]);
 
   useEffect(() => {
+    // Only reset if it's NOT the initial load
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
     setSelectedCourseCode(null);
     setPapers([]);
     setSelectedPaper(null);

@@ -8,6 +8,7 @@ export default async function ExamSessionPage({ params }: { params: Promise<{ id
   const session = await getChatSession(id);
 
   const courseCode = session?.course?.code ?? null;
+  const courseName = session?.course?.name ?? null;
   const uniId = session?.course?.universityId ?? null;
 
   return (
@@ -27,7 +28,11 @@ export default async function ExamSessionPage({ params }: { params: Promise<{ id
         }}
       />
       <Box style={{ position: 'relative', zIndex: 1 }}>
-        <ExamEntryClient initialCourseCode={courseCode} initialUniId={uniId} />
+        <ExamEntryClient
+          initialCourseCode={courseCode}
+          initialCourseName={courseName}
+          initialUniId={uniId}
+        />
       </Box>
     </Container>
   );
