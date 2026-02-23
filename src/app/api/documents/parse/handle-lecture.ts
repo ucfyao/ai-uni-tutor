@@ -4,14 +4,14 @@ import type { Json } from '@/types/database';
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleLecturePipeline(ctx: PipelineContext): Promise<void> {
-  const { send, signal, documentId, pages, fileHash, documentName } = ctx;
+  const { send, signal, documentId, fileBuffer, fileHash, documentName } = ctx;
   const lectureService = getLectureDocumentService();
 
   send('status', { stage: 'extracting', message: 'AI extracting content...' });
 
   try {
     const { parseLectureMultiPass } = await import('@/lib/rag/parsers/lecture-parser');
-    const parseResult = await parseLectureMultiPass(pages, {
+    const parseResult = await parseLectureMultiPass(fileBuffer, {
       documentId,
       onProgress: (progress) => {
         send('pipeline_progress', progress);
@@ -94,7 +94,11 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       return;
     }
 
-    const candidateContents = candidateSections.map((s) => buildSectionChunkContent(s, pages));
+    const candidateContents = candidateSections.map((s) => {
+      // Build chunk content from section data (no longer needs raw pages)
+      const kpText = s.knowledgePoints.map((kp) => `### ${kp.title}\n${kp.content}`).join('\n\n');
+      return [`## ${s.title}`, s.summary, '', kpText].join('\n');
+    });
 
     send('progress', { current: 0, total: candidateSections.length });
 

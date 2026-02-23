@@ -1,13 +1,10 @@
 import 'server-only';
 import { z } from 'zod';
-import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
-import type { PDFPage } from '@/lib/pdf';
+import { extractFromPDF } from '@/lib/rag/pdf-extractor';
 import type { ExtractedSection } from './types';
 
 /**
  * Coerce sourcePages from various Gemini output formats to number[].
- * Handles: [1,2,3], "1-5", "1,2,3", "1, 2, 3", 5, etc.
  */
 function coerceSourcePages(val: unknown): number[] {
   if (Array.isArray(val)) {
@@ -18,7 +15,6 @@ function coerceSourcePages(val: unknown): number[] {
   }
   if (typeof val === 'string') {
     const trimmed = val.trim();
-    // Range: "4-8" or "4–8"
     const rangeMatch = trimmed.match(/^(\d+)\s*[-–]\s*(\d+)$/);
     if (rangeMatch) {
       const start = parseInt(rangeMatch[1], 10);
@@ -27,7 +23,6 @@ function coerceSourcePages(val: unknown): number[] {
         return Array.from({ length: end - start + 1 }, (_, i) => start + i);
       }
     }
-    // Comma/space separated: "1, 2, 3"
     return trimmed
       .split(/[,\s]+/)
       .map(Number)
@@ -65,12 +60,10 @@ interface ExtractionOptions {
   signal?: AbortSignal;
 }
 
-function buildExtractionPrompt(pages: PDFPage[]): string {
-  const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
-
+function buildExtractionPrompt(): string {
   return `You are an academic content extraction expert.
 
-Analyze the following lecture document and extract its structure as sections with knowledge points.
+Analyze this lecture PDF document and extract its structure as sections with knowledge points.
 
 For each SECTION:
 - title: The section/chapter heading or topic name
@@ -92,74 +85,48 @@ Rules:
 Return ONLY a valid JSON object with a "sections" array. No markdown, no explanation.
 - IMPORTANT: All mathematical formulas MUST be wrapped in LaTeX delimiters:
   - Inline formulas: $ formula $
-  - Block formulas: $$ formula $$
-
-Document (${pages.length} pages):
-${pagesText}`;
+  - Block formulas: $$ formula $$`;
 }
 
 /**
  * Single-call section + knowledge point extraction.
- * Sends all pages to Gemini in one request and returns structured sections.
+ * Sends the PDF directly to Gemini via File API and returns structured sections.
  */
 export async function extractSections(
-  pages: PDFPage[],
+  fileBuffer: Buffer,
   options?: ExtractionOptions,
 ): Promise<SectionExtractionResult> {
   const signal = options?.signal;
   if (signal?.aborted) return { sections: [], warnings: [] };
-
-  const prompt = buildExtractionPrompt(pages);
 
   if (options?.onProgress) {
     options.onProgress({
       phase: 'extraction',
       phaseProgress: 5,
       totalProgress: 5,
-      detail: 'Calling Gemini for content extraction...',
+      detail: 'Uploading PDF to AI for content extraction...',
     });
   }
 
-  let text: string;
-  try {
-    const response = await getGenAI().models.generateContent({
-      model: GEMINI_MODELS.parse,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0 },
-    });
-    text = response.text ?? '';
-    if (options?.onProgress) {
-      options.onProgress({
-        phase: 'extraction',
-        phaseProgress: 40,
-        totalProgress: 12, // 40% of 30% extraction phase
-        detail: `Received ${text.length} characters from AI`,
-      });
-    }
-  } catch (error) {
-    throw AppError.from(error);
-  }
-  if (!text.trim()) {
-    return { sections: [], warnings: ['Gemini returned empty response'] };
-  }
+  const prompt = buildExtractionPrompt();
+
+  const { result: raw, warnings: extractWarnings } = await extractFromPDF<unknown>(
+    fileBuffer,
+    prompt,
+    signal,
+  );
 
   if (options?.onProgress) {
     options.onProgress({
       phase: 'extraction',
       phaseProgress: 50,
       totalProgress: 15,
-      detail: 'Parsing JSON response...',
+      detail: 'Parsing extraction response...',
     });
   }
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    return {
-      sections: [],
-      warnings: [`Gemini returned invalid JSON (${text.length} chars)`],
-    };
+  if (extractWarnings.length > 0) {
+    return { sections: [], warnings: extractWarnings };
   }
 
   if (options?.onProgress) {

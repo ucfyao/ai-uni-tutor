@@ -7,7 +7,8 @@ export interface PipelineContext {
   send: SSESendFn;
   signal: AbortSignal;
   documentId: string;
-  pages: { page: number; text: string }[];
+  /** Raw PDF bytes — passed directly to Gemini File API. */
+  fileBuffer: Buffer;
   fileHash: string;
   courseId: string | null;
   userId: string;

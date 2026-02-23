@@ -1,8 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
-import type { PDFPage } from '@/lib/pdf';
+import { extractFromPDF } from '@/lib/rag/pdf-extractor';
 import type { AssignmentMetadata, EnrichedAssignmentItem } from './types';
 
 function coerceSourcePages(val: unknown): number[] {
@@ -64,12 +62,10 @@ export interface AssignmentExtractionResult {
   warnings: string[];
 }
 
-function buildPrompt(pages: PDFPage[]): string {
-  const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
-
+function buildPrompt(): string {
   return `You are an expert academic assignment/homework content analyzer.
 
-Analyze the following document and extract:
+Analyze this PDF document and extract:
 1. Document-level metadata
 2. ALL questions with their full structure
 
@@ -111,44 +107,25 @@ Critical rules:
 - Each item's referenceAnswer must correspond to THAT specific question.
 - Do NOT include instructions or headers as questions unless they serve as a parent grouping.
 
-Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.
-
-Document (${pages.length} pages):
-${pagesText}`;
+Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.`;
 }
 
 export async function extractAssignmentQuestions(
-  pages: PDFPage[],
+  fileBuffer: Buffer,
   signal?: AbortSignal,
 ): Promise<AssignmentExtractionResult> {
   if (signal?.aborted) return { items: [], metadata: {}, warnings: [] };
 
-  const prompt = buildPrompt(pages);
+  const prompt = buildPrompt();
 
-  let text: string;
-  try {
-    const response = await getGenAI().models.generateContent({
-      model: GEMINI_MODELS.parse,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0 },
-    });
-    text = response.text ?? '';
-  } catch (error) {
-    throw AppError.from(error);
-  }
-  if (!text.trim()) {
-    return { items: [], metadata: {}, warnings: ['Gemini returned empty response'] };
-  }
+  const { result: raw, warnings: extractWarnings } = await extractFromPDF<unknown>(
+    fileBuffer,
+    prompt,
+    signal,
+  );
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    return {
-      items: [],
-      metadata: {},
-      warnings: [`Gemini returned invalid JSON (${text.length} chars)`],
-    };
+  if (extractWarnings.length > 0) {
+    return { items: [], metadata: {}, warnings: extractWarnings };
   }
 
   const result = extractionSchema.safeParse(raw);

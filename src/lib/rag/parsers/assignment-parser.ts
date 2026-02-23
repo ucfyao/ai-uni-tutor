@@ -1,5 +1,4 @@
 import 'server-only';
-import type { PDFPage } from '@/lib/pdf';
 import { extractAssignmentQuestions } from './assignment-extractor';
 import { validateAssignmentItems } from './assignment-validator';
 import type {
@@ -62,12 +61,12 @@ function buildOutline(
 }
 
 export async function parseAssignment(
-  pages: PDFPage[],
+  fileBuffer: Buffer,
   options?: ParseAssignmentOptions,
 ): Promise<ParseAssignmentResult> {
-  reportProgress(options, 0, `Sending ${pages.length} pages to AI...`);
+  reportProgress(options, 0, 'Uploading PDF to AI for extraction...');
 
-  const extraction = await extractAssignmentQuestions(pages, options?.signal);
+  const extraction = await extractAssignmentQuestions(fileBuffer, options?.signal);
   const { items, metadata, warnings } = extraction;
 
   // Per-item validation

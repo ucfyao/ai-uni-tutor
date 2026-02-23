@@ -394,6 +394,7 @@ export interface Database {
           explanation: string;
           points: number;
           metadata: Json;
+          embedding: number[] | null;
           created_at: string;
         };
         Insert: {
@@ -408,6 +409,7 @@ export interface Database {
           explanation: string;
           points?: number;
           metadata?: Json;
+          embedding?: number[] | null;
           created_at?: string;
         };
         Update: {
@@ -422,6 +424,7 @@ export interface Database {
           explanation?: string;
           points?: number;
           metadata?: Json;
+          embedding?: number[] | null;
           created_at?: string;
         };
         Relationships: [];
@@ -644,6 +647,23 @@ export interface Database {
           content: string;
           similarity: number;
           metadata: Json;
+        }[];
+      };
+      match_exam_questions: {
+        Args: {
+          query_embedding: number[];
+          match_count?: number;
+          filter_course_id?: string | null;
+        };
+        Returns: {
+          id: string;
+          paper_id: string;
+          order_num: number;
+          content: string;
+          answer: string;
+          explanation: string;
+          points: number;
+          similarity: number;
         }[];
       };
     };

@@ -1,16 +1,17 @@
-import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
-  const { send, signal, documentId, pages, hasAnswers } = ctx;
+  const { send, signal, documentId, fileBuffer, hasAnswers } = ctx;
+  const { getExamPaperService } = await import('@/lib/services/ExamPaperService');
   const examService = getExamPaperService();
 
-  // ── Question extraction via LLM ──
-  send('status', { stage: 'extracting', message: 'AI extracting content...' });
+  // ── Question extraction via LLM (direct PDF → JSON) ──
+  send('status', { stage: 'extracting', message: 'AI extracting exam questions...' });
 
   let items: Array<{
     type: 'question';
     data: import('@/lib/rag/parsers/types').ParsedQuestion;
+    warnings?: string[];
   }>;
 
   try {
@@ -18,8 +19,27 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
       send('progress', { current, total });
     };
     const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-    const questions = await parseQuestions(pages, hasAnswers, onBatchProgress);
-    items = questions.map((q) => ({ type: 'question' as const, data: q }));
+    const questions = await parseQuestions(fileBuffer, hasAnswers, onBatchProgress);
+
+    // ── Validation (shared with Assignment) ──
+    const { validateQuestionItems } = await import('@/lib/rag/parsers/question-validator');
+    const validationMap = validateQuestionItems(
+      questions.map((q, i) => ({
+        orderNum: i + 1,
+        content: q.content,
+        referenceAnswer: hasAnswers ? q.referenceAnswer : undefined,
+      })),
+    );
+
+    items = questions.map((q, i) => {
+      const w = validationMap.get(i + 1) ?? [];
+      if (w.length > 0) {
+        for (const warning of w) {
+          send('log', { message: `Q${i + 1}: ${warning}`, level: 'warning' });
+        }
+      }
+      return { type: 'question' as const, data: q, warnings: w };
+    });
   } catch (e) {
     sendGeminiError(send, e, 'extraction');
     return;
@@ -31,8 +51,8 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
     return;
   }
 
-  // ── Content-based dedup + save ──
-  send('status', { stage: 'embedding', message: 'Saving questions...' });
+  // ── Content-based dedup ──
+  send('status', { stage: 'embedding', message: 'Generating embeddings...' });
 
   const existingQuestions = await examService.getQuestionsByPaperId(documentId);
   const existingContents = new Set(existingQuestions.map((q) => q.content.trim().toLowerCase()));
@@ -57,6 +77,29 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
     send('progress', { current: i + 1, total: newItems.length });
   }
 
+  // ── Generate embeddings for exam questions ──
+  const { buildQuestionChunkContent } = await import('@/lib/rag/build-chunk-content');
+  const candidateContents = newItems.map((item) => buildQuestionChunkContent(item.data));
+
+  let embeddings: number[][];
+  try {
+    send('log', {
+      message: `Generating embeddings for ${candidateContents.length} questions...`,
+      level: 'info',
+    });
+    const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+    embeddings = await generateEmbeddingBatch(candidateContents);
+    send('log', { message: 'Embeddings generated', level: 'success' });
+  } catch (e) {
+    sendGeminiError(send, e, 'embedding');
+    return;
+  }
+
+  if (signal.aborted) return;
+
+  // ── Save questions with embeddings ──
+  send('status', { stage: 'embedding', message: 'Saving questions...' });
+
   const questions = newItems.map((item, idx) => {
     const q = item.data;
     return {
@@ -71,6 +114,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
       points: typeof q.score === 'number' ? q.score : parseInt(String(q.score)) || 0,
       parentIndex: q.parentIndex ?? null,
       metadata: { sourcePage: q.sourcePage },
+      embedding: embeddings[idx],
     };
   });
 

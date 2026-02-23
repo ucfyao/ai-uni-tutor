@@ -273,6 +273,7 @@ export class ExamPaperService {
       points: number;
       metadata: Record<string, unknown>;
       parentIndex: number | null;
+      embedding?: number[] | null;
     }>,
   ): Promise<void> {
     if (questions.length === 0) return;
@@ -336,6 +337,7 @@ export class ExamPaperService {
           questions[i].parentIndex !== null
             ? (localIdxToDbId.get(questions[i].parentIndex!) ?? null)
             : null,
+        embedding: questions[i].embedding ?? null,
       }));
 
       const inserted = await this.repo.insertQuestionsAndReturn(passDTOs);
