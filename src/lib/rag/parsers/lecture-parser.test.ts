@@ -1,23 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ExtractedSection, PipelineProgress } from './types';
+
+// ── Mocks ──
 
 vi.mock('server-only', () => ({}));
 
-const mockExtractSections = vi.fn();
-
-vi.mock('./section-extractor', () => ({
-  extractSections: (...args: unknown[]) => mockExtractSections(...args),
+const mockExtractFromPDF = vi.fn();
+vi.mock('@/lib/rag/pdf-extractor', () => ({
+  extractFromPDF: (...args: unknown[]) => mockExtractFromPDF(...args),
 }));
 
-const { parseLecture, parseLectureMultiPass } = await import('./lecture-parser');
-
-function setupDefaultMocks(sections: ExtractedSection[] = []) {
-  mockExtractSections.mockResolvedValue({ sections, warnings: [] });
-}
+// Import after mocks
+const { parseLectureMultiPass, parseLecture } = await import('./lecture-parser');
 
 describe('lecture-parser', () => {
+  const dummyBuffer = Buffer.from('dummy-pdf');
+
   beforeEach(() => {
-    mockExtractSections.mockReset();
+    mockExtractFromPDF.mockReset();
   });
 
   afterEach(() => {
@@ -25,103 +24,119 @@ describe('lecture-parser', () => {
   });
 
   describe('parseLectureMultiPass', () => {
-    it('extracts sections and builds local outline', async () => {
-      const sections: ExtractedSection[] = [
+    it('should extract sections and knowledge points', async () => {
+      const sections = [
         {
-          title: 'Binary Search Trees',
-          summary: 'Introduction to BST',
-          sourcePages: [5],
-          knowledgePoints: [{ title: 'BST', content: 'Binary search tree', sourcePages: [5] }],
+          title: 'Chapter 1',
+          summary: 'Introduction to the topic',
+          sourcePages: [1, 2],
+          knowledgePoints: [
+            { title: 'Concept A', content: 'Definition of A', sourcePages: [1] },
+            { title: 'Concept B', content: 'Definition of B', sourcePages: [2] },
+          ],
         },
       ];
-      setupDefaultMocks(sections);
 
-      const pages = Array.from({ length: 10 }, (_, i) => ({ page: i + 1, text: `P${i + 1}` }));
-      const result = await parseLectureMultiPass(pages, { documentId: 'doc-1' });
-
-      expect(result.knowledgePoints).toHaveLength(1);
-      expect(result.outline).toBeDefined();
-      expect(result.outline?.sections).toHaveLength(1);
-      expect(result.outline?.sections[0].title).toBe('Binary Search Trees');
-      expect(mockExtractSections).toHaveBeenCalledWith(pages, { documentId: 'doc-1' });
-    });
-
-    it('reports progress through extraction phase', async () => {
-      const sections: ExtractedSection[] = [
-        {
-          title: 'Section 1',
-          summary: 'Summary',
-          sourcePages: [1],
-          knowledgePoints: [{ title: 'X', content: 'Y', sourcePages: [1] }],
-        },
-      ];
-      setupDefaultMocks(sections);
-
-      const pages = [{ page: 1, text: 'Page 1' }];
-      const progressEvents: PipelineProgress[] = [];
-
-      await parseLectureMultiPass(pages, {
-        documentId: 'doc-2',
-        onProgress: (p) => progressEvents.push({ ...p }),
+      mockExtractFromPDF.mockResolvedValue({
+        result: { sections },
+        warnings: [],
       });
 
-      const phases = progressEvents.map((e) => e.phase);
-      expect(phases).toContain('extraction');
-    });
+      const result = await parseLectureMultiPass(dummyBuffer);
 
-    it('passes signal to extractor', async () => {
-      const sections: ExtractedSection[] = [
-        {
-          title: 'Section 1',
-          summary: 'Summary',
-          sourcePages: [1],
-          knowledgePoints: [{ title: 'A', content: 'B', sourcePages: [1] }],
-        },
-      ];
-      setupDefaultMocks(sections);
-
-      const controller = new AbortController();
-      const pages = [{ page: 1, text: 'P1' }];
-
-      await parseLectureMultiPass(pages, { signal: controller.signal });
-
-      expect(mockExtractSections).toHaveBeenCalledWith(pages, { signal: controller.signal });
-    });
-
-    it('builds outline even without documentId', async () => {
-      const sections: ExtractedSection[] = [
-        {
-          title: 'Section 1',
-          summary: 'Summary',
-          sourcePages: [1],
-          knowledgePoints: [{ title: 'A', content: 'B', sourcePages: [1] }],
-        },
-      ];
-      setupDefaultMocks(sections);
-
-      const result = await parseLectureMultiPass([{ page: 1, text: 'P1' }]);
-
+      expect(result.sections).toHaveLength(1);
+      expect(result.knowledgePoints).toHaveLength(2);
       expect(result.outline).toBeDefined();
-      expect(result.outline?.sections).toHaveLength(1);
+      expect(result.warnings).toEqual([]);
     });
 
-    it('returns empty result when no sections extracted', async () => {
-      setupDefaultMocks([]);
+    it('should flatten knowledge points from multiple sections', async () => {
+      const sections = [
+        {
+          title: 'Section 1',
+          summary: 'First section',
+          sourcePages: [1],
+          knowledgePoints: [{ title: 'KP1', content: 'Content 1', sourcePages: [1] }],
+        },
+        {
+          title: 'Section 2',
+          summary: 'Second section',
+          sourcePages: [2],
+          knowledgePoints: [
+            { title: 'KP2', content: 'Content 2', sourcePages: [2] },
+            { title: 'KP3', content: 'Content 3', sourcePages: [2] },
+          ],
+        },
+      ];
 
-      const result = await parseLectureMultiPass([{ page: 1, text: 'P1' }]);
+      mockExtractFromPDF.mockResolvedValue({
+        result: { sections },
+        warnings: [],
+      });
 
-      expect(result.knowledgePoints).toHaveLength(0);
-      expect(result.sections).toHaveLength(0);
+      const result = await parseLectureMultiPass(dummyBuffer);
+
+      expect(result.knowledgePoints).toHaveLength(3);
+      expect(result.knowledgePoints[0].title).toBe('KP1');
+      expect(result.knowledgePoints[2].title).toBe('KP3');
+    });
+
+    it('should return empty result when no sections found', async () => {
+      mockExtractFromPDF.mockResolvedValue({
+        result: { sections: [] },
+        warnings: [],
+      });
+
+      const result = await parseLectureMultiPass(dummyBuffer);
+
+      expect(result.sections).toEqual([]);
+      expect(result.knowledgePoints).toEqual([]);
+    });
+
+    it('should propagate warnings', async () => {
+      mockExtractFromPDF.mockResolvedValue({
+        result: { sections: [] },
+        warnings: ['Gemini returned empty response'],
+      });
+
+      const result = await parseLectureMultiPass(dummyBuffer);
+
+      expect(result.warnings).toContain('Gemini returned empty response');
+    });
+
+    it('should call progress callback', async () => {
+      mockExtractFromPDF.mockResolvedValue({
+        result: { sections: [{ title: 'S', summary: 'S', sourcePages: [1], knowledgePoints: [] }] },
+        warnings: [],
+      });
+
+      const progress = vi.fn();
+      await parseLectureMultiPass(dummyBuffer, { onProgress: progress });
+
+      expect(progress).toHaveBeenCalled();
     });
   });
 
-  describe('parseLecture (backward compat)', () => {
-    it('returns ExtractedSection[] directly', async () => {
-      setupDefaultMocks([]);
+  describe('parseLecture', () => {
+    it('should return sections only', async () => {
+      const sections = [
+        {
+          title: 'Only Section',
+          summary: 'Summary',
+          sourcePages: [1],
+          knowledgePoints: [{ title: 'KP', content: 'Content', sourcePages: [1] }],
+        },
+      ];
 
-      const result = await parseLecture([{ page: 1, text: 'P1' }]);
+      mockExtractFromPDF.mockResolvedValue({
+        result: { sections },
+        warnings: [],
+      });
 
-      expect(Array.isArray(result)).toBe(true);
+      const result = await parseLecture(dummyBuffer);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].title).toBe('Only Section');
     });
   });
 });

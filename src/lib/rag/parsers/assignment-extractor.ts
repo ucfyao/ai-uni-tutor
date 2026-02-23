@@ -1,32 +1,8 @@
 import 'server-only';
 import { z } from 'zod';
-import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
-import type { PDFPage } from '@/lib/pdf';
+import { extractFromPDF } from '@/lib/rag/pdf-extractor';
+import { sourcePagesSchema } from './schema-utils';
 import type { AssignmentMetadata, EnrichedAssignmentItem } from './types';
-
-function coerceSourcePages(val: unknown): number[] {
-  if (Array.isArray(val)) return val.map(Number).filter((n) => !isNaN(n) && n > 0);
-  if (typeof val === 'number' && val > 0) return [val];
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    const rangeMatch = trimmed.match(/^(\d+)\s*[-–]\s*(\d+)$/);
-    if (rangeMatch) {
-      const start = parseInt(rangeMatch[1], 10);
-      const end = parseInt(rangeMatch[2], 10);
-      if (start > 0 && end >= start && end - start < 200) {
-        return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-      }
-    }
-    return trimmed
-      .split(/[,\s]+/)
-      .map(Number)
-      .filter((n) => !isNaN(n) && n > 0);
-  }
-  return [];
-}
-
-const sourcePagesSchema = z.preprocess(coerceSourcePages, z.array(z.number()).default([]));
 
 const itemSchema = z.object({
   title: z.string().optional().default(''),
@@ -64,12 +40,10 @@ export interface AssignmentExtractionResult {
   warnings: string[];
 }
 
-function buildPrompt(pages: PDFPage[]): string {
-  const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
-
+function buildPrompt(): string {
   return `You are an expert academic assignment/homework content analyzer.
 
-Analyze the following document and extract:
+Analyze this PDF document and extract:
 1. Document-level metadata
 2. ALL questions with their full structure
 
@@ -111,44 +85,25 @@ Critical rules:
 - Each item's referenceAnswer must correspond to THAT specific question.
 - Do NOT include instructions or headers as questions unless they serve as a parent grouping.
 
-Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.
-
-Document (${pages.length} pages):
-${pagesText}`;
+Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.`;
 }
 
 export async function extractAssignmentQuestions(
-  pages: PDFPage[],
+  fileBuffer: Buffer,
   signal?: AbortSignal,
 ): Promise<AssignmentExtractionResult> {
   if (signal?.aborted) return { items: [], metadata: {}, warnings: [] };
 
-  const prompt = buildPrompt(pages);
+  const prompt = buildPrompt();
 
-  let text: string;
-  try {
-    const response = await getGenAI().models.generateContent({
-      model: GEMINI_MODELS.parse,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0 },
-    });
-    text = response.text ?? '';
-  } catch (error) {
-    throw AppError.from(error);
-  }
-  if (!text.trim()) {
-    return { items: [], metadata: {}, warnings: ['Gemini returned empty response'] };
-  }
+  const { result: raw, warnings: extractWarnings } = await extractFromPDF<unknown>(
+    fileBuffer,
+    prompt,
+    signal,
+  );
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    return {
-      items: [],
-      metadata: {},
-      warnings: [`Gemini returned invalid JSON (${text.length} chars)`],
-    };
+  if (extractWarnings.length > 0) {
+    return { items: [], metadata: {}, warnings: extractWarnings };
   }
 
   const result = extractionSchema.safeParse(raw);

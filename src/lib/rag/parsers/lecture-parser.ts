@@ -1,5 +1,4 @@
 import 'server-only';
-import type { PDFPage } from '@/lib/pdf';
 import { extractSections } from './section-extractor';
 import type {
   DocumentOutline,
@@ -41,20 +40,17 @@ function buildOutlineFromSections(sections: ExtractedSection[]): DocumentOutline
  * Sends all pages to Gemini in one call, then builds outline locally.
  */
 export async function parseLectureMultiPass(
-  pages: PDFPage[],
+  fileBuffer: Buffer,
   options?: ParseLectureOptions,
 ): Promise<ParseLectureResult> {
-  reportProgress(options, 0, `Sending ${pages.length} pages to AI...`, {
-    totalPages: pages.length,
-  });
+  reportProgress(options, 0, 'Uploading PDF to AI for extraction...');
 
-  const extraction = await extractSections(pages, options);
+  const extraction = await extractSections(fileBuffer, options);
   const { sections, warnings } = extraction;
 
   const totalKP = sections.reduce((sum, s) => sum + s.knowledgePoints.length, 0);
   if (sections.length === 0) {
     reportProgress(options, 100, 'No content found', {
-      totalPages: pages.length,
       knowledgePointCount: 0,
     });
     return { sections: [], knowledgePoints: [], warnings };
@@ -65,7 +61,6 @@ export async function parseLectureMultiPass(
     100,
     `Extracted ${sections.length} sections, ${totalKP} knowledge points`,
     {
-      totalPages: pages.length,
       knowledgePointCount: totalKP,
     },
   );
@@ -85,9 +80,9 @@ export async function parseLectureMultiPass(
 }
 
 export async function parseLecture(
-  pages: PDFPage[],
+  fileBuffer: Buffer,
   options?: ParseLectureOptions,
 ): Promise<ExtractedSection[]> {
-  const result = await parseLectureMultiPass(pages, options);
+  const result = await parseLectureMultiPass(fileBuffer, options);
   return result.sections;
 }

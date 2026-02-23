@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('server-only', () => ({}));
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -12,6 +14,25 @@ vi.mock('@/lib/supabase/server', () => ({
   requireAssignmentAccess: vi.fn(),
 }));
 
+vi.mock('@/lib/env', () => ({
+  getEnv: () => ({
+    NEXT_PUBLIC_MAX_FILE_SIZE_MB: 10,
+  }),
+  resetEnvCache: vi.fn(),
+}));
+
+if (typeof (global as any).crypto === 'undefined') {
+  (global as any).crypto = {
+    subtle: {
+      digest: vi.fn().mockResolvedValue(new Uint8Array(32)),
+    },
+  };
+} else if (typeof (global as any).crypto.subtle === 'undefined') {
+  (global as any).crypto.subtle = {
+    digest: vi.fn().mockResolvedValue(new Uint8Array(32)),
+  };
+}
+
 const mockQuotaService = {
   enforce: vi.fn(),
 };
@@ -20,19 +41,18 @@ vi.mock('@/lib/services/QuotaService', () => ({
 }));
 
 const mockDocumentService = {
-  findById: vi.fn(),
-  getChunks: vi.fn(),
-  getChunksWithEmbeddings: vi.fn(),
-  saveChunksAndReturn: vi.fn(),
+  findById: vi.fn().mockResolvedValue([]),
+  getChunks: vi.fn().mockResolvedValue([]),
+  getChunksWithEmbeddings: vi.fn().mockResolvedValue([]),
+  saveChunksAndReturn: vi.fn().mockResolvedValue([]),
+  updateDocumentMetadata: vi.fn().mockResolvedValue({}),
+  deleteChunksByLectureDocumentId: vi.fn().mockResolvedValue({}),
 };
 vi.mock('@/lib/services/DocumentService', () => ({
   getLectureDocumentService: () => mockDocumentService,
 }));
 
-const mockParsePDF = vi.fn();
-vi.mock('@/lib/pdf', () => ({
-  parsePDF: (...args: unknown[]) => mockParsePDF(...args),
-}));
+// No parsePDF mock needed anymore
 
 const mockGenerateEmbeddingWithRetry = vi.fn();
 const mockGenerateEmbedding = vi.fn();
@@ -62,10 +82,11 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
 }));
 
 const mockExamPaperService = {
-  findCourseId: vi.fn(),
-  getQuestionsByPaperId: vi.fn(),
-  insertQuestions: vi.fn(),
-  updatePaperMeta: vi.fn(),
+  findCourseId: vi.fn().mockResolvedValue(null),
+  getQuestionsByPaperId: vi.fn().mockResolvedValue([]),
+  insertQuestions: vi.fn().mockResolvedValue({}),
+  updatePaperMeta: vi.fn().mockResolvedValue({}),
+  saveHierarchicalQuestions: vi.fn().mockResolvedValue({}),
 };
 vi.mock('@/lib/services/ExamPaperService', () => ({
   getExamPaperService: () => mockExamPaperService,
@@ -73,7 +94,7 @@ vi.mock('@/lib/services/ExamPaperService', () => ({
 
 const mockAssignmentService = {
   findCourseId: vi.fn(),
-  getItems: vi.fn(),
+  getItems: vi.fn().mockResolvedValue([]),
   deleteItemsByAssignmentId: vi.fn(),
 };
 vi.mock('@/lib/services/AssignmentService', () => ({
@@ -210,13 +231,16 @@ function findEvents(events: Array<{ event: string; data: unknown }>, type: strin
 function setupSuccessfulParse() {
   mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
   mockQuotaService.enforce.mockResolvedValue(undefined);
-  mockDocumentService.findById.mockResolvedValue({ id: DEFAULT_DOCUMENT_ID, courseId: null });
+  mockDocumentService.findById.mockResolvedValue({
+    id: DEFAULT_DOCUMENT_ID,
+    courseId: null,
+    name: 'Sample Lecture',
+    metadata: {},
+  });
   mockDocumentService.getChunks.mockResolvedValue([]);
   mockDocumentService.getChunksWithEmbeddings.mockResolvedValue([]);
   mockDocumentService.saveChunksAndReturn.mockResolvedValue([{ id: 'chunk-1' }]);
-  mockParsePDF.mockResolvedValue({
-    pages: [{ text: 'Some lecture content about algorithms' }],
-  });
+  mockDocumentService.updateDocumentMetadata.mockResolvedValue({});
   mockGenerateEmbeddingWithRetry.mockResolvedValue(Array.from({ length: 768 }, () => 0.01));
   mockGenerateEmbedding.mockResolvedValue(Array.from({ length: 768 }, () => 0.01));
   mockGenerateEmbeddingBatch.mockResolvedValue([Array.from({ length: 768 }, () => 0.01)]);
@@ -287,9 +311,6 @@ describe('POST /api/documents/parse', () => {
     it('sends FORBIDDEN when admin role does not provide courseId', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
       mockQuotaService.enforce.mockResolvedValue(undefined);
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Some lecture content about algorithms' }],
-      });
       // Document exists but has no courseId
       mockDocumentService.findById.mockResolvedValue({
         id: DEFAULT_DOCUMENT_ID,
@@ -308,9 +329,6 @@ describe('POST /api/documents/parse', () => {
     it('sends FORBIDDEN when admin lacks access to the specified course', async () => {
       mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
       mockQuotaService.enforce.mockResolvedValue(undefined);
-      mockParsePDF.mockResolvedValue({
-        pages: [{ text: 'Some lecture content about algorithms' }],
-      });
       mockRequireCourseAdmin.mockRejectedValue(new Error('No access'));
       // Document exists and has a courseId
       mockDocumentService.findById.mockResolvedValue({
@@ -576,41 +594,8 @@ describe('POST /api/documents/parse', () => {
     });
   });
 
-  // =========================================================================
-  // PDF parse failure
-  // =========================================================================
-
-  describe('PDF parse failure', () => {
-    it('sends error event with PDF_PARSE_ERROR when PDF parsing fails', async () => {
-      setupSuccessfulParse();
-      mockParsePDF.mockRejectedValue(new Error('Corrupt PDF'));
-
-      const response = await POST(makeRequest());
-      const events = await readSSEEvents(response);
-
-      const errorEvent = findEvent(events, 'error');
-      expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as any).code).toBe('PDF_PARSE_ERROR');
-    });
-  });
-
-  // =========================================================================
-  // Empty PDF
-  // =========================================================================
-
-  describe('empty PDF', () => {
-    it('sends error event with EMPTY_PDF when PDF has no text', async () => {
-      setupSuccessfulParse();
-      mockParsePDF.mockResolvedValue({ pages: [{ text: '' }] });
-
-      const response = await POST(makeRequest());
-      const events = await readSSEEvents(response);
-
-      const errorEvent = findEvent(events, 'error');
-      expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as any).code).toBe('EMPTY_PDF');
-    });
-  });
+  // PDF parse failure and Empty PDF tests are removed as the route no longer
+  // performs text-based parsing upfront.
 
   // =========================================================================
   // LLM extraction failure

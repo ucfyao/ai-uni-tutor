@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { validateAssignmentItems } from './assignment-validator';
 import type { EnrichedAssignmentItem } from './types';
+
+vi.mock('server-only', () => ({}));
 
 function makeItem(overrides: Partial<EnrichedAssignmentItem> = {}): EnrichedAssignmentItem {
   return {

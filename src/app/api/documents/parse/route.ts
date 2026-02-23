@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
-import { parsePDF } from '@/lib/pdf';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { getQuotaService } from '@/lib/services/QuotaService';
@@ -49,9 +48,8 @@ export async function POST(request: Request) {
 
   // Start the async pipeline without awaiting (runs in background while streaming)
   const pipeline = (async () => {
-    const lectureService = getLectureDocumentService();
-
     try {
+      const lectureService = getLectureDocumentService();
       // ── Auth ──
       let user;
       let authRole: string;
@@ -177,7 +175,7 @@ export async function POST(request: Request) {
         send('log', { message: 'Existing items deleted', level: 'success' });
       }
 
-      // ── Parse PDF ──
+      // ── Prepare PDF buffer ──
       console.log('[parse/route] ========== START document parse ==========');
       console.log(
         '[parse/route] documentId:',
@@ -191,8 +189,7 @@ export async function POST(request: Request) {
         message: `Start parsing: ${documentName || documentId} (${doc_type})`,
         level: 'info',
       });
-      send('status', { stage: 'parsing_pdf', message: 'Parsing PDF...' });
-      send('log', { message: 'Reading PDF file...', level: 'info' });
+      send('status', { stage: 'parsing_pdf', message: 'Preparing PDF...' });
 
       const arrayBuffer = await file.arrayBuffer();
 
@@ -202,35 +199,17 @@ export async function POST(request: Request) {
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
 
-      let buffer: Buffer | null = Buffer.from(arrayBuffer);
+      const fileBuffer = Buffer.from(arrayBuffer);
 
       // [I4] Validate PDF magic bytes before passing to parser
-      if (buffer.length < 5 || buffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+      if (fileBuffer.length < 5 || fileBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
         send('log', { message: 'File is not a valid PDF', level: 'error' });
         send('error', { message: 'File is not a valid PDF', code: 'INVALID_FILE' });
         return;
       }
 
-      let pdfData;
-      try {
-        pdfData = await parsePDF(buffer);
-      } catch {
-        send('log', { message: 'Failed to parse PDF content', level: 'error' });
-        send('error', { message: 'Failed to parse PDF content', code: 'PDF_PARSE_ERROR' });
-        return;
-      }
-      // [I5] Release buffer reference to allow GC on large files
-      buffer = null;
-
-      const totalText = pdfData.pages.reduce((acc, p) => acc + p.text.trim(), '');
-      if (totalText.length === 0) {
-        send('log', { message: 'PDF contains no extractable text', level: 'error' });
-        send('error', { message: 'PDF contains no extractable text', code: 'EMPTY_PDF' });
-        return;
-      }
-
       send('log', {
-        message: `PDF parsed: ${pdfData.pages.length} pages, ${(totalText.length / 1000).toFixed(1)}k chars`,
+        message: `PDF ready: ${(fileBuffer.length / 1024).toFixed(0)}KB`,
         level: 'success',
       });
 
@@ -244,7 +223,7 @@ export async function POST(request: Request) {
         send,
         signal,
         documentId,
-        pages: pdfData.pages,
+        fileBuffer,
         fileHash,
         courseId,
         userId: user.id,

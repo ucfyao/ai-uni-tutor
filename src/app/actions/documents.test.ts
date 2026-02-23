@@ -71,11 +71,6 @@ vi.mock('@/lib/services/DocumentProcessingService', () => ({
   getDocumentProcessingService: () => mockProcessingService,
 }));
 
-const mockParsePDF = vi.fn();
-vi.mock('@/lib/pdf', () => ({
-  parsePDF: (...args: unknown[]) => mockParsePDF(...args),
-}));
-
 const mockGenerateEmbeddingWithRetry = vi.fn();
 vi.mock('@/lib/rag/embedding', () => ({
   generateEmbeddingWithRetry: (...args: unknown[]) => mockGenerateEmbeddingWithRetry(...args),

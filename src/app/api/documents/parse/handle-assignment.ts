@@ -1,7 +1,7 @@
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<void> {
-  const { send, signal, documentId, pages } = ctx;
+  const { send, signal, documentId, fileBuffer } = ctx;
 
   send('status', { stage: 'extracting', message: 'Extracting assignment questions...' });
 
@@ -14,7 +14,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
   let parsedItems: Awaited<ReturnType<typeof parseAssignment>>['items'];
   let warnings: string[];
   try {
-    const parseResult = await parseAssignment(pages, {
+    const parseResult = await parseAssignment(fileBuffer, {
       assignmentId: documentId,
       signal,
       onProgress: (p) => send('pipeline_progress', p),

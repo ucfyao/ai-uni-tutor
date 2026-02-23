@@ -1,28 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockGemini, type MockGeminiResult } from '@/__tests__/helpers/mockGemini';
 
 // ── Mocks ──
 
 vi.mock('server-only', () => ({}));
 
-let mockGemini: MockGeminiResult;
-
-vi.mock('@/lib/gemini', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/gemini')>();
-  mockGemini = createMockGemini();
-  return {
-    ...actual,
-    getGenAI: () => mockGemini.client,
-  };
-});
+const mockExtractFromPDF = vi.fn();
+vi.mock('@/lib/rag/pdf-extractor', () => ({
+  extractFromPDF: (...args: unknown[]) => mockExtractFromPDF(...args),
+}));
 
 // Import after mocks
 const { parseQuestions } = await import('./question-parser');
-const { GEMINI_MODELS } = await import('@/lib/gemini');
 
 describe('question-parser', () => {
+  const dummyBuffer = Buffer.from('dummy-pdf');
+
   beforeEach(() => {
-    mockGemini.reset();
+    mockExtractFromPDF.mockReset();
   });
 
   afterEach(() => {
@@ -48,15 +42,9 @@ describe('question-parser', () => {
         },
       ];
 
-      mockGemini.setGenerateJSON(questions);
+      mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const pages = [
-        {
-          text: 'Q1: What is the capital of France? A: Paris\nQ2: Explain the theory of relativity.',
-          page: 1,
-        },
-      ];
-      const result = await parseQuestions(pages, true);
+      const result = await parseQuestions(dummyBuffer, true);
 
       expect(result).toEqual(questions);
       expect(result).toHaveLength(2);
@@ -78,13 +66,9 @@ describe('question-parser', () => {
         },
       ];
 
-      mockGemini.setGenerateJSON(questions);
+      mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const pages = [
-        { text: 'Q1: Define photosynthesis.', page: 1 },
-        { text: 'Q2: List three types of rocks.', page: 2 },
-      ];
-      const result = await parseQuestions(pages, false);
+      const result = await parseQuestions(dummyBuffer, false);
 
       expect(result).toEqual(questions);
       expect(result[0].referenceAnswer).toBeUndefined();
@@ -92,25 +76,21 @@ describe('question-parser', () => {
     });
 
     it('should include answer instruction in prompt based on hasAnswers flag', async () => {
-      mockGemini.setGenerateJSON([]);
-
-      const pages = [{ text: 'Question content', page: 1 }];
+      mockExtractFromPDF.mockResolvedValue({ result: [], warnings: [] });
 
       // With answers
-      await parseQuestions(pages, true);
-      const callWithAnswers = mockGemini.client.models.generateContent.mock.calls[0][0];
-      const promptWithAnswers = callWithAnswers.contents as string;
+      await parseQuestions(dummyBuffer, true);
+      const promptWithAnswers = mockExtractFromPDF.mock.calls[0][1] as string;
       expect(promptWithAnswers).toContain(
         'referenceAnswer: The reference answer or solution provided',
       );
 
-      mockGemini.reset();
-      mockGemini.setGenerateJSON([]);
+      mockExtractFromPDF.mockReset();
+      mockExtractFromPDF.mockResolvedValue({ result: [], warnings: [] });
 
       // Without answers
-      await parseQuestions(pages, false);
-      const callWithoutAnswers = mockGemini.client.models.generateContent.mock.calls[0][0];
-      const promptWithoutAnswers = callWithoutAnswers.contents as string;
+      await parseQuestions(dummyBuffer, false);
+      const promptWithoutAnswers = mockExtractFromPDF.mock.calls[0][1] as string;
       expect(promptWithoutAnswers).toContain('referenceAnswer: Omit this field');
     });
 
@@ -125,73 +105,35 @@ describe('question-parser', () => {
         },
       ];
 
-      mockGemini.setGenerateJSON(questions);
+      mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const pages = [
-        {
-          text: 'Q1: Which planet is closest to the Sun?\nA. Mercury\nB. Venus\nC. Earth\nD. Mars',
-          page: 1,
-        },
-      ];
-      const result = await parseQuestions(pages, true);
+      const result = await parseQuestions(dummyBuffer, true);
 
       expect(result).toHaveLength(1);
       expect(result[0].options).toEqual(['A. Mercury', 'B. Venus', 'C. Earth', 'D. Mars']);
       expect(result[0].referenceAnswer).toBe('A. Mercury');
     });
 
-    it('should call Gemini with correct model and JSON response type', async () => {
-      mockGemini.setGenerateJSON([]);
+    it('should pass Buffer to extractFromPDF', async () => {
+      mockExtractFromPDF.mockResolvedValue({ result: [], warnings: [] });
 
-      const pages = [{ text: 'Content', page: 1 }];
-      await parseQuestions(pages, false);
+      await parseQuestions(dummyBuffer, false);
 
-      expect(mockGemini.client.models.generateContent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          model: GEMINI_MODELS.parse,
-          config: {
-            responseMimeType: 'application/json',
-          },
-        }),
-      );
+      expect(mockExtractFromPDF).toHaveBeenCalledWith(dummyBuffer, expect.any(String), undefined);
     });
 
-    it('should format page text with page markers in the prompt', async () => {
-      mockGemini.setGenerateJSON([]);
-
-      const pages = [
-        { text: 'First page questions', page: 1 },
-        { text: 'Second page questions', page: 5 },
-      ];
-      await parseQuestions(pages, false);
-
-      const callArgs = mockGemini.client.models.generateContent.mock.calls[0][0];
-      const prompt = callArgs.contents as string;
-      expect(prompt).toContain('[Page 1]');
-      expect(prompt).toContain('First page questions');
-      expect(prompt).toContain('[Page 5]');
-      expect(prompt).toContain('Second page questions');
-    });
-
-    it('should handle empty pages array', async () => {
-      mockGemini.setGenerateJSON([]);
-
-      const result = await parseQuestions([], true);
+    it('should handle empty buffer', async () => {
+      const result = await parseQuestions(Buffer.alloc(0), true);
       expect(result).toEqual([]);
     });
 
-    it('should throw on invalid JSON response from AI', async () => {
-      mockGemini.setGenerateResponse('this is not json');
+    it('should throw on extraction failure with no results', async () => {
+      mockExtractFromPDF.mockResolvedValue({
+        result: [],
+        warnings: ['Gemini returned invalid JSON (500 chars)'],
+      });
 
-      const pages = [{ text: 'Content', page: 1 }];
-      await expect(parseQuestions(pages, false)).rejects.toThrow();
-    });
-
-    it('should handle empty string response from AI', async () => {
-      mockGemini.setGenerateResponse('');
-
-      const pages = [{ text: 'Content', page: 1 }];
-      await expect(parseQuestions(pages, true)).rejects.toThrow();
+      await expect(parseQuestions(dummyBuffer, false)).rejects.toThrow();
     });
 
     it('should handle questions without optional score field', async () => {
@@ -203,21 +145,26 @@ describe('question-parser', () => {
         },
       ];
 
-      mockGemini.setGenerateJSON(questions);
+      mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const pages = [{ text: 'Describe the water cycle.', page: 3 }];
-      const result = await parseQuestions(pages, false);
+      const result = await parseQuestions(dummyBuffer, false);
 
       expect(result).toHaveLength(1);
       expect(result[0].score).toBeUndefined();
       expect(result[0].questionNumber).toBe('Q1');
     });
 
-    it('should handle response.text being undefined (falls back to empty string)', async () => {
-      mockGemini.client.models.generateContent.mockResolvedValue({ text: undefined });
+    it('should call progress callback', async () => {
+      mockExtractFromPDF.mockResolvedValue({
+        result: [{ questionNumber: '1', content: 'Q', sourcePage: 1 }],
+        warnings: [],
+      });
+      const progress = vi.fn();
 
-      const pages = [{ text: 'Content', page: 1 }];
-      await expect(parseQuestions(pages, false)).rejects.toThrow();
+      await parseQuestions(dummyBuffer, false, progress);
+
+      expect(progress).toHaveBeenCalledWith(0, 1);
+      expect(progress).toHaveBeenCalledWith(1, 1);
     });
   });
 });

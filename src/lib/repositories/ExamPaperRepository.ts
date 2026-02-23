@@ -258,6 +258,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
       points: number;
       metadata: Record<string, unknown>;
       parentQuestionId?: string | null;
+      embedding?: number[] | null;
     }>,
   ): Promise<void> {
     const supabase = await createClient();
@@ -273,6 +274,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
       points: q.points,
       parent_question_id: q.parentQuestionId ?? null,
       metadata: q.metadata as Json,
+      ...(q.embedding ? { embedding: q.embedding } : {}),
     }));
 
     const { error } = await supabase.from('exam_questions').insert(rows);
@@ -294,6 +296,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
       points: number;
       metadata: Record<string, unknown>;
       parentQuestionId?: string | null;
+      embedding?: number[] | null;
     }>,
   ): Promise<{ id: string }[]> {
     if (questions.length === 0) return [];
@@ -310,6 +313,7 @@ export class ExamPaperRepository implements IExamPaperRepository {
       points: q.points,
       parent_question_id: q.parentQuestionId ?? null,
       metadata: q.metadata as Json,
+      ...(q.embedding ? { embedding: q.embedding } : {}),
     }));
 
     const { data, error } = await supabase.from('exam_questions').insert(rows).select('id');
