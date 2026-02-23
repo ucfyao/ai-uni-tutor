@@ -1,4 +1,3 @@
-import { ApiError } from '@google/genai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { GEMINI_MODELS } from '@/lib/gemini';
@@ -16,11 +15,23 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/gemini')>();
   return {
     ...actual,
-    getGenAI: () => ({
-      models: {
-        generateContent: mockGenerateContent,
-        generateContentStream: mockGenerateContentStream,
-      },
+    getChatPool: () => ({
+      withRetry: vi.fn().mockImplementation(async (fn: (entry: unknown) => unknown) => {
+        const fakeEntry = {
+          id: 0,
+          provider: 'gemini',
+          model: 'gemini-2.5-flash',
+          maskedKey: 'test****',
+          client: {
+            models: {
+              generateContent: mockGenerateContent,
+              generateContentStream: mockGenerateContentStream,
+            },
+          },
+          disabled: false,
+        };
+        return fn(fakeEntry);
+      }),
     }),
   };
 });
@@ -151,59 +162,22 @@ describe('ChatService', () => {
       ).rejects.toThrow('Unknown tutoring mode');
     });
 
-    it('should retry on 429 rate limit error up to MAX_RETRIES', async () => {
-      const rateLimitError = new ApiError({
-        status: 429,
-        message: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }),
-      });
-
-      mockGenerateContent
-        .mockRejectedValueOnce(rateLimitError)
-        .mockRejectedValueOnce(rateLimitError)
-        .mockResolvedValueOnce({ text: 'Success after retries' });
-
-      // Stub the private delay method to resolve instantly
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      vi.spyOn(service as any, 'delay').mockResolvedValue(undefined);
-
-      const result = await service.generateResponse(baseOptions());
-
-      expect(result).toBe('Success after retries');
-      expect(mockGenerateContent).toHaveBeenCalledTimes(3);
-    });
-
-    it('should throw after exhausting all retries on rate limit', async () => {
-      const rateLimitError = new ApiError({
-        status: 429,
-        message: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }),
-      });
-
-      mockGenerateContent
-        .mockRejectedValueOnce(rateLimitError)
-        .mockRejectedValueOnce(rateLimitError)
-        .mockRejectedValueOnce(rateLimitError);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      vi.spyOn(service as any, 'delay').mockResolvedValue(undefined);
-
-      await expect(service.generateResponse(baseOptions())).rejects.toThrow(
-        'AI service quota exceeded. Contact your administrator.',
-      );
-      expect(mockGenerateContent).toHaveBeenCalledTimes(3);
-    });
-
-    it('should throw immediately on non-rate-limit errors', async () => {
+    it('should propagate errors from the AI provider', async () => {
       const genericError = new Error('Internal server error');
       mockGenerateContent.mockRejectedValue(genericError);
 
-      await expect(service.generateResponse(baseOptions())).rejects.toThrow('AI service error.');
+      await expect(service.generateResponse(baseOptions())).rejects.toThrow(
+        'Internal server error',
+      );
       expect(mockGenerateContent).toHaveBeenCalledTimes(1);
     });
 
     it('should throw when AI returns empty text', async () => {
       mockGenerateContent.mockResolvedValue({ text: '' });
 
-      await expect(service.generateResponse(baseOptions())).rejects.toThrow('AI service error.');
+      await expect(service.generateResponse(baseOptions())).rejects.toThrow(
+        'Empty response from AI model.',
+      );
     });
 
     it('should include RAG context when available', async () => {

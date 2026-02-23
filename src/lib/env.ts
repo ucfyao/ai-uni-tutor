@@ -21,6 +21,14 @@ const coreSchema = z.object({
   NEXT_PUBLIC_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(10),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   ENABLE_RATELIMIT: z.string().optional(),
+  AI_CHAT_CHAIN: z
+    .string()
+    .default('gemini:gemini-2.5-flash')
+    .refine(
+      (s) => s.split(',').every((p) => p.includes(':')),
+      'AI_CHAT_CHAIN format must be provider:model,...',
+    ),
+  MINIMAX_API_KEY: z.string().optional(),
 });
 
 type Env = z.infer<typeof coreSchema>;
