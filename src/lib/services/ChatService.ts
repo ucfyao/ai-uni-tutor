@@ -5,10 +5,12 @@
  * Uses mode config map for mode-specific behavior.
  */
 
-import type { Content, Part } from '@google/genai';
+import type { Content, GoogleGenAI, Part } from '@google/genai';
+import OpenAI from 'openai';
 import { MODE_CONFIGS, type ModeConfig } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import type { PoolEntry } from '@/lib/gemini';
+import { getChatPool } from '@/lib/gemini';
 import { appendRagContext } from '@/lib/prompts';
 import type { ChatSource } from '@/types';
 import { ChatMessage, Course, TutoringMode } from '@/types';
@@ -24,9 +26,6 @@ export interface ChatGenerationOptions {
 }
 
 export class ChatService {
-  private readonly MAX_RETRIES = 3;
-  private readonly BASE_DELAY = 2000;
-
   private getModeConfig(mode: TutoringMode): ModeConfig {
     const config = MODE_CONFIGS[mode as keyof typeof MODE_CONFIGS];
     if (!config) throw new AppError('VALIDATION', `Unknown tutoring mode: ${mode}`);
@@ -61,8 +60,11 @@ export class ChatService {
     // Prepare contents for Gemini
     const contents = this.prepareContents(history, processedInput, images, document);
 
-    // Generate with retry logic
-    const response = await this.generateWithRetry(contents, systemInstruction, config);
+    // Generate via chat pool with automatic retry/failover
+    const response = await getChatPool().withRetry((entry) =>
+      callByProvider(entry, { contents, systemInstruction, temperature: config.temperature }),
+    );
+    if (!response) throw new Error('Empty response from AI model.');
 
     // Post-process response if config has postprocessor
     if (config.postprocessResponse) {
@@ -105,24 +107,16 @@ export class ChatService {
     // Prepare contents
     const contents = this.prepareContents(history, processedInput, images, document);
 
-    // Get AI client
-    const ai = getGenAI();
-
-    // Stream generation
-    const stream = await ai.models.generateContentStream({
-      model: GEMINI_MODELS.chat,
-      contents,
-      config: {
+    // Stream generation via chat pool
+    const textStream = await getChatPool().withRetry((entry) =>
+      callByProviderStream(entry, {
+        contents,
         systemInstruction,
         temperature: config.temperature,
-      },
-    });
-
-    for await (const chunk of stream) {
-      const text = chunk.text;
-      if (text) {
-        yield text;
-      }
+      }),
+    );
+    for await (const text of textStream) {
+      yield text;
     }
   }
 
@@ -130,8 +124,6 @@ export class ChatService {
    * Explain a concept (for knowledge cards)
    */
   async explainConcept(concept: string, context: string, courseId?: string): Promise<string> {
-    const ai = getGenAI();
-
     let systemInstruction = `You are a concise academic tutor. Explain the concept "${concept}" in a clear, educational manner.
 
 Guidelines:
@@ -150,31 +142,27 @@ Guidelines:
       systemInstruction = ragResult.systemInstruction;
     }
 
-    let text: string | undefined;
     try {
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODELS.chat,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `Explain "${concept}" briefly. Context from conversation: "${context.slice(0, 500)}"`,
-              },
-            ],
-          },
-        ],
-        config: {
+      const text = await getChatPool().withRetry((entry) =>
+        callByProvider(entry, {
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `Explain "${concept}" briefly. Context from conversation: "${context.slice(0, 500)}"`,
+                },
+              ],
+            },
+          ],
           systemInstruction,
           temperature: 0.5,
-        },
-      });
-      text = response.text;
+        }),
+      );
+      return text || 'Unable to generate explanation.';
     } catch (error) {
       throw AppError.from(error);
     }
-
-    return text || 'Unable to generate explanation.';
   }
 
   // ==================== Private Methods ====================
@@ -281,57 +269,105 @@ Guidelines:
 
     return { systemInstruction, sources };
   }
+}
 
-  private async generateWithRetry(
-    contents: Content[],
-    systemInstruction: string,
-    config: ModeConfig,
-  ): Promise<string> {
-    const ai = getGenAI();
-    let lastError: unknown;
+// ── MiniMax message format helpers ──────────────────────────────────────────
 
-    for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODELS.chat,
-          contents,
-          config: {
-            systemInstruction,
-            temperature: config.temperature,
-          },
-        });
+function toOpenAIMessages(
+  contents: Content[],
+  systemInstruction?: string,
+): OpenAI.Chat.ChatCompletionMessageParam[] {
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 
-        const text = response.text;
-        if (!text) throw new Error('Empty response from AI model.');
-        return text;
-      } catch (error: unknown) {
-        const geminiErr = AppError.from(error);
-        lastError = geminiErr;
+  if (systemInstruction) {
+    messages.push({ role: 'system', content: systemInstruction });
+  }
 
-        if (
-          ['GEMINI_RATE_LIMITED', 'GEMINI_QUOTA_EXCEEDED', 'GEMINI_UNAVAILABLE'].includes(
-            geminiErr.code,
-          )
-        ) {
-          console.warn(
-            `Gemini [${geminiErr.code}] — retrying ${attempt + 1}/${this.MAX_RETRIES}...`,
-          );
-          await this.delay(this.BASE_DELAY * Math.pow(2, attempt));
-          continue;
-        }
-
-        // Non-retryable errors — break immediately
-        break;
-      }
+  for (const c of contents) {
+    const role = c.role === 'model' ? 'assistant' : 'user';
+    // Collect text parts only; strip inlineData (MiniMax has no vision)
+    const textParts = (c.parts ?? [])
+      .filter((p): p is { text: string } => 'text' in p && typeof p.text === 'string')
+      .map((p) => p.text)
+      .join('');
+    if (textParts) {
+      messages.push({ role, content: textParts });
     }
-
-    console.error('AI service failed after retries:', lastError);
-    throw lastError || new Error('AI service failed');
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  return messages;
+}
+
+// ── Provider call adapters ───────────────────────────────────────────────────
+
+interface CallParams {
+  contents: Content[];
+  systemInstruction?: string;
+  temperature?: number;
+}
+
+async function callByProvider(entry: PoolEntry, params: CallParams): Promise<string> {
+  const { contents, systemInstruction, temperature } = params;
+
+  if (entry.provider === 'gemini') {
+    const response = await (entry.client as GoogleGenAI).models.generateContent({
+      model: entry.model,
+      contents,
+      config: { systemInstruction, temperature },
+    });
+    return response.text ?? '';
   }
+
+  if (entry.provider === 'minimax') {
+    const messages = toOpenAIMessages(contents, systemInstruction);
+    const response = await (entry.client as OpenAI).chat.completions.create({
+      model: entry.model,
+      messages,
+      temperature,
+      stream: false,
+    });
+    return response.choices[0]?.message?.content ?? '';
+  }
+
+  throw new Error(`Unknown provider: ${entry.provider}`);
+}
+
+async function callByProviderStream(
+  entry: PoolEntry,
+  params: CallParams,
+): Promise<AsyncIterable<string>> {
+  const { contents, systemInstruction, temperature } = params;
+
+  if (entry.provider === 'gemini') {
+    const stream = await (entry.client as GoogleGenAI).models.generateContentStream({
+      model: entry.model,
+      contents,
+      config: { systemInstruction, temperature },
+    });
+    return (async function* () {
+      for await (const chunk of stream) {
+        if (chunk.text) yield chunk.text;
+      }
+    })();
+  }
+
+  if (entry.provider === 'minimax') {
+    const messages = toOpenAIMessages(contents, systemInstruction);
+    const stream = await (entry.client as OpenAI).chat.completions.create({
+      model: entry.model,
+      messages,
+      temperature,
+      stream: true,
+    });
+    return (async function* () {
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content;
+        if (text) yield text;
+      }
+    })();
+  }
+
+  throw new Error(`Unknown provider: ${entry.provider}`);
 }
 
 // Singleton instance
