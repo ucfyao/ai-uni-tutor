@@ -23,7 +23,8 @@ import {
   Trash,
   Wand2,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
@@ -126,6 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isSuperAdmin = profile?.role === 'super_admin';
   const { t } = useLanguage();
   const router = useRouter();
+  const pathname = usePathname();
 
   // Auto-expand the module that contains the active session
   const activeSessionMode = useMemo(() => {
@@ -207,9 +209,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           return (
             <Tooltip key={link.href} label={t.sidebar[link.labelKey]} position="right">
               <ActionIcon
-                onClick={() => router.push(link.href)}
+                component={Link}
+                href={link.href}
                 variant="subtle"
-                color="gray"
+                color={pathname === link.href ? 'indigo' : 'gray'}
                 size={36}
                 radius="md"
                 mb={4}
@@ -345,20 +348,45 @@ const Sidebar: React.FC<SidebarProps> = ({
             return (
               <UnstyledButton
                 key={link.href}
-                onClick={() => router.push(link.href)}
+                component={Link}
+                href={link.href}
                 w="100%"
                 py={7}
                 px={10}
                 mx={6}
                 className="sidebar-hover"
-                style={{ borderRadius: 8, cursor: 'pointer', width: 'calc(100% - 12px)' }}
+                style={{
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  width: 'calc(100% - 12px)',
+                  backgroundColor:
+                    pathname === link.href ? 'var(--mantine-color-indigo-0)' : undefined,
+                }}
               >
                 <Group gap={10} wrap="nowrap">
-                  <Icon size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
-                  <Text size="md">{t.sidebar[link.labelKey]}</Text>
+                  <Icon
+                    size={18}
+                    strokeWidth={1.5}
+                    color={
+                      pathname === link.href
+                        ? 'var(--mantine-color-indigo-6)'
+                        : 'var(--mantine-color-gray-6)'
+                    }
+                  />
+                  <Text
+                    size="md"
+                    fw={pathname === link.href ? 600 : 400}
+                    c={pathname === link.href ? 'indigo.7' : undefined}
+                  >
+                    {t.sidebar[link.labelKey]}
+                  </Text>
                   <ChevronRight
                     size={12}
-                    color="var(--mantine-color-gray-4)"
+                    color={
+                      pathname === link.href
+                        ? 'var(--mantine-color-indigo-3)'
+                        : 'var(--mantine-color-gray-4)'
+                    }
                     style={{ flexShrink: 0 }}
                   />
                 </Group>
@@ -379,6 +407,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               expanded={expandedModule === mod.mode}
               onToggle={() => toggleModule(mod.mode)}
               onNewChat={() => onNewChat(mod.mode)}
+              onToggleSidebar={onToggleSidebar}
               activeSessionId={activeSessionId}
               onSelectSession={onSelectSession}
               onTogglePin={onTogglePin}
@@ -509,9 +538,11 @@ interface ModuleSectionProps {
   onRenameSession?: (id: string, newTitle: string) => void;
   onDeleteSession?: (id: string) => void;
   onShareSession?: (id: string) => void;
+  onToggleSidebar?: () => void;
 }
 
 const ModuleSection: React.FC<ModuleSectionProps> = ({
+  mode,
   label,
   icon: Icon,
   color,
@@ -519,6 +550,7 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
   expanded,
   onToggle,
   onNewChat,
+  onToggleSidebar,
   activeSessionId,
   onSelectSession,
   onTogglePin,
@@ -528,12 +560,23 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
 }) => {
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
+  const router = useRouter();
 
   return (
     <Box>
       {/* Module header row */}
       <Box
-        onClick={onToggle}
+        onClick={(e) => {
+          onToggle();
+          // If it's Mock Exam, also navigate to the landing page
+          if (mode === 'Mock Exam') {
+            router.push('/exam');
+            // If on mobile, close the sidebar (standard behavior for navigation)
+            // But if user specifically said "I don't want to close sidebar",
+            // maybe they meant don't close it on desktop?
+            // Usually drawer should close. Let's keep it simple.
+          }
+        }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         py={7}
