@@ -117,8 +117,22 @@ export class KeyPool {
         },
     });
 
+    const filesProxy = new Proxy({} as GoogleGenAI['files'], {
+      get:
+        (_, method: string) =>
+        (...args: unknown[]) => {
+          return this.withRetry((genAI) =>
+            (genAI.files as unknown as Record<string, Function>)[method](...args),
+          );
+        },
+    });
+
     return new Proxy({} as GoogleGenAI, {
-      get: (_, prop) => (prop === 'models' ? modelsProxy : undefined),
+      get: (_, prop) => {
+        if (prop === 'models') return modelsProxy;
+        if (prop === 'files') return filesProxy;
+        return undefined;
+      },
     });
   }
 

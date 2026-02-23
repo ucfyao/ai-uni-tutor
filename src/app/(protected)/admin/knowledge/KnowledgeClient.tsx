@@ -505,7 +505,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         <Stack gap="md">
           <TextInput
             label={t.knowledge.title}
-            placeholder={t.knowledge.titlePlaceholder}
+            placeholder={
+              activeTab === 'exam'
+                ? t.knowledge.titlePlaceholderExam
+                : activeTab === 'assignment'
+                  ? t.knowledge.titlePlaceholderAssignment
+                  : t.knowledge.titlePlaceholderLecture
+            }
             value={title}
             onChange={(e) => setTitle(e.currentTarget.value)}
             required
@@ -586,7 +592,13 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
         <Stack gap="md">
           <TextInput
             label={t.knowledge.title}
-            placeholder={t.knowledge.titlePlaceholder}
+            placeholder={
+              activeTab === 'exam'
+                ? t.knowledge.titlePlaceholderExam
+                : activeTab === 'assignment'
+                  ? t.knowledge.titlePlaceholderAssignment
+                  : t.knowledge.titlePlaceholderLecture
+            }
             value={editName}
             onChange={(e) => setEditName(e.currentTarget.value)}
             required
