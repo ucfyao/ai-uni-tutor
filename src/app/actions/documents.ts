@@ -644,6 +644,7 @@ const addExamQuestionSchema = z.object({
   explanation: z.string().optional().default(''),
   points: z.number().min(0).optional().default(0),
   type: z.string().optional().default('short_answer'),
+  parentQuestionId: z.string().uuid().nullable().optional(),
 });
 
 export async function addExamQuestion(
@@ -672,6 +673,7 @@ export async function addExamQuestion(
         answer: parsed.answer,
         explanation: parsed.explanation,
         points: parsed.points,
+        parentQuestionId: parsed.parentQuestionId,
         metadata: {},
       },
     ]);

@@ -43,6 +43,7 @@ Important:
 - Preserve ALL mathematical notation using KaTeX syntax
 - If the paper has no answers section, generate correct answers and explanations
 - Keep the original question numbering as order_num
+- parent_index: If this is a sub-question (like (a), (b), (i), (ii)), the 0-based index of its parent in the questions array. null for top-level questions.
 - Be thorough — do not skip any questions
 
 Exam paper text:
@@ -116,6 +117,7 @@ export class ExamPaperService {
           points: number;
           knowledge_point?: string;
           difficulty?: string;
+          parent_index?: number | null;
         }>;
       }>(responseText);
 
@@ -124,21 +126,22 @@ export class ExamPaperService {
         throw new AppError('VALIDATION', 'AI could not extract any questions from the PDF');
       }
 
-      // Batch insert questions
-      await this.repo.insertQuestions(
+      // Batch insert questions hierarchically
+      await this.saveHierarchicalQuestions(
+        paperId,
         questions.map((q) => ({
-          paperId,
-          orderNum: q.order_num,
           type: q.type,
           content: q.content,
           options: q.options ?? null,
           answer: q.answer ?? '',
           explanation: q.explanation ?? '',
           points: q.points ?? 0,
+          parentIndex: q.parent_index ?? null,
           metadata: {
             knowledge_point: q.knowledge_point ?? null,
             difficulty: q.difficulty ?? null,
           },
+          orderNum: q.order_num,
         })),
       );
 
@@ -253,6 +256,95 @@ export class ExamPaperService {
     data: { title?: string; questionTypes?: string[] },
   ): Promise<void> {
     await this.repo.updatePaper(paperId, data);
+  }
+
+  /**
+   * Insert questions with support for parent-child relationships.
+   */
+  async saveHierarchicalQuestions(
+    paperId: string,
+    questions: Array<{
+      orderNum: number;
+      type: string;
+      content: string;
+      options: Record<string, string> | null;
+      answer: string;
+      explanation: string;
+      points: number;
+      metadata: Record<string, unknown>;
+      parentIndex: number | null;
+    }>,
+  ): Promise<void> {
+    if (questions.length === 0) return;
+
+    // Resolve hierarchical structure layer by layer (max 10 layers)
+    const origToLocalIdx = new Map<number, number>();
+    for (let i = 0; i < questions.length; i++) {
+      origToLocalIdx.set(i, i);
+    }
+
+    const localIdxToDbId = new Map<number, string>();
+    let remaining = questions.map((_, i) => i);
+    let passNum = 0;
+
+    while (remaining.length > 0 && passNum < 10) {
+      passNum++;
+      const resolvable: number[] = [];
+      const unresolvable: number[] = [];
+
+      for (const localIdx of remaining) {
+        const parentIdx = questions[localIdx].parentIndex;
+        if (parentIdx === null || localIdxToDbId.has(parentIdx)) {
+          resolvable.push(localIdx);
+        } else {
+          unresolvable.push(localIdx);
+        }
+      }
+
+      if (resolvable.length === 0) {
+        // Break deadlock: remaining are orphaned or circular
+        const orphanDTOs = unresolvable.map((i) => ({
+          paperId,
+          orderNum: questions[i].orderNum,
+          type: questions[i].type,
+          content: questions[i].content,
+          options: questions[i].options,
+          answer: questions[i].answer,
+          explanation: questions[i].explanation,
+          points: questions[i].points,
+          metadata: questions[i].metadata,
+          parentQuestionId: null,
+        }));
+        const inserted = await this.repo.insertQuestionsAndReturn(orphanDTOs);
+        for (let j = 0; j < unresolvable.length; j++) {
+          localIdxToDbId.set(unresolvable[j], inserted[j].id);
+        }
+        break;
+      }
+
+      const passDTOs = resolvable.map((i) => ({
+        paperId,
+        orderNum: questions[i].orderNum,
+        type: questions[i].type,
+        content: questions[i].content,
+        options: questions[i].options,
+        answer: questions[i].answer,
+        explanation: questions[i].explanation,
+        points: questions[i].points,
+        metadata: questions[i].metadata,
+        parentQuestionId:
+          questions[i].parentIndex !== null
+            ? (localIdxToDbId.get(questions[i].parentIndex!) ?? null)
+            : null,
+      }));
+
+      const inserted = await this.repo.insertQuestionsAndReturn(passDTOs);
+      for (let j = 0; j < resolvable.length; j++) {
+        localIdxToDbId.set(resolvable[j], inserted[j].id);
+      }
+
+      remaining = unresolvable;
+    }
   }
 }
 

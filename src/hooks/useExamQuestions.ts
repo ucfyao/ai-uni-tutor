@@ -42,6 +42,7 @@ export function useExamQuestions(paperId: string, initialData: ExamQuestion[]) {
       explanation?: string;
       points?: number;
       type?: string;
+      parentQuestionId?: string | null;
     }) => {
       const result = await addExamQuestion({
         paperId,
@@ -50,6 +51,7 @@ export function useExamQuestions(paperId: string, initialData: ExamQuestion[]) {
         explanation: data.explanation ?? '',
         points: data.points ?? 0,
         type: data.type ?? 'short_answer',
+        parentQuestionId: data.parentQuestionId,
       });
       if (!result.success) throw new Error(result.error);
       return result.data;
@@ -73,6 +75,7 @@ export function useExamQuestions(paperId: string, initialData: ExamQuestion[]) {
       type?: string;
       options?: Record<string, string> | null;
       orderNum?: number;
+      parentQuestionId?: string | null;
     }) => {
       const result = await updateSingleExamQuestion({
         paperId,

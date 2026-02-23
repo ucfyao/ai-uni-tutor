@@ -60,7 +60,6 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
   const questions = newItems.map((item, idx) => {
     const q = item.data;
     return {
-      paperId: documentId,
       orderNum: maxOrderNum + idx + 1,
       type: '',
       content: q.content,
@@ -69,12 +68,13 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
         : null,
       answer: q.referenceAnswer || '',
       explanation: '',
-      points: typeof q.score === 'number' ? q.score : (parseInt(String(q.score)) || 0),
+      points: typeof q.score === 'number' ? q.score : parseInt(String(q.score)) || 0,
+      parentIndex: q.parentIndex ?? null,
       metadata: { sourcePage: q.sourcePage },
     };
   });
 
-  await examService.insertQuestions(questions);
+  await examService.saveHierarchicalQuestions(documentId, questions);
   send('batch_saved', { chunkIds: questions.map((_, i) => `q-${i}`), batchIndex: 0 });
 
   if (signal.aborted) return;
