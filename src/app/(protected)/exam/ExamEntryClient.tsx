@@ -35,7 +35,12 @@ type Source = 'real' | 'random' | 'ai';
 const ExamIcon = getDocIcon('exam');
 const EXAM_PREFS_KEY = 'exam-course-prefs';
 
-export function ExamEntryClient() {
+interface ExamEntryClientProps {
+  initialCourseCode?: string | null;
+  initialUniId?: string | null;
+}
+
+export function ExamEntryClient({ initialCourseCode, initialUniId }: ExamEntryClientProps = {}) {
   const router = useRouter();
   const { t } = useLanguage();
   const [isPending, startTransition] = useTransition();
@@ -81,8 +86,16 @@ export function ExamEntryClient() {
     return filteredCourses.map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
   }, [selectedUniId, filteredCourses]);
 
-  // Initialize from localStorage
+  // Initialize from props (session-based) or localStorage
   useEffect(() => {
+    // Props from session take priority
+    if (initialUniId && initialCourseCode) {
+      setSelectedUniId(initialUniId);
+      setSelectedCourseCode(initialCourseCode);
+      setCourseConfirmed(true);
+      return;
+    }
+
     try {
       const stored = localStorage.getItem(EXAM_PREFS_KEY);
       if (stored) {

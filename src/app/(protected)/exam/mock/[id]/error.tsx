@@ -23,7 +23,7 @@ export default function MockExamError({
           <Button onClick={reset} variant="filled" color="indigo">
             Try again
           </Button>
-          <Button onClick={() => router.push('/exam')} variant="subtle" color="gray">
+          <Button onClick={() => router.push('/study')} variant="subtle" color="gray">
             Back to exams
           </Button>
         </Group>

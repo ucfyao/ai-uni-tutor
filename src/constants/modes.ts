@@ -49,7 +49,7 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
     ],
   },
   'Mock Exam': {
-    id: 'exam/mock',
+    id: 'exam',
     label: 'Mock Exam',
     icon: getDocIcon('exam'),
     color: getDocColor('exam'),

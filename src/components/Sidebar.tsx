@@ -560,23 +560,12 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
 }) => {
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
-  const router = useRouter();
 
   return (
     <Box>
       {/* Module header row */}
       <Box
-        onClick={(e) => {
-          onToggle();
-          // If it's Mock Exam, also navigate to the landing page
-          if (mode === 'Mock Exam') {
-            router.push('/exam');
-            // If on mobile, close the sidebar (standard behavior for navigation)
-            // But if user specifically said "I don't want to close sidebar",
-            // maybe they meant don't close it on desktop?
-            // Usually drawer should close. Let's keep it simple.
-          }
-        }}
+        onClick={() => onToggle()}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         py={7}

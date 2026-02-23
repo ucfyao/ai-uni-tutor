@@ -600,7 +600,7 @@ export function MockExamClient({ initialMock }: Props) {
 
               {/* Back to exams link */}
               {isCompleted && (
-                <Button variant="subtle" onClick={() => router.push('/exam')} mt="md">
+                <Button variant="subtle" onClick={() => router.push('/study')} mt="md">
                   Back to Exam Practice
                 </Button>
               )}
