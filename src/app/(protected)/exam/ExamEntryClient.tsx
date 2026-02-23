@@ -4,6 +4,7 @@ import { Check, Filter, Shuffle, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
+  Badge,
   Box,
   Button,
   Card,
@@ -23,6 +24,7 @@ import {
   generateMockFromTopic,
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -31,6 +33,7 @@ import type { ExamMode, ExamPaper } from '@/types/exam';
 type Source = 'real' | 'random' | 'ai';
 
 const ExamIcon = getDocIcon('exam');
+const EXAM_PREFS_KEY = 'exam-course-prefs';
 
 export function ExamEntryClient() {
   const router = useRouter();
@@ -44,6 +47,10 @@ export function ExamEntryClient() {
   // University → Course (for real / random)
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseCode, setSelectedCourseCode] = useState<string | null>(null);
+
+  // Course selection modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [courseConfirmed, setCourseConfirmed] = useState(false);
 
   // Real exam options
   const [papers, setPapers] = useState<ExamPaper[]>([]);
@@ -73,6 +80,41 @@ export function ExamEntryClient() {
     if (!selectedUniId) return [];
     return filteredCourses.map((c) => ({ value: c.code, label: `${c.code}: ${c.name}` }));
   }, [selectedUniId, filteredCourses]);
+
+  // Initialize from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(EXAM_PREFS_KEY);
+      if (stored) {
+        const prefs = JSON.parse(stored) as { uniId?: string; courseCode?: string };
+        if (prefs.uniId && prefs.courseCode) {
+          setSelectedUniId(prefs.uniId);
+          setSelectedCourseCode(prefs.courseCode);
+          setCourseConfirmed(true);
+        } else {
+          setModalOpen(true);
+        }
+      } else {
+        setModalOpen(true);
+      }
+    } catch {
+      setModalOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist when confirmed
+  useEffect(() => {
+    if (courseConfirmed && selectedUniId && selectedCourseCode) {
+      localStorage.setItem(
+        EXAM_PREFS_KEY,
+        JSON.stringify({
+          uniId: selectedUniId,
+          courseCode: selectedCourseCode,
+        }),
+      );
+    }
+  }, [courseConfirmed, selectedUniId, selectedCourseCode]);
 
   // Reset course when university changes
   useEffect(() => {
@@ -135,153 +177,175 @@ export function ExamEntryClient() {
     (source === 'ai' && !topic.trim());
 
   return (
-    <Stack gap="lg">
-      {/* Header */}
-      <Box className="animate-fade-in-up">
-        <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
-          {t.exam.startExam}
-        </Title>
-        <Text c="dimmed" size="md" fw={400} mt={2}>
-          {t.exam.startExamSubtitle}
-        </Text>
-      </Box>
-
-      <Card
-        withBorder
-        radius="lg"
-        p="xl"
-        className="animate-fade-in-up animate-delay-100"
-        style={{
-          borderColor: 'var(--mantine-color-gray-2)',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-          opacity: 0,
+    <>
+      <FullScreenModal
+        opened={modalOpen}
+        onClose={() => {
+          if (courseConfirmed) setModalOpen(false);
         }}
+        title={t.exam.selectCourseTitle}
+        centered
       >
-        <Stack gap="lg">
-          {/* 1. University + Course — always first */}
-          <Group grow gap="md">
-            <Select
-              label={t.exam.university ?? 'University'}
-              placeholder={t.exam.selectUniversity ?? 'Select university'}
-              data={uniOptions}
-              value={selectedUniId}
-              onChange={setSelectedUniId}
-              searchable
-              size="md"
-            />
-            <Select
-              label={t.exam.course ?? 'Course'}
-              placeholder={
-                selectedUniId
-                  ? (t.exam.selectCourse ?? 'Select course')
-                  : (t.exam.selectUniversityFirst ?? 'Select university first')
-              }
-              data={courseOptions}
-              value={selectedCourseCode}
-              onChange={setSelectedCourseCode}
-              disabled={!selectedUniId}
-              searchable
-              size="md"
-            />
+        <Stack gap="md">
+          <Text c="dimmed" size="sm">
+            {t.exam.selectCourseDesc}
+          </Text>
+          <Select
+            label={t.exam.university}
+            placeholder={t.exam.selectUniversity}
+            data={uniOptions}
+            value={selectedUniId}
+            onChange={(val) => {
+              setSelectedUniId(val);
+              setSelectedCourseCode(null);
+            }}
+            searchable
+            size="md"
+          />
+          <Select
+            label={t.exam.course}
+            placeholder={selectedUniId ? t.exam.selectCourse : t.exam.selectUniversityFirst}
+            data={courseOptions}
+            value={selectedCourseCode}
+            onChange={setSelectedCourseCode}
+            disabled={!selectedUniId}
+            searchable
+            size="md"
+          />
+          <Button
+            size="lg"
+            radius="md"
+            fullWidth
+            disabled={!selectedUniId || !selectedCourseCode}
+            onClick={() => {
+              setCourseConfirmed(true);
+              setModalOpen(false);
+            }}
+          >
+            {t.exam.startSetup}
+          </Button>
+        </Stack>
+      </FullScreenModal>
+
+      <Stack gap="lg">
+        {/* Header */}
+        <Box className="animate-fade-in-up">
+          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
+            {t.exam.startExam}
+          </Title>
+          <Text c="dimmed" size="md" fw={400} mt={2}>
+            {t.exam.startExamSubtitle}
+          </Text>
+        </Box>
+
+        {/* Course badge + change button */}
+        {courseConfirmed && (
+          <Group gap="xs" className="animate-fade-in-up">
+            <Badge size="lg" variant="light" color={getDocColor('exam')}>
+              {courseOptions.find((c) => c.value === selectedCourseCode)?.label ??
+                selectedCourseCode}
+            </Badge>
+            <Button variant="subtle" size="compact-sm" onClick={() => setModalOpen(true)}>
+              {t.exam.selectCourse}
+            </Button>
           </Group>
+        )}
 
-          {/* 2. Source selector */}
-          <div>
-            <Text size="sm" fw={500} mb="xs">
-              {t.exam.selectSource}
-            </Text>
-            <Group grow gap="md">
-              <SourceCard
-                active={source === 'real'}
-                title={t.exam.realExam}
-                description={t.exam.realExamDesc}
-                icon={<ExamIcon size={18} />}
-                onClick={() => setSource('real')}
-              />
-              <SourceCard
-                active={source === 'random'}
-                title={t.exam.randomMix}
-                description={t.exam.randomMixDesc}
-                icon={<Shuffle size={18} />}
-                onClick={() => setSource('random')}
-              />
-              <SourceCard
-                active={source === 'ai'}
-                title={t.exam.aiMock}
-                description={t.exam.aiMockDesc}
-                icon={<Sparkles size={18} />}
-                onClick={() => setSource('ai')}
-              />
-            </Group>
-          </div>
+        {/* Config card — only after course confirmed */}
+        {courseConfirmed && (
+          <Card
+            withBorder
+            radius="lg"
+            p="xl"
+            className="animate-fade-in-up animate-delay-100"
+            style={{
+              borderColor: 'var(--mantine-color-gray-2)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              opacity: 0,
+            }}
+          >
+            <Stack gap="lg">
+              {/* 1. Source selector */}
+              <div>
+                <Text size="sm" fw={500} mb="xs">
+                  {t.exam.selectSource}
+                </Text>
+                <Group grow gap="md">
+                  <SourceCard
+                    active={source === 'real'}
+                    title={t.exam.realExam}
+                    description={t.exam.realExamDesc}
+                    icon={<ExamIcon size={18} />}
+                    onClick={() => setSource('real')}
+                  />
+                  <SourceCard
+                    active={source === 'random'}
+                    title={t.exam.randomMix}
+                    description={t.exam.randomMixDesc}
+                    icon={<Shuffle size={18} />}
+                    onClick={() => setSource('random')}
+                  />
+                  <SourceCard
+                    active={source === 'ai'}
+                    title={t.exam.aiMock}
+                    description={t.exam.aiMockDesc}
+                    icon={<Sparkles size={18} />}
+                    onClick={() => setSource('ai')}
+                  />
+                </Group>
+              </div>
 
-          {/* 3. Source-specific options */}
-          {source === 'real' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
-            <Paper p="lg" radius="md" withBorder>
-              <Group>
-                <ThemeIcon size={40} radius="md" variant="light" color={getDocColor('exam')}>
-                  <Filter size={20} />
-                </ThemeIcon>
-                <Box flex={1}>
-                  <Text fw={500}>{t.exam.noPapersTitle}</Text>
-                  <Text fz="sm" c="dimmed">
-                    {t.exam.noPapersDescription}
-                  </Text>
-                </Box>
-              </Group>
-            </Paper>
-          )}
+              {/* 2. Source-specific options */}
+              {source === 'real' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
+                <Paper p="lg" radius="md" withBorder>
+                  <Group>
+                    <ThemeIcon size={40} radius="md" variant="light" color={getDocColor('exam')}>
+                      <Filter size={20} />
+                    </ThemeIcon>
+                    <Box flex={1}>
+                      <Text fw={500}>{t.exam.noPapersTitle}</Text>
+                      <Text fz="sm" c="dimmed">
+                        {t.exam.noPapersDescription}
+                      </Text>
+                    </Box>
+                  </Group>
+                </Paper>
+              )}
 
-          {source === 'real' && papers.length > 0 && (
-            <Select
-              label={t.exam.selectPaper}
-              placeholder="Select an exam paper"
-              data={papers.map((p) => ({
-                value: p.id,
-                label: `${p.title}${p.year ? ` (${p.year})` : ''}${p.questionCount ? ` — ${p.questionCount} Q` : ''}`,
-              }))}
-              value={selectedPaper}
-              onChange={setSelectedPaper}
-              size="md"
-            />
-          )}
+              {source === 'real' && papers.length > 0 && (
+                <Select
+                  label={t.exam.selectPaper}
+                  placeholder="Select an exam paper"
+                  data={papers.map((p) => ({
+                    value: p.id,
+                    label: `${p.title}${p.year ? ` (${p.year})` : ''}${p.questionCount ? ` — ${p.questionCount} Q` : ''}`,
+                  }))}
+                  value={selectedPaper}
+                  onChange={setSelectedPaper}
+                  size="md"
+                />
+              )}
 
-          {source === 'random' && selectedCourseCode && !loadingPapers && papers.length === 0 && (
-            <Paper p="lg" radius="md" withBorder>
-              <Group>
-                <ThemeIcon size={40} radius="md" variant="light" color={getDocColor('exam')}>
-                  <Filter size={20} />
-                </ThemeIcon>
-                <Box flex={1}>
-                  <Text fw={500}>{t.exam.noPapersTitle}</Text>
-                  <Text fz="sm" c="dimmed">
-                    {t.exam.noPapersDescription}
-                  </Text>
-                </Box>
-              </Group>
-            </Paper>
-          )}
+              {source === 'random' &&
+                selectedCourseCode &&
+                !loadingPapers &&
+                papers.length === 0 && (
+                  <Paper p="lg" radius="md" withBorder>
+                    <Group>
+                      <ThemeIcon size={40} radius="md" variant="light" color={getDocColor('exam')}>
+                        <Filter size={20} />
+                      </ThemeIcon>
+                      <Box flex={1}>
+                        <Text fw={500}>{t.exam.noPapersTitle}</Text>
+                        <Text fz="sm" c="dimmed">
+                          {t.exam.noPapersDescription}
+                        </Text>
+                      </Box>
+                    </Group>
+                  </Paper>
+                )}
 
-          {source === 'random' && papers.length > 0 && (
-            <Select
-              label={t.exam.numQuestions}
-              data={['5', '10', '15', '20']}
-              value={numQuestions}
-              onChange={setNumQuestions}
-              size="md"
-            />
-          )}
-
-          {source === 'ai' && (
-            <Stack gap="sm">
-              <TextInput
-                label={t.exam.topic}
-                placeholder="e.g., Binary Trees, Linear Regression"
-                value={topic}
-                onChange={(e) => setTopic(e.currentTarget.value)}
-                size="md"
-              />
-              <Group grow>
+              {source === 'random' && papers.length > 0 && (
                 <Select
                   label={t.exam.numQuestions}
                   data={['5', '10', '15', '20']}
@@ -289,67 +353,88 @@ export function ExamEntryClient() {
                   onChange={setNumQuestions}
                   size="md"
                 />
-                <Select
-                  label={t.exam.difficulty}
-                  data={[
-                    { value: 'mixed', label: 'Mixed' },
-                    { value: 'easy', label: 'Easy' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'hard', label: 'Hard' },
-                  ]}
-                  value={difficulty}
-                  onChange={setDifficulty}
-                  size="md"
-                />
-              </Group>
+              )}
+
+              {source === 'ai' && (
+                <Stack gap="sm">
+                  <TextInput
+                    label={t.exam.topic}
+                    placeholder="e.g., Binary Trees, Linear Regression"
+                    value={topic}
+                    onChange={(e) => setTopic(e.currentTarget.value)}
+                    size="md"
+                  />
+                  <Group grow>
+                    <Select
+                      label={t.exam.numQuestions}
+                      data={['5', '10', '15', '20']}
+                      value={numQuestions}
+                      onChange={setNumQuestions}
+                      size="md"
+                    />
+                    <Select
+                      label={t.exam.difficulty}
+                      data={[
+                        { value: 'mixed', label: 'Mixed' },
+                        { value: 'easy', label: 'Easy' },
+                        { value: 'medium', label: 'Medium' },
+                        { value: 'hard', label: 'Hard' },
+                      ]}
+                      value={difficulty}
+                      onChange={setDifficulty}
+                      size="md"
+                    />
+                  </Group>
+                </Stack>
+              )}
+
+              {/* 3. Mode — always shown */}
+              <div>
+                <Text size="sm" fw={500} mb="xs">
+                  Mode
+                </Text>
+                <Group grow gap="md">
+                  <ModeCard
+                    active={selectedMode === 'practice'}
+                    title="Practice"
+                    description="Answer one at a time with immediate feedback"
+                    onClick={() => setSelectedMode('practice')}
+                  />
+                  <ModeCard
+                    active={selectedMode === 'exam'}
+                    title="Exam"
+                    description="Answer all, then submit for a final score"
+                    onClick={() => setSelectedMode('exam')}
+                  />
+                </Group>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <Text size="sm" c="red">
+                  {error}
+                </Text>
+              )}
+
+              {/* 4. Start */}
+              <Button
+                size="lg"
+                radius="md"
+                variant="gradient"
+                gradient={{ from: `${getDocColor('exam')}.7`, to: `${getDocColor('exam')}.3` }}
+                leftSection={<Sparkles size={20} />}
+                loading={isPending}
+                disabled={isStartDisabled}
+                onClick={handleStart}
+                fullWidth
+              >
+                Start Mock Exam
+              </Button>
             </Stack>
-          )}
-
-          {/* 4. Mode — always shown */}
-          <div>
-            <Text size="sm" fw={500} mb="xs">
-              Mode
-            </Text>
-            <Group grow gap="md">
-              <ModeCard
-                active={selectedMode === 'practice'}
-                title="Practice"
-                description="Answer one at a time with immediate feedback"
-                onClick={() => setSelectedMode('practice')}
-              />
-              <ModeCard
-                active={selectedMode === 'exam'}
-                title="Exam"
-                description="Answer all, then submit for a final score"
-                onClick={() => setSelectedMode('exam')}
-              />
-            </Group>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <Text size="sm" c="red">
-              {error}
-            </Text>
-          )}
-
-          {/* 5. Start */}
-          <Button
-            size="lg"
-            radius="md"
-            variant="gradient"
-            gradient={{ from: `${getDocColor('exam')}.7`, to: `${getDocColor('exam')}.3` }}
-            leftSection={<Sparkles size={20} />}
-            loading={isPending}
-            disabled={isStartDisabled}
-            onClick={handleStart}
-            fullWidth
-          >
-            Start Mock Exam
-          </Button>
-        </Stack>
-      </Card>
-    </Stack>
+          </Card>
+        )}
+      </Stack>
+    </>
   );
 }
 
