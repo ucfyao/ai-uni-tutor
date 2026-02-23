@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Eye, Pencil, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
@@ -307,7 +307,14 @@ export function KnowledgeTable({
                       );
                     })()}
                     <Tooltip label={doc.name} multiline maw={280} openDelay={300}>
-                      <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
+                      <Text
+                        size="sm"
+                        fw={500}
+                        truncate
+                        style={{ flex: 1, cursor: 'pointer' }}
+                        className={classes.fileName}
+                        onClick={() => router.push(getDocDetailPath(doc))}
+                      >
                         {doc.name}
                       </Text>
                     </Tooltip>
@@ -321,14 +328,7 @@ export function KnowledgeTable({
                     >
                       <Pencil size={16} />
                     </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      onClick={() => router.push(getDocDetailPath(doc))}
-                      aria-label="View document details"
-                    >
-                      <Eye size={16} />
-                    </ActionIcon>
+
                     {!readOnly && (
                       <ActionIcon
                         variant="subtle"
@@ -492,6 +492,8 @@ export function KnowledgeTable({
                           truncate
                           c={getDocColor(doc.doc_type)}
                           className={classes.fileName}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => router.push(getDocDetailPath(doc))}
                         >
                           {doc.name}
                         </Text>
@@ -595,14 +597,7 @@ export function KnowledgeTable({
                         >
                           <Pencil size={16} />
                         </ActionIcon>
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          onClick={() => router.push(getDocDetailPath(doc))}
-                          aria-label="View document details"
-                        >
-                          <Eye size={16} />
-                        </ActionIcon>
+
                         <ActionIcon
                           variant="subtle"
                           color="red"
