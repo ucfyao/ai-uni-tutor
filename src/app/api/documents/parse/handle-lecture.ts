@@ -34,7 +34,10 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       return;
     }
 
-    // "Extracted N sections, M knowledge points" already sent by onProgress callback
+    send('log', {
+      message: `Extraction complete: ${sections.length} sections, ${knowledgePoints.length} total knowledge points`,
+      level: 'success',
+    });
 
     for (let i = 0; i < knowledgePoints.length; i++) {
       send('item', { index: i, type: 'knowledge_point', data: knowledgePoints[i] });
@@ -45,7 +48,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
 
     // Save document outline
     if (documentOutline) {
-      send('log', { message: 'Saving document outline...', level: 'info' });
+      send('log', { message: 'Saving document outline to database...', level: 'info' });
       try {
         const { getLectureDocumentRepository } =
           await import('@/lib/repositories/DocumentRepository');
@@ -53,7 +56,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
           documentId,
           documentOutline as unknown as Json,
         );
-        send('log', { message: 'Document outline saved', level: 'success' });
+        send('log', { message: 'Document outline saved successfully', level: 'success' });
       } catch (outlineError) {
         console.warn('Failed to save document outline (non-fatal):', outlineError);
         send('log', { message: 'Outline save failed (non-fatal)', level: 'warning' });
@@ -61,7 +64,10 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
     }
 
     // ── Dedup against existing chunks ──
-    send('log', { message: 'Checking for duplicate sections...', level: 'info' });
+    send('log', {
+      message: `Checking for duplicate sections in document ${documentId}...`,
+      level: 'info',
+    });
 
     const { buildSectionChunkContent } = await import('@/lib/rag/build-chunk-content');
 
@@ -80,7 +86,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
     const titleSkipped = sections.length - candidateSections.length;
 
     if (candidateSections.length === 0) {
-      send('log', { message: 'All sections are duplicates (title match)', level: 'info' });
+      send('log', { message: 'All sections already exist (title match)', level: 'info' });
       send('status', {
         stage: 'complete',
         message: 'No new sections to add (all duplicates).',
@@ -95,13 +101,13 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
     // Generate embeddings
     if (signal.aborted) return;
     send('log', {
-      message: `Generating embeddings for ${candidateSections.length} sections...`,
+      message: `Generating vector embeddings for ${candidateSections.length} new sections...`,
       level: 'info',
     });
     const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
     const candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
 
-    send('log', { message: 'Embeddings generated', level: 'success' });
+    send('log', { message: 'Vector embeddings generated successfully', level: 'success' });
 
     // Pass 2: embedding similarity dedup
     const SIMILARITY_THRESHOLD = 0.92;
@@ -120,7 +126,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       .filter((e): e is number[] => Array.isArray(e) && e.length > 0);
 
     send('log', {
-      message: `Dedup: ${existingEmbeddings.length} existing embeddings found for comparison`,
+      message: `Similarity check: comparing with ${existingEmbeddings.length} existing sections`,
       level: 'info',
     });
 
@@ -142,7 +148,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       embeddingSkipped = candidateSections.length - keepIndices.length;
       if (embeddingSkipped > 0) {
         send('log', {
-          message: `${embeddingSkipped} sections skipped (embedding similarity > ${SIMILARITY_THRESHOLD})`,
+          message: `${embeddingSkipped} sections skipped due to high content similarity (> ${SIMILARITY_THRESHOLD})`,
           level: 'info',
         });
       }
@@ -152,7 +158,10 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
 
     const totalSkipped = titleSkipped + embeddingSkipped;
     if (keepIndices.length === 0) {
-      send('log', { message: 'All sections are duplicates', level: 'info' });
+      send('log', {
+        message: 'All extracted sections filtered out as duplicates',
+        level: 'info',
+      });
       send('status', {
         stage: 'complete',
         message: 'No new sections to add (all duplicates).',
@@ -167,8 +176,8 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
     send('log', {
       message:
         totalSkipped > 0
-          ? `${newSections.length} new sections (${totalSkipped} duplicates skipped)`
-          : `${newSections.length} sections to save`,
+          ? `Proceeding with ${newSections.length} new sections (${totalSkipped} duplicates skipped)`
+          : `Proceeding with ${newSections.length} sections`,
       level: 'success',
     });
 
@@ -200,7 +209,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       const batchEnd = Math.min(i + SAVE_BATCH, allChunks.length);
 
       send('log', {
-        message: `Saving chunks ${i + 1}-${batchEnd} of ${allChunks.length}...`,
+        message: `Saving batch ${batchIdx + 1} (${i + 1}-${batchEnd} of ${allChunks.length})...`,
         level: 'info',
       });
 
@@ -209,7 +218,10 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       send('progress', { current: batchEnd, total: allChunks.length });
     }
 
-    send('log', { message: `Saved ${allChunks.length} chunks`, level: 'success' });
+    send('log', {
+      message: `Successfully saved ${allChunks.length} chunks to database`,
+      level: 'success',
+    });
     send('status', { stage: 'complete', message: 'Done!' });
 
     // Store file hash for future course-level dedup

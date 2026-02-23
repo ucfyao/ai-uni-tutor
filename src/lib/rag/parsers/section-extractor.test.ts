@@ -79,7 +79,7 @@ describe('section-extractor', () => {
 
     const pages = [{ page: 1, text: 'Content' }];
 
-    const { sections, warnings } = await extractSections(pages, controller.signal);
+    const { sections, warnings } = await extractSections(pages, { signal: controller.signal });
 
     expect(sections).toEqual([]);
     expect(warnings).toEqual([]);

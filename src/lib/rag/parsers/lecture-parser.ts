@@ -48,7 +48,7 @@ export async function parseLectureMultiPass(
     totalPages: pages.length,
   });
 
-  const extraction = await extractSections(pages, options?.signal);
+  const extraction = await extractSections(pages, options);
   const { sections, warnings } = extraction;
 
   const totalKP = sections.reduce((sum, s) => sum + s.knowledgePoints.length, 0);

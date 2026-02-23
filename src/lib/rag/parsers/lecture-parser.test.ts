@@ -43,7 +43,7 @@ describe('lecture-parser', () => {
       expect(result.outline).toBeDefined();
       expect(result.outline?.sections).toHaveLength(1);
       expect(result.outline?.sections[0].title).toBe('Binary Search Trees');
-      expect(mockExtractSections).toHaveBeenCalledWith(pages, undefined);
+      expect(mockExtractSections).toHaveBeenCalledWith(pages, { documentId: 'doc-1' });
     });
 
     it('reports progress through extraction phase', async () => {
@@ -85,7 +85,7 @@ describe('lecture-parser', () => {
 
       await parseLectureMultiPass(pages, { signal: controller.signal });
 
-      expect(mockExtractSections).toHaveBeenCalledWith(pages, controller.signal);
+      expect(mockExtractSections).toHaveBeenCalledWith(pages, { signal: controller.signal });
     });
 
     it('builds outline even without documentId', async () => {

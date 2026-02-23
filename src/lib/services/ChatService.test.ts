@@ -20,7 +20,7 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
         const fakeEntry = {
           id: 0,
           provider: 'gemini',
-          model: 'gemini-2.5-flash',
+          model: GEMINI_MODELS.chat,
           maskedKey: 'test****',
           client: {
             models: {

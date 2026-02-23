@@ -31,6 +31,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Json } from '@/types/database';
@@ -401,9 +402,9 @@ function KnowledgePointCard({ kp }: { kp: KPItem }) {
           </Group>
         </Group>
         {kp.content && (
-          <Text size="sm" c="dimmed" ml={14} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-            {kp.content}
-          </Text>
+          <Box ml={14}>
+            <MarkdownRenderer content={kp.content} compact />
+          </Box>
         )}
       </Stack>
     </Box>
@@ -598,9 +599,9 @@ function SectionCard({
             <>
               {/* Summary — always visible */}
               {summary && (
-                <Text size="sm" c="dimmed">
-                  {summary}
-                </Text>
+                <Box mb="xs">
+                  <MarkdownRenderer content={summary} compact />
+                </Box>
               )}
 
               {/* Collapsible body */}

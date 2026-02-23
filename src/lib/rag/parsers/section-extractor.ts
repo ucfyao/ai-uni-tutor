@@ -60,6 +60,11 @@ export interface SectionExtractionResult {
   warnings: string[];
 }
 
+interface ExtractionOptions {
+  onProgress?: (progress: any) => void;
+  signal?: AbortSignal;
+}
+
 function buildExtractionPrompt(pages: PDFPage[]): string {
   const pagesText = pages.map((p) => `[Page ${p.page}]\n${p.text}`).join('\n\n');
 
@@ -85,6 +90,9 @@ Rules:
 - Do NOT include table-of-contents entries as separate knowledge points
 
 Return ONLY a valid JSON object with a "sections" array. No markdown, no explanation.
+- IMPORTANT: All mathematical formulas MUST be wrapped in LaTeX delimiters:
+  - Inline formulas: $ formula $
+  - Block formulas: $$ formula $$
 
 Document (${pages.length} pages):
 ${pagesText}`;
@@ -96,11 +104,21 @@ ${pagesText}`;
  */
 export async function extractSections(
   pages: PDFPage[],
-  signal?: AbortSignal,
+  options?: ExtractionOptions,
 ): Promise<SectionExtractionResult> {
+  const signal = options?.signal;
   if (signal?.aborted) return { sections: [], warnings: [] };
 
   const prompt = buildExtractionPrompt(pages);
+
+  if (options?.onProgress) {
+    options.onProgress({
+      phase: 'extraction',
+      phaseProgress: 5,
+      totalProgress: 5,
+      detail: 'Calling Gemini for content extraction...',
+    });
+  }
 
   let text: string;
   try {
@@ -110,11 +128,28 @@ export async function extractSections(
       config: { responseMimeType: 'application/json', temperature: 0 },
     });
     text = response.text ?? '';
+    if (options?.onProgress) {
+      options.onProgress({
+        phase: 'extraction',
+        phaseProgress: 40,
+        totalProgress: 12, // 40% of 30% extraction phase
+        detail: `Received ${text.length} characters from AI`,
+      });
+    }
   } catch (error) {
     throw AppError.from(error);
   }
   if (!text.trim()) {
     return { sections: [], warnings: ['Gemini returned empty response'] };
+  }
+
+  if (options?.onProgress) {
+    options.onProgress({
+      phase: 'extraction',
+      phaseProgress: 50,
+      totalProgress: 15,
+      detail: 'Parsing JSON response...',
+    });
   }
 
   let raw: unknown;
@@ -125,6 +160,15 @@ export async function extractSections(
       sections: [],
       warnings: [`Gemini returned invalid JSON (${text.length} chars)`],
     };
+  }
+
+  if (options?.onProgress) {
+    options.onProgress({
+      phase: 'extraction',
+      phaseProgress: 60,
+      totalProgress: 18,
+      detail: 'Validating extraction schema...',
+    });
   }
 
   const result = extractionResultSchema.safeParse(raw);
