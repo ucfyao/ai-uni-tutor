@@ -187,46 +187,70 @@ export function getGenAI(): GoogleGenAI {
 
 // ==================== Chat Pool (multi-provider) ====================
 
-function buildChatEntries(): PoolEntry[] {
-  const chain = process.env.AI_CHAT_CHAIN || 'gemini:gemini-2.5-flash';
-  const pairs = chain.split(',').map((s) => s.trim());
-  const geminiKeys = (process.env.GEMINI_API_KEY || '')
-    .split(',')
-    .map((k) => k.trim())
-    .filter(Boolean);
-  const minimaxKey = process.env.MINIMAX_API_KEY;
-
+/** @internal Exported for testing only */
+export function buildChatEntries(): PoolEntry[] {
   const entries: PoolEntry[] = [];
+
+  // Collect AI_CHAT_N entries sorted numerically
+  const chatVars = Object.entries(process.env)
+    .filter(([k]) => /^AI_CHAT_\d+$/.test(k))
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+
   let id = 0;
 
-  for (const pair of pairs) {
-    const colonIdx = pair.indexOf(':');
-    if (colonIdx === -1) continue;
-    const provider = pair.slice(0, colonIdx).trim() as 'gemini' | 'minimax';
-    const model = pair.slice(colonIdx + 1).trim();
+  for (const [envKey, value] of chatVars) {
+    if (!value) continue;
+    const firstColon = value.indexOf(':');
+    const secondColon = value.indexOf(':', firstColon + 1);
+    if (firstColon === -1 || secondColon === -1) {
+      console.warn(`[KeyPool] Skipping ${envKey}: expected provider:model:apiKey`);
+      continue;
+    }
+    const provider = value.slice(0, firstColon).trim() as PoolEntry['provider'];
+    const model = value.slice(firstColon + 1, secondColon).trim();
+    const apiKey = value.slice(secondColon + 1).trim();
+
+    if (!apiKey) {
+      console.warn(`[KeyPool] Skipping ${envKey}: empty apiKey`);
+      continue;
+    }
 
     if (provider === 'gemini') {
-      for (const key of geminiKeys) {
-        entries.push({
-          id: id++,
-          provider: 'gemini',
-          model,
-          maskedKey: maskKey(key),
-          client: new GoogleGenAI({ apiKey: key }),
-          disabled: false,
-        });
-      }
+      entries.push({
+        id: id++,
+        provider: 'gemini',
+        model,
+        maskedKey: maskKey(apiKey),
+        client: new GoogleGenAI({ apiKey }),
+        disabled: false,
+      });
     } else if (provider === 'minimax') {
-      if (!minimaxKey) {
-        console.warn('[KeyPool] MINIMAX_API_KEY not set — skipping MiniMax entry in AI_CHAT_CHAIN');
-        continue;
-      }
       entries.push({
         id: id++,
         provider: 'minimax',
         model,
-        maskedKey: maskKey(minimaxKey),
-        client: new OpenAI({ baseURL: 'https://api.minimax.io/v1', apiKey: minimaxKey }),
+        maskedKey: maskKey(apiKey),
+        client: new OpenAI({ baseURL: 'https://api.minimax.io/v1', apiKey }),
+        disabled: false,
+      });
+    } else {
+      console.warn(`[KeyPool] Skipping ${envKey}: unknown provider "${provider}"`);
+    }
+  }
+
+  // Backward compatible: fall back to GEMINI_API_KEY if no AI_CHAT_* vars
+  if (entries.length === 0) {
+    const geminiKeys = (process.env.GEMINI_API_KEY || '')
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+    for (const apiKey of geminiKeys) {
+      entries.push({
+        id: id++,
+        provider: 'gemini',
+        model: GEMINI_MODELS.chat,
+        maskedKey: maskKey(apiKey),
+        client: new GoogleGenAI({ apiKey }),
         disabled: false,
       });
     }
@@ -234,7 +258,7 @@ function buildChatEntries(): PoolEntry[] {
 
   if (entries.length === 0) {
     throw new Error(
-      'AI_CHAT_CHAIN resolved to zero entries. Check GEMINI_API_KEY / MINIMAX_API_KEY.',
+      'No AI chat entries configured. Set AI_CHAT_0=provider:model:apiKey or GEMINI_API_KEY.',
     );
   }
 

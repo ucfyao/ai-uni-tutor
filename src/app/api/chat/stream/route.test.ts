@@ -112,6 +112,7 @@ async function* fakeStreamGenerator(chunks: string[]): AsyncGenerator<string, vo
 describe('POST /api/chat/stream', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('AI_CHAT_0', 'gemini:gemini-2.5-flash:test-key');
     vi.stubEnv('GEMINI_API_KEY', 'test-key');
   });
 
@@ -220,14 +221,27 @@ describe('POST /api/chat/stream', () => {
   // =========================================================================
 
   describe('missing API key', () => {
-    it('returns 500 when GEMINI_API_KEY is not set', async () => {
+    it('returns 500 when no AI chat config is set', async () => {
+      vi.stubEnv('AI_CHAT_0', '');
       vi.stubEnv('GEMINI_API_KEY', '');
 
       const response = await POST(makeRequest(VALID_BODY));
       const body = JSON.parse(await response.text());
 
       expect(response.status).toBe(500);
-      expect(body.error).toBe('Missing GEMINI_API_KEY');
+      expect(body.error).toBe('Missing AI chat configuration (AI_CHAT_* or GEMINI_API_KEY)');
+    });
+
+    it('passes when GEMINI_API_KEY is set as fallback', async () => {
+      vi.stubEnv('AI_CHAT_0', '');
+      vi.stubEnv('GEMINI_API_KEY', 'test-key');
+      mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+      mockQuotaService.checkAndConsume.mockResolvedValue({ allowed: true });
+      mockChatService.generateStream.mockReturnValue(fakeStreamGenerator(['ok']));
+
+      const response = await POST(makeRequest(VALID_BODY));
+      expect(response.status).toBe(200);
+      await readStream(response);
     });
   });
 

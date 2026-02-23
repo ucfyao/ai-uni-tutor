@@ -90,9 +90,10 @@ export async function POST(req: NextRequest) {
 
   const { course, mode, history, userInput, images, document } = parsed.data;
 
-  // 2. Validate API Key
-  if (!process.env.GEMINI_API_KEY) {
-    return errorResponse('Missing GEMINI_API_KEY', 500);
+  // 2. Validate AI chat config availability
+  const hasAiChat = Object.entries(process.env).some(([k, v]) => /^AI_CHAT_\d+$/.test(k) && !!v);
+  if (!hasAiChat && !process.env.GEMINI_API_KEY) {
+    return errorResponse('Missing AI chat configuration (AI_CHAT_* or GEMINI_API_KEY)', 500);
   }
 
   // 3. Authentication

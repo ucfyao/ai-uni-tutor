@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PoolState } from '@/lib/redis';
-import { GEMINI_MODELS, KeyPool } from './gemini';
+import { buildChatEntries, GEMINI_MODELS, KeyPool } from './gemini';
 
 // Mock GoogleGenAI
 vi.mock('@google/genai', () => {
@@ -255,6 +255,113 @@ describe('KeyPool', () => {
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy).toHaveBeenCalledWith('k2');
     });
+  });
+});
+
+describe('buildChatEntries', () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    // Clear all AI_CHAT_* and related env vars
+    for (const key of Object.keys(process.env)) {
+      if (/^AI_CHAT_\d+$/.test(key)) delete process.env[key];
+    }
+    delete process.env.GEMINI_API_KEY;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('parses numbered AI_CHAT_* entries', () => {
+    process.env.AI_CHAT_0 = 'gemini:gemini-2.5-flash:key1';
+    process.env.AI_CHAT_1 = 'gemini:gemini-2.5-flash:key2';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(2);
+    expect(entries[0].provider).toBe('gemini');
+    expect(entries[0].model).toBe('gemini-2.5-flash');
+    expect(entries[1].id).toBe(1);
+  });
+
+  it('sorts numerically (AI_CHAT_2 before AI_CHAT_10)', () => {
+    process.env.AI_CHAT_10 = 'gemini:model-b:key10';
+    process.env.AI_CHAT_2 = 'gemini:model-a:key2';
+
+    const entries = buildChatEntries();
+    expect(entries[0].model).toBe('model-a');
+    expect(entries[1].model).toBe('model-b');
+  });
+
+  it('handles minimax provider', () => {
+    process.env.AI_CHAT_0 = 'minimax:MiniMax-M1:mm-key';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].provider).toBe('minimax');
+    expect(entries[0].model).toBe('MiniMax-M1');
+  });
+
+  it('handles API keys containing colons', () => {
+    process.env.AI_CHAT_0 = 'gemini:gemini-2.5-flash:key:with:colons';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(1);
+    // The key should be "key:with:colons" (everything after second colon)
+  });
+
+  it('skips malformed entries (missing second colon)', () => {
+    process.env.AI_CHAT_0 = 'gemini:gemini-2.5-flash'; // missing :apiKey
+    process.env.AI_CHAT_1 = 'gemini:gemini-2.5-flash:valid-key';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(1);
+  });
+
+  it('skips entries with empty apiKey', () => {
+    process.env.AI_CHAT_0 = 'gemini:gemini-2.5-flash:';
+    process.env.AI_CHAT_1 = 'gemini:gemini-2.5-flash:valid-key';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(1);
+  });
+
+  it('skips unknown providers', () => {
+    process.env.AI_CHAT_0 = 'openai:gpt-4:sk-key';
+    process.env.AI_CHAT_1 = 'gemini:gemini-2.5-flash:valid-key';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].provider).toBe('gemini');
+  });
+
+  it('falls back to GEMINI_API_KEY when no AI_CHAT_* vars', () => {
+    process.env.GEMINI_API_KEY = 'fallback-key';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].provider).toBe('gemini');
+    expect(entries[0].model).toBe(GEMINI_MODELS.chat);
+  });
+
+  it('falls back to multiple comma-separated GEMINI_API_KEYs', () => {
+    process.env.GEMINI_API_KEY = 'key1,key2';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(2);
+  });
+
+  it('throws when no AI_CHAT_* and no GEMINI_API_KEY', () => {
+    expect(() => buildChatEntries()).toThrow('No AI chat entries configured');
+  });
+
+  it('prefers AI_CHAT_* over GEMINI_API_KEY fallback', () => {
+    process.env.AI_CHAT_0 = 'gemini:gemini-2.5-flash:explicit-key';
+    process.env.GEMINI_API_KEY = 'fallback-key';
+
+    const entries = buildChatEntries();
+    expect(entries).toHaveLength(1);
+    // Should use AI_CHAT_0, not GEMINI_API_KEY fallback
   });
 });
 
