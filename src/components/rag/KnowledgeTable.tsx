@@ -63,7 +63,6 @@ export interface KnowledgeTableProps {
   isLoading?: boolean;
   onDeleted?: (id: string) => void;
   onEdit?: (doc: KnowledgeDocument) => void;
-  assignmentStats?: AssignmentStatsMap;
   doc_type: string;
 }
 
@@ -105,7 +104,6 @@ export function KnowledgeTable({
   isLoading,
   onDeleted,
   onEdit,
-  assignmentStats,
   doc_type,
 }: KnowledgeTableProps) {
   const { t } = useLanguage();
@@ -202,8 +200,14 @@ export function KnowledgeTable({
   };
 
   const renderAssignmentStats = (doc: KnowledgeDocument) => {
-    if (!assignmentStats) return null;
-    const stat = assignmentStats[doc.id];
+    const stat = doc.metadata?.stats as {
+      itemCount: number;
+      mainCount: number;
+      subCount: number;
+      withAnswer: number;
+      warningCount: number;
+    } | undefined;
+    
     if (!stat || stat.itemCount === 0) return null;
 
     const coverage = Math.round((stat.withAnswer / stat.itemCount) * 100);
@@ -380,29 +384,45 @@ export function KnowledgeTable({
                         {doc.outline_summary.count} Sec · {doc.outline_summary.totalKPs} KPs
                       </Badge>
                     </>
-                  ) : doc.doc_type === 'assignment' ? (
-                    <>
-                      <Text size="xs" c="dimmed">
-                        &middot;
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {(() => {
-                          const stat = assignmentStats?.[doc.id];
-                          if (stat)
-                            return `${t.knowledge.mainQuestions}: ${stat.mainCount} / ${t.knowledge.subQuestions}: ${stat.subCount}`;
-                          return doc.item_count ? `${doc.item_count} ${t.knowledge.items}` : '-';
-                        })()}
-                      </Text>
-                    </>
-                  ) : doc.item_count != null && doc.item_count > 0 ? (
-                    <>
-                      <Text size="xs" c="dimmed">
-                        &middot;
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {doc.item_count} {t.knowledge.items}
-                      </Text>
-                    </>
+                  ) : doc.doc_type === 'assignment' || doc.doc_type === 'exam' ? (
+                    (() => {
+                      const stat = doc.metadata?.stats as {
+                        itemCount: number;
+                        mainCount: number;
+                        subCount: number;
+                        withAnswer: number;
+                        warningCount: number;
+                      } | undefined;
+                      const color = getDocColor(doc.doc_type);
+
+                      if (stat) {
+                        return (
+                          <>
+                            <Text size="xs" c="dimmed">
+                              &middot;
+                            </Text>
+                            <Badge variant="light" color={color} size="xs">
+                              {stat.mainCount} {t.knowledge.mainQuestions} · {stat.subCount} {t.knowledge.subQuestions}
+                            </Badge>
+                          </>
+                        );
+                      }
+
+                      if (doc.item_count != null && doc.item_count > 0) {
+                        return (
+                          <>
+                            <Text size="xs" c="dimmed">
+                              &middot;
+                            </Text>
+                            <Badge variant="light" color={color} size="xs">
+                              {doc.item_count} {t.knowledge.totalQuestions}
+                            </Badge>
+                          </>
+                        );
+                      }
+
+                      return null;
+                    })()
                   ) : null}
                 </Group>
 
@@ -544,7 +564,10 @@ export function KnowledgeTable({
                       {doc.metadata?.course || 'General'}
                     </Badge>
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ cursor: 'default' }}
+                  >
                     {doc.doc_type === 'lecture' && doc.outline_summary ? (
                       <Popover
                         width={320}
@@ -559,7 +582,6 @@ export function KnowledgeTable({
                             color="teal"
                             size="sm"
                             style={{ cursor: 'pointer' }}
-                            onClick={(e) => e.stopPropagation()}
                           >
                             {doc.outline_summary.count} Sec · {doc.outline_summary.totalKPs} KPs
                           </Badge>
@@ -600,28 +622,56 @@ export function KnowledgeTable({
                           </Stack>
                         </Popover.Dropdown>
                       </Popover>
-                    ) : doc.doc_type === 'assignment' ? (
-                      <div className="flex flex-col gap-0.5">
-                        <Text size="sm" fw={500}>
-                          {(() => {
-                            const stat = assignmentStats?.[doc.id];
-                            if (stat)
-                              return `${t.knowledge.mainQuestions}: ${stat.mainCount} / ${t.knowledge.subQuestions}: ${stat.subCount}`;
-                            return doc.item_count ? `${doc.item_count} ${t.knowledge.items}` : '-';
-                          })()}
-                        </Text>
-                        {assignmentStats?.[doc.id] && (
-                          <Text size="xs" c="dimmed">
-                            {assignmentStats[doc.id].withAnswer}{' '}
-                            {t.knowledge.successfullyExtracted.split(' ')[0]}{' '}
-                            {t.knowledge.questions}
-                          </Text>
-                        )}
-                      </div>
-                    ) : doc.item_count != null && doc.item_count > 0 ? (
-                      <Text size="sm" c="dimmed">
-                        {doc.item_count} {t.knowledge.items}
-                      </Text>
+                    ) : doc.doc_type === 'assignment' || doc.doc_type === 'exam' ? (
+                      (() => {
+                        const stat = doc.metadata?.stats as {
+                          itemCount: number;
+                          mainCount: number;
+                          subCount: number;
+                          withAnswer: number;
+                          warningCount: number;
+                        } | undefined;
+                        const color = getDocColor(doc.doc_type);
+
+                        if (stat) {
+                          return (
+                            <Popover position="bottom" shadow="md" withArrow width={240}>
+                              <Popover.Target>
+                                <Badge
+                                  variant="light"
+                                  color={color}
+                                  size="sm"
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  {stat.mainCount} {t.knowledge.mainQuestions} · {stat.subCount} {t.knowledge.subQuestions}
+                                </Badge>
+                              </Popover.Target>
+                              <Popover.Dropdown p="xs">
+                                <Stack gap="xs">
+                                  <Group justify="space-between">
+                                    <Text size="xs" c="dimmed">{t.knowledge.totalQuestions}</Text>
+                                    <Text size="xs" fw={500}>{stat.itemCount}</Text>
+                                  </Group>
+                                  <Group justify="space-between">
+                                    <Text size="xs" c="dimmed">{t.knowledge.successfullyExtracted}</Text>
+                                    <Text size="xs" fw={500}>{stat.withAnswer}</Text>
+                                  </Group>
+                                </Stack>
+                              </Popover.Dropdown>
+                            </Popover>
+                          );
+                        }
+
+                        if (doc.item_count != null && doc.item_count > 0) {
+                          return (
+                            <Badge variant="light" color={color} size="sm">
+                              {doc.item_count} {t.knowledge.totalQuestions}
+                            </Badge>
+                          );
+                        }
+
+                        return <Text size="sm" c="dimmed">-</Text>;
+                      })()
                     ) : (
                       <Text size="sm" c="dimmed" ta="center">
                         —

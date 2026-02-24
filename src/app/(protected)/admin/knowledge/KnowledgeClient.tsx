@@ -19,13 +19,14 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { createEmptyAssignment, fetchAssignmentStats } from '@/app/actions/assignments';
+import { createEmptyAssignment } from '@/app/actions/assignments';
 import {
   createExam,
   createLecture,
   fetchDocuments,
   updateDocumentMeta,
 } from '@/app/actions/documents';
+
 import { AdminContent } from '@/components/admin/AdminContent';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
@@ -76,23 +77,6 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
       return results as KnowledgeDocument[];
     },
     initialData: activeTab === initialDocType ? initialDocuments : undefined,
-  });
-
-  // Fetch assignment stats when viewing assignments
-  const assignmentIds = useMemo(
-    () => (activeTab === 'assignment' ? documents.map((d) => d.id) : []),
-    [activeTab, documents],
-  );
-
-  const { data: assignmentStats } = useQuery({
-    queryKey: queryKeys.documents.stats(activeTab, assignmentIds),
-    queryFn: async () => {
-      if (assignmentIds.length === 0) return {};
-      const result = await fetchAssignmentStats(assignmentIds);
-      if (!result.success) return {};
-      return result.data!;
-    },
-    enabled: activeTab === 'assignment' && assignmentIds.length > 0,
   });
 
   const filteredDocuments = useMemo(
@@ -439,7 +423,6 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 }
                 setEditTarget(doc);
               }}
-              assignmentStats={activeTab === 'assignment' ? assignmentStats : undefined}
             />
           ) : debouncedSearch ? (
             <Stack align="center" gap="xs" py={48}>

@@ -51,6 +51,8 @@ export const examPaperEntity: ExamPaper = {
   questionTypes: examPaperRow.question_types,
   status: examPaperRow.status,
   createdAt: examPaperRow.created_at,
+  metadata: {},
+  questionCount: undefined,
 };
 
 /* ================================================================
