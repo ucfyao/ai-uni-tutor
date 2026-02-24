@@ -180,4 +180,42 @@ describe('assignment-extractor', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0].sourcePages).toEqual([1, 2, 3]);
   });
+
+  it('should handle null metadata values from LLM (duration, instructions, etc.)', async () => {
+    mockExtractFromPDF.mockResolvedValue({
+      result: {
+        metadata: {
+          totalPoints: null,
+          totalQuestions: null,
+          duration: null,
+          instructions: null,
+          examDate: null,
+        },
+        items: [
+          {
+            title: 'Q1',
+            orderNum: 1,
+            content: 'Test question',
+            parentIndex: null,
+            referenceAnswer: '',
+            explanation: '',
+            points: 5,
+            type: 'short_answer',
+            difficulty: 'easy',
+            sourcePages: [1],
+          },
+        ],
+      },
+      warnings: [],
+    });
+
+    const result = await extractAssignmentQuestions(dummyBuffer);
+
+    expect(result.items).toHaveLength(1);
+    // Null values should be transformed to undefined (stripped from metadata)
+    expect(result.metadata).toBeDefined();
+    expect(result.metadata?.duration).toBeUndefined();
+    expect(result.metadata?.instructions).toBeUndefined();
+    expect(result.metadata?.totalPoints).toBeUndefined();
+  });
 });
