@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
   Box,
@@ -11,9 +11,10 @@ import {
   Stack,
   Text,
 } from '@mantine/core';
+import type { ChatCommand } from '@/constants/commands';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatMessage, TutoringMode } from '@/types';
-import { MessageBubble } from './MessageBubble';
+import { MemoizedMessageBubble } from './MessageBubble';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { WelcomeScreen } from './WelcomeScreen';
 
@@ -59,10 +60,56 @@ interface MessageListProps {
   ) => Promise<void>;
   isKnowledgeMode?: boolean;
   courseCode?: string;
-  onPromptSelect?: (prompt: string) => void;
+  onCommandSelect?: (command: ChatCommand) => void;
   onRegenerate?: (messageId: string) => void;
   isLoading?: boolean;
   contentClassName?: string;
+}
+
+/** Return a human-friendly date label for a timestamp. */
+function getDateLabel(timestamp: number, t: { today: string; yesterday: string }): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+  if (isToday) return t.today;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+  if (isYesterday) return t.yesterday;
+
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/** Pre-compute which message indices need a date separator before them. */
+function computeDateGroups(
+  messages: ChatMessage[],
+  t: { today: string; yesterday: string },
+): Map<number, string> {
+  const groups = new Map<number, string>();
+  if (messages.length === 0) return groups;
+
+  groups.set(0, getDateLabel(messages[0].timestamp, t));
+
+  for (let i = 1; i < messages.length; i++) {
+    const prevDay = new Date(messages[i - 1].timestamp).toDateString();
+    const currDay = new Date(messages[i].timestamp).toDateString();
+    if (prevDay !== currDay) {
+      groups.set(i, getDateLabel(messages[i].timestamp, t));
+    }
+  }
+  return groups;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -75,7 +122,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onAddCard,
   isKnowledgeMode: _isKnowledgeMode = false,
   courseCode,
-  onPromptSelect,
+  onCommandSelect,
   onRegenerate,
   isLoading = false,
   contentClassName,
@@ -85,6 +132,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   const isAutoScrollingRef = useRef(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
+
+  // Date group separators
+  const dateGroups = useMemo(
+    () => computeDateGroups(messages, { today: t.chat.today, yesterday: t.chat.yesterday }),
+    [messages, t.chat.today, t.chat.yesterday],
+  );
 
   const handleScroll = useCallback(() => {
     if (!viewport.current || isAutoScrollingRef.current) return;
@@ -158,12 +211,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   }
 
   // Use full height for empty state to center Welcome Screen
-  if (isNewChat && mode && courseCode && onPromptSelect) {
+  if (isNewChat && mode && courseCode && onCommandSelect) {
     return (
       <Box bg="var(--mantine-color-body)" style={{ flex: 1, minHeight: 0 }}>
         <ScrollArea h="100%" scrollbarSize={6} type="auto">
           <Box className={contentClassName}>
-            <WelcomeScreen mode={mode} courseCode={courseCode} onPromptSelect={onPromptSelect} />
+            <WelcomeScreen mode={mode} courseCode={courseCode} onCommandSelect={onCommandSelect} />
           </Box>
         </ScrollArea>
       </Box>
@@ -184,31 +237,55 @@ export const MessageList: React.FC<MessageListProps> = ({
           {/* Max-width container for optimal line length */}
           <Container size="56.25rem" w="100%" px="md">
             <Stack gap="sm">
-              {messages.map((msg) => {
+              {messages.map((msg, index) => {
+                const dateLabel = dateGroups.get(index);
                 return (
-                  <Box
-                    key={msg.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    }}
-                    className={
-                      animatedIds.has(msg.id)
-                        ? msg.role === 'user'
-                          ? 'msg-enter-right'
-                          : 'msg-enter-left'
-                        : undefined
-                    }
-                  >
-                    <MessageBubble
-                      message={msg}
-                      isStreaming={msg.id === streamingMsgId}
-                      onStreamingComplete={() => {}}
-                      mode={mode}
-                      onAddCard={onAddCard}
-                      onRegenerate={onRegenerate}
-                    />
-                  </Box>
+                  <React.Fragment key={msg.id}>
+                    {/* Date separator */}
+                    {dateLabel && (
+                      <Group gap="sm" align="center" my={4}>
+                        <Box
+                          style={{
+                            flex: 1,
+                            height: 1,
+                            backgroundColor: 'var(--mantine-color-gray-2)',
+                          }}
+                        />
+                        <Text size="xs" c="dimmed" fw={500} style={{ flexShrink: 0 }}>
+                          {dateLabel}
+                        </Text>
+                        <Box
+                          style={{
+                            flex: 1,
+                            height: 1,
+                            backgroundColor: 'var(--mantine-color-gray-2)',
+                          }}
+                        />
+                      </Group>
+                    )}
+                    <Box
+                      style={{
+                        display: 'flex',
+                        justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                      }}
+                      className={
+                        animatedIds.has(msg.id)
+                          ? msg.role === 'user'
+                            ? 'msg-enter-right'
+                            : 'msg-enter-left'
+                          : undefined
+                      }
+                    >
+                      <MemoizedMessageBubble
+                        message={msg}
+                        isStreaming={msg.id === streamingMsgId}
+                        onStreamingComplete={() => {}}
+                        mode={mode}
+                        onAddCard={onAddCard}
+                        onRegenerate={onRegenerate}
+                      />
+                    </Box>
+                  </React.Fragment>
                 );
               })}
 

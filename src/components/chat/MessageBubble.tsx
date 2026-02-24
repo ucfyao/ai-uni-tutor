@@ -1,4 +1,14 @@
-import { BookOpen, Check, ChevronDown, ChevronUp, Copy, Quote, RefreshCw } from 'lucide-react';
+import {
+  BookOpen,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Quote,
+  RefreshCw,
+  ThumbsDown,
+  ThumbsUp,
+} from 'lucide-react';
 import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
@@ -127,6 +137,7 @@ const MessageActionBar: React.FC<{
 }> = ({ isUser, content, messageId, timestamp, onRegenerate }) => {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard
@@ -143,6 +154,37 @@ const MessageActionBar: React.FC<{
       })
       .catch(() => {});
   }, [content, t.toast.copiedToClipboard]);
+
+  const handleFeedback = useCallback(
+    (type: 'up' | 'down') => {
+      const prevFeedback = feedback;
+      const newFeedback = feedback === type ? null : type;
+      setFeedback(newFeedback);
+
+      if (newFeedback) {
+        showNotification({
+          message: t.toast.feedbackThanks,
+          color: 'teal',
+          icon: <Check size={16} />,
+          autoClose: 2000,
+        });
+      }
+
+      // Persist to backend (fire-and-forget with rollback on error)
+      fetch('/api/chat/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, feedbackType: newFeedback }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed');
+        })
+        .catch(() => {
+          setFeedback(prevFeedback);
+        });
+    },
+    [feedback, messageId, t.toast.feedbackThanks],
+  );
 
   return (
     <Group
@@ -183,6 +225,36 @@ const MessageActionBar: React.FC<{
           </ActionIcon>
         </Tooltip>
       )}
+
+      {/* AI feedback buttons */}
+      {!isUser && (
+        <>
+          <Box w={1} h={16} bg="gray.2" mx={4} style={{ flexShrink: 0 }} />
+          <Tooltip label={t.chat.helpful} position="bottom" withArrow>
+            <ActionIcon
+              variant="subtle"
+              color={feedback === 'up' ? 'teal' : 'gray'}
+              size={28}
+              radius="md"
+              onClick={() => handleFeedback('up')}
+            >
+              <ThumbsUp size={14} fill={feedback === 'up' ? 'currentColor' : 'none'} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={t.chat.notHelpful} position="bottom" withArrow>
+            <ActionIcon
+              variant="subtle"
+              color={feedback === 'down' ? 'red' : 'gray'}
+              size={28}
+              radius="md"
+              onClick={() => handleFeedback('down')}
+            >
+              <ThumbsDown size={14} fill={feedback === 'down' ? 'currentColor' : 'none'} />
+            </ActionIcon>
+          </Tooltip>
+        </>
+      )}
+
       <Text size="xs" c="dimmed" ml={4}>
         {formatRelativeTime(timestamp)}
       </Text>
@@ -419,17 +491,38 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <Box
                   component="span"
                   style={{
-                    display: 'inline-block',
-                    width: '8px',
-                    height: '18px',
-                    backgroundColor: 'var(--mantine-color-indigo-5)',
-                    marginLeft: '4px',
-                    borderRadius: '3px',
-                    verticalAlign: 'text-bottom',
-                    animation: 'cursorBlink 1s ease-in-out infinite',
-                    boxShadow: '0 0 8px var(--mantine-color-indigo-3)',
+                    display: 'inline-flex',
+                    gap: '3px',
+                    alignItems: 'center',
+                    marginLeft: '6px',
+                    verticalAlign: 'middle',
                   }}
-                />
+                >
+                  {[0, 1, 2].map((i) => (
+                    <Box
+                      key={i}
+                      component="span"
+                      className="thinking-dot"
+                      style={{
+                        display: 'inline-block',
+                        width: '5px',
+                        height: '5px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--mantine-color-indigo-5)',
+                        animation: `thinkingBounce 1.4s ease-in-out ${i * 0.16}s infinite both`,
+                      }}
+                    />
+                  ))}
+                  <style>{`
+                    @keyframes thinkingBounce {
+                      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+                      40% { transform: scale(1); opacity: 1; }
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                      .thinking-dot { animation: none !important; opacity: 0.7 !important; }
+                    }
+                  `}</style>
+                </Box>
               )}
             </>
           )}
@@ -503,3 +596,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </Box>
   );
 };
+
+// Memoize to avoid re-rendering all bubbles when parent state changes (e.g. during streaming)
+export const MemoizedMessageBubble = React.memo(MessageBubble, (prev, next) => {
+  if (prev.message.id !== next.message.id) return false;
+  if (prev.message.content !== next.message.content) return false;
+  if (prev.isStreaming !== next.isStreaming) return false;
+  if (prev.message.sources !== next.message.sources) return false;
+  if (prev.onRegenerate !== next.onRegenerate) return false;
+  return true;
+});

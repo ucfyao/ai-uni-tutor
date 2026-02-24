@@ -13,8 +13,6 @@ export interface ModeMetadata {
   suggestedPrompts?: string[];
 }
 
-export const SUMMARY_PROMPT = 'Summarize the key concepts of the last lecture';
-
 export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
   'Lecture Helper': {
     id: 'lecture',
@@ -25,12 +23,6 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
     intro:
       '**Lecture Helper Mode Active**\n\nI break down complex theories into simple, digestible parts using analogies. What concept needs clarifying?',
     hoverClass: 'hover:border-indigo-300 hover:shadow-[0_8px_30px_rgba(79,70,229,0.15)]',
-    suggestedPrompts: [
-      SUMMARY_PROMPT,
-      'Explain this concept like I am 5',
-      'Connect this topic to real-world examples',
-      'What are the most common misconceptions here?',
-    ],
   },
   'Assignment Coach': {
     id: 'assignment',
@@ -41,12 +33,6 @@ export const MODES_METADATA: Record<TutoringMode, ModeMetadata> = {
     intro:
       "**Assignment Coach Mode Active**\n\nI guide you through code, writing, and analysis without giving direct answers, so you learn the 'why'.",
     hoverClass: 'hover:border-teal-300 hover:shadow-[0_8px_30px_rgba(20,184,166,0.15)]',
-    suggestedPrompts: [
-      'Check if my answer is correct',
-      "I don't understand what this question is asking",
-      'How should I approach this problem?',
-      '用中文给我解释一下这个概念',
-    ],
   },
   'Mock Exam': {
     id: 'exam',

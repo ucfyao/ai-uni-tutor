@@ -6,7 +6,7 @@ import { askCardQuestion } from '@/app/actions/knowledge-cards';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
 import { UsageLimitModal } from '@/components/UsageLimitModal';
-import { SUMMARY_PROMPT } from '@/constants/modes';
+import { parseCommand, type ChatCommand } from '@/constants/commands';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useKnowledgeCards } from '@/hooks/useKnowledgeCards';
@@ -135,6 +135,15 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     isSendingRef.current = true;
     setLastError(null);
     setLastInput(messageToSend);
+
+    // Command check
+    if (session.mode && messageToSend.startsWith('/')) {
+      const parsed = parseCommand(messageToSend, session.mode);
+      if (parsed) {
+        handleCommandDispatch(parsed.command, parsed.args);
+        return;
+      }
+    }
 
     // Convert attached files to base64
     const imageData: { data: string; mimeType: string }[] = [];
@@ -328,7 +337,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   const handleSummaryAction = async () => {
     if (!session?.course?.id) {
-      handleSend(SUMMARY_PROMPT);
+      handleSend('Summarize the key concepts of the last lecture');
       return;
     }
 
@@ -336,7 +345,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
     if (!result.success || result.data.length === 0) {
       // Fallback to regular RAG
-      handleSend(SUMMARY_PROMPT);
+      handleSend('Summarize the key concepts of the last lecture');
       return;
     }
 
@@ -349,7 +358,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
       role: 'user',
-      content: SUMMARY_PROMPT,
+      content: '/summary',
       timestamp: Date.now(),
     };
     const aiMsg: ChatMessage = {
@@ -363,6 +372,22 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       messages: [...session.messages, userMsg, aiMsg],
       lastUpdated: Date.now(),
     });
+  };
+
+  const handleCommandDispatch = (command: ChatCommand, args: string = '') => {
+    if (command.action === 'prefill') {
+      setInput(command.promptTemplate + args);
+      requestAnimationFrame(() => chatInputRef.current?.focus());
+      return;
+    }
+
+    // For "send" action
+    if (command.id === 'summary') {
+      handleSummaryAction();
+    } else {
+      const prompt = command.promptTemplate + (args ? ' ' + args : '');
+      handleSend(prompt);
+    }
   };
 
   const handleRegenerate = async (messageId: string) => {
@@ -498,13 +523,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onAddCard={handleAddCard}
             isKnowledgeMode={true}
             courseCode={session.course?.code ?? ''}
-            onPromptSelect={(prompt) => {
-              if (prompt === SUMMARY_PROMPT) {
-                handleSummaryAction();
-              } else {
-                handleSend(prompt);
-              }
-            }}
+            onCommandSelect={(cmd) => handleCommandDispatch(cmd)}
             onRegenerate={handleRegenerate}
             contentClassName="chat-scroll-content-offset"
             isLoading={isLoading}
@@ -537,6 +556,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 isStreaming={isStreaming}
                 attachedDocument={attachedDocument}
                 onRemoveDocument={handleRemoveDocument}
+                mode={session.mode || undefined}
+                onCommandSelect={(cmd) => handleCommandDispatch(cmd)}
               />
             </Box>
           </Box>

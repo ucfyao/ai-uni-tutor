@@ -4,6 +4,10 @@
 
 export { SessionRepository, getSessionRepository } from './SessionRepository';
 export { MessageRepository, getMessageRepository } from './MessageRepository';
+export {
+  MessageFeedbackRepository,
+  getMessageFeedbackRepository,
+} from './MessageFeedbackRepository';
 export { LectureDocumentRepository, getLectureDocumentRepository } from './DocumentRepository';
 export { LectureChunkRepository, getLectureChunkRepository } from './DocumentChunkRepository';
 export { ProfileRepository, getProfileRepository } from './ProfileRepository';
