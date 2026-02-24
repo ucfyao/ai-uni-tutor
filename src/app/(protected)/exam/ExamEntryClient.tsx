@@ -311,14 +311,14 @@ export function ExamEntryClient({
                 <Text size="sm" fw={500} mb="xs">
                   {t.exam.selectSource}
                 </Text>
-                <Group grow gap="md">
+                <Group grow gap="md" align="stretch">
                   <SourceCard
                     active={source === 'ai'}
                     title={t.exam.aiMock}
                     description={t.exam.aiMockDesc}
                     icon={<Sparkles size={18} />}
                     onClick={() => setSource('ai')}
-                    recommended={!hasPapers && !loadingPapers}
+                    recommended
                   />
                   <SourceCard
                     active={source === 'real'}
@@ -326,7 +326,6 @@ export function ExamEntryClient({
                     description={t.exam.realExamDesc}
                     icon={<ExamIcon size={18} />}
                     onClick={() => setSource('real')}
-                    recommended={hasPapers}
                     disabled={!hasPapers}
                     disabledNote={
                       !hasPapers && !loadingPapers ? t.exam.noPapersAvailableShort : undefined
@@ -546,13 +545,14 @@ function SourceCard({
   disabledNote?: string;
 }) {
   return (
-    <UnstyledButton onClick={disabled ? undefined : onClick}>
+    <UnstyledButton onClick={disabled ? undefined : onClick} style={{ display: 'flex' }}>
       <Card
         withBorder
         radius="md"
         p="md"
         style={{
           position: 'relative',
+          flex: 1,
           borderColor: active
             ? `var(--mantine-color-${getDocColor('exam')}-5)`
             : 'var(--mantine-color-gray-3)',
