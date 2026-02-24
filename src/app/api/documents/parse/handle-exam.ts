@@ -120,43 +120,48 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
         };
     });
 
-    await examService.saveHierarchicalQuestions(documentId, questions);
+    try {
+        await examService.saveHierarchicalQuestions(documentId, questions);
+    } catch (e) {
+        sendGeminiError(send, e, 'save');
+        return;
+    }
     send('batch_saved', { chunkIds: questions.map((_, i) => `q-${i}`), batchIndex: 0 });
 
     if (signal.aborted) return;
 
-    // ── Compute stats and update paper metadata ──
-    const stats = {
-        itemCount: existingQuestions.length + questions.length,
-        mainCount: 0,
-        subCount: 0,
-        withAnswer: 0,
-        warningCount: 0,
-    };
+    // ── Compute stats and update paper metadata (non-fatal) ──
+    try {
+        const stats = {
+            itemCount: existingQuestions.length + questions.length,
+            mainCount: 0,
+            subCount: 0,
+            withAnswer: 0,
+            warningCount: 0,
+        };
 
-    // We need the full list to accurately recount, including newly added ones.
-    // We can just re-fetch the complete list.
-    const allQuestions = await examService.getQuestionsByPaperId(documentId);
-    for (const q of allQuestions) {
-        if (q.parentQuestionId === null) {
-            stats.mainCount++;
-        } else {
-            stats.subCount++;
+        const allQuestions = await examService.getQuestionsByPaperId(documentId);
+        for (const q of allQuestions) {
+            if (q.parentQuestionId === null) {
+                stats.mainCount++;
+            } else {
+                stats.subCount++;
+            }
+            if (q.answer?.trim()) stats.withAnswer++;
         }
-        if (q.answer?.trim()) stats.withAnswer++;
-        // Warnings are strictly captured on insertion, but currently not stored back in db for exams.
-        // So we just leave warningCount as 0 or calculate from newItems.
+
+        stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
+
+        const questionTypes = [...new Set(allQuestions.map((q) => q.type).filter(Boolean))];
+
+        await examService.updatePaperMeta(documentId, {
+            questionTypes,
+            metadata: { stats },
+        });
+    } catch (e) {
+        console.warn('Failed to update exam stats (non-fatal):', e);
+        send('log', { message: 'Stats update failed (non-fatal)', level: 'warning' });
     }
-
-    // Calculate warning count just for newly parsed items, as a proxy
-    stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
-
-    const questionTypes = [...new Set(allQuestions.map((q) => q.type).filter(Boolean))];
-
-    await examService.updatePaperMeta(documentId, {
-        questionTypes,
-        metadata: { stats },
-    });
 
     send('status', { stage: 'complete', message: 'Done!' });
 }

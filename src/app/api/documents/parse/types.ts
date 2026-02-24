@@ -20,7 +20,7 @@ export interface PipelineContext {
 export function sendGeminiError(
   send: SSESendFn,
   error: unknown,
-  context: 'extraction' | 'embedding',
+  context: 'extraction' | 'embedding' | 'save',
 ) {
   const appErr = AppError.from(error);
 
@@ -32,8 +32,12 @@ export function sendGeminiError(
   }
 
   // Generic / non-Gemini errors → context-specific fallback
-  const code = context === 'embedding' ? 'EMBEDDING_ERROR' : 'EXTRACTION_ERROR';
-  const label = context === 'embedding' ? 'generate embeddings' : 'extract content from PDF';
+  const contextMap: Record<string, { code: string; label: string }> = {
+    extraction: { code: 'EXTRACTION_ERROR', label: 'extract content from PDF' },
+    embedding: { code: 'EMBEDDING_ERROR', label: 'generate embeddings' },
+    save: { code: 'SAVE_ERROR', label: 'save data to database' },
+  };
+  const { code, label } = contextMap[context];
   send('log', { message: `Failed to ${label}`, level: 'error' });
   send('error', { message: `Failed to ${label}`, code });
 }

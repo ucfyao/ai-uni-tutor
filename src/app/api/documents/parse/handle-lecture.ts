@@ -106,8 +106,14 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
       message: `Generating vector embeddings for ${candidateSections.length} new sections...`,
       level: 'info',
     });
-    const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
-    const candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
+    let candidateEmbeddings: number[][];
+    try {
+      const { generateEmbeddingBatch } = await import('@/lib/rag/embedding');
+      candidateEmbeddings = await generateEmbeddingBatch(candidateContents);
+    } catch (e) {
+      sendGeminiError(send, e, 'embedding');
+      return;
+    }
 
     send('log', { message: 'Vector embeddings generated successfully', level: 'success' });
 
@@ -204,6 +210,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
 
     // Batch save (groups of 20)
     const SAVE_BATCH = 20;
+    let savedCount = 0;
     for (let i = 0; i < allChunks.length; i += SAVE_BATCH) {
       if (signal.aborted) break;
       const batchIdx = Math.floor(i / SAVE_BATCH);
@@ -215,13 +222,22 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
         level: 'info',
       });
 
-      const saved = await lectureService.saveChunksAndReturn(batch);
-      send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
+      try {
+        const saved = await lectureService.saveChunksAndReturn(batch);
+        send('batch_saved', { chunkIds: saved.map((c) => c.id), batchIndex: batchIdx });
+        savedCount += saved.length;
+      } catch (e) {
+        console.error(`Batch ${batchIdx + 1} save error:`, e);
+        send('log', {
+          message: `Batch ${batchIdx + 1} failed to save (continuing with remaining)`,
+          level: 'warning',
+        });
+      }
       send('progress', { current: batchEnd, total: allChunks.length });
     }
 
     send('log', {
-      message: `Successfully saved ${allChunks.length} chunks to database`,
+      message: `Successfully saved ${savedCount}/${allChunks.length} chunks to database`,
       level: 'success',
     });
     send('status', { stage: 'complete', message: 'Done!' });

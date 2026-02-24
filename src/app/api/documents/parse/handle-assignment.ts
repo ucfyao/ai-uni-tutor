@@ -374,35 +374,38 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         remaining = unresolvable;
     }
 
-    // ── Compute stats and update assignment metadata ──
-    const allItems = await assignmentService.getItems(documentId);
-    const stats = {
-        itemCount: allItems.length,
-        mainCount: 0,
-        subCount: 0,
-        withAnswer: 0,
-        warningCount: 0,
-    };
+    // ── Compute stats and update assignment metadata (non-fatal) ──
+    try {
+        const allItems = await assignmentService.getItems(documentId);
+        const stats = {
+            itemCount: allItems.length,
+            mainCount: 0,
+            subCount: 0,
+            withAnswer: 0,
+            warningCount: 0,
+        };
 
-    for (const item of allItems) {
-        if (item.parentItemId === null) {
-            stats.mainCount++;
-        } else {
-            stats.subCount++;
+        for (const item of allItems) {
+            if (item.parentItemId === null) {
+                stats.mainCount++;
+            } else {
+                stats.subCount++;
+            }
+            if (item.referenceAnswer?.trim()) stats.withAnswer++;
         }
-        if (item.referenceAnswer?.trim()) stats.withAnswer++;
+
+        stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
+
+        const currentAssignment = await assignmentService.findById(documentId);
+        const updatedMetadata = {
+            ...(currentAssignment?.metadata || {}),
+            stats,
+        };
+        await assignmentService.updateMetadata(documentId, updatedMetadata);
+    } catch (e) {
+        console.warn('Failed to update assignment stats (non-fatal):', e);
+        send('log', { message: 'Stats update failed (non-fatal)', level: 'warning' });
     }
-
-    // Calculate warning count just for newly parsed items, as a proxy
-    stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
-
-    // Fetch current metadata to merge it, since handle-assignment may have already saved metadata earlier
-    const currentAssignment = await assignmentService.findById(documentId);
-    const updatedMetadata = {
-        ...(currentAssignment?.metadata || {}),
-        stats,
-    };
-    await assignmentService.updateMetadata(documentId, updatedMetadata);
 
     send('log', { message: `Saved ${newItems.length} questions`, level: 'success' });
     send('status', { stage: 'complete', message: 'Done!' });
