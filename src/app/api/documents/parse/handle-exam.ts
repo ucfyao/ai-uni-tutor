@@ -30,6 +30,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
                 orderNum: i + 1,
                 content: q.content,
                 referenceAnswer: q.referenceAnswer,
+                parentIndex: q.parentIndex ?? null,
             })),
         );
 

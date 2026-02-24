@@ -1,4 +1,5 @@
 import { RAG_CONFIG } from '@/lib/rag/config';
+import type { AssignmentMetadata, AssignmentStats } from '@/lib/rag/parsers/types';
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<void> {
@@ -254,6 +255,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
                 type: newItems[i].type,
                 sourcePages: newItems[i].sourcePages,
                 difficulty: newItems[i].difficulty,
+                options: newItems[i].options ?? [],
             },
             embedding: newEmbeddings[i],
             warnings: newItems[i].warnings ?? [],
@@ -314,6 +316,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
                         type: newItems[i].type,
                         sourcePages: newItems[i].sourcePages,
                         difficulty: newItems[i].difficulty,
+                        options: newItems[i].options ?? [],
                     },
                     embedding: newEmbeddings[i],
                     warnings: newItems[i].warnings ?? [],
@@ -353,6 +356,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
                     type: newItems[i].type,
                     sourcePages: newItems[i].sourcePages,
                     difficulty: newItems[i].difficulty,
+                    options: newItems[i].options ?? [],
                 },
                 embedding: newEmbeddings[i],
                 warnings: newItems[i].warnings ?? [],
@@ -380,7 +384,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     // ── Compute stats and update assignment metadata (non-fatal) ──
     try {
         const allItems = await assignmentService.getItems(documentId);
-        const stats = {
+        const stats: AssignmentStats = {
             itemCount: allItems.length,
             mainCount: 0,
             subCount: 0,
@@ -400,8 +404,8 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
 
         const currentAssignment = await assignmentService.findById(documentId);
-        const updatedMetadata = {
-            ...(currentAssignment?.metadata || {}),
+        const updatedMetadata: AssignmentMetadata = {
+            ...((currentAssignment?.metadata as AssignmentMetadata) || {}),
             stats,
         };
         await assignmentService.updateMetadata(documentId, updatedMetadata);
