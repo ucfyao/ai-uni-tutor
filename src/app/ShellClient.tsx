@@ -62,8 +62,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     openModal();
   };
 
-  const handleStartSession = async (courseId: string, mode: TutoringMode) => {
-    const newId = await addSession(courseId, mode);
+  const handleStartSession = async (courseId: string, mode: TutoringMode, courseCode: string) => {
+    const newId = await addSession(courseId, mode, courseCode);
     if (!newId) {
       showNotification({ title: 'Error', message: 'Failed to create session', color: 'red' });
       return;

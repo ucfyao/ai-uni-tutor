@@ -9,7 +9,7 @@ import { ChatSession, TutoringMode } from '@/types/index';
 
 interface SessionContextType {
   sessions: ChatSession[];
-  addSession: (courseId: string, mode: TutoringMode | null) => Promise<string | null>;
+  addSession: (courseId: string, mode: TutoringMode | null, courseCode: string) => Promise<string | null>;
   removeSession: (id: string) => Promise<void>;
   updateSessionLocal: (session: ChatSession) => void;
   refreshSessions: () => Promise<void>;
@@ -104,9 +104,9 @@ export function SessionProvider({
   });
 
   const addSession = useCallback(
-    async (courseId: string, mode: TutoringMode | null): Promise<string | null> => {
+    async (courseId: string, mode: TutoringMode | null, courseCode: string): Promise<string | null> => {
       const tempId = `temp_${Date.now()}`;
-      const title = mode ? `New Session - ${mode}` : 'New Session';
+      const title = courseCode;
 
       try {
         const created = await createMutation.mutateAsync({ courseId, mode, title, tempId });
