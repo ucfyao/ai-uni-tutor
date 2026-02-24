@@ -409,7 +409,6 @@ export function AssignmentDetailClient({ assignment, initialItems }: AssignmentD
               onParseComplete={() => {
                 invalidateItems();
                 router.refresh();
-                setShowUploadZone(false);
               }}
             />
           )}
