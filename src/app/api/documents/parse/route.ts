@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         send('error', { message: 'Invalid upload data', code: 'VALIDATION_ERROR' });
         return;
       }
-      const { documentId, doc_type, has_answers, reparse, append } = parsed.data;
+      const { documentId, doc_type, reparse, append } = parsed.data;
 
       // ── Course-level permission check (look up course from existing record) ──
       let courseId: string | null = null;
@@ -227,7 +227,6 @@ export async function POST(request: Request) {
         fileHash,
         courseId,
         userId: user.id,
-        hasAnswers: has_answers,
         documentName,
       };
 

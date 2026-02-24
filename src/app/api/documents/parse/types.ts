@@ -12,7 +12,6 @@ export interface PipelineContext {
   fileHash: string;
   courseId: string | null;
   userId: string;
-  hasAnswers: boolean;
   /** Document name (lecture only). */
   documentName: string | null;
 }

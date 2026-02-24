@@ -46,7 +46,7 @@ export class ExamPaperService {
     try {
       // One-shot extraction: PDF → JSON via Gemini File API
       const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-      const parsed = await parseQuestions(fileBuffer, true);
+      const parsed = await parseQuestions(fileBuffer);
 
       if (parsed.length === 0) {
         throw new AppError('VALIDATION', 'AI could not extract any questions from the PDF');
@@ -68,7 +68,7 @@ export class ExamPaperService {
             ? Object.fromEntries(q.options.map((opt, j) => [String.fromCharCode(65 + j), opt]))
             : null,
           answer: q.referenceAnswer ?? '',
-          explanation: '',
+          explanation: q.explanation || '',
           points: typeof q.score === 'number' ? q.score : parseInt(String(q.score)) || 0,
           parentIndex: q.parentIndex ?? null,
           metadata: { sourcePage: q.sourcePage },

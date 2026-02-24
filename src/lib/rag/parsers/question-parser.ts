@@ -10,7 +10,6 @@ import type { ParsedQuestion } from './types';
  */
 export async function parseQuestions(
   fileBuffer: Buffer,
-  hasAnswers: boolean,
   onBatchProgress?: (current: number, total: number) => void,
   signal?: AbortSignal,
 ): Promise<ParsedQuestion[]> {
@@ -18,10 +17,6 @@ export async function parseQuestions(
   if (signal?.aborted) return [];
 
   onBatchProgress?.(0, 1);
-
-  const answerInstruction = hasAnswers
-    ? '- referenceAnswer: The reference answer or solution provided (extract from the document)'
-    : '- referenceAnswer: Omit this field (no answers provided in document)';
 
   const prompt = `You are an expert academic content analyzer. Analyze this exam/assignment PDF document and extract each individual question.
 
@@ -31,7 +26,8 @@ For each question, extract:
 - type: Question type — one of "choice", "fill_blank", "short_answer", "calculation", "proof", "essay", "true_false"
 - parentIndex: If this is a sub-question (like (a), (b), (i), (ii)), the 0-based index of its parent in the results array. null for top-level questions.
 - options: Array of answer options if it's a multiple choice question (omit if not MC)
-${answerInstruction}
+- referenceAnswer: The reference answer or solution if provided in the document (omit if not found)
+- explanation: Step-by-step solution explanation if provided in the document (omit if not found)
 - score: Points/marks allocated if shown (omit if not shown)
 - sourcePage: The page number where the question appears
 

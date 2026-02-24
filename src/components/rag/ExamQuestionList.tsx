@@ -20,12 +20,14 @@ import {
   Box,
   Button,
   Card,
+  CloseButton,
   Group,
   NumberInput,
   Select,
   Stack,
   Text,
   Textarea,
+  TextInput,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { FullScreenModal } from '@/components/FullScreenModal';
@@ -77,6 +79,7 @@ const QUESTION_TYPE_KEYS = [
   'calculation',
   'proof',
   'essay',
+  'true_false',
 ] as const;
 
 type TranslationMap = Record<string, string>;
@@ -184,6 +187,9 @@ function QuestionEditForm({
   const [explanation, setExplanation] = useState(question.explanation ?? '');
   const [type, setType] = useState(question.type ?? '');
   const [points, setPoints] = useState<number | string>(question.points ?? 0);
+  const [options, setOptions] = useState<Record<string, string>>(
+    question.type === 'choice' && question.options ? { ...question.options } : {},
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -194,11 +200,10 @@ function QuestionEditForm({
         answer,
         explanation,
         type,
+        options: type === 'choice' && Object.keys(options).length > 0 ? options : null,
         points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
         orderNum:
-          typeof orderNum === 'number'
-            ? orderNum
-            : parseInt(String(orderNum)) || question.orderNum,
+          typeof orderNum === 'number' ? orderNum : parseInt(String(orderNum)) || question.orderNum,
       });
     } finally {
       setIsSaving(false);
@@ -221,6 +226,50 @@ function QuestionEditForm({
         maxRows={8}
         t={t}
       />
+      {type === 'choice' && (
+        <Stack gap="xs">
+          <Text size="sm" fw={500}>
+            {t.documentDetail.options}
+          </Text>
+          {Object.entries(options).map(([letter, text]) => (
+            <Group key={letter} gap="xs" wrap="nowrap">
+              <Badge size="sm" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                {letter}
+              </Badge>
+              <TextInput
+                value={text}
+                onChange={(e) =>
+                  setOptions((prev) => ({ ...prev, [letter]: e.currentTarget.value }))
+                }
+                style={{ flex: 1 }}
+                size="sm"
+              />
+              <CloseButton
+                size="sm"
+                onClick={() =>
+                  setOptions((prev) => {
+                    const next = { ...prev };
+                    delete next[letter];
+                    return next;
+                  })
+                }
+              />
+            </Group>
+          ))}
+          <Button
+            variant="subtle"
+            color="indigo"
+            size="compact-xs"
+            leftSection={<Plus size={14} />}
+            onClick={() => {
+              const nextLetter = String.fromCharCode(65 + Object.keys(options).length);
+              setOptions((prev) => ({ ...prev, [nextLetter]: '' }));
+            }}
+          >
+            {t.documentDetail.addOption}
+          </Button>
+        </Stack>
+      )}
       <MarkdownToggleField
         label={t.documentDetail.answer}
         value={answer}
@@ -289,6 +338,7 @@ function AddQuestionForm({
   const [explanation, setExplanation] = useState('');
   const [type, setType] = useState<string>('short_answer');
   const [points, setPoints] = useState<number | string>(10);
+  const [options, setOptions] = useState<Record<string, string>>({});
 
   const handleAdd = async () => {
     if (!content.trim()) return;
@@ -298,6 +348,7 @@ function AddQuestionForm({
       explanation: explanation.trim(),
       type,
       points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
+      options: type === 'choice' && Object.keys(options).length > 0 ? options : null,
     };
     const success = await onAdd(data);
     if (success) {
@@ -329,6 +380,50 @@ function AddQuestionForm({
           }
         }}
       />
+      {type === 'choice' && (
+        <Stack gap="xs">
+          <Text size="sm" fw={500}>
+            {t.documentDetail.options}
+          </Text>
+          {Object.entries(options).map(([letter, text]) => (
+            <Group key={letter} gap="xs" wrap="nowrap">
+              <Badge size="sm" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                {letter}
+              </Badge>
+              <TextInput
+                value={text}
+                onChange={(e) =>
+                  setOptions((prev) => ({ ...prev, [letter]: e.currentTarget.value }))
+                }
+                style={{ flex: 1 }}
+                size="sm"
+              />
+              <CloseButton
+                size="sm"
+                onClick={() =>
+                  setOptions((prev) => {
+                    const next = { ...prev };
+                    delete next[letter];
+                    return next;
+                  })
+                }
+              />
+            </Group>
+          ))}
+          <Button
+            variant="subtle"
+            color="indigo"
+            size="compact-xs"
+            leftSection={<Plus size={14} />}
+            onClick={() => {
+              const nextLetter = String.fromCharCode(65 + Object.keys(options).length);
+              setOptions((prev) => ({ ...prev, [nextLetter]: '' }));
+            }}
+          >
+            {t.documentDetail.addOption}
+          </Button>
+        </Stack>
+      )}
       <MarkdownToggleField
         label={t.documentDetail.answer}
         placeholder={t.knowledge.referenceAnswerPlaceholder}
@@ -442,8 +537,7 @@ function QuestionCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 'var(--mantine-radius-md)',
-        background:
-          'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+        background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
         border: '1px solid var(--mantine-color-default-border)',
         borderLeft: '3px solid var(--mantine-color-indigo-5)',
         transition: 'all 0.15s ease',
@@ -453,12 +547,7 @@ function QuestionCard({
       }}
     >
       {isEditing ? (
-        <QuestionEditForm
-          question={question}
-          onSave={handleSave}
-          onCancel={onCancelEdit}
-          t={t}
-        />
+        <QuestionEditForm question={question} onSave={handleSave} onCancel={onCancelEdit} t={t} />
       ) : (
         <Stack gap="xs">
           {/* Header: order badge, type badge, points badge, action icons */}
@@ -540,6 +629,25 @@ function QuestionCard({
                   {expanded ? t.documentDetail.showLess : t.documentDetail.showMore}
                 </Text>
               )}
+
+              {/* Options */}
+              {question.type === 'choice' &&
+                question.options &&
+                Object.keys(question.options).length > 0 && (
+                  <Stack gap={4} mt={4}>
+                    <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts={0.5}>
+                      {t.documentDetail.options}
+                    </Text>
+                    {Object.entries(question.options).map(([letter, text]) => (
+                      <Group key={letter} gap="xs" wrap="nowrap">
+                        <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                          {letter}
+                        </Badge>
+                        <Text size="sm">{text}</Text>
+                      </Group>
+                    ))}
+                  </Stack>
+                )}
 
               {/* Answer */}
               {question.answer?.trim() && (

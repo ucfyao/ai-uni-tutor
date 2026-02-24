@@ -8,6 +8,7 @@ export function buildQuestionChunkContent(q: ParsedQuestion): string {
     `Q${q.questionNumber}: ${q.content}`,
     q.options?.length ? `Options: ${q.options.join(' | ')}` : '',
     q.referenceAnswer ? `Answer: ${q.referenceAnswer}` : '',
+    q.explanation ? `Explanation: ${q.explanation}` : '',
   ]
     .filter(Boolean)
     .join('\n');

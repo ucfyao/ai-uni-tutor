@@ -24,12 +24,13 @@ describe('question-parser', () => {
   });
 
   describe('parseQuestions', () => {
-    it('should extract questions with answers when hasAnswers is true', async () => {
+    it('should extract questions with answers and explanations', async () => {
       const questions = [
         {
           questionNumber: '1',
           content: 'What is the capital of France?',
           referenceAnswer: 'Paris',
+          explanation: 'Paris is the capital and largest city of France.',
           score: 5,
           sourcePage: 1,
         },
@@ -44,15 +45,16 @@ describe('question-parser', () => {
 
       mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const result = await parseQuestions(dummyBuffer, true);
+      const result = await parseQuestions(dummyBuffer);
 
       expect(result).toEqual(questions);
       expect(result).toHaveLength(2);
       expect(result[0].referenceAnswer).toBe('Paris');
+      expect(result[0].explanation).toBe('Paris is the capital and largest city of France.');
       expect(result[1].score).toBe(10);
     });
 
-    it('should extract questions without answers when hasAnswers is false', async () => {
+    it('should handle questions without answers or explanations', async () => {
       const questions = [
         {
           questionNumber: '1',
@@ -68,30 +70,24 @@ describe('question-parser', () => {
 
       mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const result = await parseQuestions(dummyBuffer, false);
+      const result = await parseQuestions(dummyBuffer);
 
       expect(result).toEqual(questions);
       expect(result[0].referenceAnswer).toBeUndefined();
-      expect(result[1].referenceAnswer).toBeUndefined();
+      expect(result[0].explanation).toBeUndefined();
     });
 
-    it('should include answer instruction in prompt based on hasAnswers flag', async () => {
+    it('should always include referenceAnswer and explanation in prompt', async () => {
       mockExtractFromPDF.mockResolvedValue({ result: [], warnings: [] });
 
-      // With answers
-      await parseQuestions(dummyBuffer, true);
-      const promptWithAnswers = mockExtractFromPDF.mock.calls[0][1] as string;
-      expect(promptWithAnswers).toContain(
-        'referenceAnswer: The reference answer or solution provided',
+      await parseQuestions(dummyBuffer);
+      const prompt = mockExtractFromPDF.mock.calls[0][1] as string;
+      expect(prompt).toContain(
+        'referenceAnswer: The reference answer or solution if provided in the document',
       );
-
-      mockExtractFromPDF.mockReset();
-      mockExtractFromPDF.mockResolvedValue({ result: [], warnings: [] });
-
-      // Without answers
-      await parseQuestions(dummyBuffer, false);
-      const promptWithoutAnswers = mockExtractFromPDF.mock.calls[0][1] as string;
-      expect(promptWithoutAnswers).toContain('referenceAnswer: Omit this field');
+      expect(prompt).toContain(
+        'explanation: Step-by-step solution explanation if provided in the document',
+      );
     });
 
     it('should handle multiple choice questions with options', async () => {
@@ -107,7 +103,7 @@ describe('question-parser', () => {
 
       mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const result = await parseQuestions(dummyBuffer, true);
+      const result = await parseQuestions(dummyBuffer);
 
       expect(result).toHaveLength(1);
       expect(result[0].options).toEqual(['A. Mercury', 'B. Venus', 'C. Earth', 'D. Mars']);
@@ -117,13 +113,13 @@ describe('question-parser', () => {
     it('should pass Buffer to extractFromPDF', async () => {
       mockExtractFromPDF.mockResolvedValue({ result: [], warnings: [] });
 
-      await parseQuestions(dummyBuffer, false);
+      await parseQuestions(dummyBuffer);
 
       expect(mockExtractFromPDF).toHaveBeenCalledWith(dummyBuffer, expect.any(String), undefined);
     });
 
     it('should handle empty buffer', async () => {
-      const result = await parseQuestions(Buffer.alloc(0), true);
+      const result = await parseQuestions(Buffer.alloc(0));
       expect(result).toEqual([]);
     });
 
@@ -133,7 +129,7 @@ describe('question-parser', () => {
         warnings: ['Gemini returned invalid JSON (500 chars)'],
       });
 
-      await expect(parseQuestions(dummyBuffer, false)).rejects.toThrow();
+      await expect(parseQuestions(dummyBuffer)).rejects.toThrow();
     });
 
     it('should handle questions without optional score field', async () => {
@@ -147,7 +143,7 @@ describe('question-parser', () => {
 
       mockExtractFromPDF.mockResolvedValue({ result: questions, warnings: [] });
 
-      const result = await parseQuestions(dummyBuffer, false);
+      const result = await parseQuestions(dummyBuffer);
 
       expect(result).toHaveLength(1);
       expect(result[0].score).toBeUndefined();
@@ -161,7 +157,7 @@ describe('question-parser', () => {
       });
       const progress = vi.fn();
 
-      await parseQuestions(dummyBuffer, false, progress);
+      await parseQuestions(dummyBuffer, progress);
 
       expect(progress).toHaveBeenCalledWith(0, 1);
       expect(progress).toHaveBeenCalledWith(1, 1);
