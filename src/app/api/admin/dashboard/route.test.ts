@@ -17,21 +17,25 @@ vi.mock('@/lib/repositories', () => ({
 const mockFetchStripeData = vi.fn();
 const mockFetchUpstashData = vi.fn();
 const mockFetchGeminiData = vi.fn();
+const mockFetchPoolStatus = vi.fn();
+const mockResetPoolCooldowns = vi.fn();
 const mockFetchAll = vi.fn();
 vi.mock('@/lib/services/AdminDashboardService', () => ({
   getAdminDashboardService: () => ({
     fetchStripeData: mockFetchStripeData,
     fetchUpstashData: mockFetchUpstashData,
     fetchGeminiData: mockFetchGeminiData,
+    fetchPoolStatus: mockFetchPoolStatus,
+    resetPoolCooldowns: mockResetPoolCooldowns,
     fetchAll: mockFetchAll,
   }),
 }));
 
 // ---------------------------------------------------------------------------
-// Import route handler (after mocks are registered)
+// Import route handlers (after mocks are registered)
 // ---------------------------------------------------------------------------
 
-const { GET } = await import('./route');
+const { GET, POST } = await import('./route');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,6 +48,14 @@ function makeRequest(service?: string) {
     ? `http://localhost/api/admin/dashboard?service=${service}`
     : 'http://localhost/api/admin/dashboard';
   return new Request(url);
+}
+
+function makePostRequest(body: unknown) {
+  return new Request('http://localhost/api/admin/dashboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 function setupSuperAdmin() {
@@ -156,6 +168,32 @@ describe('GET /api/admin/dashboard', () => {
     expect(mockFetchGeminiData).toHaveBeenCalledOnce();
   });
 
+  it('returns pool status when service=gemini-pool', async () => {
+    setupSuperAdmin();
+    const poolData = {
+      entries: [
+        {
+          id: 0,
+          provider: 'gemini',
+          maskedKey: 'AIza****Xk',
+          disabled: false,
+          cooldownUntil: 0,
+          failCount: 0,
+          pool: 'default',
+        },
+      ],
+      serverTime: Date.now(),
+    };
+    mockFetchPoolStatus.mockResolvedValue(poolData);
+
+    const response = await GET(makeRequest('gemini-pool'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(poolData);
+    expect(mockFetchPoolStatus).toHaveBeenCalledOnce();
+  });
+
   it('returns 400 for invalid service param', async () => {
     setupSuperAdmin();
 
@@ -175,5 +213,88 @@ describe('GET /api/admin/dashboard', () => {
 
     expect(response.status).toBe(500);
     expect(body.error).toBe('Internal server error');
+  });
+});
+
+describe('POST /api/admin/dashboard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns 401 when not authenticated', async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+
+    const response = await POST(makePostRequest({ action: 'reset-pool' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  it('returns 403 when user is not super_admin', async () => {
+    mockGetCurrentUser.mockResolvedValue(MOCK_USER);
+    mockFindById.mockResolvedValue({ id: 'user-1', role: 'admin' });
+
+    const response = await POST(makePostRequest({ action: 'reset-pool' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Forbidden');
+  });
+
+  it('returns 400 for invalid action', async () => {
+    setupSuperAdmin();
+
+    const response = await POST(makePostRequest({ action: 'invalid-action' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid request body');
+  });
+
+  it('returns 400 for missing action field', async () => {
+    setupSuperAdmin();
+
+    const response = await POST(makePostRequest({ foo: 'bar' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid request body');
+  });
+
+  it('resets pool cooldowns successfully', async () => {
+    setupSuperAdmin();
+    mockResetPoolCooldowns.mockResolvedValue({ success: true });
+
+    const response = await POST(makePostRequest({ action: 'reset-pool' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ success: true });
+    expect(mockResetPoolCooldowns).toHaveBeenCalledOnce();
+  });
+
+  it('returns error from service on reset failure', async () => {
+    setupSuperAdmin();
+    mockResetPoolCooldowns.mockResolvedValue({ error: 'Failed to reset pool cooldowns' });
+
+    const response = await POST(makePostRequest({ action: 'reset-pool' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ error: 'Failed to reset pool cooldowns' });
+  });
+
+  it('returns 500 when service throws', async () => {
+    setupSuperAdmin();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockResetPoolCooldowns.mockRejectedValue(new Error('Redis down'));
+
+    const response = await POST(makePostRequest({ action: 'reset-pool' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 });

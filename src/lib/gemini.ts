@@ -35,6 +35,21 @@ export interface KeyStatusInfo {
   disabled: boolean;
 }
 
+export interface PoolEntryStatus {
+  id: number;
+  provider: 'gemini' | 'minimax';
+  maskedKey: string;
+  disabled: boolean;
+  cooldownUntil: number;
+  failCount: number; // from state.fails
+  pool: 'default' | 'chat';
+}
+
+export interface PoolStatusResponse {
+  entries: PoolEntryStatus[];
+  serverTime: number;
+}
+
 function getHttpStatus(err: unknown): number | undefined {
   if (err instanceof ApiError) return err.status;
   // openai package throws APIError with .status
@@ -46,8 +61,10 @@ function getHttpStatus(err: unknown): number | undefined {
 export class KeyPool {
   private entries: PoolEntry[];
   private pointer = 0;
+  readonly poolName: string;
 
-  constructor(input: string | PoolEntry[]) {
+  constructor(input: string | PoolEntry[], poolName: string = 'default') {
+    this.poolName = poolName;
     if (Array.isArray(input)) {
       // Overload 2: pre-built entries (used by getChatPool)
       if (input.length === 0) {
@@ -90,13 +107,15 @@ export class KeyPool {
       for (let i = 0; i < this.entries.length; i++) {
         const idx = (start + i) % this.entries.length;
         const entry = this.entries[idx];
+        const cdKey = `${this.poolName}:${idx}`;
 
-        if (entry.disabled || (state.cd[idx] ?? 0) > now) continue;
+        if (entry.disabled || (state.cd[cdKey] ?? 0) > now) continue;
 
         try {
           const result = await fn(entry);
           this.pointer = (idx + 1) % this.entries.length;
-          const statsKey = `${entry.provider}:${entry.model}:${new Date().toISOString().split('T')[0]}`;
+          delete state.fails[cdKey];
+          const statsKey = `${entry.model}:${new Date().toISOString().split('T')[0]}`;
           state.stats[statsKey] = (state.stats[statsKey] ?? 0) + 1;
           return result;
         } catch (err) {
@@ -112,8 +131,10 @@ export class KeyPool {
           }
 
           if (status && RETRYABLE.has(status)) {
-            const isRepeat = !!state.cd[idx];
-            state.cd[idx] = now + (isRepeat ? RATE_LIMIT_COOLDOWN_MS : RETRY_COOLDOWN_MS);
+            const prevFails = state.fails[cdKey] ?? 0;
+            state.fails[cdKey] = prevFails + 1;
+            const isRepeat = prevFails >= 1;
+            state.cd[cdKey] = now + (isRepeat ? RATE_LIMIT_COOLDOWN_MS : RETRY_COOLDOWN_MS);
             console.warn(
               `[KeyPool] ${entry.provider}:${entry.maskedKey} ${isRepeat ? 'DISABLED 24h' : 'COOLDOWN 30s'} (HTTP ${status})`,
             );
@@ -165,6 +186,10 @@ export class KeyPool {
     });
   }
 
+  getEntries(): readonly PoolEntry[] {
+    return [...this.entries];
+  }
+
   getStatus(): KeyStatusInfo[] {
     return this.entries.map((e) => ({ id: e.id, maskedKey: e.maskedKey, disabled: e.disabled }));
   }
@@ -172,7 +197,17 @@ export class KeyPool {
 
 // ==================== Public API ====================
 
-let _pooledProxy: GoogleGenAI | null = null;
+/** @internal Exported for testing only */
+export let _pooledProxy: GoogleGenAI | null = null;
+/** @internal Exported for testing only */
+export let _defaultPool: KeyPool | null = null;
+
+/** @internal Reset pool singletons for testing only */
+export function _resetPools(): void {
+  _pooledProxy = null;
+  _defaultPool = null;
+  _chatPool = null;
+}
 
 /** Lazy: validated on first use so pages/tests without GEMINI_API_KEY don't crash at import. */
 export function getGenAI(): GoogleGenAI {
@@ -180,9 +215,16 @@ export function getGenAI(): GoogleGenAI {
     throw new Error('Missing GEMINI_API_KEY in environment variables');
   }
   if (!_pooledProxy) {
-    _pooledProxy = new KeyPool(process.env.GEMINI_API_KEY).asProxy();
+    _defaultPool = new KeyPool(process.env.GEMINI_API_KEY, 'default');
+    _pooledProxy = _defaultPool.asProxy();
   }
   return _pooledProxy;
+}
+
+/** Return the default KeyPool for callers that need a single `withRetry` around multi-step ops. */
+export function getDefaultPool(): KeyPool {
+  getGenAI(); // ensure pool is initialised
+  return _defaultPool!;
 }
 
 // ==================== Chat Pool (multi-provider) ====================
@@ -265,13 +307,69 @@ export function buildChatEntries(): PoolEntry[] {
   return entries;
 }
 
-let _chatPool: KeyPool | null = null;
+/** @internal Exported for testing only */
+export let _chatPool: KeyPool | null = null;
 
 export function getChatPool(): KeyPool {
   if (!_chatPool) {
-    _chatPool = new KeyPool(buildChatEntries());
+    _chatPool = new KeyPool(buildChatEntries(), 'chat');
   }
   return _chatPool;
+}
+
+export async function getPoolStatusInfo(): Promise<PoolStatusResponse> {
+  const state = await loadPoolState();
+  const now = Date.now();
+  const entries: PoolEntryStatus[] = [];
+
+  // Initialize default pool if env var present but not yet initialized
+  if (!_defaultPool && process.env.GEMINI_API_KEY) {
+    try {
+      getGenAI();
+    } catch {
+      /* initialization failed */
+    }
+  }
+
+  if (_defaultPool) {
+    for (const entry of _defaultPool.getEntries()) {
+      const cdKey = `default:${entry.id}`;
+      entries.push({
+        id: entry.id,
+        provider: entry.provider,
+        maskedKey: entry.maskedKey,
+        disabled: entry.disabled,
+        cooldownUntil: (state.cd[cdKey] ?? 0) > now ? state.cd[cdKey] : 0,
+        failCount: state.fails[cdKey] ?? 0,
+        pool: 'default',
+      });
+    }
+  }
+
+  if (!_chatPool) {
+    try {
+      getChatPool();
+    } catch {
+      /* no chat pool configured */
+    }
+  }
+
+  if (_chatPool) {
+    for (const entry of _chatPool.getEntries()) {
+      const cdKey = `chat:${entry.id}`;
+      entries.push({
+        id: entry.id,
+        provider: entry.provider,
+        maskedKey: entry.maskedKey,
+        disabled: entry.disabled,
+        cooldownUntil: (state.cd[cdKey] ?? 0) > now ? state.cd[cdKey] : 0,
+        failCount: state.fails[cdKey] ?? 0,
+        pool: 'chat',
+      });
+    }
+  }
+
+  return { entries, serverTime: now };
 }
 
 /**

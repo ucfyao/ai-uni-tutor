@@ -21,10 +21,13 @@ vi.mock('@/lib/stripe', () => ({
 
 const mockGetModelStats = vi.fn();
 const mockRedisKeys = vi.fn();
+const mockGetPoolStatusInfo = vi.fn();
+const mockResetPoolCooldowns = vi.fn();
 
 vi.mock('@/lib/redis', () => ({
   getModelStats: (...args: unknown[]) => mockGetModelStats(...args),
   getRedis: () => ({ keys: mockRedisKeys }),
+  resetPoolCooldowns: (...args: unknown[]) => mockResetPoolCooldowns(...args),
 }));
 
 vi.mock('@/lib/gemini', () => ({
@@ -33,6 +36,7 @@ vi.mock('@/lib/gemini', () => ({
     parse: 'gemini-2.0-flash',
     embedding: 'gemini-embedding-001',
   },
+  getPoolStatusInfo: (...args: unknown[]) => mockGetPoolStatusInfo(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -273,6 +277,70 @@ describe('AdminDashboardService', () => {
         '[AdminDashboard] Gemini fetch failed:',
         expect.any(Error),
       );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // ==================== fetchPoolStatus ====================
+
+  describe('fetchPoolStatus', () => {
+    it('should return pool status from getPoolStatusInfo', async () => {
+      const mockStatus = {
+        entries: [
+          {
+            id: 0,
+            provider: 'gemini',
+            maskedKey: 'AIza****Xk',
+            disabled: false,
+            cooldownUntil: 0,
+            failCount: 0,
+            pool: 'default',
+          },
+          {
+            id: 1,
+            provider: 'gemini',
+            maskedKey: 'AIza****Yz',
+            disabled: true,
+            cooldownUntil: 0,
+            failCount: 0,
+            pool: 'default',
+          },
+        ],
+        serverTime: Date.now(),
+      };
+      mockGetPoolStatusInfo.mockResolvedValue(mockStatus);
+
+      const result = await service.fetchPoolStatus();
+      expect(result).toEqual(mockStatus);
+    });
+
+    it('should return error on failure', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockGetPoolStatusInfo.mockRejectedValue(new Error('Redis down'));
+
+      const result = await service.fetchPoolStatus();
+      expect(result).toEqual({ error: 'Failed to fetch pool status' });
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // ==================== resetPoolCooldowns ====================
+
+  describe('resetPoolCooldowns', () => {
+    it('should call resetPoolCooldowns from redis', async () => {
+      mockResetPoolCooldowns.mockResolvedValue(undefined);
+
+      const result = await service.resetPoolCooldowns();
+      expect(result).toEqual({ success: true });
+      expect(mockResetPoolCooldowns).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return error on failure', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockResetPoolCooldowns.mockRejectedValue(new Error('Redis down'));
+
+      const result = await service.resetPoolCooldowns();
+      expect(result).toEqual({ error: 'Failed to reset pool cooldowns' });
       consoleSpy.mockRestore();
     });
   });

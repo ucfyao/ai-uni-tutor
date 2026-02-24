@@ -1,13 +1,22 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Cpu, CreditCard, Database, LayoutDashboard, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, type ReactNode } from 'react';
+import {
+  AlertCircle,
+  Cpu,
+  CreditCard,
+  Database,
+  KeyRound,
+  LayoutDashboard,
+  RefreshCw,
+} from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActionIcon,
   Alert,
   Badge,
   Box,
+  Button,
   Card,
   Divider,
   Group,
@@ -60,6 +69,21 @@ interface GeminiData {
   totalToday: number;
   totalMonthly: number;
   activeUsersToday: number;
+}
+
+interface PoolEntryStatus {
+  id: number;
+  provider: 'gemini' | 'minimax';
+  maskedKey: string;
+  disabled: boolean;
+  cooldownUntil: number;
+  failCount: number;
+  pool: 'default' | 'chat';
+}
+
+interface PoolStatusData {
+  entries: PoolEntryStatus[];
+  serverTime: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -255,6 +279,98 @@ function GeminiContent({ data }: { data: GeminiData }) {
   );
 }
 
+function PoolStatusContent({ data, onReset }: { data: PoolStatusData; onReset: () => void }) {
+  const [resetting, setResetting] = useState(false);
+
+  const [resetError, setResetError] = useState(false);
+
+  const handleReset = async () => {
+    setResetting(true);
+    setResetError(false);
+    try {
+      await onReset();
+    } catch {
+      setResetError(true);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const getStatusBadge = (entry: PoolEntryStatus) => {
+    if (entry.disabled) {
+      return (
+        <Badge color="red" variant="light" size="xs">
+          Disabled
+        </Badge>
+      );
+    }
+    if (entry.cooldownUntil > 0) {
+      const remaining = Math.max(0, entry.cooldownUntil - data.serverTime);
+      const label =
+        remaining > 3600000
+          ? `${Math.floor(remaining / 3600000)}h ${Math.floor((remaining % 3600000) / 60000)}m`
+          : remaining > 60000
+            ? `${Math.floor(remaining / 60000)}m ${Math.floor((remaining % 60000) / 1000)}s`
+            : `${Math.floor(remaining / 1000)}s`;
+      return (
+        <Badge color="yellow" variant="light" size="xs">
+          Cooldown {label}
+        </Badge>
+      );
+    }
+    return (
+      <Badge color="green" variant="light" size="xs">
+        Online
+      </Badge>
+    );
+  };
+
+  const hasCooldowns = data.entries.some((e) => e.cooldownUntil > 0);
+
+  return (
+    <Stack gap="xs">
+      {data.entries.map((entry) => (
+        <Group key={`${entry.pool}-${entry.id}`} justify="space-between" gap="xs">
+          <Group gap="xs" style={{ minWidth: 0 }}>
+            <Text size="xs" ff="monospace" c="dimmed" truncate>
+              {entry.maskedKey}
+            </Text>
+            <Badge color="gray" variant="light" size="xs">
+              {entry.provider}
+            </Badge>
+            {entry.pool === 'chat' && (
+              <Badge color="indigo" variant="light" size="xs">
+                chat
+              </Badge>
+            )}
+          </Group>
+          {getStatusBadge(entry)}
+        </Group>
+      ))}
+
+      {hasCooldowns && (
+        <Button
+          size="xs"
+          variant="light"
+          color="orange"
+          onClick={handleReset}
+          loading={resetting}
+          leftSection={<RefreshCw size={14} />}
+          mt="xs"
+        >
+          Reset All Cooldowns
+        </Button>
+      )}
+
+      {resetError && (
+        <Text size="xs" c="red" mt={4}>
+          Reset failed — please try again.
+        </Text>
+      )}
+    </Stack>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Per-service card wrapper with independent query
 // ---------------------------------------------------------------------------
@@ -397,7 +513,7 @@ export function DashboardClient() {
           )}
 
           {/* Cards grid — each card fetches independently */}
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+          <SimpleGrid cols={{ base: 1, md: 2, xl: 4 }} spacing="lg">
             <ServiceCard<StripeData | { error: string }>
               queryKey="stripe"
               service="stripe"
@@ -434,6 +550,36 @@ export function DashboardClient() {
             >
               {(data) =>
                 isError(data) ? <CardError message={data.error} /> : <GeminiContent data={data} />
+              }
+            </ServiceCard>
+
+            <ServiceCard<PoolStatusData | { error: string }>
+              queryKey="gemini-pool"
+              service="gemini-pool"
+              icon={<KeyRound size={18} color="var(--mantine-color-orange-5)" />}
+              title="Key Pool"
+              badgeLabel="Status"
+              badgeColor="orange"
+            >
+              {(data) =>
+                isError(data) ? (
+                  <CardError message={data.error} />
+                ) : (
+                  <PoolStatusContent
+                    data={data}
+                    onReset={async () => {
+                      const res = await fetch('/api/admin/dashboard', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'reset-pool' }),
+                      });
+                      if (!res.ok) throw new Error('Reset failed');
+                      queryClient.invalidateQueries({
+                        queryKey: ['admin-dashboard', 'gemini-pool'],
+                      });
+                    }}
+                  />
+                )
               }
             </ServiceCard>
           </SimpleGrid>

@@ -1,5 +1,10 @@
-import { GEMINI_MODELS } from '@/lib/gemini';
-import { getModelStats, getRedis } from '@/lib/redis';
+import { GEMINI_MODELS, getPoolStatusInfo } from '@/lib/gemini';
+import type { PoolStatusResponse } from '@/lib/gemini';
+import {
+  getModelStats,
+  getRedis,
+  resetPoolCooldowns as redisResetPoolCooldowns,
+} from '@/lib/redis';
 import { getStripe } from '@/lib/stripe';
 
 interface StripeData {
@@ -151,6 +156,25 @@ export class AdminDashboardService {
     } catch (error) {
       console.error('[AdminDashboard] Gemini fetch failed:', error);
       return { error: 'Failed to fetch Gemini data' };
+    }
+  }
+
+  async fetchPoolStatus(): Promise<PoolStatusResponse | { error: string }> {
+    try {
+      return await getPoolStatusInfo();
+    } catch (error) {
+      console.error('[AdminDashboard] Pool status fetch failed:', error);
+      return { error: 'Failed to fetch pool status' };
+    }
+  }
+
+  async resetPoolCooldowns(): Promise<{ success: boolean } | { error: string }> {
+    try {
+      await redisResetPoolCooldowns();
+      return { success: true };
+    } catch (error) {
+      console.error('[AdminDashboard] Pool reset failed:', error);
+      return { error: 'Failed to reset pool cooldowns' };
     }
   }
 

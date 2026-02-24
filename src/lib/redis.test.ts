@@ -114,12 +114,16 @@ describe('pool state (loadPoolState / savePoolState / getModelStats)', () => {
   it('loadPoolState returns empty state when key missing', async () => {
     const { loadPoolState } = await import('./redis');
     const s = await loadPoolState();
-    expect(s).toEqual({ cd: [], stats: {} });
+    expect(s).toEqual({ cd: {}, fails: {}, stats: {} });
   });
 
   it('savePoolState + loadPoolState round-trip', async () => {
     const { loadPoolState, savePoolState } = await import('./redis');
-    const data = { cd: [0, Date.now() + 30000], stats: { 'gemini-2.5-flash:2026-02-22': 5 } };
+    const data = {
+      cd: { 'default:0': 0, 'default:1': Date.now() + 30000 },
+      fails: { 'default:1': 1 },
+      stats: { 'gemini-2.5-flash:2026-02-22': 5 },
+    };
     await savePoolState(data);
     const loaded = await loadPoolState();
     expect(loaded).toEqual(data);
@@ -131,7 +135,8 @@ describe('pool state (loadPoolState / savePoolState / getModelStats)', () => {
     const monthPrefix = today.slice(0, 7);
 
     await savePoolState({
-      cd: [],
+      cd: {},
+      fails: {},
       stats: {
         [`gemini-2.5-flash:${today}`]: 5,
         [`gemini-2.5-flash:${monthPrefix}-01`]: 10,
@@ -145,5 +150,39 @@ describe('pool state (loadPoolState / savePoolState / getModelStats)', () => {
 
     const other = await getModelStats('gemini-2.0-flash');
     expect(other.today).toBe(3);
+  });
+
+  it('resetPoolCooldowns clears cd and fails but preserves stats', async () => {
+    const { loadPoolState, resetPoolCooldowns, savePoolState } = await import('./redis');
+
+    await savePoolState({
+      cd: { 'default:0': Date.now() + 30000 },
+      fails: { 'default:0': 2 },
+      stats: { 'gemini-2.5-flash:2026-02-24': 10 },
+    });
+
+    await resetPoolCooldowns();
+
+    const loaded = await loadPoolState();
+    expect(loaded.cd).toEqual({});
+    expect(loaded.fails).toEqual({});
+    expect(loaded.stats).toEqual({ 'gemini-2.5-flash:2026-02-24': 10 });
+  });
+
+  it('loadPoolState handles backward-compat old array format', async () => {
+    const { getRedis } = await import('./redis');
+    const redis = getRedis();
+    // Simulate old format stored in Redis (cd was number[])
+    await redis.set('gemini:pool', {
+      cd: [0, Date.now() + 30000],
+      stats: { 'gemini-2.5-flash:2026-02-24': 5 },
+    });
+
+    const { loadPoolState } = await import('./redis');
+    const loaded = await loadPoolState();
+    // Array cd should be discarded
+    expect(loaded.cd).toEqual({});
+    expect(loaded.fails).toEqual({});
+    expect(loaded.stats).toEqual({ 'gemini-2.5-flash:2026-02-24': 5 });
   });
 });
