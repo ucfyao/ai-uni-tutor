@@ -6,7 +6,7 @@ export default function Loading() {
       <Stack align="center" gap="sm">
         <Loader color="indigo" size="lg" type="dots" />
         <Text size="sm" c="dimmed" fw={500}>
-          Loading exam details...
+          Preparing your session...
         </Text>
       </Stack>
     </Center>

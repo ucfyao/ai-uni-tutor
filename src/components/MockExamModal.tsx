@@ -11,12 +11,14 @@ import {
   Select,
   Stack,
   Text,
+  TextInput,
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
 import {
   createRandomMixMock,
   createRealExamMock,
+  generateMockFromTopic,
   getExamPapersForCourse,
 } from '@/app/actions/mock-exams';
 import { FullScreenModal } from '@/components/FullScreenModal';
@@ -30,6 +32,10 @@ type Source = 'real' | 'random' | 'ai';
 interface MockExamModalProps {
   opened: boolean;
   onClose: () => void;
+  /** Pre-select university (UUID) */
+  initialUniId?: string | null;
+  /** Pre-select course code (e.g. "COMP3530") */
+  initialCourseCode?: string | null;
 }
 
 /* ── Design tokens (4px grid · whole-pixel type scale) ── */
@@ -53,13 +59,18 @@ const inputStyles = {
   },
 };
 
-const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
+const MockExamModal: React.FC<MockExamModalProps> = ({
+  opened,
+  onClose,
+  initialUniId,
+  initialCourseCode,
+}) => {
   const router = useRouter();
   const { t } = useLanguage();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [source, setSource] = useState<Source>('real');
+  const [source, setSource] = useState<Source>('ai');
   const [selectedUniId, setSelectedUniId] = useState<string | null>(null);
   const [selectedCourseCode, setSelectedCourseCode] = useState<string | null>(null);
   const [papers, setPapers] = useState<ExamPaper[]>([]);
@@ -68,6 +79,10 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
   const [numQuestions, setNumQuestions] = useState<string | null>('10');
   const [pendingMode, setPendingMode] = useState<ExamMode | null>(null);
   const isInitialLoad = useRef(true);
+
+  // AI-specific state
+  const [topic, setTopic] = useState('');
+  const [difficulty, setDifficulty] = useState<string | null>('mixed');
 
   const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
 
@@ -80,22 +95,33 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
       setSegKey(0);
       return;
     }
-    setSource('real');
+    setSource('ai');
     setError(null);
+    setTopic('');
+    setDifficulty('mixed');
     isInitialLoad.current = true;
     // Remount SegmentedControl after pop transition (200ms) to fix indicator
     const timer = setTimeout(() => setSegKey((k) => k + 1), 220);
-    const lastUni = localStorage.getItem('lastUniId');
-    const lastCourse = localStorage.getItem('lastCourseId');
-    if (lastUni) {
-      setSelectedUniId(lastUni);
-      if (lastCourse) {
-        const course = allCourses.find((c) => c.id === lastCourse && c.universityId === lastUni);
-        if (course) setSelectedCourseCode(course.code);
+
+    // Prefer initial props over localStorage
+    if (initialUniId) {
+      setSelectedUniId(initialUniId);
+      if (initialCourseCode) {
+        setSelectedCourseCode(initialCourseCode);
+      }
+    } else {
+      const lastUni = localStorage.getItem('lastUniId');
+      const lastCourse = localStorage.getItem('lastCourseId');
+      if (lastUni) {
+        setSelectedUniId(lastUni);
+        if (lastCourse) {
+          const course = allCourses.find((c) => c.id === lastCourse && c.universityId === lastUni);
+          if (course) setSelectedCourseCode(course.code);
+        }
       }
     }
     return () => clearTimeout(timer);
-  }, [opened, allCourses]);
+  }, [opened, allCourses, initialUniId, initialCourseCode]);
 
   const uniOptions = useMemo(
     () => universities.map((u) => ({ value: u.id, label: u.name })),
@@ -136,14 +162,33 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     });
   }, [selectedCourseCode]);
 
+  const saveSelection = () => {
+    if (selectedUniId) localStorage.setItem('lastUniId', selectedUniId);
+    const course = allCourses.find((c) => c.code === selectedCourseCode);
+    if (course) localStorage.setItem('lastCourseId', course.id);
+  };
+
   const handleStart = (mode: ExamMode) => {
     if (source === 'ai') {
-      if (!selectedCourseCode) return;
-      if (selectedUniId) localStorage.setItem('lastUniId', selectedUniId);
-      const course = allCourses.find((c) => c.code === selectedCourseCode);
-      if (course) localStorage.setItem('lastCourseId', course.id);
-      onClose();
-      router.push(`/exam/ai?course=${selectedCourseCode}`);
+      if (!topic.trim()) return;
+      setError(null);
+      setPendingMode(mode);
+      startTransition(async () => {
+        const result = await generateMockFromTopic(
+          topic.trim(),
+          Number(numQuestions),
+          difficulty as 'easy' | 'medium' | 'hard' | 'mixed',
+          [],
+        );
+        if (result.success) {
+          saveSelection();
+          router.push(`/exam/mock/${result.mockId}`);
+          setTimeout(onClose, 500);
+        } else {
+          setError(result.error);
+        }
+        setPendingMode(null);
+      });
       return;
     }
     setError(null);
@@ -158,11 +203,9 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         result = await createRandomMixMock(selectedCourseCode, Number(numQuestions), mode);
       }
       if (result.success) {
-        if (selectedUniId) localStorage.setItem('lastUniId', selectedUniId);
-        const course = allCourses.find((c) => c.code === selectedCourseCode);
-        if (course) localStorage.setItem('lastCourseId', course.id);
-        onClose();
+        saveSelection();
         router.push(`/exam/mock/${result.mockId}`);
+        setTimeout(onClose, 500);
       } else {
         setError(result.error);
       }
@@ -174,12 +217,23 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
     !selectedUniId ||
     !selectedCourseCode ||
     (source === 'real' && !selectedPaper) ||
-    (source === 'random' && papers.length === 0);
+    (source === 'random' && papers.length === 0) ||
+    (source === 'ai' && !topic.trim());
 
   const showNoPapers =
     source !== 'ai' && selectedCourseCode && !loadingPapers && papers.length === 0;
 
+  // AI Generated first, then Real Exam, then Random Mix
   const sourceData = [
+    {
+      value: 'ai',
+      label: (
+        <Group gap={6} wrap="nowrap" justify="center">
+          <Sparkles size={14} />
+          <span>{t.exam.aiMock}</span>
+        </Group>
+      ),
+    },
     {
       value: 'real',
       label: (
@@ -195,15 +249,6 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
         <Group gap={6} wrap="nowrap" justify="center">
           <Shuffle size={14} />
           <span>{t.exam.randomMix}</span>
-        </Group>
-      ),
-    },
-    {
-      value: 'ai',
-      label: (
-        <Group gap={6} wrap="nowrap" justify="center">
-          <Sparkles size={14} />
-          <span>{t.exam.aiMock}</span>
         </Group>
       ),
     },
@@ -250,7 +295,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </UnstyledButton>
         </Group>
 
-        {/* Source tabs */}
+        {/* Source tabs — AI first */}
         <Tooltip label={sourceDescMap[source]} position="bottom" withArrow openDelay={300}>
           <SegmentedControl
             key={segKey}
@@ -297,7 +342,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           styles={inputStyles}
         />
 
-        {/* No papers warning */}
+        {/* No papers warning (real / random only) */}
         {showNoPapers && (
           <Box
             px="xs"
@@ -344,6 +389,46 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           />
         )}
 
+        {/* AI: topic, question count, difficulty */}
+        {source === 'ai' && (
+          <Stack gap="sm">
+            <TextInput
+              label={t.exam.topic}
+              placeholder="e.g., Binary Trees, Linear Regression"
+              value={topic}
+              onChange={(e) => setTopic(e.currentTarget.value)}
+              size="sm"
+              radius={R}
+              styles={inputStyles}
+            />
+            <Group grow>
+              <Select
+                label={t.exam.numQuestions}
+                data={['5', '10', '15', '20']}
+                value={numQuestions}
+                onChange={setNumQuestions}
+                size="sm"
+                radius={R}
+                styles={inputStyles}
+              />
+              <Select
+                label={t.exam.difficulty}
+                data={[
+                  { value: 'mixed', label: 'Mixed' },
+                  { value: 'easy', label: 'Easy' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'hard', label: 'Hard' },
+                ]}
+                value={difficulty}
+                onChange={setDifficulty}
+                size="sm"
+                radius={R}
+                styles={inputStyles}
+              />
+            </Group>
+          </Stack>
+        )}
+
         {/* Error */}
         {error && (
           <Box
@@ -361,7 +446,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({ opened, onClose }) => {
           </Box>
         )}
 
-        {/* Action buttons */}
+        {/* Action buttons — Practice & Exam mode */}
         <Group justify="space-between" gap={10}>
           <Tooltip label={t.exam.practiceModeDesc} position="bottom" withArrow openDelay={400}>
             <Button

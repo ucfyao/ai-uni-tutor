@@ -2,11 +2,10 @@
 
 import { ArrowUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import { Box, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Logo } from '@/components/Logo';
-import MockExamModal from '@/components/MockExamModal';
 import NewSessionModal from '@/components/NewSessionModal';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { MODES_METADATA } from '@/constants/modes';
@@ -46,27 +45,25 @@ function getFeatureCards(t: TranslationKey) {
 
 export function StudyPageClient() {
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [mockExamOpened, { open: openMockExam, close: closeMockExam }] = useDisclosure(false);
   const [selectedMode, setSelectedMode] = useState<TutoringMode | null>(null);
   const router = useRouter();
   const { addSession } = useSessions();
   const { t } = useLanguage();
   const FEATURE_CARDS = getFeatureCards(t);
+  const [, startNavigating] = useTransition();
 
   const handleCourseSelected = async (courseId: string, mode: TutoringMode) => {
     const newId = await addSession(courseId, mode);
     if (!newId) return;
 
-    closeModal();
-    const modeRoute = MODES_METADATA[mode].id;
-    router.push(`/${modeRoute}/${newId}`);
+    startNavigating(() => {
+      const modeRoute = MODES_METADATA[mode].id;
+      router.push(`/${modeRoute}/${newId}`);
+      setTimeout(closeModal, 500);
+    });
   };
 
   const handleModeClick = (mode: TutoringMode) => {
-    if (mode === 'Mock Exam') {
-      openMockExam();
-      return;
-    }
     setSelectedMode(mode);
     openModal();
   };
@@ -334,8 +331,6 @@ export function StudyPageClient() {
         preSelectedMode={selectedMode}
         onStart={(courseId, mode) => handleCourseSelected(courseId, mode)}
       />
-
-      <MockExamModal opened={mockExamOpened} onClose={closeMockExam} />
     </>
   );
 }
