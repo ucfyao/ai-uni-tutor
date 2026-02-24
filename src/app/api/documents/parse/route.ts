@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
-import type { Json } from '@/types/database';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
+import type { Json } from '@/types/database';
 import { handleAssignmentPipeline } from './handle-assignment';
 import { handleExamPipeline } from './handle-exam';
 import { handleLecturePipeline } from './handle-lecture';
@@ -184,9 +184,8 @@ export async function POST(request: Request) {
         } else if (doc_type === 'lecture') {
           await lectureService.deleteChunksByLectureDocumentId(documentId);
           // Also clear the outline so it gets regenerated
-          const { getLectureDocumentRepository } = await import(
-            '@/lib/repositories/DocumentRepository'
-          );
+          const { getLectureDocumentRepository } =
+            await import('@/lib/repositories/DocumentRepository');
           await getLectureDocumentRepository().saveOutline(documentId, null as unknown as Json);
         } else if (doc_type === 'exam') {
           await getExamPaperService().deleteQuestionsByPaperId(documentId);
