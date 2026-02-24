@@ -3,81 +3,95 @@
  */
 
 export interface ExamPaper {
-    id: string;
-    userId: string;
-    title: string;
-    visibility: 'public' | 'private';
-    school: string | null;
-    course: string | null;
-    courseId: string | null;
-    year: string | null;
-    questionTypes: string[];
-    status: 'draft' | 'ready';
-    questionCount?: number;
-    metadata?: Record<string, unknown>;
-    createdAt: string;
+  id: string;
+  userId: string;
+  title: string;
+  visibility: 'public' | 'private';
+  school: string | null;
+  course: string | null;
+  courseId: string | null;
+  year: string | null;
+  questionTypes: string[];
+  status: 'draft' | 'ready';
+  questionCount?: number;
+  metadata?: {
+    stats?: {
+      itemCount: number;
+      mainCount: number;
+      subCount: number;
+      withAnswer: number;
+      warningCount: number;
+    };
+    totalPoints?: number;
+    totalQuestions?: number;
+    duration?: string;
+    instructions?: string;
+    examDate?: string;
+    [key: string]: unknown;
+  };
+  createdAt: string;
 }
 
 export interface ExamQuestion {
-    id: string;
-    paperId: string;
-    orderNum: number;
-    type: string;
-    content: string;
-    options: Record<string, string> | null;
-    answer: string;
-    explanation: string;
-    points: number;
-    parentQuestionId: string | null;
-    metadata: {
-        knowledge_point?: string;
-        difficulty?: string;
-    };
+  id: string;
+  paperId: string;
+  orderNum: number;
+  type: string;
+  content: string;
+  options: Record<string, string> | null;
+  answer: string;
+  explanation: string;
+  points: number;
+  parentQuestionId: string | null;
+  metadata: {
+    knowledge_point?: string;
+    difficulty?: string;
+  };
 }
 
 export interface MockExamQuestion {
-    content: string;
-    type: string;
-    options: Record<string, string> | null;
-    answer: string;
-    explanation: string;
-    points: number;
-    sourceQuestionId: string | null;
+  content: string;
+  type: string;
+  options: Record<string, string> | null;
+  answer: string;
+  explanation: string;
+  points: number;
+  sourceQuestionId: string | null;
 }
 
 export interface MockExamResponse {
-    questionIndex: number;
-    userAnswer: string;
-    isCorrect: boolean;
-    score: number;
-    aiFeedback: string;
+  questionIndex: number;
+  userAnswer: string;
+  isCorrect: boolean;
+  score: number;
+  aiFeedback: string;
 }
 
 export interface MockExam {
-    id: string;
-    userId: string;
-    paperId: string;
-    mode: ExamMode;
-    title: string;
-    questions: MockExamQuestion[];
-    responses: MockExamResponse[];
-    score: number | null;
-    totalPoints: number;
-    currentIndex: number;
-    status: 'in_progress' | 'completed';
-    createdAt: string;
+  id: string;
+  userId: string;
+  paperId: string;
+  mode: ExamMode;
+  title: string;
+  questions: MockExamQuestion[];
+  responses: MockExamResponse[];
+  score: number | null;
+  totalPoints: number;
+  currentIndex: number;
+  status: 'in_progress' | 'completed';
+  createdAt: string;
 }
 
 export interface PaperFilters {
-    school?: string;
-    course?: string;
-    year?: string;
+  school?: string;
+  course?: string;
+  year?: string;
 }
 
 export type ExamMode = 'practice' | 'exam';
 
 export interface BatchSubmitResult {
-    responses: MockExamResponse[];
-    score: number;
-    totalPoints: number;
+  responses: MockExamResponse[];
+  score: number;
+  totalPoints: number;
 }

@@ -80,7 +80,7 @@ export async function extractFromPDF<T>(
         // 4. Single generateContent call: fileData + extraction prompt → JSON
         onProgress?.(`AI analyzing document content (model: ${GEMINI_MODELS.parse})...`);
         const tGen = Date.now();
-        const response = await genAI.models.generateContent({
+        const responseStream = await genAI.models.generateContentStream({
           model: GEMINI_MODELS.parse,
           contents: [
             {
@@ -102,10 +102,22 @@ export async function extractFromPDF<T>(
           },
         });
 
-        const text =
-          typeof (response as any).text === 'function'
-            ? (response as any).text()
-            : (response as any).text;
+        let text = '';
+        let lastReportTime = Date.now();
+        for await (const chunk of responseStream) {
+          if (signal?.aborted) throw new Error('Aborted');
+          const chunkText =
+            typeof (chunk as any).text === 'function' ? (chunk as any).text() : (chunk as any).text;
+          if (chunkText) {
+            text += chunkText;
+          }
+          const now = Date.now();
+          if (now - lastReportTime > 2000) {
+            const genSec = ((now - tGen) / 1000).toFixed(1);
+            onProgress?.(`AI streaming response... (${genSec}s, ${text.length} chars)`);
+            lastReportTime = now;
+          }
+        }
 
         const genSec = ((Date.now() - tGen) / 1000).toFixed(1);
         const textLen = text?.length ?? 0;
@@ -134,6 +146,7 @@ export async function extractFromPDF<T>(
       } finally {
         // 6. Cleanup: delete file from Gemini
         try {
+          onProgress?.('Cleaning up remote PDF file...');
           await genAI.files.delete({ name: uploadResult.name || '' });
           onProgress?.('Remote file cleaned up');
         } catch (cleanupErr) {

@@ -121,3 +121,59 @@ export interface ParseAssignmentResult {
   outline: AssignmentOutline;
   warnings: string[];
 }
+
+// ── Exam parser types ──
+
+export interface ExamOutlineItem {
+  orderNum: number;
+  title: string;
+  children: ExamOutlineItem[];
+}
+
+export interface ExamOutline {
+  examId: string;
+  title: string;
+  subject: string;
+  totalItems: number;
+  items: ExamOutlineItem[];
+  summary: string;
+}
+
+export interface EnrichedExamItem {
+  title?: string;
+  orderNum: number;
+  content: string;
+  options?: string[];
+  referenceAnswer: string;
+  explanation: string;
+  points: number;
+  type: string;
+  difficulty: string;
+  parentIndex: number | null;
+  sourcePages: number[];
+  warnings?: string[];
+}
+
+export interface ExamStats {
+  itemCount: number;
+  mainCount: number;
+  subCount: number;
+  withAnswer: number;
+  warningCount: number;
+}
+
+export interface ExamMetadata {
+  totalPoints?: number;
+  totalQuestions?: number;
+  duration?: string;
+  instructions?: string;
+  examDate?: string;
+  stats?: ExamStats;
+}
+
+export interface ParseExamResult {
+  items: EnrichedExamItem[];
+  metadata?: ExamMetadata;
+  outline: ExamOutline;
+  warnings: string[];
+}

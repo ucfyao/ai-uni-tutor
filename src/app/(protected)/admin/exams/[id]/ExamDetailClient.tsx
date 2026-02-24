@@ -1,7 +1,18 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Pencil, Plus, Send, Trash2, Upload } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Hash,
+  Pencil,
+  Plus,
+  Send,
+  Trash2,
+  Trophy,
+  Upload,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -10,6 +21,7 @@ import {
   Badge,
   Box,
   Button,
+  Card,
   Divider,
   Group,
   ScrollArea,
@@ -386,6 +398,44 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
                 router.refresh();
               }}
             />
+          )}
+
+          {/* Metadata info bar */}
+          {paper.metadata && Object.values(paper.metadata).some(Boolean) && (
+            <Card withBorder radius="lg" p="md">
+              <Group gap="sm" mb={paper.metadata.instructions ? 'xs' : 0}>
+                {paper.metadata.totalPoints != null && (
+                  <Badge variant="light" color="blue" size="lg" leftSection={<Trophy size={14} />}>
+                    {t.documentDetail.totalPoints}: {String(paper.metadata.totalPoints)}
+                  </Badge>
+                )}
+                {paper.metadata.totalQuestions != null && (
+                  <Badge variant="light" color="blue" size="lg" leftSection={<Hash size={14} />}>
+                    {t.documentDetail.totalQuestions}: {String(paper.metadata.totalQuestions)}
+                  </Badge>
+                )}
+                {paper.metadata.duration && (
+                  <Badge variant="light" color="blue" size="lg" leftSection={<Clock size={14} />}>
+                    {t.documentDetail.metaDuration}: {String(paper.metadata.duration)}
+                  </Badge>
+                )}
+                {paper.metadata.examDate && (
+                  <Badge
+                    variant="light"
+                    color="gray"
+                    size="lg"
+                    leftSection={<Calendar size={14} />}
+                  >
+                    {t.documentDetail.examDate}: {String(paper.metadata.examDate)}
+                  </Badge>
+                )}
+              </Group>
+              {paper.metadata.instructions && (
+                <Text size="sm" c="dimmed">
+                  {t.documentDetail.instructions}: {String(paper.metadata.instructions)}
+                </Text>
+              )}
+            </Card>
           )}
 
           <ExamOutlineView
