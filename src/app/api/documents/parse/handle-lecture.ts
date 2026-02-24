@@ -1,4 +1,5 @@
 import type { CreateLectureChunkDTO } from '@/lib/domain/models/Document';
+import { RAG_CONFIG } from '@/lib/rag/config';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import type { Json } from '@/types/database';
 import { sendGeminiError, type PipelineContext } from './types';
@@ -70,16 +71,17 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
     });
 
     const existingChunksForDedup = await lectureService.getChunksWithEmbeddings(documentId);
+    const normalizeContent = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
     const existingTitles = new Set(
       existingChunksForDedup.map((c) => {
         const meta = c.metadata as Record<string, unknown>;
-        return ((meta.title as string) || '').trim().toLowerCase();
+        return normalizeContent((meta.title as string) || '');
       }),
     );
 
     // Pass 1: title-based dedup
     const candidateSections = sections.filter(
-      (s) => !existingTitles.has(s.title.trim().toLowerCase()),
+      (s) => !existingTitles.has(normalizeContent(s.title)),
     );
     const titleSkipped = sections.length - candidateSections.length;
 
@@ -118,7 +120,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
     send('log', { message: 'Vector embeddings generated successfully', level: 'success' });
 
     // Pass 2: embedding similarity dedup
-    const SIMILARITY_THRESHOLD = 0.92;
+    const SIMILARITY_THRESHOLD = RAG_CONFIG.dedupSimilarityThreshold;
     const existingEmbeddings = existingChunksForDedup
       .map((c) => {
         if (Array.isArray(c.embedding)) return c.embedding as number[];
@@ -145,6 +147,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
         const emb = candidateEmbeddings[i];
         let maxSim = 0;
         for (const existing of existingEmbeddings) {
+          if (emb.length !== existing.length) continue;
           let dot = 0;
           for (let d = 0; d < emb.length; d++) dot += emb[d] * existing[d];
           if (dot > maxSim) maxSim = dot;

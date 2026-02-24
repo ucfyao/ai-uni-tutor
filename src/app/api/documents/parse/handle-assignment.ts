@@ -1,3 +1,4 @@
+import { RAG_CONFIG } from '@/lib/rag/config';
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<void> {
@@ -82,14 +83,15 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         return;
     }
 
+    const normalizeContent = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
     const existingContents = new Set(
-        existingItemsForDedup.map((item) => item.content.trim().toLowerCase()),
+        existingItemsForDedup.map((item) => normalizeContent(item.content)),
     );
 
     // Track original parsedItems indices through dedup
     const afterContentDedup: number[] = []; // original indices that survive
     for (let i = 0; i < parsedItems.length; i++) {
-        if (!existingContents.has(parsedItems[i].content.trim().toLowerCase())) {
+        if (!existingContents.has(normalizeContent(parsedItems[i].content))) {
             afterContentDedup.push(i);
         }
     }
@@ -136,7 +138,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     send('log', { message: 'Embeddings generated', level: 'success' });
 
     // Pass 2: Embedding similarity dedup
-    const SIMILARITY_THRESHOLD = 0.92;
+    const SIMILARITY_THRESHOLD = RAG_CONFIG.dedupSimilarityThreshold;
     const existingEmbeddings = existingItemsForDedup
         .map((c) => {
             if (Array.isArray(c.embedding)) return c.embedding;
@@ -158,6 +160,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
             const emb = candidateEmbeddings[i];
             let maxSim = 0;
             for (const existing of existingEmbeddings) {
+                if (emb.length !== existing.length) continue;
                 let dot = 0;
                 for (let d = 0; d < emb.length; d++) dot += emb[d] * existing[d];
                 if (dot > maxSim) maxSim = dot;

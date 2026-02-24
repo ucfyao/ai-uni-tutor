@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getEnv } from '@/lib/env';
 import { QuotaExceededError } from '@/lib/errors';
+import type { Json } from '@/types/database';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { getQuotaService } from '@/lib/services/QuotaService';
@@ -182,6 +183,11 @@ export async function POST(request: Request) {
           await getAssignmentService().deleteItemsByAssignmentId(documentId);
         } else if (doc_type === 'lecture') {
           await lectureService.deleteChunksByLectureDocumentId(documentId);
+          // Also clear the outline so it gets regenerated
+          const { getLectureDocumentRepository } = await import(
+            '@/lib/repositories/DocumentRepository'
+          );
+          await getLectureDocumentRepository().saveOutline(documentId, null as unknown as Json);
         } else if (doc_type === 'exam') {
           await getExamPaperService().deleteQuestionsByPaperId(documentId);
         }

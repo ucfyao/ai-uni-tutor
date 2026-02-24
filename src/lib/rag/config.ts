@@ -23,6 +23,9 @@ export const RAG_CONFIG = {
   matchCount: safeInt(process.env.RAG_MATCH_COUNT, 5),
   rrfK: safeInt(process.env.RAG_RRF_K, 60),
 
+  // Dedup config
+  dedupSimilarityThreshold: safeFloat(process.env.RAG_DEDUP_SIMILARITY, 0.92),
+
   // Reranking config
   rerankEnabled: process.env.RAG_RERANK_ENABLED !== 'false',
   rerankCandidateMultiplier: safeInt(process.env.RAG_RERANK_MULTIPLIER, 2),

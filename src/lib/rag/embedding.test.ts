@@ -51,31 +51,34 @@ describe('embedding', () => {
       });
     });
 
-    it('should return empty array when embeddings are missing', async () => {
+    it('should throw when embeddings are missing', async () => {
       mockGemini.client.models.embedContent.mockResolvedValue({
         embeddings: undefined,
       });
 
-      const result = await generateEmbedding('test');
-      expect(result).toEqual([]);
+      await expect(generateEmbedding('test')).rejects.toThrow(
+        'Embedding API returned empty vector',
+      );
     });
 
-    it('should return empty array when values are missing', async () => {
+    it('should throw when values are missing', async () => {
       mockGemini.client.models.embedContent.mockResolvedValue({
         embeddings: [{ values: undefined }],
       });
 
-      const result = await generateEmbedding('test');
-      expect(result).toEqual([]);
+      await expect(generateEmbedding('test')).rejects.toThrow(
+        'Embedding API returned empty vector',
+      );
     });
 
-    it('should return empty array when embeddings array is empty', async () => {
+    it('should throw when embeddings array is empty', async () => {
       mockGemini.client.models.embedContent.mockResolvedValue({
         embeddings: [],
       });
 
-      const result = await generateEmbedding('test');
-      expect(result).toEqual([]);
+      await expect(generateEmbedding('test')).rejects.toThrow(
+        'Embedding API returned empty vector',
+      );
     });
   });
 

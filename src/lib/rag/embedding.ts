@@ -15,7 +15,11 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   } catch (error) {
     throw AppError.from(error);
   }
-  return result.embeddings?.[0]?.values || [];
+  const values = result.embeddings?.[0]?.values || [];
+  if (values.length === 0) {
+    throw new AppError('VALIDATION', 'Embedding API returned empty vector');
+  }
+  return values;
 }
 
 export async function generateEmbeddingWithRetry(text: string, maxRetries = 3): Promise<number[]> {
@@ -53,6 +57,10 @@ export async function generateEmbeddingBatch(
         },
       });
       const embeddings = (result.embeddings ?? []).map((e) => e.values || []);
+      const hasEmpty = embeddings.some((v) => v.length === 0);
+      if (hasEmpty) {
+        throw new AppError('VALIDATION', 'Batch embedding returned one or more empty vectors');
+      }
       results.push(...embeddings);
     } catch {
       // Fallback: per-text calls with retry

@@ -57,13 +57,14 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
     send('status', { stage: 'embedding', message: 'Generating embeddings...' });
 
     const existingQuestions = await examService.getQuestionsByPaperId(documentId);
-    const existingContents = new Set(existingQuestions.map((q) => q.content.trim().toLowerCase()));
+    const normalizeContent = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+    const existingContents = new Set(existingQuestions.map((q) => normalizeContent(q.content)));
     const maxOrderNum =
         existingQuestions.length > 0 ? Math.max(...existingQuestions.map((q) => q.orderNum)) : 0;
 
     const newItems = items.filter((item) => {
         const q = item.data;
-        return !existingContents.has(q.content.trim().toLowerCase());
+        return !existingContents.has(normalizeContent(q.content));
     });
 
     if (newItems.length === 0) {
