@@ -384,7 +384,6 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
               onParseComplete={() => {
                 invalidateQuestions();
                 router.refresh();
-                setShowUploadZone(false);
               }}
             />
           )}

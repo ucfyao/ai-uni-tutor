@@ -101,10 +101,22 @@ export async function POST(request: Request) {
         courseId = doc.courseId;
         documentName = doc.name;
       } else if (doc_type === 'exam') {
-        courseId = await getExamPaperService().findCourseId(documentId);
+        const examPaper = await getExamPaperService().findById(documentId);
+        if (!examPaper) {
+          send('error', { message: 'Exam paper not found', code: 'NOT_FOUND' });
+          return;
+        }
+        courseId = examPaper.courseId;
+        documentName = examPaper.title;
       } else {
         const { getAssignmentService } = await import('@/lib/services/AssignmentService');
-        courseId = await getAssignmentService().findCourseId(documentId);
+        const assignmentDoc = await getAssignmentService().findById(documentId);
+        if (!assignmentDoc) {
+          send('error', { message: 'Assignment not found', code: 'NOT_FOUND' });
+          return;
+        }
+        courseId = assignmentDoc.courseId;
+        documentName = assignmentDoc.title;
       }
 
       // Admin (non-super_admin) must have a course assigned

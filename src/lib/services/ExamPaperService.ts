@@ -169,6 +169,10 @@ export class ExamPaperService {
         await this.repo.unpublish(paperId);
     }
 
+    async findById(paperId: string): Promise<ExamPaper | null> {
+        return this.repo.findById(paperId);
+    }
+
     async findCourseId(paperId: string): Promise<string | null> {
         return this.repo.findCourseId(paperId);
     }

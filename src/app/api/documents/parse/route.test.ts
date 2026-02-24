@@ -82,6 +82,11 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
 }));
 
 const mockExamPaperService = {
+  findById: vi.fn().mockResolvedValue({
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    title: 'Test Exam',
+    courseId: null,
+  }),
   findCourseId: vi.fn().mockResolvedValue(null),
   getQuestionsByPaperId: vi.fn().mockResolvedValue([]),
   insertQuestions: vi.fn().mockResolvedValue({}),
@@ -93,6 +98,11 @@ vi.mock('@/lib/services/ExamPaperService', () => ({
 }));
 
 const mockAssignmentService = {
+  findById: vi.fn().mockResolvedValue({
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    title: 'Test Assignment',
+    courseId: null,
+  }),
   findCourseId: vi.fn(),
   getItems: vi.fn().mockResolvedValue([]),
   deleteItemsByAssignmentId: vi.fn(),
@@ -252,8 +262,18 @@ function setupSuccessfulParse() {
     warnings: [],
   });
   mockParseQuestions.mockResolvedValue([MOCK_QUESTION]);
+  mockExamPaperService.findById.mockResolvedValue({
+    id: DEFAULT_DOCUMENT_ID,
+    title: 'Test Exam',
+    courseId: null,
+  });
   mockExamPaperService.findCourseId.mockResolvedValue(null);
   mockExamPaperService.getQuestionsByPaperId.mockResolvedValue([]);
+  mockAssignmentService.findById.mockResolvedValue({
+    id: DEFAULT_DOCUMENT_ID,
+    title: 'Test Assignment',
+    courseId: null,
+  });
   mockAssignmentService.findCourseId.mockResolvedValue(null);
   mockAssignmentService.getItems.mockResolvedValue([]);
 }
