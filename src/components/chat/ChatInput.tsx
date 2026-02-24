@@ -1,5 +1,5 @@
-import { ArrowUp, Paperclip, Square, Upload } from 'lucide-react';
-import React, { useCallback, useState } from 'react';
+import { ArrowUp, Mic, MicOff, Paperclip, Square, Upload } from 'lucide-react';
+import React, { useCallback, useRef as useReactRef, useState } from 'react';
 import {
   ActionIcon,
   Box,
@@ -12,7 +12,9 @@ import {
   Textarea,
   Tooltip,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ACCEPTED_FILE_TYPES, getFileDisplayName } from '@/lib/file-utils';
 
@@ -60,9 +62,46 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   attachedDocument,
   onRemoveDocument,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = React.useRef(0);
+
+  // Track the text that was in the input before voice started
+  const preVoiceInputRef = useReactRef('');
+
+  const {
+    isSupported: isVoiceSupported,
+    isListening,
+    toggle: toggleVoice,
+  } = useSpeechRecognition({
+    lang: language === 'zh' ? 'zh-CN' : 'en-US',
+    onTranscript: (text) => {
+      // Append voice transcript to existing input
+      const prefix = preVoiceInputRef.current;
+      const separator = prefix && !prefix.endsWith(' ') && !prefix.endsWith('\n') ? ' ' : '';
+      setInput(prefix + separator + text);
+    },
+    onError: (error) => {
+      if (error === 'not-allowed') {
+        notifications.show({
+          title: language === 'zh' ? '麦克风权限被拒绝' : 'Microphone Permission Denied',
+          message:
+            language === 'zh'
+              ? '请在浏览器地址栏旁允许使用麦克风，然后再试一次。'
+              : 'Please allow microphone access in your browser settings and try again.',
+          color: 'red',
+        });
+      }
+    },
+  });
+
+  const handleToggleVoice = useCallback(() => {
+    if (!isListening) {
+      // Save current input as prefix before starting
+      preVoiceInputRef.current = input;
+    }
+    toggleVoice();
+  }, [isListening, input, toggleVoice]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -128,7 +167,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 border: `1px solid light-dark(var(--mantine-color-${getDocColor('lecture')}-2), var(--mantine-color-${getDocColor('lecture')}-7))`,
               }}
             >
-              <LectureDocIcon size={14} color={`var(--mantine-color-${getDocColor('lecture')}-5)`} />
+              <LectureDocIcon
+                size={14}
+                color={`var(--mantine-color-${getDocColor('lecture')}-5)`}
+              />
               <Text
                 size="xs"
                 fw={500}
@@ -296,6 +338,39 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               },
             }}
           />
+
+          {/* Microphone Button */}
+          {isVoiceSupported && (
+            <Tooltip
+              label={isListening ? t.chat.voiceListening : t.chat.voiceInput}
+              position="top"
+              withArrow
+            >
+              <ActionIcon
+                variant="subtle"
+                radius="xl"
+                size={32}
+                mr={2}
+                mb={4}
+                onClick={handleToggleVoice}
+                disabled={isTyping && !isStreaming}
+                aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                style={{
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  color: isListening ? 'var(--mantine-color-red-6)' : undefined,
+                  animation: isListening ? 'voice-pulse 1.5s ease-in-out infinite' : undefined,
+                }}
+                c={isListening ? 'red' : 'dimmed'}
+                className={isListening ? '' : 'sidebar-hover hover:text-indigo-600'}
+              >
+                {isListening ? (
+                  <MicOff size={16} strokeWidth={2} />
+                ) : (
+                  <Mic size={16} strokeWidth={2} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+          )}
 
           {isStreaming ? (
             <Tooltip label={t.chat.stopGenerating} position="top" withArrow>

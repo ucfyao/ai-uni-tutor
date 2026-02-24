@@ -37,8 +37,10 @@ vi.mock('@/lib/gemini', async (importOriginal) => {
 });
 
 const mockRetrieveContext = vi.fn();
+const mockRetrieveAssignmentContext = vi.fn();
 vi.mock('@/lib/rag/retrieval', () => ({
   retrieveContext: (...args: unknown[]) => mockRetrieveContext(...args),
+  retrieveAssignmentContext: (...args: unknown[]) => mockRetrieveAssignmentContext(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -74,6 +76,7 @@ describe('ChatService', () => {
     service = new ChatService();
     // Default: RAG returns no context
     mockRetrieveContext.mockResolvedValue({ contextText: '', sources: [] });
+    mockRetrieveAssignmentContext.mockResolvedValue([]);
   });
 
   // =========================================================================

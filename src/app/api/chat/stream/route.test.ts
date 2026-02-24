@@ -222,6 +222,12 @@ describe('POST /api/chat/stream', () => {
 
   describe('missing API key', () => {
     it('returns 500 when no AI chat config is set', async () => {
+      // Clear all AI_CHAT_* env vars completely for this test
+      Object.keys(process.env).forEach((key) => {
+        if (/^AI_CHAT_\d+$/.test(key)) {
+          vi.stubEnv(key, '');
+        }
+      });
       vi.stubEnv('AI_CHAT_0', '');
       vi.stubEnv('GEMINI_API_KEY', '');
 

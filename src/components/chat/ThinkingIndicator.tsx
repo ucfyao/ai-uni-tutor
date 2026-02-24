@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text } from '@mantine/core';
+import { Box, Group, Text } from '@mantine/core';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';
@@ -24,28 +24,37 @@ export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) =>
 
   return (
     <Box p="xs">
-      <Box
-        h={4}
-        w={120}
-        mb={6}
-        className="shimmer-bar"
-        style={{
-          borderRadius: 2,
-          background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 1.5s ease-in-out infinite',
-        }}
-      />
+      <Group gap={4} mb={6}>
+        {[0, 1, 2].map((i) => (
+          <Box
+            key={i}
+            className="thinking-dot"
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: color,
+              animation: `thinkingBounce 1.4s ease-in-out ${i * 0.16}s infinite both`,
+            }}
+          />
+        ))}
+      </Group>
       <Text fz="xs" c="dimmed">
-        {text}...
+        {text}
       </Text>
       <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
+        @keyframes thinkingBounce {
+          0%, 80%, 100% {
+            transform: scale(0.6);
+            opacity: 0.4;
+          }
+          40% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
-          .shimmer-bar { animation: none !important; }
+          .thinking-dot { animation: none !important; opacity: 0.7 !important; }
         }
       `}</style>
     </Box>
