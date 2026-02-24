@@ -1,3 +1,4 @@
+import { RAG_CONFIG } from '@/lib/rag/config';
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<void> {
@@ -82,14 +83,15 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         return;
     }
 
+    const normalizeContent = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
     const existingContents = new Set(
-        existingItemsForDedup.map((item) => item.content.trim().toLowerCase()),
+        existingItemsForDedup.map((item) => normalizeContent(item.content)),
     );
 
     // Track original parsedItems indices through dedup
     const afterContentDedup: number[] = []; // original indices that survive
     for (let i = 0; i < parsedItems.length; i++) {
-        if (!existingContents.has(parsedItems[i].content.trim().toLowerCase())) {
+        if (!existingContents.has(normalizeContent(parsedItems[i].content))) {
             afterContentDedup.push(i);
         }
     }
@@ -136,7 +138,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     send('log', { message: 'Embeddings generated', level: 'success' });
 
     // Pass 2: Embedding similarity dedup
-    const SIMILARITY_THRESHOLD = 0.92;
+    const SIMILARITY_THRESHOLD = RAG_CONFIG.dedupSimilarityThreshold;
     const existingEmbeddings = existingItemsForDedup
         .map((c) => {
             if (Array.isArray(c.embedding)) return c.embedding;
@@ -158,6 +160,7 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
             const emb = candidateEmbeddings[i];
             let maxSim = 0;
             for (const existing of existingEmbeddings) {
+                if (emb.length !== existing.length) continue;
                 let dot = 0;
                 for (let d = 0; d < emb.length; d++) dot += emb[d] * existing[d];
                 if (dot > maxSim) maxSim = dot;
@@ -374,35 +377,38 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         remaining = unresolvable;
     }
 
-    // ── Compute stats and update assignment metadata ──
-    const allItems = await assignmentService.getItems(documentId);
-    const stats = {
-        itemCount: allItems.length,
-        mainCount: 0,
-        subCount: 0,
-        withAnswer: 0,
-        warningCount: 0,
-    };
+    // ── Compute stats and update assignment metadata (non-fatal) ──
+    try {
+        const allItems = await assignmentService.getItems(documentId);
+        const stats = {
+            itemCount: allItems.length,
+            mainCount: 0,
+            subCount: 0,
+            withAnswer: 0,
+            warningCount: 0,
+        };
 
-    for (const item of allItems) {
-        if (item.parentItemId === null) {
-            stats.mainCount++;
-        } else {
-            stats.subCount++;
+        for (const item of allItems) {
+            if (item.parentItemId === null) {
+                stats.mainCount++;
+            } else {
+                stats.subCount++;
+            }
+            if (item.referenceAnswer?.trim()) stats.withAnswer++;
         }
-        if (item.referenceAnswer?.trim()) stats.withAnswer++;
+
+        stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
+
+        const currentAssignment = await assignmentService.findById(documentId);
+        const updatedMetadata = {
+            ...(currentAssignment?.metadata || {}),
+            stats,
+        };
+        await assignmentService.updateMetadata(documentId, updatedMetadata);
+    } catch (e) {
+        console.warn('Failed to update assignment stats (non-fatal):', e);
+        send('log', { message: 'Stats update failed (non-fatal)', level: 'warning' });
     }
-
-    // Calculate warning count just for newly parsed items, as a proxy
-    stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
-
-    // Fetch current metadata to merge it, since handle-assignment may have already saved metadata earlier
-    const currentAssignment = await assignmentService.findById(documentId);
-    const updatedMetadata = {
-        ...(currentAssignment?.metadata || {}),
-        stats,
-    };
-    await assignmentService.updateMetadata(documentId, updatedMetadata);
 
     send('log', { message: `Saved ${newItems.length} questions`, level: 'success' });
     send('status', { stage: 'complete', message: 'Done!' });

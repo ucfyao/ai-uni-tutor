@@ -668,17 +668,25 @@ describe('POST /api/documents/parse', () => {
   // =========================================================================
 
   describe('unexpected pipeline error', () => {
-    it('sends EXTRACTION_ERROR when an unexpected error occurs during lecture pipeline', async () => {
+    it('continues gracefully when batch save fails during lecture pipeline', async () => {
       setupSuccessfulParse();
-      // Make saveChunksAndReturn throw to simulate unexpected error during pipeline
+      // Make saveChunksAndReturn throw to simulate DB write failure
       mockDocumentService.saveChunksAndReturn.mockRejectedValue(new Error('DB write failure'));
 
       const response = await POST(makeRequest());
       const events = await readSSEEvents(response);
 
-      const errorEvent = findEvent(events, 'error');
-      expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as any).code).toBe('EXTRACTION_ERROR');
+      // Batch save errors are now non-fatal — pipeline completes with warning
+      const logEvents = findEvents(events, 'log');
+      const warningLog = logEvents.find(
+        (e) =>
+          (e.data as any).level === 'warning' && (e.data as any).message.includes('failed to save'),
+      );
+      expect(warningLog).toBeDefined();
+
+      const statusEvents = findEvents(events, 'status');
+      const lastStatus = statusEvents[statusEvents.length - 1];
+      expect((lastStatus.data as any).stage).toBe('complete');
     });
   });
 

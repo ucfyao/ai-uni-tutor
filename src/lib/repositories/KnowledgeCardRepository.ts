@@ -11,6 +11,7 @@ import type {
   KnowledgeCardEntity,
 } from '@/lib/domain/models/KnowledgeCard';
 import { DatabaseError } from '@/lib/errors';
+import { RAG_CONFIG } from '@/lib/rag/config';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 
@@ -80,11 +81,8 @@ export class KnowledgeCardRepository implements IKnowledgeCardRepository {
     return this.mapToEntity(row);
   }
 
-  /**
-   * Embedding-similarity threshold for dedup.
-   * Cards with cosine similarity above this are considered the same concept.
-   */
-  private static readonly SIMILARITY_THRESHOLD = 0.92;
+  /** Embedding-similarity threshold for dedup — sourced from RAG_CONFIG. */
+  private static readonly SIMILARITY_THRESHOLD = RAG_CONFIG.dedupSimilarityThreshold;
 
   async upsertByTitle(dto: CreateKnowledgeCardDTO): Promise<KnowledgeCardEntity> {
     const supabase = await createClient();

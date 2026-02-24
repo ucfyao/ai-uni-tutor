@@ -552,6 +552,7 @@ export interface Database {
                     difficulty: string;
                     metadata: Json;
                     embedding: number[] | null;
+                    warnings: string[];
                     created_at: string;
                     parent_item_id: string | null;
                 };
@@ -567,6 +568,7 @@ export interface Database {
                     difficulty?: string;
                     metadata?: Json;
                     embedding?: number[] | null;
+                    warnings?: string[];
                     created_at?: string;
                     parent_item_id?: string | null;
                 };
@@ -582,6 +584,7 @@ export interface Database {
                     difficulty?: string;
                     metadata?: Json;
                     embedding?: number[] | null;
+                    warnings?: string[];
                     created_at?: string;
                     parent_item_id?: string | null;
                 };
