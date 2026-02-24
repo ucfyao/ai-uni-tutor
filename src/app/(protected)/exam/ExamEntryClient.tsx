@@ -53,7 +53,7 @@ export function ExamEntryClient({
   const isInitialMount = useRef(true);
 
   // Source selection
-  const [source, setSource] = useState<Source>('real');
+  const [source, setSource] = useState<Source>('ai');
 
   // University → Course (for real / random)
   const [selectedUniId, setSelectedUniId] = useState<string | null>(initialUniId ?? null);
@@ -67,7 +67,7 @@ export function ExamEntryClient({
   // Real exam options
   const [papers, setPapers] = useState<ExamPaper[]>([]);
   const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
-  const [loadingPapers, setLoadingPapers] = useState(false);
+  const [loadingPapers, setLoadingPapers] = useState(!!initialCourseCode);
 
   // Random / AI shared
   const [numQuestions, setNumQuestions] = useState<string | null>('10');
@@ -313,13 +313,21 @@ export function ExamEntryClient({
                 </Text>
                 <Group grow gap="md">
                   <SourceCard
+                    active={source === 'ai'}
+                    title={t.exam.aiMock}
+                    description={t.exam.aiMockDesc}
+                    icon={<Sparkles size={18} />}
+                    onClick={() => setSource('ai')}
+                    recommended={!hasPapers && !loadingPapers}
+                  />
+                  <SourceCard
                     active={source === 'real'}
                     title={t.exam.realExam}
                     description={t.exam.realExamDesc}
                     icon={<ExamIcon size={18} />}
                     onClick={() => setSource('real')}
                     recommended={hasPapers}
-                    disabled={!hasPapers && !loadingPapers}
+                    disabled={!hasPapers}
                     disabledNote={
                       !hasPapers && !loadingPapers ? t.exam.noPapersAvailableShort : undefined
                     }
@@ -330,18 +338,10 @@ export function ExamEntryClient({
                     description={t.exam.randomMixDesc}
                     icon={<Shuffle size={18} />}
                     onClick={() => setSource('random')}
-                    disabled={!hasEnoughForRandom && !loadingPapers}
+                    disabled={!hasEnoughForRandom}
                     disabledNote={
                       !hasEnoughForRandom && !loadingPapers ? t.exam.notEnoughPapers : undefined
                     }
-                  />
-                  <SourceCard
-                    active={source === 'ai'}
-                    title={t.exam.aiMock}
-                    description={t.exam.aiMockDesc}
-                    icon={<Sparkles size={18} />}
-                    onClick={() => setSource('ai')}
-                    recommended={!hasPapers && !loadingPapers}
                   />
                 </Group>
               </div>
@@ -454,8 +454,8 @@ export function ExamEntryClient({
                 )}
               </CollapseSection>
 
-              {/* 3. Mode + Start — shown when source config is complete */}
-              <CollapseSection visible={isSourceConfigured}>
+              {/* 3. Mode + Start — always visible, Start disabled when config incomplete */}
+              <CollapseSection visible={true}>
                 <Stack gap="lg">
                   <div>
                     <Text size="sm" fw={500} mb="xs">
