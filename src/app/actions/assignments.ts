@@ -346,45 +346,6 @@ export async function splitAssignmentItem(
 
 // ── Assignment Stats ──
 
-export async function fetchAssignmentStats(
-  assignmentIds: string[],
-): Promise<
-  ActionResult<
-    Record<
-      string,
-      {
-        itemCount: number;
-        mainCount: number;
-        subCount: number;
-        withAnswer: number;
-        warningCount: number;
-      }
-    >
-  >
-> {
-  try {
-    await requireAnyAdmin();
-    const service = getAssignmentService();
-    const stats = await service.getAssignmentStats(assignmentIds);
-    const result: Record<
-      string,
-      {
-        itemCount: number;
-        mainCount: number;
-        subCount: number;
-        withAnswer: number;
-        warningCount: number;
-      }
-    > = {};
-    for (const [id, stat] of stats) {
-      result[id] = stat;
-    }
-    return { success: true, data: result };
-  } catch (error) {
-    console.error('fetchAssignmentStats error:', error);
-    return { success: false, error: 'Failed to fetch stats' };
-  }
-}
 
 // ── Batch Answer Matching ──
 
