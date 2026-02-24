@@ -137,6 +137,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
       created_at: paper.createdAt,
       doc_type: 'exam',
       metadata: {
+        ...(paper.metadata as Record<string, unknown>),
         school: paper.school ?? undefined,
         course: paper.course ?? undefined,
       },
@@ -163,6 +164,7 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
     created_at: a.createdAt,
     doc_type: 'assignment',
     metadata: {
+      ...(a.metadata as Record<string, unknown>),
       school: a.school ?? undefined,
       course: a.course ?? undefined,
     },
