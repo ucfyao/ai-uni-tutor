@@ -52,8 +52,8 @@ export function StudyPageClient() {
   const FEATURE_CARDS = getFeatureCards(t);
   const [, startNavigating] = useTransition();
 
-  const handleCourseSelected = async (courseId: string, mode: TutoringMode) => {
-    const newId = await addSession(courseId, mode);
+  const handleCourseSelected = async (courseId: string, mode: TutoringMode, courseCode: string) => {
+    const newId = await addSession(courseId, mode, courseCode);
     if (!newId) return;
 
     startNavigating(() => {
@@ -329,7 +329,7 @@ export function StudyPageClient() {
           setSelectedMode(null);
         }}
         preSelectedMode={selectedMode}
-        onStart={(courseId, mode) => handleCourseSelected(courseId, mode)}
+        onStart={(courseId, mode, courseCode) => handleCourseSelected(courseId, mode, courseCode)}
       />
     </>
   );

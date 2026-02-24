@@ -21,7 +21,7 @@ import { TutoringMode } from '../types/index';
 interface NewSessionModalProps {
   opened: boolean;
   onClose: () => void;
-  onStart: (courseId: string, mode: TutoringMode) => void | Promise<void>;
+  onStart: (courseId: string, mode: TutoringMode, courseCode: string) => void | Promise<void>;
   preSelectedMode?: TutoringMode | null;
 }
 
@@ -98,7 +98,8 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
       try {
         localStorage.setItem('lastUniId', selectedUniId);
         localStorage.setItem('lastCourseId', selectedCourseId);
-        await onStart(selectedCourseId, preSelectedMode);
+        const course = filteredCourses.find((c) => c.id === selectedCourseId);
+        await onStart(selectedCourseId, preSelectedMode, course?.code ?? '');
       } finally {
         setIsLoading(false);
       }
