@@ -199,15 +199,28 @@ const POOL_KEY = 'gemini:pool';
 const POOL_TTL_S = 31 * 24 * 60 * 60; // 31 days
 
 export interface PoolState {
-  cd: number[];
+  cd: Record<string, number>;
+  fails: Record<string, number>;
   stats: Record<string, number>;
 }
 
 export async function loadPoolState(): Promise<PoolState> {
   try {
-    return (await getRedis().get<PoolState>(POOL_KEY)) ?? { cd: [], stats: {} };
+    const raw = await getRedis().get<Record<string, unknown>>(POOL_KEY);
+    if (!raw) return { cd: {}, fails: {}, stats: {} };
+    const cd =
+      raw.cd && typeof raw.cd === 'object' && !Array.isArray(raw.cd)
+        ? (raw.cd as Record<string, number>)
+        : {};
+    const fails =
+      raw.fails && typeof raw.fails === 'object' && !Array.isArray(raw.fails)
+        ? (raw.fails as Record<string, number>)
+        : {};
+    const stats =
+      raw.stats && typeof raw.stats === 'object' ? (raw.stats as Record<string, number>) : {};
+    return { cd, fails, stats };
   } catch {
-    return { cd: [], stats: {} };
+    return { cd: {}, fails: {}, stats: {} };
   }
 }
 
@@ -217,6 +230,13 @@ export async function savePoolState(state: PoolState): Promise<void> {
   } catch {
     // Redis unavailable — fail-open
   }
+}
+
+export async function resetPoolCooldowns(): Promise<void> {
+  const state = await loadPoolState();
+  state.cd = {};
+  state.fails = {};
+  await savePoolState(state);
 }
 
 /**

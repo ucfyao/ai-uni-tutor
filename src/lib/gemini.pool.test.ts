@@ -26,7 +26,7 @@ vi.mock('@google/genai', () => {
 });
 
 // Mock Redis — unified PoolState
-let state: PoolState = { cd: [], stats: {} };
+let state: PoolState = { cd: {}, fails: {}, stats: {} };
 const mockSave = vi.fn(async (s: PoolState) => {
   state = s;
 });
@@ -38,7 +38,7 @@ vi.mock('@/lib/redis', () => ({
 
 describe('KeyPool', () => {
   beforeEach(() => {
-    state = { cd: [], stats: {} };
+    state = { cd: {}, fails: {}, stats: {} };
     mockSave.mockClear();
   });
 
@@ -80,7 +80,7 @@ describe('KeyPool', () => {
       expect(mockSave).toHaveBeenCalledTimes(1);
     });
 
-    it('tracks provider:model stats on success', async () => {
+    it('tracks model stats on success (no provider prefix)', async () => {
       const pool = new KeyPool('k1');
       await pool.withRetry((entry) =>
         (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
@@ -90,7 +90,7 @@ describe('KeyPool', () => {
       );
 
       const today = new Date().toISOString().split('T')[0];
-      expect(state.stats[`gemini:${GEMINI_MODELS.chat}:${today}`]).toBe(1);
+      expect(state.stats[`${GEMINI_MODELS.chat}:${today}`]).toBe(1);
     });
 
     it('retries next key on 429 and marks 30s cooldown (first failure)', async () => {
@@ -112,15 +112,17 @@ describe('KeyPool', () => {
       );
 
       expect(result).toEqual({ text: 'ok' });
-      // k1 marked with 30s cooldown
-      const cooldown = state.cd[0];
+      // k1 marked with 30s cooldown (namespaced key)
+      const cooldown = state.cd['default:0'];
       expect(cooldown).toBeGreaterThan(Date.now());
       expect(cooldown).toBeLessThanOrEqual(Date.now() + 30_000);
+      // failure counter incremented
+      expect(state.fails['default:0']).toBe(1);
     });
 
-    it('marks 24h cooldown on second failure (on notice)', async () => {
-      // k1 has expired cooldown → "on notice"
-      state = { cd: [1, 0], stats: {} };
+    it('marks 24h cooldown on second failure (failure counter >= 1)', async () => {
+      // k1 already has 1 previous failure in counter
+      state = { cd: {}, fails: { 'default:0': 1 }, stats: {} };
 
       const { ApiError } = await import('@google/genai');
       const pool = new KeyPool('k1,k2');
@@ -141,8 +143,26 @@ describe('KeyPool', () => {
 
       expect(result).toEqual({ text: 'ok' });
       // k1 now has 24h cooldown
-      const cooldown = state.cd[0];
+      const cooldown = state.cd['default:0'];
       expect(cooldown).toBeGreaterThan(Date.now() + 60_000);
+      // failure counter incremented to 2
+      expect(state.fails['default:0']).toBe(2);
+    });
+
+    it('clears failure counter on success', async () => {
+      // k1 has previous failures
+      state = { cd: {}, fails: { 'default:0': 2 }, stats: {} };
+
+      const pool = new KeyPool('k1');
+      await pool.withRetry((entry) =>
+        (entry.client as unknown as { models: Record<string, Function> }).models.generateContent({
+          model: 'test',
+          contents: '',
+        }),
+      );
+
+      // failure counter cleared on success
+      expect(state.fails['default:0']).toBeUndefined();
     });
 
     it('retries on 500/503', async () => {
@@ -229,14 +249,14 @@ describe('KeyPool', () => {
         ),
       ).rejects.toThrow('rate limited');
 
-      // Both keys have cooldowns
-      expect(state.cd[0]).toBeGreaterThan(Date.now());
-      expect(state.cd[1]).toBeGreaterThan(Date.now());
+      // Both keys have cooldowns (namespaced)
+      expect(state.cd['default:0']).toBeGreaterThan(Date.now());
+      expect(state.cd['default:1']).toBeGreaterThan(Date.now());
     });
 
     it('skips keys in cooldown from previous requests', async () => {
       // Simulate k1 already in 24h cooldown (from another instance)
-      state = { cd: [Date.now() + 86400000, 0], stats: {} };
+      state = { cd: { 'default:0': Date.now() + 86400000 }, fails: {}, stats: {} };
 
       const pool = new KeyPool('k1,k2');
       const spy = vi.fn();
@@ -367,7 +387,7 @@ describe('buildChatEntries', () => {
 
 describe('KeyPool.asProxy', () => {
   beforeEach(() => {
-    state = { cd: [], stats: {} };
+    state = { cd: {}, fails: {}, stats: {} };
     mockSave.mockClear();
   });
 
@@ -383,12 +403,12 @@ describe('KeyPool.asProxy', () => {
     expect(result).toEqual({ embeddings: [] });
   });
 
-  it('tracks provider:model stats through proxy', async () => {
+  it('tracks model stats through proxy (no provider prefix)', async () => {
     const proxy = new KeyPool('k1').asProxy();
     await proxy.models.generateContent({ model: 'gemini-2.5-flash', contents: '' });
 
     const today = new Date().toISOString().split('T')[0];
-    expect(state.stats[`gemini:${GEMINI_MODELS.chat}:${today}`]).toBe(1);
+    expect(state.stats[`${GEMINI_MODELS.chat}:${today}`]).toBe(1);
   });
 
   it('retries transparently through proxy', async () => {
