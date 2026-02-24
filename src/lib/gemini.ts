@@ -35,6 +35,21 @@ export interface KeyStatusInfo {
   disabled: boolean;
 }
 
+export interface PoolEntryStatus {
+  id: number;
+  provider: 'gemini' | 'minimax';
+  maskedKey: string;
+  disabled: boolean;
+  cooldownUntil: number;
+  failCount: number; // from state.fails
+  pool: 'default' | 'chat';
+}
+
+export interface PoolStatusResponse {
+  entries: PoolEntryStatus[];
+  serverTime: number;
+}
+
 function getHttpStatus(err: unknown): number | undefined {
   if (err instanceof ApiError) return err.status;
   // openai package throws APIError with .status
@@ -171,8 +186,8 @@ export class KeyPool {
     });
   }
 
-  getEntries(): PoolEntry[] {
-    return this.entries;
+  getEntries(): readonly PoolEntry[] {
+    return [...this.entries];
   }
 
   getStatus(): KeyStatusInfo[] {
@@ -186,6 +201,13 @@ export class KeyPool {
 export let _pooledProxy: GoogleGenAI | null = null;
 /** @internal Exported for testing only */
 export let _defaultPool: KeyPool | null = null;
+
+/** @internal Reset pool singletons for testing only */
+export function _resetPools(): void {
+  _pooledProxy = null;
+  _defaultPool = null;
+  _chatPool = null;
+}
 
 /** Lazy: validated on first use so pages/tests without GEMINI_API_KEY don't crash at import. */
 export function getGenAI(): GoogleGenAI {
@@ -287,6 +309,61 @@ export function getChatPool(): KeyPool {
     _chatPool = new KeyPool(buildChatEntries(), 'chat');
   }
   return _chatPool;
+}
+
+export async function getPoolStatusInfo(): Promise<PoolStatusResponse> {
+  const state = await loadPoolState();
+  const now = Date.now();
+  const entries: PoolEntryStatus[] = [];
+
+  // Initialize default pool if env var present but not yet initialized
+  if (!_defaultPool && process.env.GEMINI_API_KEY) {
+    try {
+      getGenAI();
+    } catch {
+      /* initialization failed */
+    }
+  }
+
+  if (_defaultPool) {
+    for (const entry of _defaultPool.getEntries()) {
+      const cdKey = `default:${entry.id}`;
+      entries.push({
+        id: entry.id,
+        provider: entry.provider,
+        maskedKey: entry.maskedKey,
+        disabled: entry.disabled,
+        cooldownUntil: (state.cd[cdKey] ?? 0) > now ? state.cd[cdKey] : 0,
+        failCount: state.fails[cdKey] ?? 0,
+        pool: 'default',
+      });
+    }
+  }
+
+  if (!_chatPool) {
+    try {
+      getChatPool();
+    } catch {
+      /* no chat pool configured */
+    }
+  }
+
+  if (_chatPool) {
+    for (const entry of _chatPool.getEntries()) {
+      const cdKey = `chat:${entry.id}`;
+      entries.push({
+        id: entry.id,
+        provider: entry.provider,
+        maskedKey: entry.maskedKey,
+        disabled: entry.disabled,
+        cooldownUntil: (state.cd[cdKey] ?? 0) > now ? state.cd[cdKey] : 0,
+        failCount: state.fails[cdKey] ?? 0,
+        pool: 'chat',
+      });
+    }
+  }
+
+  return { entries, serverTime: now };
 }
 
 /**

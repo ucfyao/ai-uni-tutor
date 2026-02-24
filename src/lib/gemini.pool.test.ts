@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PoolState } from '@/lib/redis';
-import { buildChatEntries, GEMINI_MODELS, KeyPool } from './gemini';
+import type { PoolStatusResponse } from './gemini';
+import { _resetPools, buildChatEntries, GEMINI_MODELS, getPoolStatusInfo, KeyPool } from './gemini';
 
 // Mock GoogleGenAI
 vi.mock('@google/genai', () => {
@@ -424,5 +425,68 @@ describe('KeyPool.asProxy', () => {
 
     const result = await pool.asProxy().models.generateContent({ model: 'test', contents: '' });
     expect(result).toEqual({ text: 'ok' });
+  });
+});
+
+describe('getPoolStatusInfo', () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    state = { cd: {}, fails: {}, stats: {} };
+    mockSave.mockClear();
+    // Reset all 3 singletons
+    _resetPools();
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('returns status entries for default pool', async () => {
+    process.env.GEMINI_API_KEY = 'test-key-1,test-key-2';
+    for (const key of Object.keys(process.env)) {
+      if (/^AI_CHAT_\d+$/.test(key)) delete process.env[key];
+    }
+
+    const result: PoolStatusResponse = await getPoolStatusInfo();
+
+    const defaultEntries = result.entries.filter((e) => e.pool === 'default');
+    expect(defaultEntries).toHaveLength(2);
+    expect(defaultEntries[0]).toMatchObject({
+      id: 0,
+      provider: 'gemini',
+      disabled: false,
+      cooldownUntil: 0,
+      failCount: 0,
+      pool: 'default',
+    });
+    expect(result.serverTime).toBeGreaterThan(0);
+  });
+
+  it('includes cooldown and failCount from Redis state', async () => {
+    const futureTime = Date.now() + 30000;
+    state = { cd: { 'default:0': futureTime }, fails: { 'default:0': 2 }, stats: {} };
+    process.env.GEMINI_API_KEY = 'test-key-1,test-key-2';
+    for (const key of Object.keys(process.env)) {
+      if (/^AI_CHAT_\d+$/.test(key)) delete process.env[key];
+    }
+
+    const result: PoolStatusResponse = await getPoolStatusInfo();
+
+    const defaultEntries = result.entries.filter((e) => e.pool === 'default');
+    expect(defaultEntries[0].cooldownUntil).toBe(futureTime);
+    expect(defaultEntries[0].failCount).toBe(2);
+    expect(defaultEntries[1].cooldownUntil).toBe(0);
+    expect(defaultEntries[1].failCount).toBe(0);
+  });
+
+  it('returns empty entries when no GEMINI_API_KEY is set', async () => {
+    delete process.env.GEMINI_API_KEY;
+    for (const key of Object.keys(process.env)) {
+      if (/^AI_CHAT_\d+$/.test(key)) delete process.env[key];
+    }
+
+    const result: PoolStatusResponse = await getPoolStatusInfo();
+    expect(result.entries).toEqual([]);
   });
 });
