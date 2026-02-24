@@ -17,7 +17,10 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
     const parseResult = await parseAssignment(fileBuffer, {
       assignmentId: documentId,
       signal,
-      onProgress: (p) => send('pipeline_progress', p),
+      onProgress: (p) => {
+        send('pipeline_progress', p);
+        if (p.detail) send('log', { message: p.detail, level: 'info' });
+      },
     });
     parsedItems = parseResult.items;
     warnings = parseResult.warnings;

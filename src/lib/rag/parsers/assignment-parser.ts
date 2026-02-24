@@ -66,7 +66,9 @@ export async function parseAssignment(
 ): Promise<ParseAssignmentResult> {
   reportProgress(options, 0, 'Uploading PDF to AI for extraction...');
 
-  const extraction = await extractAssignmentQuestions(fileBuffer, options?.signal);
+  const extraction = await extractAssignmentQuestions(fileBuffer, options?.signal, (detail) =>
+    reportProgress(options, 10, detail),
+  );
   const { items, metadata, warnings } = extraction;
 
   // Per-item validation

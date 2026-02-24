@@ -19,7 +19,9 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
       send('progress', { current, total });
     };
     const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-    const questions = await parseQuestions(fileBuffer, onBatchProgress, signal);
+    const questions = await parseQuestions(fileBuffer, onBatchProgress, signal, (detail) =>
+      send('log', { message: detail, level: 'info' }),
+    );
 
     // ── Validation (shared with Assignment) ──
     const { validateQuestionItems } = await import('@/lib/rag/parsers/question-validator');

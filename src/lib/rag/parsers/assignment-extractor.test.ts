@@ -139,7 +139,7 @@ describe('assignment-extractor', () => {
     expect(mockExtractFromPDF).toHaveBeenCalledWith(
       dummyBuffer,
       expect.any(String),
-      controller.signal,
+      expect.objectContaining({ signal: controller.signal }),
     );
   });
 

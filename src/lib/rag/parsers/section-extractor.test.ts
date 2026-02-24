@@ -102,6 +102,10 @@ describe('section-extractor', () => {
 
     await extractSections(dummyBuffer);
 
-    expect(mockExtractFromPDF).toHaveBeenCalledWith(dummyBuffer, expect.any(String), undefined);
+    expect(mockExtractFromPDF).toHaveBeenCalledWith(
+      dummyBuffer,
+      expect.any(String),
+      expect.objectContaining({ signal: undefined }),
+    );
   });
 });
