@@ -221,6 +221,12 @@ export function getGenAI(): GoogleGenAI {
   return _pooledProxy;
 }
 
+/** Return the default KeyPool for callers that need a single `withRetry` around multi-step ops. */
+export function getDefaultPool(): KeyPool {
+  getGenAI(); // ensure pool is initialised
+  return _defaultPool!;
+}
+
 // ==================== Chat Pool (multi-provider) ====================
 
 /** @internal Exported for testing only */

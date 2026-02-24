@@ -282,10 +282,15 @@ function GeminiContent({ data }: { data: GeminiData }) {
 function PoolStatusContent({ data, onReset }: { data: PoolStatusData; onReset: () => void }) {
   const [resetting, setResetting] = useState(false);
 
+  const [resetError, setResetError] = useState(false);
+
   const handleReset = async () => {
     setResetting(true);
+    setResetError(false);
     try {
       await onReset();
+    } catch {
+      setResetError(true);
     } finally {
       setResetting(false);
     }
@@ -355,6 +360,12 @@ function PoolStatusContent({ data, onReset }: { data: PoolStatusData; onReset: (
         >
           Reset All Cooldowns
         </Button>
+      )}
+
+      {resetError && (
+        <Text size="xs" c="red" mt={4}>
+          Reset failed — please try again.
+        </Text>
       )}
     </Stack>
   );
@@ -557,11 +568,12 @@ export function DashboardClient() {
                   <PoolStatusContent
                     data={data}
                     onReset={async () => {
-                      await fetch('/api/admin/dashboard', {
+                      const res = await fetch('/api/admin/dashboard', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'reset-pool' }),
                       });
+                      if (!res.ok) throw new Error('Reset failed');
                       queryClient.invalidateQueries({
                         queryKey: ['admin-dashboard', 'gemini-pool'],
                       });
