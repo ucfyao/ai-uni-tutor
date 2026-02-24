@@ -12,6 +12,7 @@ export async function parseQuestions(
   fileBuffer: Buffer,
   onBatchProgress?: (current: number, total: number) => void,
   signal?: AbortSignal,
+  onProgress?: (detail: string) => void,
 ): Promise<ParsedQuestion[]> {
   if (fileBuffer.length === 0) return [];
   if (signal?.aborted) return [];
@@ -41,7 +42,10 @@ Parent-child structure rules:
 
 Return ONLY a valid JSON array of questions. No markdown, no explanation.`;
 
-  const { result, warnings } = await extractFromPDF<ParsedQuestion[]>(fileBuffer, prompt, signal);
+  const { result, warnings } = await extractFromPDF<ParsedQuestion[]>(fileBuffer, prompt, {
+    signal,
+    onProgress,
+  });
 
   if (warnings.length > 0) {
     for (const w of warnings) console.warn('[question-parser]', w);

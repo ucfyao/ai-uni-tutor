@@ -91,6 +91,7 @@ Return ONLY a valid JSON object with a "metadata" object and an "items" array. N
 export async function extractAssignmentQuestions(
   fileBuffer: Buffer,
   signal?: AbortSignal,
+  onProgress?: (detail: string) => void,
 ): Promise<AssignmentExtractionResult> {
   if (signal?.aborted) return { items: [], metadata: {}, warnings: [] };
 
@@ -99,7 +100,7 @@ export async function extractAssignmentQuestions(
   const { result: raw, warnings: extractWarnings } = await extractFromPDF<unknown>(
     fileBuffer,
     prompt,
-    signal,
+    { signal, onProgress },
   );
 
   if (extractWarnings.length > 0) {

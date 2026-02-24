@@ -84,7 +84,17 @@ export async function extractSections(
   const { result: raw, warnings: extractWarnings } = await extractFromPDF<unknown>(
     fileBuffer,
     prompt,
-    signal,
+    {
+      signal,
+      onProgress: (detail) => {
+        options?.onProgress?.({
+          phase: 'extraction',
+          phaseProgress: 10,
+          totalProgress: 8,
+          detail,
+        });
+      },
+    },
   );
 
   if (options?.onProgress) {

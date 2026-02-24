@@ -257,6 +257,41 @@ function PipelineLog({
   );
 }
 
+/* ── Elapsed time indicator ── */
+
+function ElapsedTimer({ startTime }: { startTime?: number }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!startTime) return;
+    setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [startTime]);
+
+  if (!startTime || elapsed < 1) return null;
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  const display = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+  return (
+    <Text
+      size="xs"
+      c="dimmed"
+      style={{
+        flexShrink: 0,
+        fontVariantNumeric: 'tabular-nums',
+        minWidth: 32,
+        textAlign: 'right',
+      }}
+    >
+      ⏱ {display}
+    </Text>
+  );
+}
+
 async function computeFileHash(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -549,15 +584,21 @@ export function PdfUploadZone({
             activeColor={docColor}
           />
 
-          {/* Row 3: progress bar */}
-          <Progress
-            value={progressPct}
-            color={progressColor}
-            size={4}
-            radius="xl"
-            animated={!isComplete && !isError}
-            striped={stage === 'extracting' && parseState.items.length === 0}
-          />
+          {/* Row 3: progress bar + elapsed time */}
+          <Group gap="xs" wrap="nowrap" align="center">
+            <Progress
+              value={progressPct}
+              color={progressColor}
+              size={4}
+              radius="xl"
+              animated={!isComplete && !isError}
+              striped={stage === 'extracting' && parseState.items.length === 0}
+              style={{ flex: 1 }}
+            />
+            {stage === 'extracting' && (
+              <ElapsedTimer startTime={parseState.stageTimes.extracting?.start} />
+            )}
+          </Group>
 
           {/* Row 4: pipeline log */}
           <PipelineLog logs={parseState.pipelineLogs} isBusy={isBusy} logColors={logColors} />
