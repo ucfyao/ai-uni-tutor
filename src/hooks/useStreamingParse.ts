@@ -22,7 +22,6 @@ interface ParseMetadata {
   school?: string;
   course?: string;
   courseId?: string;
-  hasAnswers?: boolean;
   reparse?: boolean;
   append?: boolean;
 }
@@ -134,7 +133,6 @@ export function useStreamingParse(): StreamingParseState {
     if (metadata.school) formData.append('school', metadata.school);
     if (metadata.course) formData.append('course', metadata.course);
     if (metadata.courseId) formData.append('courseId', metadata.courseId);
-    if (metadata.hasAnswers) formData.append('has_answers', 'true');
     if (metadata.reparse) formData.append('reparse', 'true');
     if (metadata.append) formData.append('append', 'true');
     formData.append('documentId', metadata.documentId);

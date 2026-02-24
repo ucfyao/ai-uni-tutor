@@ -152,11 +152,8 @@ describe('ExamPaperService', () => {
         }),
       );
 
-      // One-shot extraction called with buffer and hasAnswers=true
-      expect(questionParserModule.parseQuestions).toHaveBeenCalledWith(
-        Buffer.from('pdf-data'),
-        true,
-      );
+      // One-shot extraction called with buffer (no hasAnswers flag)
+      expect(questionParserModule.parseQuestions).toHaveBeenCalledWith(Buffer.from('pdf-data'));
 
       // Embeddings generated
       expect(embeddingModule.generateEmbeddingBatch).toHaveBeenCalledWith(

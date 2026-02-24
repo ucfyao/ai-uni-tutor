@@ -1,7 +1,7 @@
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
-  const { send, signal, documentId, fileBuffer, hasAnswers } = ctx;
+  const { send, signal, documentId, fileBuffer } = ctx;
   const { getExamPaperService } = await import('@/lib/services/ExamPaperService');
   const examService = getExamPaperService();
 
@@ -19,7 +19,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
       send('progress', { current, total });
     };
     const { parseQuestions } = await import('@/lib/rag/parsers/question-parser');
-    const questions = await parseQuestions(fileBuffer, hasAnswers, onBatchProgress, signal);
+    const questions = await parseQuestions(fileBuffer, onBatchProgress, signal);
 
     // ── Validation (shared with Assignment) ──
     const { validateQuestionItems } = await import('@/lib/rag/parsers/question-validator');
@@ -27,7 +27,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
       questions.map((q, i) => ({
         orderNum: i + 1,
         content: q.content,
-        referenceAnswer: hasAnswers ? q.referenceAnswer : undefined,
+        referenceAnswer: q.referenceAnswer,
       })),
     );
 
@@ -110,7 +110,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
         ? Object.fromEntries(q.options.map((opt, j) => [String.fromCharCode(65 + j), opt]))
         : null,
       answer: q.referenceAnswer || '',
-      explanation: '',
+      explanation: q.explanation || '',
       points: typeof q.score === 'number' ? q.score : parseInt(String(q.score)) || 0,
       parentIndex: q.parentIndex ?? null,
       metadata: { sourcePage: q.sourcePage },

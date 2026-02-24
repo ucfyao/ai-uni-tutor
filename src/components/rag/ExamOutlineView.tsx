@@ -20,6 +20,7 @@ import {
   Box,
   Button,
   Card,
+  CloseButton,
   Group,
   NumberInput,
   Select,
@@ -65,6 +66,7 @@ const QUESTION_TYPE_KEYS = [
   'calculation',
   'proof',
   'essay',
+  'true_false',
 ] as const;
 const DIFFICULTY_KEYS = ['easy', 'medium', 'hard'] as const;
 
@@ -187,6 +189,9 @@ function ItemEditForm({
   const [type, setType] = useState(item.type);
   const [difficulty, setDifficulty] = useState(item.metadata?.difficulty || '');
   const [points, setPoints] = useState<number | string>(item.points || 0);
+  const [options, setOptions] = useState<Record<string, string>>(
+    item.type === 'choice' && item.options ? { ...item.options } : {},
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -195,6 +200,7 @@ function ItemEditForm({
       answer,
       explanation,
       type,
+      options: type === 'choice' && Object.keys(options).length > 0 ? options : null,
       points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
       orderNum:
         typeof orderNum === 'number' ? orderNum : parseInt(String(orderNum)) || item.orderNum,
@@ -237,6 +243,50 @@ function ItemEditForm({
         maxRows={8}
         t={t}
       />
+      {type === 'choice' && (
+        <Stack gap="xs">
+          <Text size="sm" fw={500}>
+            {t.documentDetail.options}
+          </Text>
+          {Object.entries(options).map(([letter, text]) => (
+            <Group key={letter} gap="xs" wrap="nowrap">
+              <Badge size="sm" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                {letter}
+              </Badge>
+              <TextInput
+                value={text}
+                onChange={(e) =>
+                  setOptions((prev) => ({ ...prev, [letter]: e.currentTarget.value }))
+                }
+                style={{ flex: 1 }}
+                size="sm"
+              />
+              <CloseButton
+                size="sm"
+                onClick={() =>
+                  setOptions((prev) => {
+                    const next = { ...prev };
+                    delete next[letter];
+                    return next;
+                  })
+                }
+              />
+            </Group>
+          ))}
+          <Button
+            variant="subtle"
+            color={getDocColor('exam')}
+            size="compact-xs"
+            leftSection={<Plus size={14} />}
+            onClick={() => {
+              const nextLetter = String.fromCharCode(65 + Object.keys(options).length);
+              setOptions((prev) => ({ ...prev, [nextLetter]: '' }));
+            }}
+          >
+            {t.documentDetail.addOption}
+          </Button>
+        </Stack>
+      )}
       <MarkdownToggleField
         label={t.documentDetail.answer}
         value={answer}
@@ -314,6 +364,7 @@ function AddItemForm({
   const [type, setType] = useState<string>('short_answer');
   const [difficulty, setDifficulty] = useState<string>('medium');
   const [points, setPoints] = useState<number | string>(10);
+  const [options, setOptions] = useState<Record<string, string>>({});
   const saving = externalSaving ?? false;
 
   const parentOptions = items.map((item) => ({
@@ -331,6 +382,7 @@ function AddItemForm({
       difficulty,
       points: typeof points === 'number' ? points : parseInt(String(points)) || 0,
       parentQuestionId: parentQuestionId || null,
+      options: type === 'choice' && Object.keys(options).length > 0 ? options : null,
     };
     if (typeof orderNum === 'number' && orderNum > 0) data.orderNum = orderNum;
 
@@ -376,6 +428,50 @@ function AddItemForm({
         required
         autoFocus
       />
+      {type === 'choice' && (
+        <Stack gap="xs">
+          <Text size="sm" fw={500}>
+            {t.documentDetail.options}
+          </Text>
+          {Object.entries(options).map(([letter, text]) => (
+            <Group key={letter} gap="xs" wrap="nowrap">
+              <Badge size="sm" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                {letter}
+              </Badge>
+              <TextInput
+                value={text}
+                onChange={(e) =>
+                  setOptions((prev) => ({ ...prev, [letter]: e.currentTarget.value }))
+                }
+                style={{ flex: 1 }}
+                size="sm"
+              />
+              <CloseButton
+                size="sm"
+                onClick={() =>
+                  setOptions((prev) => {
+                    const next = { ...prev };
+                    delete next[letter];
+                    return next;
+                  })
+                }
+              />
+            </Group>
+          ))}
+          <Button
+            variant="subtle"
+            color={getDocColor('exam')}
+            size="compact-xs"
+            leftSection={<Plus size={14} />}
+            onClick={() => {
+              const nextLetter = String.fromCharCode(65 + Object.keys(options).length);
+              setOptions((prev) => ({ ...prev, [nextLetter]: '' }));
+            }}
+          >
+            {t.documentDetail.addOption}
+          </Button>
+        </Stack>
+      )}
       <MarkdownToggleField
         label={t.documentDetail.answer}
         placeholder={t.knowledge.referenceAnswerPlaceholder}
@@ -617,6 +713,22 @@ function ItemCard({
                 >
                   {expanded ? t.documentDetail.showLess : t.documentDetail.showMore}
                 </Text>
+              )}
+
+              {item.type === 'choice' && item.options && Object.keys(item.options).length > 0 && (
+                <Stack gap={4} mt={4}>
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts={0.5}>
+                    {t.documentDetail.options}
+                  </Text>
+                  {Object.entries(item.options).map(([letter, text]) => (
+                    <Group key={letter} gap="xs" wrap="nowrap">
+                      <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
+                        {letter}
+                      </Badge>
+                      <Text size="sm">{text}</Text>
+                    </Group>
+                  ))}
+                </Stack>
               )}
 
               {item.answer?.trim() && (
