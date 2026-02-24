@@ -13,10 +13,12 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import type { ChatCommand } from '@/constants/commands';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ACCEPTED_FILE_TYPES, getFileDisplayName } from '@/lib/file-utils';
+import type { TutoringMode } from '@/types';
 
 const LectureDocIcon = getDocIcon('lecture');
 
@@ -39,6 +41,8 @@ interface ChatInputProps {
   isStreaming?: boolean;
   attachedDocument?: File | null;
   onRemoveDocument?: () => void;
+  mode?: TutoringMode;
+  onCommandSelect?: (cmd: ChatCommand) => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -61,6 +65,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   isStreaming,
   attachedDocument,
   onRemoveDocument,
+  mode: _mode,
+  onCommandSelect: _onCommandSelect,
 }) => {
   const { t, language } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
