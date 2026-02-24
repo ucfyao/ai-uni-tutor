@@ -410,6 +410,19 @@ export class ExamPaperRepository implements IExamPaperRepository {
         };
     }
 
+    async deleteQuestionsByPaperId(paperId: string): Promise<void> {
+        const supabase = await createClient();
+
+        const { error } = await supabase.from('exam_questions').delete().eq('paper_id', paperId);
+
+        if (error) {
+            throw new DatabaseError(
+                `Failed to delete questions by paper: ${error.message}`,
+                error,
+            );
+        }
+    }
+
     async deleteQuestion(questionId: string): Promise<void> {
         const supabase = await createClient();
 

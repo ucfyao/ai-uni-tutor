@@ -182,8 +182,9 @@ export async function POST(request: Request) {
           await getAssignmentService().deleteItemsByAssignmentId(documentId);
         } else if (doc_type === 'lecture') {
           await lectureService.deleteChunksByLectureDocumentId(documentId);
+        } else if (doc_type === 'exam') {
+          await getExamPaperService().deleteQuestionsByPaperId(documentId);
         }
-        // exam: no bulk-delete method — exam/assignment branches do content-based dedup internally
         send('log', { message: 'Existing items deleted', level: 'success' });
       }
 

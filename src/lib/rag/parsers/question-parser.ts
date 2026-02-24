@@ -1,7 +1,23 @@
 import 'server-only';
+import { z } from 'zod';
 import { AppError } from '@/lib/errors';
 import { extractFromPDF } from '@/lib/rag/pdf-extractor';
 import type { ParsedQuestion } from './types';
+
+/** Runtime Zod schema for LLM-returned questions — mirrors ParsedQuestion. */
+const parsedQuestionSchema = z.object({
+  questionNumber: z.string(),
+  content: z.string().min(1),
+  type: z
+    .enum(['choice', 'fill_blank', 'short_answer', 'calculation', 'proof', 'essay', 'true_false'])
+    .optional(),
+  options: z.array(z.string()).optional(),
+  referenceAnswer: z.string().optional(),
+  explanation: z.string().optional(),
+  score: z.number().optional(),
+  parentIndex: z.number().nullable().optional().default(null),
+  sourcePage: z.number(),
+});
 
 /**
  * One-shot exam question extraction.
@@ -42,7 +58,7 @@ Parent-child structure rules:
 
 Return ONLY a valid JSON array of questions. No markdown, no explanation.`;
 
-  const { result, warnings } = await extractFromPDF<ParsedQuestion[]>(fileBuffer, prompt, {
+  const { result, warnings } = await extractFromPDF<unknown>(fileBuffer, prompt, {
     signal,
     onProgress,
   });
@@ -54,6 +70,41 @@ Return ONLY a valid JSON array of questions. No markdown, no explanation.`;
     }
   }
 
+  // ── Zod validation with partial recovery ──
+  const rawArray = Array.isArray(result) ? result : [];
+  if (rawArray.length === 0) {
+    onBatchProgress?.(1, 1);
+    return [];
+  }
+
+  const batchResult = z.array(parsedQuestionSchema).safeParse(rawArray);
+  if (batchResult.success) {
+    onBatchProgress?.(1, 1);
+    return batchResult.data;
+  }
+
+  // Partial recovery: validate item-by-item
+  const validQuestions: ParsedQuestion[] = [];
+  for (let i = 0; i < rawArray.length; i++) {
+    const single = parsedQuestionSchema.safeParse(rawArray[i]);
+    if (single.success) {
+      validQuestions.push(single.data);
+    } else {
+      console.warn(
+        `[question-parser] Item ${i} failed validation:`,
+        single.error.issues.map((is) => `${is.path.join('.')}: ${is.message}`).join('; '),
+      );
+    }
+  }
+
+  if (validQuestions.length === 0) {
+    throw new AppError('VALIDATION', 'No valid questions after schema validation');
+  }
+
+  console.warn(
+    `[question-parser] Recovered ${validQuestions.length}/${rawArray.length} valid questions`,
+  );
+
   onBatchProgress?.(1, 1);
-  return Array.isArray(result) ? result : [];
+  return validQuestions;
 }

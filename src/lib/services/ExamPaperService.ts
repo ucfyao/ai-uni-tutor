@@ -181,6 +181,10 @@ export class ExamPaperService {
         return this.repo.findQuestionsByPaperId(paperId);
     }
 
+    async deleteQuestionsByPaperId(paperId: string): Promise<void> {
+        await this.repo.deleteQuestionsByPaperId(paperId);
+    }
+
     async insertQuestions(
         questions: Parameters<ExamPaperRepository['insertQuestions']>[0],
     ): Promise<void> {

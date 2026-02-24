@@ -47,10 +47,10 @@ describe('question-parser', () => {
 
       const result = await parseQuestions(dummyBuffer);
 
-      expect(result).toEqual(questions);
       expect(result).toHaveLength(2);
       expect(result[0].referenceAnswer).toBe('Paris');
       expect(result[0].explanation).toBe('Paris is the capital and largest city of France.');
+      expect(result[0].parentIndex).toBeNull(); // Zod default
       expect(result[1].score).toBe(10);
     });
 
@@ -72,7 +72,8 @@ describe('question-parser', () => {
 
       const result = await parseQuestions(dummyBuffer);
 
-      expect(result).toEqual(questions);
+      expect(result).toHaveLength(2);
+      expect(result[0].content).toBe('Define photosynthesis.');
       expect(result[0].referenceAnswer).toBeUndefined();
       expect(result[0].explanation).toBeUndefined();
     });
@@ -95,6 +96,7 @@ describe('question-parser', () => {
         {
           questionNumber: '1',
           content: 'Which planet is closest to the Sun?',
+          type: 'choice',
           options: ['A. Mercury', 'B. Venus', 'C. Earth', 'D. Mars'],
           referenceAnswer: 'A. Mercury',
           sourcePage: 1,
@@ -165,6 +167,32 @@ describe('question-parser', () => {
 
       expect(progress).toHaveBeenCalledWith(0, 1);
       expect(progress).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('should recover valid questions when some items fail Zod validation', async () => {
+      const mixed = [
+        { questionNumber: '1', content: 'Valid Q', sourcePage: 1 },
+        { questionNumber: 2, content: '', sourcePage: 'bad' }, // invalid
+        { questionNumber: '3', content: 'Another valid Q', sourcePage: 3 },
+      ];
+
+      mockExtractFromPDF.mockResolvedValue({ result: mixed, warnings: [] });
+
+      const result = await parseQuestions(dummyBuffer);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].questionNumber).toBe('1');
+      expect(result[1].questionNumber).toBe('3');
+    });
+
+    it('should return empty array gracefully for non-array LLM output', async () => {
+      mockExtractFromPDF.mockResolvedValue({
+        result: { error: 'not an array' },
+        warnings: [],
+      });
+
+      const result = await parseQuestions(dummyBuffer);
+      expect(result).toEqual([]);
     });
   });
 });

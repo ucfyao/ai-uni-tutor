@@ -20,14 +20,34 @@ const itemSchema = z.object({
 
 const metadataSchema = z
   .object({
-    totalPoints: z.number().positive().optional(),
-    totalQuestions: z.number().positive().optional(),
-    duration: z.string().min(1).optional(),
-    instructions: z.string().min(1).optional(),
-    examDate: z.string().min(1).optional(),
+    totalPoints: z
+      .number()
+      .positive()
+      .nullish()
+      .transform((v) => v ?? undefined),
+    totalQuestions: z
+      .number()
+      .positive()
+      .nullish()
+      .transform((v) => v ?? undefined),
+    duration: z
+      .string()
+      .min(1)
+      .nullish()
+      .transform((v) => v ?? undefined),
+    instructions: z
+      .string()
+      .min(1)
+      .nullish()
+      .transform((v) => v ?? undefined),
+    examDate: z
+      .string()
+      .min(1)
+      .nullish()
+      .transform((v) => v ?? undefined),
   })
-  .optional()
-  .default({});
+  .nullish()
+  .transform((v) => v ?? {});
 
 const extractionSchema = z.object({
   metadata: metadataSchema,
