@@ -13,8 +13,15 @@ const itemSchema = z.object({
   referenceAnswer: z.string().optional().default(''),
   explanation: z.string().optional().default(''),
   points: z.number().optional().default(0),
-  type: z.string().optional().default(''),
-  difficulty: z.enum(['easy', 'medium', 'hard']).optional().default('medium'),
+  type: z
+    .string()
+    .optional()
+    .default('')
+    .transform((v) => v.toLowerCase().trim()),
+  difficulty: z.preprocess(
+    (v) => (typeof v === 'string' ? v.toLowerCase().trim() : v),
+    z.enum(['easy', 'medium', 'hard']).optional().default('medium'),
+  ),
   sourcePages: sourcePagesSchema,
 });
 

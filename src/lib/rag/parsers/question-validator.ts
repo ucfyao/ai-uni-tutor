@@ -10,6 +10,8 @@ export interface ValidatableItem {
   content: string;
   /** Optional — if undefined, the "missing answer" check is skipped. */
   referenceAnswer?: string;
+  /** Optional — if set, this item is a sub-question and gap detection is skipped. */
+  parentIndex?: number | null;
 }
 
 export function validateQuestionItems(items: ValidatableItem[]): Map<number, string[]> {
@@ -23,17 +25,23 @@ export function validateQuestionItems(items: ValidatableItem[]): Map<number, str
   // Track content for duplicate detection
   const contentMap = new Map<string, number>(); // normalized content → first orderNum
 
+  // Track top-level items for gap detection (skip sub-questions)
+  let lastTopLevelOrderNum: number | null = null;
+
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const warnings: string[] = [];
+    const isChild = item.parentIndex != null;
 
-    // 1. Question number gap check
-    if (i > 0) {
-      const prev = items[i - 1];
-      const expected = prev.orderNum + 1;
-      if (item.orderNum !== expected) {
-        warnings.push(`Question number gap: expected ${expected}, got ${item.orderNum}`);
+    // 1. Question number gap check (top-level items only)
+    if (!isChild) {
+      if (lastTopLevelOrderNum !== null) {
+        const expected: number = lastTopLevelOrderNum + 1;
+        if (item.orderNum !== expected) {
+          warnings.push(`Question number gap: expected ${expected}, got ${item.orderNum}`);
+        }
       }
+      lastTopLevelOrderNum = item.orderNum;
     }
 
     // 2. Empty content

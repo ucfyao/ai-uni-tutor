@@ -72,17 +72,26 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
 
     const existingChunksForDedup = await lectureService.getChunksWithEmbeddings(documentId);
     const normalizeContent = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
-    const existingTitles = new Set(
+    const buildSignature = (title: string, content: string) => {
+      const normTitle = normalizeContent(title);
+      const normContent = normalizeContent(content).slice(0, 200);
+      return `${normTitle}::${normContent}`;
+    };
+    const existingSignatures = new Set(
       existingChunksForDedup.map((c) => {
         const meta = c.metadata as Record<string, unknown>;
-        return normalizeContent((meta.title as string) || '');
+        const title = (meta.title as string) || '';
+        const content = typeof c.content === 'string' ? c.content : '';
+        return buildSignature(title, content);
       }),
     );
 
-    // Pass 1: title-based dedup
-    const candidateSections = sections.filter(
-      (s) => !existingTitles.has(normalizeContent(s.title)),
-    );
+    // Pass 1: title+content signature dedup
+    const candidateSections = sections.filter((s) => {
+      const kpText = s.knowledgePoints.map((kp) => `### ${kp.title}\n${kp.content}`).join('\n\n');
+      const content = [`## ${s.title}`, s.summary, '', kpText].join('\n');
+      return !existingSignatures.has(buildSignature(s.title, content));
+    });
     const titleSkipped = sections.length - candidateSections.length;
 
     if (candidateSections.length === 0) {

@@ -255,6 +255,7 @@ export class ExamPaperService {
                     points: questions[i].points,
                     metadata: questions[i].metadata,
                     parentQuestionId: null,
+                    embedding: questions[i].embedding ?? null,
                 }));
                 const inserted = await this.repo.insertQuestionsAndReturn(orphanDTOs);
                 for (let j = 0; j < unresolvable.length; j++) {

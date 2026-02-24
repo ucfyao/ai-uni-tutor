@@ -98,12 +98,21 @@ export interface EnrichedAssignmentItem {
   warnings?: string[];
 }
 
+export interface AssignmentStats {
+  itemCount: number;
+  mainCount: number;
+  subCount: number;
+  withAnswer: number;
+  warningCount: number;
+}
+
 export interface AssignmentMetadata {
   totalPoints?: number;
   totalQuestions?: number;
   duration?: string;
   instructions?: string;
   examDate?: string;
+  stats?: AssignmentStats;
 }
 
 export interface ParseAssignmentResult {
