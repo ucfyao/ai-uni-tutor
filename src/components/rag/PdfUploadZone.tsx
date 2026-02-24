@@ -230,7 +230,7 @@ function PipelineLog({
                 lineHeight: 1.5,
               }}
             >
-              <Text span c="dimmed" style={{ fontSize: 10 }}>
+              <Text span style={{ color: logColors.info, fontSize: 10, fontWeight: 500 }}>
                 {formatElapsed(entry.timestamp)}
               </Text>{' '}
               {entry.message}
@@ -259,7 +259,7 @@ function PipelineLog({
 
 /* ── Elapsed time indicator ── */
 
-function ElapsedTimer({ startTime }: { startTime?: number }) {
+function ElapsedTimer({ startTime, color = 'dimmed' }: { startTime?: number; color?: string }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -279,12 +279,13 @@ function ElapsedTimer({ startTime }: { startTime?: number }) {
   return (
     <Text
       size="xs"
-      c="dimmed"
+      c={color}
       style={{
         flexShrink: 0,
         fontVariantNumeric: 'tabular-nums',
         minWidth: 32,
         textAlign: 'right',
+        fontWeight: color !== 'dimmed' ? 500 : 400,
       }}
     >
       ⏱ {display}
@@ -596,7 +597,10 @@ export function PdfUploadZone({
               style={{ flex: 1 }}
             />
             {stage === 'extracting' && (
-              <ElapsedTimer startTime={parseState.stageTimes.extracting?.start} />
+              <ElapsedTimer
+                startTime={parseState.stageTimes.extracting?.start}
+                color={logColors.info}
+              />
             )}
           </Group>
 

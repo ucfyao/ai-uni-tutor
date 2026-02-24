@@ -81,6 +81,11 @@ vi.mock('@/lib/rag/parsers/question-parser', () => ({
   parseQuestions: (...args: unknown[]) => mockParseQuestions(...args),
 }));
 
+const mockParseExam = vi.fn();
+vi.mock('@/lib/rag/parsers/exam-parser', () => ({
+  parseExam: (...args: unknown[]) => mockParseExam(...args),
+}));
+
 const mockExamPaperService = {
   findById: vi.fn().mockResolvedValue({
     id: '550e8400-e29b-41d4-a716-446655440000',
@@ -262,6 +267,26 @@ function setupSuccessfulParse() {
     warnings: [],
   });
   mockParseQuestions.mockResolvedValue([MOCK_QUESTION]);
+  mockParseExam.mockResolvedValue({
+    items: [
+      {
+        title: 'Q1',
+        orderNum: 1,
+        content: 'What is O(n)?',
+        options: ['A', 'B'],
+        referenceAnswer: 'Linear time',
+        parentIndex: null,
+        sourcePages: [1],
+        warnings: [],
+        type: 'choice',
+        difficulty: 'easy',
+        points: 10,
+      },
+    ],
+    metadata: {},
+    outline: { items: [], summary: '' },
+    warnings: [],
+  });
   mockExamPaperService.findById.mockResolvedValue({
     id: DEFAULT_DOCUMENT_ID,
     title: 'Test Exam',

@@ -364,6 +364,10 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
       };
     });
 
+    send('log', {
+      message: `Saving ${childDTOs.length} child questions (depth ${passNum})...`,
+      level: 'info',
+    });
     try {
       const inserted = await assignmentService.saveItemsAndReturn(childDTOs);
       for (let j = 0; j < resolvable.length; j++) {
