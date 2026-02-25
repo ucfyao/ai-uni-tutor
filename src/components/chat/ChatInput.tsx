@@ -25,7 +25,6 @@ const LectureDocIcon = getDocIcon('lecture');
 interface ChatInputProps {
   input: string;
   setInput: (value: string) => void;
-  isTyping: boolean;
   onSend: () => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onPaste: (e: React.ClipboardEvent) => void;
@@ -48,7 +47,6 @@ interface ChatInputProps {
 export const ChatInput: React.FC<ChatInputProps> = ({
   input,
   setInput,
-  isTyping,
   onSend,
   onKeyDown,
   onPaste,
@@ -250,18 +248,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               : 'var(--mantine-color-default-border)',
             backgroundColor: isDragging
               ? 'var(--mantine-color-indigo-0)'
-              : isTyping
-                ? 'var(--mantine-color-default-hover)'
-                : 'var(--mantine-color-body)',
+              : 'var(--mantine-color-body)',
             transition: 'all 0.15s ease',
             boxShadow: '0 1px 6px rgba(0, 0, 0, 0.04)',
-            opacity: isTyping && !isStreaming ? 0.7 : 1,
-            cursor: isTyping && !isStreaming ? 'not-allowed' : 'text',
+            opacity: isStreaming ? 0.55 : 1,
+            pointerEvents: isStreaming ? 'none' : undefined,
             position: 'relative',
           }}
-          className={`group focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 ${
-            isTyping && !isStreaming ? 'pointer-events-none' : ''
-          }`}
+          className="group focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400"
         >
           {/* Drag overlay */}
           {isDragging && (
@@ -309,7 +303,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               className="sidebar-hover hover:text-indigo-600"
               aria-label="Attach file"
               onClick={onFileClick}
-              disabled={isTyping || attachedFiles.length >= 4}
+              disabled={!!isStreaming || attachedFiles.length >= 4}
               style={{
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
@@ -330,7 +324,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onChange={(e) => setInput(e.currentTarget.value)}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
-            disabled={isTyping}
+            disabled={!!isStreaming}
             flex={1}
             px="xs"
             styles={{
@@ -341,6 +335,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 fontSize: '16px',
                 color: 'var(--mantine-color-text)',
                 lineHeight: 1.5,
+                backgroundColor: 'transparent',
+                cursor: isStreaming ? 'default' : undefined,
               },
             }}
           />
@@ -359,7 +355,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 mr={2}
                 mb={4}
                 onClick={handleToggleVoice}
-                disabled={isTyping && !isStreaming}
+                disabled={!!isStreaming}
                 aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
                 style={{
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -404,7 +400,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               }
               onClick={onSend}
               disabled={
-                (!input.trim() && attachedFiles.length === 0 && !attachedDocument) || isTyping
+                (!input.trim() && attachedFiles.length === 0 && !attachedDocument) || !!isStreaming
               }
               mr={2}
               mb={4}

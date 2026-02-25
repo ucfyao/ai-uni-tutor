@@ -235,6 +235,8 @@ export const translations = {
       voiceInput: '语音输入',
       voiceListening: '正在听...',
       voiceNotSupported: '你的浏览器不支持语音输入',
+      noContextTitle: '还没有上下文',
+      noContextMessage: '请先上传文档或发送消息，让我知道你需要什么帮助。',
     },
     // Knowledge Base (RAG)
     knowledge: {
@@ -1138,6 +1140,8 @@ export const translations = {
       voiceInput: 'Voice input',
       voiceListening: 'Listening...',
       voiceNotSupported: 'Your browser does not support voice input',
+      noContextTitle: 'No context yet',
+      noContextMessage: 'Please upload a document or send a message first so I know what to help with.',
     },
     // Knowledge Base (RAG)
     knowledge: {

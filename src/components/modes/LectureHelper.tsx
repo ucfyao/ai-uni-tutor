@@ -121,7 +121,10 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   }, [openDrawerTrigger]);
 
-  const handleSend = async (retryInput?: string) => {
+  const handleSend = async (
+    retryInput?: string,
+    options?: { displayContent?: string },
+  ) => {
     const messageToSend = retryInput || input.trim();
 
     if (
@@ -132,18 +135,19 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       return;
     if (!session) return;
 
-    isSendingRef.current = true;
-    setLastError(null);
-    setLastInput(messageToSend);
-
-    // Command check
-    if (session.mode && messageToSend.startsWith('/')) {
+    // Command check — BEFORE setting isSendingRef so dispatch can call handleSend recursively
+    // Skip when called programmatically from handleCommandDispatch (displayContent set)
+    if (!options?.displayContent && session.mode && messageToSend.startsWith('/')) {
       const parsed = parseCommand(messageToSend, session.mode);
       if (parsed) {
         handleCommandDispatch(parsed.command, parsed.args);
-        return;
+        return; // isSendingRef was never set — no leak
       }
     }
+
+    isSendingRef.current = true;
+    setLastError(null);
+    setLastInput(messageToSend);
 
     // Convert attached files to base64
     const imageData: { data: string; mimeType: string }[] = [];
@@ -203,7 +207,10 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
       role: 'user',
-      content: messageToSend || (imageData.length > 0 ? '(Image attached)' : '(Document attached)'),
+      content:
+        options?.displayContent ||
+        messageToSend ||
+        (imageData.length > 0 ? '(Image attached)' : '(Document attached)'),
       timestamp: Date.now(),
       images: imageData.length > 0 ? imageData : undefined,
     };
@@ -372,21 +379,44 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       messages: [...session.messages, userMsg, aiMsg],
       lastUpdated: Date.now(),
     });
+
+    // Defensive: ensure isSendingRef is reset (e.g., if called from a path that set it)
+    isSendingRef.current = false;
   };
 
+  /** Button click → just fill the input with the command text, let user press send */
+  const handleCommandSelect = (command: ChatCommand, args: string = '') => {
+    setInput(command.command + ' ' + args);
+    requestAnimationFrame(() => chatInputRef.current?.focus());
+  };
+
+  /** Called from handleSend when a typed/sent command is detected */
   const handleCommandDispatch = (command: ChatCommand, args: string = '') => {
-    if (command.action === 'prefill') {
-      setInput(command.promptTemplate + args);
-      requestAnimationFrame(() => chatInputRef.current?.focus());
-      return;
+    // Guard: commands that require context need messages, documents, or images
+    if (command.requiresContext && !args) {
+      const hasContext =
+        (session?.messages?.length ?? 0) > 0 ||
+        attachedFiles.length > 0 ||
+        !!attachedDocument;
+
+      if (!hasContext) {
+        showNotification({
+          title: t.chat.noContextTitle,
+          message: t.chat.noContextMessage,
+          color: 'orange',
+        });
+        return;
+      }
     }
 
-    // For "send" action
+    const displayContent = command.command + (args ? ' ' + args : '');
+    setInput('');
+
     if (command.id === 'summary') {
       handleSummaryAction();
     } else {
       const prompt = command.promptTemplate + (args ? ' ' + args : '');
-      handleSend(prompt);
+      handleSend(prompt, { displayContent });
     }
   };
 
@@ -523,7 +553,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onAddCard={handleAddCard}
             isKnowledgeMode={true}
             courseCode={session.course?.code ?? ''}
-            onCommandSelect={(cmd) => handleCommandDispatch(cmd)}
+            onCommandSelect={(cmd) => handleCommandSelect(cmd)}
             onRegenerate={handleRegenerate}
             contentClassName="chat-scroll-content-offset"
             isLoading={isLoading}
@@ -540,7 +570,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
               <ChatInput
                 input={input}
                 setInput={setInput}
-                isTyping={isStreaming}
                 onSend={handleSend}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
@@ -557,7 +586,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 attachedDocument={attachedDocument}
                 onRemoveDocument={handleRemoveDocument}
                 mode={session.mode || undefined}
-                onCommandSelect={(cmd) => handleCommandDispatch(cmd)}
+                onCommandSelect={(cmd) => handleCommandSelect(cmd)}
               />
             </Box>
           </Box>

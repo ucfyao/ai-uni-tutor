@@ -59,7 +59,10 @@ export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessi
       if (!current || current.messages.length === 0) return;
       const messages = [...current.messages];
       const lastIndex = messages.length - 1;
-      messages[lastIndex] = { ...messages[lastIndex], content };
+      // When stream completes (streamingMessageId === null), stamp the real finish time
+      // so the assistant message gets a later created_at than the user message in the DB.
+      const timestamp = streamingMessageId === null ? Date.now() : messages[lastIndex].timestamp;
+      messages[lastIndex] = { ...messages[lastIndex], content, timestamp };
 
       const updatedSession = {
         ...current,
