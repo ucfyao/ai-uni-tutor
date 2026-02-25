@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowDown, RefreshCw } from 'lucide-react';
+import { AlertCircle, ArrowDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
@@ -62,6 +62,13 @@ interface MessageListProps {
   courseCode?: string;
   onCommandSelect?: (command: ChatCommand) => void;
   onRegenerate?: (messageId: string) => void;
+  onEdit?: (messageId: string, newContent: string) => void;
+  onSwitchBranch?: (parentMessageId: string, targetChildId: string) => void;
+  /**
+   * Map of parentMessageId → ordered list of child message IDs (siblings at that fork).
+   * Only includes parents with >1 child (i.e., actual fork points).
+   */
+  siblingsMap?: Map<string, string[]>;
   isLoading?: boolean;
   contentClassName?: string;
 }
@@ -124,6 +131,9 @@ export const MessageList: React.FC<MessageListProps> = ({
   courseCode,
   onCommandSelect,
   onRegenerate,
+  onEdit,
+  onSwitchBranch,
+  siblingsMap,
   isLoading = false,
   contentClassName,
 }) => {
@@ -283,8 +293,48 @@ export const MessageList: React.FC<MessageListProps> = ({
                         mode={mode}
                         onAddCard={onAddCard}
                         onRegenerate={onRegenerate}
+                        onEdit={onEdit}
                       />
                     </Box>
+                    {/* Branch navigation */}
+                    {(() => {
+                      const parentId = msg.parentMessageId;
+                      if (!parentId || !siblingsMap) return null;
+                      const siblings = siblingsMap.get(parentId);
+                      if (!siblings || siblings.length <= 1) return null;
+                      const currentIndex = siblings.indexOf(msg.id);
+                      if (currentIndex === -1) return null;
+
+                      return (
+                        <Group gap={4} justify="center" my={2}>
+                          <ActionIcon
+                            size={20}
+                            variant="subtle"
+                            color="gray"
+                            radius="xl"
+                            onClick={() => onSwitchBranch?.(parentId, siblings[currentIndex - 1])}
+                            disabled={currentIndex <= 0}
+                          >
+                            <ChevronLeft size={14} />
+                          </ActionIcon>
+                          <Text size="xs" c="dimmed" fw={500}>
+                            {t.chat.branchOf
+                              .replace('{current}', String(currentIndex + 1))
+                              .replace('{total}', String(siblings.length))}
+                          </Text>
+                          <ActionIcon
+                            size={20}
+                            variant="subtle"
+                            color="gray"
+                            radius="xl"
+                            onClick={() => onSwitchBranch?.(parentId, siblings[currentIndex + 1])}
+                            disabled={currentIndex >= siblings.length - 1}
+                          >
+                            <ChevronRight size={14} />
+                          </ActionIcon>
+                        </Group>
+                      );
+                    })()}
                   </React.Fragment>
                 );
               })}
