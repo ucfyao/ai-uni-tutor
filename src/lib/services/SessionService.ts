@@ -5,6 +5,7 @@
  * Uses Repositories for data access and encapsulates all session-related logic.
  */
 
+import type { MessageEntity } from '@/lib/domain/models/Message';
 import { ForbiddenError } from '@/lib/errors';
 import { getMessageRepository, getSessionRepository } from '@/lib/repositories';
 import type { MessageRepository } from '@/lib/repositories/MessageRepository';
@@ -240,6 +241,7 @@ export class SessionService {
 
   /**
    * Edit a user message and create a new conversation branch.
+   * Creates a sibling message with the same parentMessageId as the original.
    */
   async editAndRegenerate(
     sessionId: string,
@@ -247,8 +249,35 @@ export class SessionService {
     messageId: string,
     newContent: string,
   ): Promise<{ newMessageId: string; messages: ChatMessage[] }> {
-    // TODO: implement in Task 5
-    throw new Error('Not implemented');
+    const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
+    if (!session) throw new ForbiddenError('Session not found or not owned by user');
+
+    const allMessages = await this.messageRepo.findBySessionId(sessionId);
+    const original = allMessages.find((m) => m.id === messageId);
+    if (!original) throw new Error('Message not found');
+    if (original.role !== 'user') throw new Error('Can only edit user messages');
+
+    // Create a new sibling: same parent_message_id as the original
+    const newMsg = await this.messageRepo.create({
+      sessionId,
+      role: 'user',
+      content: newContent,
+      timestamp: Date.now(),
+      parentMessageId: original.parentMessageId,
+    });
+
+    // Build the active path through the new message
+    const activePath = await this.messageRepo.getActivePath(sessionId);
+
+    const messages = activePath.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      timestamp: m.createdAt.getTime(),
+      parentMessageId: m.parentMessageId,
+    }));
+
+    return { newMessageId: newMsg.id, messages };
   }
 
   /**
@@ -260,8 +289,60 @@ export class SessionService {
     parentMessageId: string,
     targetChildId: string,
   ): Promise<ChatMessage[]> {
-    // TODO: implement in Task 5
-    throw new Error('Not implemented');
+    const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
+    if (!session) throw new ForbiddenError('Session not found');
+
+    // Verify targetChildId is actually a child of parentMessageId
+    const children = await this.messageRepo.getChildren(parentMessageId);
+    const target = children.find((c) => c.id === targetChildId);
+    if (!target) throw new Error('Target message is not a child of the specified parent');
+
+    const allMessages = await this.messageRepo.findBySessionId(sessionId);
+
+    // Build parent→children map
+    const childrenMap = new Map<string, MessageEntity[]>();
+    for (const msg of allMessages) {
+      const key = msg.parentMessageId ?? '__root__';
+      const list = childrenMap.get(key) ?? [];
+      list.push(msg);
+      childrenMap.set(key, list);
+    }
+
+    // Build reverse lookup for walking up from parent
+    const messageById = new Map<string, MessageEntity>();
+    for (const msg of allMessages) {
+      messageById.set(msg.id, msg);
+    }
+
+    // Walk UP from parentMessageId to root to find the shared prefix
+    const prefixReversed: MessageEntity[] = [];
+    let walkUp: string | null = parentMessageId;
+    while (walkUp) {
+      const msg = messageById.get(walkUp);
+      if (!msg) break;
+      prefixReversed.push(msg);
+      walkUp = msg.parentMessageId;
+    }
+    const prefix = prefixReversed.reverse();
+
+    // Build full path: prefix + target child + follow latest descendants to leaf
+    const path: MessageEntity[] = [...prefix, target];
+    let walkDown = targetChildId;
+    while (true) {
+      const kids = childrenMap.get(walkDown);
+      if (!kids || kids.length === 0) break;
+      const latest = kids[kids.length - 1];
+      path.push(latest);
+      walkDown = latest.id;
+    }
+
+    return path.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      timestamp: m.createdAt.getTime(),
+      parentMessageId: m.parentMessageId,
+    }));
   }
 
   /**
