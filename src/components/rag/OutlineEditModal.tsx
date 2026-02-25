@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActionIcon,
   Box,
@@ -44,6 +44,13 @@ export function OutlineEditModal({
   const { t } = useLanguage();
   const [sections, setSections] = useState<OutlineSection[]>(initialSections);
   const [saving, setSaving] = useState(false);
+
+  // Sync state with props when modal opens or sections change
+  useEffect(() => {
+    if (opened) {
+      setSections(initialSections);
+    }
+  }, [opened, initialSections]);
 
   const updateSection = useCallback(
     (index: number, field: keyof OutlineSection, value: string | string[]) => {

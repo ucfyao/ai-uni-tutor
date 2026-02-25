@@ -197,6 +197,7 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
         sourcePages: item.sourcePages,
         difficulty: item.difficulty,
         options: item.options ?? [],
+        warnings: item.warnings ?? [],
       },
       parentIndex: item.parentIndex ?? null,
       embedding: newEmbeddings[idx],
@@ -231,9 +232,11 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
         stats.subCount++;
       }
       if (item.answer?.trim()) stats.withAnswer++;
+      const itemMeta = item.metadata as Record<string, unknown>;
+      if (Array.isArray(itemMeta?.warnings) && itemMeta.warnings.length > 0) {
+        stats.warningCount++;
+      }
     }
-
-    stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
 
     const currentPaper = await examService.findById(documentId);
     const currentMeta = (currentPaper?.metadata as Record<string, unknown>) || {};

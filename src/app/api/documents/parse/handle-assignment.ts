@@ -403,9 +403,8 @@ export async function handleAssignmentPipeline(ctx: PipelineContext): Promise<vo
         stats.subCount++;
       }
       if (item.referenceAnswer?.trim()) stats.withAnswer++;
+      if (item.warnings && item.warnings.length > 0) stats.warningCount++;
     }
-
-    stats.warningCount = newItems.reduce((acc, item) => acc + (item.warnings?.length || 0), 0);
 
     const currentAssignment = await assignmentService.findById(documentId);
     const updatedMetadata: AssignmentMetadata = {
