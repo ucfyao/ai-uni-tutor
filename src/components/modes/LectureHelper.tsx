@@ -121,7 +121,10 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   }, [openDrawerTrigger]);
 
-  const handleSend = async (retryInput?: string) => {
+  const handleSend = async (
+    retryInput?: string,
+    options?: { displayContent?: string },
+  ) => {
     const messageToSend = retryInput || input.trim();
 
     if (
@@ -133,7 +136,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     if (!session) return;
 
     // Command check — BEFORE setting isSendingRef so dispatch can call handleSend recursively
-    if (session.mode && messageToSend.startsWith('/')) {
+    // Skip when called programmatically from handleCommandDispatch (displayContent set)
+    if (!options?.displayContent && session.mode && messageToSend.startsWith('/')) {
       const parsed = parseCommand(messageToSend, session.mode);
       if (parsed) {
         handleCommandDispatch(parsed.command, parsed.args);
@@ -203,7 +207,10 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
       role: 'user',
-      content: messageToSend || (imageData.length > 0 ? '(Image attached)' : '(Document attached)'),
+      content:
+        options?.displayContent ||
+        messageToSend ||
+        (imageData.length > 0 ? '(Image attached)' : '(Document attached)'),
       timestamp: Date.now(),
       images: imageData.length > 0 ? imageData : undefined,
     };
@@ -401,12 +408,15 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       }
     }
 
-    // For "send" action
+    // For "send" action — show command text as user message, send expanded prompt to AI
+    const displayContent = command.command + (args ? ' ' + args : '');
+    setInput('');
+
     if (command.id === 'summary') {
       handleSummaryAction();
     } else {
       const prompt = command.promptTemplate + (args ? ' ' + args : '');
-      handleSend(prompt);
+      handleSend(prompt, { displayContent });
     }
   };
 
