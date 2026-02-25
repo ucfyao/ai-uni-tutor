@@ -255,12 +255,21 @@ Guidelines:
 
       // Assignment RAG (only for Assignment Coach mode)
       if (config.assignmentRag && course.id) {
-        const { retrieveAssignmentContext } = await import('@/lib/rag/retrieval');
-        const { appendAssignmentContext } = await import('@/lib/prompts');
-        const items = await retrieveAssignmentContext(query, course.id, config.ragMatchCount);
+        // Skip assignment RAG if it's a generic command and there's no context.
+        // Known commands: /check, /approach, /hint with no substantive text
+        const isGenericCommand =
+          /^(?:Check if my answer is correct:|How should I approach this problem\?|Give me a hint for this question|Explain the concept of:)\s*$/i.test(
+            query.replace(/\[INTERNAL:[^\]]+\]/g, '').trim(),
+          );
 
-        if (items.length > 0) {
-          systemInstruction = appendAssignmentContext(systemInstruction, items);
+        if (!isGenericCommand) {
+          const { retrieveAssignmentContext } = await import('@/lib/rag/retrieval');
+          const { appendAssignmentContext } = await import('@/lib/prompts');
+          const items = await retrieveAssignmentContext(query, course.id, config.ragMatchCount);
+
+          if (items.length > 0) {
+            systemInstruction = appendAssignmentContext(systemInstruction, items);
+          }
         }
       }
     } catch (e) {
