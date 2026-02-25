@@ -16,6 +16,7 @@ import { useHeader } from '@/context/HeaderContext';
 import { useSessions } from '@/context/SessionContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { chatCache } from '@/lib/chat-cache';
 import { showNotification } from '@/lib/notifications';
 import { TutoringMode } from '@/types/index';
 
@@ -115,6 +116,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   };
 
   const handleDeleteSession = async (id: string) => {
+    // Clear IndexedDB cache for this session
+    chatCache.clearSession(id);
     // Optimistic provided by Context removeSession
     await removeSession(id);
     if (activeSessionId === id || pathname.includes(id)) {
