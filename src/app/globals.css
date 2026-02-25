@@ -836,13 +836,12 @@ body {
   letter-spacing: -0.03em;
 }
 
-/* Message entry animations */
+/* Message entry animations — spring overshoot */
 @keyframes msgEnterLeft {
   from {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-20px);
   }
-
   to {
     opacity: 1;
     transform: translateX(0);
@@ -852,9 +851,8 @@ body {
 @keyframes msgEnterRight {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(20px);
   }
-
   to {
     opacity: 1;
     transform: translateX(0);
@@ -862,11 +860,18 @@ body {
 }
 
 .msg-enter-left {
-  animation: msgEnterLeft 0.25s ease-out;
+  animation: msgEnterLeft 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .msg-enter-right {
-  animation: msgEnterRight 0.25s ease-out;
+  animation: msgEnterRight 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-enter-left,
+  .msg-enter-right {
+    animation: none !important;
+  }
 }
 
 /* Scroll to bottom button entrance */
