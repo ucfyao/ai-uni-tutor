@@ -12,6 +12,7 @@ import { AppError } from '@/lib/errors';
 import type { PoolEntry } from '@/lib/gemini';
 import { getChatPool } from '@/lib/gemini';
 import { appendRagContext } from '@/lib/prompts';
+import { getRedis } from '@/lib/redis';
 import type { ChatSource } from '@/types';
 import { ChatMessage, Course, TutoringMode } from '@/types';
 
@@ -76,9 +77,14 @@ export class ChatService {
   }
 
   /**
-   * Generate streaming AI response
+   * Generate streaming AI response.
+   * When cacheConfig is provided, each yielded chunk is lazily cached to Redis
+   * so that a disconnected client can resume the stream from where it left off.
    */
-  async *generateStream(options: ChatGenerationOptions): AsyncGenerator<string, void, unknown> {
+  async *generateStream(
+    options: ChatGenerationOptions,
+    cacheConfig?: { requestId: string; sessionId: string },
+  ): AsyncGenerator<string, void, unknown> {
     const { course, mode, history, userInput, images, document, onSources } = options;
 
     // Validation
@@ -119,6 +125,14 @@ export class ChatService {
     );
     for await (const text of textStream) {
       yield text;
+
+      // Lazy Redis caching for SSE reconnect support
+      if (cacheConfig) {
+        const redis = getRedis();
+        const key = `stream:${cacheConfig.sessionId}:${cacheConfig.requestId}`;
+        await redis.rpush(key, text);
+        await redis.expire(key, 300); // 5 min TTL
+      }
     }
   }
 
