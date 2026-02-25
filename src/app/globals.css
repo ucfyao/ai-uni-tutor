@@ -140,6 +140,27 @@ body {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
+/* Welcome screen command cards */
+.cmd-card {
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.cmd-card:hover {
+  border-color: var(--cmd-color-border);
+  background-color: var(--cmd-color-bg);
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: var(--cmd-color-shadow);
+}
+
+.cmd-card:active {
+  transform: translateY(0) scale(0.97);
+  transition: transform 0.1s ease-out;
+}
+
 /* Knowledge cards (chat side panel) */
 .knowledge-card {
   --kc-accent: var(--mantine-color-indigo-6);

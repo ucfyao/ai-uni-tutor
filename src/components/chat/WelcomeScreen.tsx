@@ -123,97 +123,60 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             timingFunction="ease-out"
           >
             {(styles) => (
-              <Box w="100%" style={styles}>
-                <Group gap={6} justify="center" mb="sm">
-                  <Text
-                    size="xs"
-                    fw={700}
-                    c="dimmed"
-                    tt="uppercase"
-                    ta="center"
-                    style={{ letterSpacing: '0.05em' }}
-                  >
-                    {t.chat.suggestedActions}
-                  </Text>
-                  <Text size="xs" c="dimmed" style={{ opacity: 0.6 }}>
-                    ·
-                  </Text>
-                  <Text size="xs" c="dimmed" style={{ opacity: 0.6 }}>
-                    {t.chat.typeSlash}
-                  </Text>
-                </Group>
-
-                <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
-                  {commands.map((cmd, index) => {
-                    const cmdT = (
-                      t.chat.commands as Record<string, { label: string; desc: string }>
-                    )[cmd.labelKey];
-                    const CmdIcon = cmd.icon;
-                    return (
-                      <Paper
-                        key={cmd.id}
-                        p="md"
-                        radius="lg"
-                        withBorder
-                        style={{
+              <SimpleGrid w="100%" cols={{ base: 1, xs: 2 }} spacing="sm" style={styles}>
+                {commands.map((cmd, index) => {
+                  const cmdT = (t.chat.commands as Record<string, { label: string; desc: string }>)[
+                    cmd.labelKey
+                  ];
+                  const CmdIcon = cmd.icon;
+                  return (
+                    <Paper
+                      key={cmd.id}
+                      className="cmd-card"
+                      p="md"
+                      radius="lg"
+                      withBorder
+                      style={
+                        {
                           cursor: 'pointer',
                           borderColor: 'var(--mantine-color-default-border)',
                           opacity: mounted ? 1 : 0,
-                          transform: mounted ? 'translateY(0)' : 'translateY(12px)',
-                          transition: `opacity 0.4s ease-out ${index * 80}ms, transform 0.4s ease-out ${index * 80}ms`,
-                        }}
-                        styles={{
-                          root: {
-                            '&:hover': {
-                              borderColor: `var(--mantine-color-${cmd.color}-3)`,
-                              backgroundColor: `var(--mantine-color-${cmd.color}-0)`,
-                              transform: 'translateY(-2px)',
-                              boxShadow: `0 8px 24px color-mix(in srgb, var(--mantine-color-${cmd.color}-3) 30%, transparent)`,
-                            },
-                            '&:hover .cmd-icon-theme': {
-                              transform: 'scale(1.1)',
-                            },
-                            '&:active': {
-                              transform: 'translateY(0)',
-                            },
-                          },
-                        }}
-                        onClick={() => onCommandSelect(cmd)}
-                      >
-                        <Group gap="sm" wrap="nowrap" align="flex-start">
-                          <ThemeIcon
-                            className="cmd-icon-theme"
-                            size={36}
-                            radius="md"
-                            variant="light"
-                            color={cmd.color}
-                            style={{
-                              flexShrink: 0,
-                              transition:
-                                'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                            }}
-                          >
-                            <CmdIcon size={18} strokeWidth={1.8} />
-                          </ThemeIcon>
-                          <Box style={{ minWidth: 0 }}>
-                            <Group gap={6} align="center">
-                              <Text fw={600} size="sm" truncate>
-                                {cmdT?.label ?? cmd.id}
-                              </Text>
-                              <Text size="xs" c={`${cmd.color}.5`} fw={500} ff="monospace">
-                                {cmd.command}
-                              </Text>
-                            </Group>
-                            <Text size="xs" c="dimmed" lineClamp={2} mt={2}>
-                              {cmdT?.desc ?? ''}
+                          transition: `opacity 0.4s ease-out ${index * 80}ms, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s, background-color 0.3s, box-shadow 0.3s`,
+                          '--cmd-color-border': `var(--mantine-color-${cmd.color}-4)`,
+                          '--cmd-color-bg': `var(--mantine-color-${cmd.color}-0)`,
+                          '--cmd-color-shadow': `0 8px 24px color-mix(in srgb, var(--mantine-color-${cmd.color}-4) 25%, transparent)`,
+                        } as React.CSSProperties
+                      }
+                      onClick={() => onCommandSelect(cmd)}
+                    >
+                      <Group gap="sm" wrap="nowrap" align="flex-start">
+                        <ThemeIcon
+                          size={36}
+                          radius="md"
+                          variant="light"
+                          color={cmd.color}
+                          style={{ flexShrink: 0 }}
+                        >
+                          <CmdIcon size={18} strokeWidth={1.8} />
+                        </ThemeIcon>
+                        <Box style={{ minWidth: 0 }}>
+                          <Group gap={6} align="center">
+                            <Text fw={600} size="sm" truncate>
+                              {cmdT?.label ?? cmd.id}
                             </Text>
-                          </Box>
-                        </Group>
-                      </Paper>
-                    );
-                  })}
-                </SimpleGrid>
-              </Box>
+                            <Text size="xs" c={`${cmd.color}.5`} fw={500} ff="monospace">
+                              {cmd.command}
+                            </Text>
+                          </Group>
+                          <Text size="xs" c="dimmed" lineClamp={2} mt={2}>
+                            {cmdT?.desc ?? ''}
+                          </Text>
+                        </Box>
+                      </Group>
+                    </Paper>
+                  );
+                })}
+              </SimpleGrid>
             )}
           </Transition>
         </Stack>
