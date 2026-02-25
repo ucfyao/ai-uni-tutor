@@ -53,8 +53,9 @@ export class ChatService {
       processedInput = config.preprocessInput(userInput);
     }
 
-    // RAG Integration
-    const ragResult = await this.addRAGContext(systemInstruction, processedInput, course, config);
+    // RAG Integration — strip internal markers for cleaner embedding
+    const ragQuery = processedInput.replace(/\[INTERNAL:[^\]]+\]/g, '').trim();
+    const ragResult = await this.addRAGContext(systemInstruction, ragQuery, course, config);
     systemInstruction = ragResult.systemInstruction;
 
     // Prepare contents
@@ -95,8 +96,9 @@ export class ChatService {
       processedInput = config.preprocessInput(userInput);
     }
 
-    // RAG Integration
-    const ragResult = await this.addRAGContext(systemInstruction, processedInput, course, config);
+    // RAG Integration — strip internal markers for cleaner embedding
+    const ragQuery = processedInput.replace(/\[INTERNAL:[^\]]+\]/g, '').trim();
+    const ragResult = await this.addRAGContext(systemInstruction, ragQuery, course, config);
     systemInstruction = ragResult.systemInstruction;
 
     // Emit sources if callback provided
@@ -243,33 +245,35 @@ Guidelines:
   ): Promise<{ systemInstruction: string; sources: ChatSource[] }> {
     let sources: ChatSource[] = [];
 
-    try {
-      // Existing lecture RAG
-      const { retrieveContext } = await import('@/lib/rag/retrieval');
-      const result = await retrieveContext(query, course.id, {}, config.ragMatchCount);
+    // Strip internal mode markers for matching
+    const cleanQuery = query.replace(/\[INTERNAL:[^\]]+\]/g, '').trim();
 
-      if (result.contextText) {
-        systemInstruction = appendRagContext(systemInstruction, result.contextText);
+    // Known generic command prompts — too vague for meaningful RAG retrieval
+    const GENERIC_COMMAND_PATTERN =
+      /^(?:Summarize the key concepts of the last lecture|Generate \d+ quiz questions based on the lecture content.*|Connect this topic to real-world examples|Check if my answer is correct:|How should I approach this problem\?|Give me a hint for this question|Explain the concept of:)\s*$/i;
+
+    const isGenericCommand = GENERIC_COMMAND_PATTERN.test(cleanQuery);
+
+    try {
+      // Lecture RAG — skip for generic command prompts (no useful semantic anchor)
+      if (!isGenericCommand) {
+        const { retrieveContext } = await import('@/lib/rag/retrieval');
+        const result = await retrieveContext(query, course.id, {}, config.ragMatchCount);
+
+        if (result.contextText) {
+          systemInstruction = appendRagContext(systemInstruction, result.contextText);
+        }
+        sources = result.sources;
       }
-      sources = result.sources;
 
       // Assignment RAG (only for Assignment Coach mode)
-      if (config.assignmentRag && course.id) {
-        // Skip assignment RAG if it's a generic command and there's no context.
-        // Known commands: /check, /approach, /hint with no substantive text
-        const isGenericCommand =
-          /^(?:Check if my answer is correct:|How should I approach this problem\?|Give me a hint for this question|Explain the concept of:)\s*$/i.test(
-            query.replace(/\[INTERNAL:[^\]]+\]/g, '').trim(),
-          );
+      if (config.assignmentRag && course.id && !isGenericCommand) {
+        const { retrieveAssignmentContext } = await import('@/lib/rag/retrieval');
+        const { appendAssignmentContext } = await import('@/lib/prompts');
+        const items = await retrieveAssignmentContext(query, course.id, config.ragMatchCount);
 
-        if (!isGenericCommand) {
-          const { retrieveAssignmentContext } = await import('@/lib/rag/retrieval');
-          const { appendAssignmentContext } = await import('@/lib/prompts');
-          const items = await retrieveAssignmentContext(query, course.id, config.ragMatchCount);
-
-          if (items.length > 0) {
-            systemInstruction = appendAssignmentContext(systemInstruction, items);
-          }
+        if (items.length > 0) {
+          systemInstruction = appendAssignmentContext(systemInstruction, items);
         }
       }
     } catch (e) {

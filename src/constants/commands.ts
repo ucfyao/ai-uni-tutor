@@ -39,6 +39,8 @@ export interface ChatCommand {
   action: CommandAction;
   /** The prompt text (for 'send') or prefill text (for 'prefill') */
   promptTemplate: string;
+  /** Whether this command needs prior context (messages, documents, images) to be useful */
+  requiresContext: boolean;
 }
 
 // ============================================================================
@@ -57,6 +59,7 @@ export const COMMANDS: ChatCommand[] = [
     modes: ['Lecture Helper'],
     action: 'send',
     promptTemplate: 'Summarize the key concepts of the last lecture',
+    requiresContext: true,
   },
   {
     id: 'quiz',
@@ -69,6 +72,7 @@ export const COMMANDS: ChatCommand[] = [
     action: 'send',
     promptTemplate:
       'Generate 5 quiz questions based on the lecture content to test my understanding',
+    requiresContext: true,
   },
   {
     id: 'explain',
@@ -80,6 +84,7 @@ export const COMMANDS: ChatCommand[] = [
     modes: ['Lecture Helper', 'Assignment Coach'],
     action: 'prefill',
     promptTemplate: 'Explain the concept of: ',
+    requiresContext: false,
   },
   {
     id: 'examples',
@@ -91,6 +96,7 @@ export const COMMANDS: ChatCommand[] = [
     modes: ['Lecture Helper'],
     action: 'send',
     promptTemplate: 'Connect this topic to real-world examples',
+    requiresContext: true,
   },
 
   // ---- Assignment Coach ----
@@ -104,6 +110,7 @@ export const COMMANDS: ChatCommand[] = [
     modes: ['Assignment Coach'],
     action: 'prefill',
     promptTemplate: 'Check if my answer is correct: ',
+    requiresContext: false,
   },
   {
     id: 'approach',
@@ -115,6 +122,7 @@ export const COMMANDS: ChatCommand[] = [
     modes: ['Assignment Coach'],
     action: 'send',
     promptTemplate: 'How should I approach this problem?',
+    requiresContext: true,
   },
   {
     id: 'hint',
@@ -126,6 +134,7 @@ export const COMMANDS: ChatCommand[] = [
     modes: ['Assignment Coach'],
     action: 'send',
     promptTemplate: 'Give me a hint for this question',
+    requiresContext: true,
   },
 ];
 

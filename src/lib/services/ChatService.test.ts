@@ -305,6 +305,17 @@ describe('ChatService', () => {
       expect(lastContent.parts[2].inlineData.mimeType).toBe('application/pdf');
     });
 
+    it('should skip lecture RAG for known generic command prompts', async () => {
+      mockRetrieveContext.mockResolvedValue({ contextText: '', sources: [] });
+      mockGenerateContent.mockResolvedValue({ text: 'response' });
+
+      await service.generateResponse(
+        baseOptions({ userInput: 'Give me a hint for this question' }),
+      );
+
+      expect(mockRetrieveContext).not.toHaveBeenCalled();
+    });
+
     it('should call RAG with correct match count per mode', async () => {
       mockGenerateContent.mockResolvedValue({ text: 'Ok' });
 
@@ -356,6 +367,34 @@ describe('ChatService', () => {
       const gen = service.generateStream(baseOptions({ mode: null as unknown as TutoringMode }));
 
       await expect(gen.next()).rejects.toThrow('Tutoring Mode must be selected');
+    });
+
+    it('should strip [INTERNAL: ...] markers before RAG query', async () => {
+      mockRetrieveContext.mockResolvedValue({ contextText: 'some context', sources: [] });
+      mockRetrieveAssignmentContext.mockResolvedValue([]);
+
+      async function* emptyStream() {
+        // no chunks
+      }
+      mockGenerateContentStream.mockResolvedValue(emptyStream());
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _chunk of service.generateStream(
+        baseOptions({
+          mode: 'Assignment Coach' as TutoringMode,
+          userInput: 'How do I solve this?',
+        }),
+      )) {
+        /* consume */
+      }
+
+      // The RAG query should NOT contain [INTERNAL:
+      expect(mockRetrieveContext).toHaveBeenCalledWith(
+        expect.not.stringContaining('[INTERNAL:'),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it('should use correct temperature for streaming', async () => {

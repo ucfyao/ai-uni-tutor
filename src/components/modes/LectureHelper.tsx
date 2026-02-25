@@ -132,18 +132,18 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       return;
     if (!session) return;
 
-    isSendingRef.current = true;
-    setLastError(null);
-    setLastInput(messageToSend);
-
-    // Command check
+    // Command check — BEFORE setting isSendingRef so dispatch can call handleSend recursively
     if (session.mode && messageToSend.startsWith('/')) {
       const parsed = parseCommand(messageToSend, session.mode);
       if (parsed) {
         handleCommandDispatch(parsed.command, parsed.args);
-        return;
+        return; // isSendingRef was never set — no leak
       }
     }
+
+    isSendingRef.current = true;
+    setLastError(null);
+    setLastInput(messageToSend);
 
     // Convert attached files to base64
     const imageData: { data: string; mimeType: string }[] = [];
@@ -372,6 +372,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       messages: [...session.messages, userMsg, aiMsg],
       lastUpdated: Date.now(),
     });
+
+    // Defensive: ensure isSendingRef is reset (e.g., if called from a path that set it)
+    isSendingRef.current = false;
   };
 
   const handleCommandDispatch = (command: ChatCommand, args: string = '') => {
@@ -379,6 +382,23 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       setInput(command.promptTemplate + args);
       requestAnimationFrame(() => chatInputRef.current?.focus());
       return;
+    }
+
+    // Guard: commands that require context need messages, documents, or images
+    if (command.requiresContext && !args) {
+      const hasContext =
+        (session?.messages?.length ?? 0) > 0 ||
+        attachedFiles.length > 0 ||
+        !!attachedDocument;
+
+      if (!hasContext) {
+        showNotification({
+          title: t.chat.noContextTitle,
+          message: t.chat.noContextMessage,
+          color: 'orange',
+        });
+        return;
+      }
     }
 
     // For "send" action
@@ -540,7 +560,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
               <ChatInput
                 input={input}
                 setInput={setInput}
-                isTyping={isStreaming}
                 onSend={handleSend}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
