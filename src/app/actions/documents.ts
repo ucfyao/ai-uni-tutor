@@ -17,9 +17,9 @@ import type { Json } from '@/types/database';
 interface DocumentListItem {
   id: string;
   name: string;
-  status: string;
+  status: 'draft' | 'ready' | 'processing' | 'error';
   created_at: string;
-  doc_type: string;
+  doc_type: 'lecture' | 'exam' | 'assignment';
   metadata: { school?: string; course?: string; [key: string]: unknown } | null;
   item_count?: number;
   outline_summary?: {

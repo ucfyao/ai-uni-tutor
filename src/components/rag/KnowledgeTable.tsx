@@ -47,7 +47,7 @@ export interface KnowledgeDocument {
       withAnswer: number;
       warningCount: number;
     };
-  };
+  } | null;
   outline_summary?: {
     count: number;
     totalKPs: number;
