@@ -39,7 +39,8 @@ export class MessageRepository implements IMessageRepository {
       .from('chat_messages')
       .select('id, session_id, role, content, created_at')
       .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
 
     if (error) throw new DatabaseError(`Failed to fetch messages: ${error.message}`, error);
     return (data ?? []).map((row) => this.mapToEntity(row as MessageRow));
