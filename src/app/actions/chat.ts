@@ -237,3 +237,58 @@ export async function deleteChatSession(sessionId: string): Promise<void> {
   const sessionService = getSessionService();
   await sessionService.deleteSession(sessionId, user.id);
 }
+
+// ============================================================================
+// BRANCHING ACTIONS
+// ============================================================================
+
+const editAndRegenerateSchema = z.object({
+  sessionId: sessionIdSchema,
+  messageId: z.string().min(1),
+  newContent: z.string().min(1),
+});
+
+/**
+ * Edit a user message and create a new conversation branch.
+ * Returns the new branch ID and updated messages from the edit point.
+ */
+export async function editAndRegenerate(
+  sessionId: string,
+  messageId: string,
+  newContent: string,
+): Promise<{ newMessageId: string; messages: ChatMessage[] }> {
+  const parsed = editAndRegenerateSchema.safeParse({ sessionId, messageId, newContent });
+  if (!parsed.success) {
+    throw new Error('Validation Failed: Invalid edit payload.');
+  }
+
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const sessionService = getSessionService();
+  return sessionService.editAndRegenerate(sessionId, user.id, messageId, newContent);
+}
+
+const switchBranchSchema = z.object({
+  sessionId: sessionIdSchema,
+  parentMessageId: z.string().min(1),
+  targetChildId: z.string().min(1),
+});
+
+/**
+ * Switch to a different conversation branch at a fork point.
+ */
+export async function switchBranch(
+  sessionId: string,
+  parentMessageId: string,
+  targetChildId: string,
+): Promise<ChatMessage[] | null> {
+  const parsed = switchBranchSchema.safeParse({ sessionId, parentMessageId, targetChildId });
+  if (!parsed.success) return null;
+
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const sessionService = getSessionService();
+  return sessionService.switchBranch(sessionId, user.id, parentMessageId, targetChildId);
+}

@@ -239,6 +239,32 @@ export class SessionService {
   }
 
   /**
+   * Edit a user message and create a new conversation branch.
+   */
+  async editAndRegenerate(
+    sessionId: string,
+    userId: string,
+    messageId: string,
+    newContent: string,
+  ): Promise<{ newMessageId: string; messages: ChatMessage[] }> {
+    // TODO: implement in Task 5
+    throw new Error('Not implemented');
+  }
+
+  /**
+   * Switch to a different conversation branch at a fork point.
+   */
+  async switchBranch(
+    sessionId: string,
+    userId: string,
+    parentMessageId: string,
+    targetChildId: string,
+  ): Promise<ChatMessage[]> {
+    // TODO: implement in Task 5
+    throw new Error('Not implemented');
+  }
+
+  /**
    * Delete a session
    */
   async deleteSession(sessionId: string, userId: string): Promise<void> {
