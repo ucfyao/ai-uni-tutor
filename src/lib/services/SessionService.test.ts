@@ -174,6 +174,7 @@ describe('SessionService', () => {
         role: 'user',
         content: 'Q1',
         timestamp: now.getTime(),
+        parentMessageId: null,
       });
     });
   });
