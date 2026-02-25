@@ -22,6 +22,8 @@ const mockSessionService = {
   togglePin: vi.fn(),
   toggleShare: vi.fn(),
   deleteSession: vi.fn(),
+  editAndRegenerate: vi.fn(),
+  switchBranch: vi.fn(),
 };
 vi.mock('@/lib/services/SessionService', () => ({
   getSessionService: () => mockSessionService,
@@ -43,6 +45,8 @@ const {
   toggleSessionPin,
   toggleSessionShare,
   deleteChatSession,
+  editAndRegenerate,
+  switchBranch,
 } = await import('./chat');
 
 // ---------------------------------------------------------------------------
@@ -444,6 +448,72 @@ describe('Chat Actions', () => {
 
     it('should throw for empty sessionId', async () => {
       await expect(deleteChatSession('')).rejects.toThrow('Validation Failed');
+    });
+  });
+
+  // =========================================================================
+  // editAndRegenerate
+  // =========================================================================
+  describe('editAndRegenerate', () => {
+    it('should reject unauthenticated user', async () => {
+      mockGetCurrentUser.mockResolvedValue(null);
+      await expect(editAndRegenerate('sess-1', 'msg-1', 'new content')).rejects.toThrow(
+        'Unauthorized',
+      );
+    });
+
+    it('should reject invalid sessionId', async () => {
+      await expect(editAndRegenerate('', 'msg-1', 'new content')).rejects.toThrow('Validation');
+    });
+
+    it('should reject empty newContent', async () => {
+      await expect(editAndRegenerate('sess-1', 'msg-1', '')).rejects.toThrow('Validation');
+    });
+
+    it('should delegate to sessionService.editAndRegenerate', async () => {
+      const mockResult = { newMessageId: 'msg-new', messages: [] as ChatMessage[] };
+      mockSessionService.editAndRegenerate.mockResolvedValue(mockResult);
+
+      const result = await editAndRegenerate('sess-1', 'msg-1', 'new content');
+
+      expect(result).toEqual(mockResult);
+      expect(mockSessionService.editAndRegenerate).toHaveBeenCalledWith(
+        'sess-1',
+        'user-1',
+        'msg-1',
+        'new content',
+      );
+    });
+  });
+
+  // =========================================================================
+  // switchBranch
+  // =========================================================================
+  describe('switchBranch', () => {
+    it('should return null for unauthenticated user', async () => {
+      mockGetCurrentUser.mockResolvedValue(null);
+      const result = await switchBranch('sess-1', 'parent-1', 'child-1');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for invalid sessionId', async () => {
+      const result = await switchBranch('', 'parent-1', 'child-1');
+      expect(result).toBeNull();
+    });
+
+    it('should delegate to sessionService.switchBranch', async () => {
+      const msgs: ChatMessage[] = [];
+      mockSessionService.switchBranch.mockResolvedValue(msgs);
+
+      const result = await switchBranch('sess-1', 'parent-1', 'child-1');
+
+      expect(result).toEqual(msgs);
+      expect(mockSessionService.switchBranch).toHaveBeenCalledWith(
+        'sess-1',
+        'user-1',
+        'parent-1',
+        'child-1',
+      );
     });
   });
 });

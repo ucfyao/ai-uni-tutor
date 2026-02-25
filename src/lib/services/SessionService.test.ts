@@ -55,6 +55,7 @@ function makeMessageEntity(overrides: Partial<MessageEntity> = {}): MessageEntit
     role: 'user',
     content: 'Hello',
     createdAt: now,
+    parentMessageId: null,
     ...overrides,
   };
 }
@@ -75,6 +76,8 @@ function createMockMessageRepo(): Record<keyof MessageRepository, ReturnType<typ
   return {
     findBySessionId: vi.fn(),
     create: vi.fn(),
+    getChildren: vi.fn(),
+    getActivePath: vi.fn(),
   };
 }
 
@@ -171,6 +174,7 @@ describe('SessionService', () => {
         role: 'user',
         content: 'Q1',
         timestamp: now.getTime(),
+        parentMessageId: null,
       });
     });
   });

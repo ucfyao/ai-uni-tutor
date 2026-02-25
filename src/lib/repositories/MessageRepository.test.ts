@@ -66,7 +66,7 @@ describe('MessageRepository', () => {
 
       expect(mockSupabase.client.from).toHaveBeenCalledWith('chat_messages');
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith(
-        'id, session_id, role, content, created_at',
+        'id, session_id, role, content, created_at, parent_message_id',
       );
       expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('session_id', 'session-001');
       expect(mockSupabase.client._chain.order).toHaveBeenCalledWith('created_at', {
@@ -119,7 +119,26 @@ describe('MessageRepository', () => {
         role: 'user',
         content: 'What is recursion?',
         created_at: expect.any(String),
+        parent_message_id: null,
       });
+    });
+
+    it('should pass parentMessageId when provided', async () => {
+      mockSupabase.setSingleResponse(assistantMessageRow);
+
+      const dto = {
+        sessionId: 'session-001',
+        role: 'assistant' as const,
+        content: 'Response',
+        timestamp: Date.now(),
+        parentMessageId: 'msg-001',
+      };
+
+      await repo.create(dto);
+
+      expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ parent_message_id: 'msg-001' }),
+      );
     });
 
     it('should not update session timestamp (handled at service layer)', async () => {
@@ -155,6 +174,85 @@ describe('MessageRepository', () => {
     });
   });
 
+  // ── getChildren ──
+
+  describe('getChildren', () => {
+    it('should return all messages with the same parent_message_id', async () => {
+      mockSupabase.setQueryResponse([assistantMessageRow]);
+
+      const result = await repo.getChildren('msg-001');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual(assistantMessageEntity);
+      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('parent_message_id', 'msg-001');
+    });
+
+    it('should return empty array when no children exist', async () => {
+      mockSupabase.setQueryResponse([]);
+
+      const result = await repo.getChildren('msg-999');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should throw DatabaseError on error', async () => {
+      mockSupabase.setErrorResponse(dbError('Query failed'));
+
+      await expect(repo.getChildren('msg-001')).rejects.toThrow(DatabaseError);
+      await expect(repo.getChildren('msg-001')).rejects.toThrow('Failed to fetch children');
+    });
+  });
+
+  // ── getActivePath ──
+
+  describe('getActivePath', () => {
+    it('should return empty array when no messages exist', async () => {
+      mockSupabase.setQueryResponse([]);
+
+      const result = await repo.getActivePath('session-001');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return linear path for non-branching conversation', async () => {
+      mockSupabase.setQueryResponse([userMessageRow, assistantMessageRow]);
+
+      const result = await repo.getActivePath('session-001');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('msg-001');
+      expect(result[1].id).toBe('msg-002');
+    });
+
+    it('should pick the latest child at each fork', async () => {
+      const rootMsg = {
+        ...userMessageRow,
+        id: 'msg-root',
+        parent_message_id: null,
+        created_at: '2025-06-01T10:00:00Z',
+      };
+      const childA = {
+        ...assistantMessageRow,
+        id: 'msg-a',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:01:00Z',
+      };
+      const childB = {
+        ...assistantMessageRow,
+        id: 'msg-b',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:02:00Z',
+      };
+      mockSupabase.setQueryResponse([rootMsg, childA, childB]);
+
+      const result = await repo.getActivePath('session-001');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('msg-root');
+      expect(result[1].id).toBe('msg-b'); // latest child
+    });
+  });
+
   // ── Entity mapping ──
 
   describe('entity mapping', () => {
@@ -174,6 +272,22 @@ describe('MessageRepository', () => {
       const result = await repo.findBySessionId('session-001');
 
       expect(result[0].content).toBe('');
+    });
+
+    it('should map parent_message_id to parentMessageId', async () => {
+      mockSupabase.setQueryResponse([assistantMessageRow]);
+
+      const result = await repo.findBySessionId('session-001');
+
+      expect(result[0].parentMessageId).toBe('msg-001');
+    });
+
+    it('should map null parent_message_id to null parentMessageId', async () => {
+      mockSupabase.setQueryResponse([userMessageRow]);
+
+      const result = await repo.findBySessionId('session-001');
+
+      expect(result[0].parentMessageId).toBeNull();
     });
   });
 });

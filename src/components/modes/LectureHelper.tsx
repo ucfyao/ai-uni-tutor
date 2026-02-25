@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Drawer, Loader, Stack } from '@mantine/core';
 import { getLectureOutlines } from '@/app/actions/documents';
 import { askCardQuestion } from '@/app/actions/knowledge-cards';
@@ -14,7 +14,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { isDocumentFile, isImageFile, MAX_FILE_SIZE_BYTES } from '@/lib/file-utils';
 import { formatOutlineToMarkdown } from '@/lib/format-outline';
 import { showNotification } from '@/lib/notifications';
-import { ChatMessage, ChatSession } from '@/types';
+import type { ChatMessage, ChatSession } from '@/types';
 
 const MessageList = dynamic(
   () => import('@/components/chat/MessageList').then((mod) => mod.MessageList),
@@ -121,10 +121,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   }, [openDrawerTrigger]);
 
-  const handleSend = async (
-    retryInput?: string,
-    options?: { displayContent?: string },
-  ) => {
+  const handleSend = async (retryInput?: string, options?: { displayContent?: string }) => {
     const messageToSend = retryInput || input.trim();
 
     if (
@@ -395,9 +392,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     // Guard: commands that require context need messages, documents, or images
     if (command.requiresContext && !args) {
       const hasContext =
-        (session?.messages?.length ?? 0) > 0 ||
-        attachedFiles.length > 0 ||
-        !!attachedDocument;
+        (session?.messages?.length ?? 0) > 0 || attachedFiles.length > 0 || !!attachedDocument;
 
       if (!hasContext) {
         showNotification({
@@ -436,6 +431,113 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     // Re-send with the original user input
     handleSend(userMsg.content);
   };
+
+  const handleEdit = async (messageId: string, newContent: string) => {
+    if (!session || isStreaming) return;
+
+    try {
+      const { editAndRegenerate } = await import('@/app/actions/chat');
+      const result = await editAndRegenerate(session.id, messageId, newContent);
+
+      // Update session with new active-path messages (includes the new user sibling)
+      const updatedMessages = result.messages;
+      const updatedSession: ChatSession = {
+        ...session,
+        messages: updatedMessages,
+        lastUpdated: Date.now(),
+      };
+
+      // Create AI placeholder and stream regeneration
+      const aiMsgId = `a_${Date.now()}`;
+      const aiMsg: ChatMessage = {
+        id: aiMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+      };
+      setSession(
+        { ...updatedSession, messages: [...updatedMessages, aiMsg], lastUpdated: Date.now() },
+        { streamingMessageId: aiMsgId },
+      );
+      setStreamingMsgId(aiMsgId);
+
+      let accumulatedContent = '';
+      await streamChatResponse(
+        {
+          course: session.course ?? { code: '', name: '' },
+          mode: session.mode,
+          history: updatedMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            images: m.images,
+          })),
+          userInput: newContent,
+        },
+        {
+          onChunk: (text) => {
+            accumulatedContent += text;
+            updateLastMessage(accumulatedContent, aiMsgId);
+          },
+          onError: (error, isLimitError) => {
+            removeMessages(1); // Remove AI placeholder
+            isSendingRef.current = false;
+            if (isLimitError) {
+              setLimitModalOpen(true);
+            } else {
+              setLastError({ message: error, canRetry: false });
+              showNotification({ title: 'Error', message: error, color: 'red' });
+            }
+          },
+          onComplete: async () => {
+            await updateLastMessage(accumulatedContent, null);
+            setLastError(null);
+            isSendingRef.current = false;
+            loadRelatedCards(newContent);
+            requestAnimationFrame(() => chatInputRef.current?.focus());
+          },
+        },
+      );
+    } catch (error) {
+      console.error('Edit failed:', error);
+      showNotification({ title: t.chat.error, message: 'Failed to edit message', color: 'red' });
+    }
+  };
+
+  const handleSwitchBranch = async (parentMessageId: string, targetChildId: string) => {
+    if (!session) return;
+
+    try {
+      const { switchBranch } = await import('@/app/actions/chat');
+      const messages = await switchBranch(session.id, parentMessageId, targetChildId);
+      if (messages) {
+        setSession({ ...session, messages, lastUpdated: Date.now() });
+      }
+    } catch (error) {
+      console.error('Switch branch failed:', error);
+      showNotification({
+        title: t.chat.error,
+        message: 'Failed to switch branch',
+        color: 'red',
+      });
+    }
+  };
+
+  // Build siblingsMap: parentId → ordered child IDs (only for fork points with >1 child)
+  const siblingsMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const msg of session?.messages ?? []) {
+      const parentId = msg.parentMessageId;
+      if (!parentId) continue;
+      const siblings = map.get(parentId) ?? [];
+      siblings.push(msg.id);
+      map.set(parentId, siblings);
+    }
+    // Remove entries with only one child (no fork)
+    for (const [key, children] of map) {
+      if (children.length <= 1) map.delete(key);
+    }
+    return map;
+  }, [session?.messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
@@ -555,6 +657,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             courseCode={session.course?.code ?? ''}
             onCommandSelect={(cmd) => handleCommandSelect(cmd)}
             onRegenerate={handleRegenerate}
+            onEdit={handleEdit}
+            onSwitchBranch={handleSwitchBranch}
+            siblingsMap={siblingsMap}
             contentClassName="chat-scroll-content-offset"
             isLoading={isLoading}
           />

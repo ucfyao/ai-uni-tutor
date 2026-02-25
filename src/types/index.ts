@@ -23,6 +23,7 @@ export interface ChatMessage {
     mimeType: string;
   }[];
   sources?: ChatSource[];
+  parentMessageId?: string | null;
 }
 
 export interface ChatSession {

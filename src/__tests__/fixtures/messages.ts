@@ -15,6 +15,7 @@ export const userMessageRow = {
   role: 'user' as const,
   content: 'What is recursion?',
   created_at: '2025-06-01T10:05:00Z',
+  parent_message_id: null,
 };
 
 export const assistantMessageRow = {
@@ -24,6 +25,7 @@ export const assistantMessageRow = {
   content:
     'Recursion is a programming technique where a function calls itself to solve a problem by breaking it into smaller sub-problems.',
   created_at: '2025-06-01T10:05:05Z',
+  parent_message_id: 'msg-001',
 };
 
 /* ---------- Domain entities (camelCase) ---------- */
@@ -34,6 +36,7 @@ export const userMessageEntity: MessageEntity = {
   role: userMessageRow.role,
   content: userMessageRow.content,
   createdAt: new Date(userMessageRow.created_at),
+  parentMessageId: userMessageRow.parent_message_id,
 };
 
 export const assistantMessageEntity: MessageEntity = {
@@ -42,4 +45,5 @@ export const assistantMessageEntity: MessageEntity = {
   role: assistantMessageRow.role,
   content: assistantMessageRow.content,
   createdAt: new Date(assistantMessageRow.created_at),
+  parentMessageId: assistantMessageRow.parent_message_id,
 };
