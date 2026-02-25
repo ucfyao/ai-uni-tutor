@@ -17,9 +17,9 @@ import type { Json } from '@/types/database';
 interface DocumentListItem {
   id: string;
   name: string;
-  status: string;
+  status: 'draft' | 'ready' | 'processing' | 'error';
   created_at: string;
-  doc_type: string;
+  doc_type: 'lecture' | 'exam' | 'assignment';
   metadata: { school?: string; course?: string; [key: string]: unknown } | null;
   item_count?: number;
   outline_summary?: {
@@ -130,19 +130,28 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
       const result = await examRepo.findByCourseIds(courseIds);
       papers = result.data;
     }
-    return papers.map((paper) => ({
-      id: paper.id,
-      name: paper.title,
-      status: paper.status,
-      created_at: paper.createdAt,
-      doc_type: 'exam',
-      metadata: {
-        ...(paper.metadata as Record<string, unknown>),
-        school: paper.school ?? undefined,
-        course: paper.course ?? undefined,
-      },
-      item_count: paper.questionCount ?? 0,
-    }));
+
+    // Fetch real-time stats for all papers
+    const paperIds = papers.map((p) => p.id);
+    const statsMap = await examRepo.getStats(paperIds);
+
+    return papers.map((paper) => {
+      const stats = statsMap.get(paper.id);
+      return {
+        id: paper.id,
+        name: paper.title,
+        status: paper.status,
+        created_at: paper.createdAt,
+        doc_type: 'exam',
+        metadata: {
+          ...(paper.metadata as Record<string, unknown>),
+          school: paper.school ?? undefined,
+          course: paper.course ?? undefined,
+          ...(stats && { stats }),
+        },
+        item_count: paper.questionCount ?? 0,
+      };
+    });
   }
 
   // assignment
@@ -157,19 +166,28 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
     const courseIds = await getAdminService().getAssignedCourseIds(user.id);
     assignments = await assignmentRepo.findByCourseIds(courseIds);
   }
-  return assignments.map((a) => ({
-    id: a.id,
-    name: a.title,
-    status: a.status,
-    created_at: a.createdAt,
-    doc_type: 'assignment',
-    metadata: {
-      ...(a.metadata as Record<string, unknown>),
-      school: a.school ?? undefined,
-      course: a.course ?? undefined,
-    },
-    item_count: a.itemCount ?? 0,
-  }));
+
+  // Fetch real-time stats for all assignments
+  const assignmentIds = assignments.map((a) => a.id);
+  const statsMap = await assignmentRepo.getStats(assignmentIds);
+
+  return assignments.map((a) => {
+    const stats = statsMap.get(a.id);
+    return {
+      id: a.id,
+      name: a.title,
+      status: a.status,
+      created_at: a.createdAt,
+      doc_type: 'assignment',
+      metadata: {
+        ...(a.metadata as Record<string, unknown>),
+        school: a.school ?? undefined,
+        course: a.course ?? undefined,
+        ...(stats && { stats }),
+      },
+      item_count: a.itemCount ?? 0,
+    };
+  });
 }
 
 export async function deleteDocument(documentId: string, docType: string) {
