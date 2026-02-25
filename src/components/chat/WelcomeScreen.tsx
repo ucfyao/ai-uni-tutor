@@ -139,9 +139,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                       style={
                         {
                           cursor: 'pointer',
-                          borderColor: 'var(--mantine-color-default-border)',
-                          opacity: mounted ? 1 : 0,
-                          transition: `opacity 0.4s ease-out ${index * 80}ms, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s, background-color 0.3s, box-shadow 0.3s`,
+                          '--cmd-delay': `${index * 80}ms`,
                           '--cmd-color-border': `var(--mantine-color-${cmd.color}-4)`,
                           '--cmd-color-bg': `var(--mantine-color-${cmd.color}-0)`,
                           '--cmd-color-shadow': `0 8px 24px color-mix(in srgb, var(--mantine-color-${cmd.color}-4) 25%, transparent)`,
