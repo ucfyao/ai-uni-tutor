@@ -384,13 +384,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     isSendingRef.current = false;
   };
 
-  const handleCommandDispatch = (command: ChatCommand, args: string = '') => {
-    if (command.action === 'prefill') {
-      setInput(command.promptTemplate + args);
-      requestAnimationFrame(() => chatInputRef.current?.focus());
-      return;
-    }
+  /** Button click → just fill the input with the command text, let user press send */
+  const handleCommandSelect = (command: ChatCommand, args: string = '') => {
+    setInput(command.command + (args ? ' ' + args : ''));
+    requestAnimationFrame(() => chatInputRef.current?.focus());
+  };
 
+  /** Called from handleSend when a typed/sent command is detected */
+  const handleCommandDispatch = (command: ChatCommand, args: string = '') => {
     // Guard: commands that require context need messages, documents, or images
     if (command.requiresContext && !args) {
       const hasContext =
@@ -408,7 +409,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       }
     }
 
-    // For "send" action — show command text as user message, send expanded prompt to AI
     const displayContent = command.command + (args ? ' ' + args : '');
     setInput('');
 
@@ -553,7 +553,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onAddCard={handleAddCard}
             isKnowledgeMode={true}
             courseCode={session.course?.code ?? ''}
-            onCommandSelect={(cmd) => handleCommandDispatch(cmd)}
+            onCommandSelect={(cmd) => handleCommandSelect(cmd)}
             onRegenerate={handleRegenerate}
             contentClassName="chat-scroll-content-offset"
             isLoading={isLoading}
@@ -586,7 +586,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 attachedDocument={attachedDocument}
                 onRemoveDocument={handleRemoveDocument}
                 mode={session.mode || undefined}
-                onCommandSelect={(cmd) => handleCommandDispatch(cmd)}
+                onCommandSelect={(cmd) => handleCommandSelect(cmd)}
               />
             </Box>
           </Box>
