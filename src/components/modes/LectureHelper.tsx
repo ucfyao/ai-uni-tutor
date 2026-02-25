@@ -386,7 +386,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
   /** Button click → just fill the input with the command text, let user press send */
   const handleCommandSelect = (command: ChatCommand, args: string = '') => {
-    setInput(command.command + (args ? ' ' + args : ''));
+    setInput(command.command + ' ' + args);
     requestAnimationFrame(() => chatInputRef.current?.focus());
   };
 
