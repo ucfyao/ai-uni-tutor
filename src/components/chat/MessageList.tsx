@@ -12,6 +12,7 @@ import {
   Text,
 } from '@mantine/core';
 import type { ChatCommand } from '@/constants/commands';
+import { useVirtualMessages } from '@/hooks/useVirtualMessages';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { ChatMessage, TutoringMode } from '@/types';
 import { MemoizedMessageBubble } from './MessageBubble';
@@ -149,6 +150,13 @@ export const MessageList: React.FC<MessageListProps> = ({
     [messages, t.chat.today, t.chat.yesterday],
   );
 
+  // Virtual list integration for large message histories
+  const { shouldVirtualize, items, virtualizer, tailMessages, tailStartIndex } = useVirtualMessages(
+    messages,
+    dateGroups,
+    viewport,
+  );
+
   const handleScroll = useCallback(() => {
     if (!viewport.current || isAutoScrollingRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = viewport.current;
@@ -247,97 +255,313 @@ export const MessageList: React.FC<MessageListProps> = ({
           {/* Max-width container for optimal line length */}
           <Container size="56.25rem" w="100%" px="md">
             <Stack gap="sm">
-              {messages.map((msg, index) => {
-                const dateLabel = dateGroups.get(index);
-                return (
-                  <React.Fragment key={msg.id}>
-                    {/* Date separator */}
-                    {dateLabel && (
-                      <Group gap="sm" align="center" my={4}>
-                        <Box
-                          style={{
-                            flex: 1,
-                            height: 1,
-                            backgroundColor: 'var(--mantine-color-gray-2)',
-                          }}
-                        />
-                        <Text size="xs" c="dimmed" fw={500} style={{ flexShrink: 0 }}>
-                          {dateLabel}
-                        </Text>
-                        <Box
-                          style={{
-                            flex: 1,
-                            height: 1,
-                            backgroundColor: 'var(--mantine-color-gray-2)',
-                          }}
-                        />
-                      </Group>
-                    )}
-                    <Box
-                      style={{
-                        display: 'flex',
-                        justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                      }}
-                      className={
-                        animatedIds.has(msg.id)
-                          ? msg.role === 'user'
-                            ? 'msg-enter-right'
-                            : 'msg-enter-left'
-                          : undefined
-                      }
-                    >
-                      <MemoizedMessageBubble
-                        message={msg}
-                        isStreaming={msg.id === streamingMsgId}
-                        onStreamingComplete={() => {}}
-                        mode={mode}
-                        onAddCard={onAddCard}
-                        onRegenerate={onRegenerate}
-                        onEdit={onEdit}
-                      />
-                    </Box>
-                    {/* Branch navigation */}
-                    {(() => {
-                      const parentId = msg.parentMessageId;
-                      if (!parentId || !siblingsMap) return null;
-                      const siblings = siblingsMap.get(parentId);
-                      if (!siblings || siblings.length <= 1) return null;
-                      const currentIndex = siblings.indexOf(msg.id);
-                      if (currentIndex === -1) return null;
-
+              {shouldVirtualize ? (
+                <>
+                  {/* Section A: Virtualized older history (no entry animations) */}
+                  <Box
+                    style={{
+                      height: virtualizer.getTotalSize(),
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    {virtualizer.getVirtualItems().map((virtualRow) => {
+                      const item = items[virtualRow.index];
                       return (
-                        <Group gap={4} justify="center" my={2}>
-                          <ActionIcon
-                            size={20}
-                            variant="subtle"
-                            color="gray"
-                            radius="xl"
-                            onClick={() => onSwitchBranch?.(parentId, siblings[currentIndex - 1])}
-                            disabled={currentIndex <= 0}
-                          >
-                            <ChevronLeft size={14} />
-                          </ActionIcon>
-                          <Text size="xs" c="dimmed" fw={500}>
-                            {t.chat.branchOf
-                              .replace('{current}', String(currentIndex + 1))
-                              .replace('{total}', String(siblings.length))}
-                          </Text>
-                          <ActionIcon
-                            size={20}
-                            variant="subtle"
-                            color="gray"
-                            radius="xl"
-                            onClick={() => onSwitchBranch?.(parentId, siblings[currentIndex + 1])}
-                            disabled={currentIndex >= siblings.length - 1}
-                          >
-                            <ChevronRight size={14} />
-                          </ActionIcon>
-                        </Group>
+                        <Box
+                          key={virtualRow.key}
+                          ref={virtualizer.measureElement}
+                          data-index={virtualRow.index}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                        >
+                          {item.type === 'date-separator' ? (
+                            <Group gap="sm" align="center" my={4}>
+                              <Box
+                                style={{
+                                  flex: 1,
+                                  height: 1,
+                                  backgroundColor: 'var(--mantine-color-gray-2)',
+                                }}
+                              />
+                              <Text size="xs" c="dimmed" fw={500} style={{ flexShrink: 0 }}>
+                                {item.dateLabel}
+                              </Text>
+                              <Box
+                                style={{
+                                  flex: 1,
+                                  height: 1,
+                                  backgroundColor: 'var(--mantine-color-gray-2)',
+                                }}
+                              />
+                            </Group>
+                          ) : item.message ? (
+                            <>
+                              <Box
+                                style={{
+                                  display: 'flex',
+                                  justifyContent:
+                                    item.message.role === 'user' ? 'flex-end' : 'flex-start',
+                                }}
+                              >
+                                <MemoizedMessageBubble
+                                  message={item.message}
+                                  isStreaming={item.message.id === streamingMsgId}
+                                  onStreamingComplete={() => {}}
+                                  mode={mode}
+                                  onAddCard={onAddCard}
+                                  onRegenerate={onRegenerate}
+                                  onEdit={onEdit}
+                                />
+                              </Box>
+                              {/* Branch navigation */}
+                              {(() => {
+                                const msg = item.message!;
+                                const parentId = msg.parentMessageId;
+                                if (!parentId || !siblingsMap) return null;
+                                const siblings = siblingsMap.get(parentId);
+                                if (!siblings || siblings.length <= 1) return null;
+                                const currentIdx = siblings.indexOf(msg.id);
+                                if (currentIdx === -1) return null;
+
+                                return (
+                                  <Group gap={4} justify="center" my={2}>
+                                    <ActionIcon
+                                      size={20}
+                                      variant="subtle"
+                                      color="gray"
+                                      radius="xl"
+                                      onClick={() =>
+                                        onSwitchBranch?.(parentId, siblings[currentIdx - 1])
+                                      }
+                                      disabled={currentIdx <= 0}
+                                    >
+                                      <ChevronLeft size={14} />
+                                    </ActionIcon>
+                                    <Text size="xs" c="dimmed" fw={500}>
+                                      {t.chat.branchOf
+                                        .replace('{current}', String(currentIdx + 1))
+                                        .replace('{total}', String(siblings.length))}
+                                    </Text>
+                                    <ActionIcon
+                                      size={20}
+                                      variant="subtle"
+                                      color="gray"
+                                      radius="xl"
+                                      onClick={() =>
+                                        onSwitchBranch?.(parentId, siblings[currentIdx + 1])
+                                      }
+                                      disabled={currentIdx >= siblings.length - 1}
+                                    >
+                                      <ChevronRight size={14} />
+                                    </ActionIcon>
+                                  </Group>
+                                );
+                              })()}
+                            </>
+                          ) : null}
+                        </Box>
                       );
-                    })()}
-                  </React.Fragment>
-                );
-              })}
+                    })}
+                  </Box>
+
+                  {/* Section B: Recent messages (normal rendering with animations) */}
+                  {tailMessages.map((msg, i) => {
+                    const globalIndex = tailStartIndex + i;
+                    const dateLabel = dateGroups.get(globalIndex);
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {/* Date separator */}
+                        {dateLabel && (
+                          <Group gap="sm" align="center" my={4}>
+                            <Box
+                              style={{
+                                flex: 1,
+                                height: 1,
+                                backgroundColor: 'var(--mantine-color-gray-2)',
+                              }}
+                            />
+                            <Text size="xs" c="dimmed" fw={500} style={{ flexShrink: 0 }}>
+                              {dateLabel}
+                            </Text>
+                            <Box
+                              style={{
+                                flex: 1,
+                                height: 1,
+                                backgroundColor: 'var(--mantine-color-gray-2)',
+                              }}
+                            />
+                          </Group>
+                        )}
+                        <Box
+                          style={{
+                            display: 'flex',
+                            justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                          }}
+                          className={
+                            animatedIds.has(msg.id)
+                              ? msg.role === 'user'
+                                ? 'msg-enter-right'
+                                : 'msg-enter-left'
+                              : undefined
+                          }
+                        >
+                          <MemoizedMessageBubble
+                            message={msg}
+                            isStreaming={msg.id === streamingMsgId}
+                            onStreamingComplete={() => {}}
+                            mode={mode}
+                            onAddCard={onAddCard}
+                            onRegenerate={onRegenerate}
+                            onEdit={onEdit}
+                          />
+                        </Box>
+                        {/* Branch navigation */}
+                        {(() => {
+                          const parentId = msg.parentMessageId;
+                          if (!parentId || !siblingsMap) return null;
+                          const siblings = siblingsMap.get(parentId);
+                          if (!siblings || siblings.length <= 1) return null;
+                          const currentIndex = siblings.indexOf(msg.id);
+                          if (currentIndex === -1) return null;
+
+                          return (
+                            <Group gap={4} justify="center" my={2}>
+                              <ActionIcon
+                                size={20}
+                                variant="subtle"
+                                color="gray"
+                                radius="xl"
+                                onClick={() =>
+                                  onSwitchBranch?.(parentId, siblings[currentIndex - 1])
+                                }
+                                disabled={currentIndex <= 0}
+                              >
+                                <ChevronLeft size={14} />
+                              </ActionIcon>
+                              <Text size="xs" c="dimmed" fw={500}>
+                                {t.chat.branchOf
+                                  .replace('{current}', String(currentIndex + 1))
+                                  .replace('{total}', String(siblings.length))}
+                              </Text>
+                              <ActionIcon
+                                size={20}
+                                variant="subtle"
+                                color="gray"
+                                radius="xl"
+                                onClick={() =>
+                                  onSwitchBranch?.(parentId, siblings[currentIndex + 1])
+                                }
+                                disabled={currentIndex >= siblings.length - 1}
+                              >
+                                <ChevronRight size={14} />
+                              </ActionIcon>
+                            </Group>
+                          );
+                        })()}
+                      </React.Fragment>
+                    );
+                  })}
+                </>
+              ) : (
+                /* Existing rendering - unchanged (below threshold) */
+                messages.map((msg, index) => {
+                  const dateLabel = dateGroups.get(index);
+                  return (
+                    <React.Fragment key={msg.id}>
+                      {/* Date separator */}
+                      {dateLabel && (
+                        <Group gap="sm" align="center" my={4}>
+                          <Box
+                            style={{
+                              flex: 1,
+                              height: 1,
+                              backgroundColor: 'var(--mantine-color-gray-2)',
+                            }}
+                          />
+                          <Text size="xs" c="dimmed" fw={500} style={{ flexShrink: 0 }}>
+                            {dateLabel}
+                          </Text>
+                          <Box
+                            style={{
+                              flex: 1,
+                              height: 1,
+                              backgroundColor: 'var(--mantine-color-gray-2)',
+                            }}
+                          />
+                        </Group>
+                      )}
+                      <Box
+                        style={{
+                          display: 'flex',
+                          justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                        }}
+                        className={
+                          animatedIds.has(msg.id)
+                            ? msg.role === 'user'
+                              ? 'msg-enter-right'
+                              : 'msg-enter-left'
+                            : undefined
+                        }
+                      >
+                        <MemoizedMessageBubble
+                          message={msg}
+                          isStreaming={msg.id === streamingMsgId}
+                          onStreamingComplete={() => {}}
+                          mode={mode}
+                          onAddCard={onAddCard}
+                          onRegenerate={onRegenerate}
+                          onEdit={onEdit}
+                        />
+                      </Box>
+                      {/* Branch navigation */}
+                      {(() => {
+                        const parentId = msg.parentMessageId;
+                        if (!parentId || !siblingsMap) return null;
+                        const siblings = siblingsMap.get(parentId);
+                        if (!siblings || siblings.length <= 1) return null;
+                        const currentIndex = siblings.indexOf(msg.id);
+                        if (currentIndex === -1) return null;
+
+                        return (
+                          <Group gap={4} justify="center" my={2}>
+                            <ActionIcon
+                              size={20}
+                              variant="subtle"
+                              color="gray"
+                              radius="xl"
+                              onClick={() => onSwitchBranch?.(parentId, siblings[currentIndex - 1])}
+                              disabled={currentIndex <= 0}
+                            >
+                              <ChevronLeft size={14} />
+                            </ActionIcon>
+                            <Text size="xs" c="dimmed" fw={500}>
+                              {t.chat.branchOf
+                                .replace('{current}', String(currentIndex + 1))
+                                .replace('{total}', String(siblings.length))}
+                            </Text>
+                            <ActionIcon
+                              size={20}
+                              variant="subtle"
+                              color="gray"
+                              radius="xl"
+                              onClick={() => onSwitchBranch?.(parentId, siblings[currentIndex + 1])}
+                              disabled={currentIndex >= siblings.length - 1}
+                            >
+                              <ChevronRight size={14} />
+                            </ActionIcon>
+                          </Group>
+                        );
+                      })()}
+                    </React.Fragment>
+                  );
+                })
+              )}
 
               {/* Loading state */}
               {isTyping && streamingMsgId === null && <ThinkingIndicator mode={mode} />}
