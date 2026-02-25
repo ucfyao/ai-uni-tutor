@@ -126,6 +126,8 @@ export function KnowledgeTable({
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeDocument | null>(null);
   const [editOutlineTarget, setEditOutlineTarget] = useState<KnowledgeDocument | null>(null);
   const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<string>>(new Set());
+  const [optimisticStatus, setOptimisticStatus] = useState<Map<string, string>>(new Map());
+  const [openOutlinePopoverId, setOpenOutlinePopoverId] = useState<string | null>(null);
 
   // Sort state
   type SortField = 'name' | 'date' | null;
@@ -135,6 +137,10 @@ export function KnowledgeTable({
 
   const handleToggleStatus = async (doc: KnowledgeDocument) => {
     const isPublished = doc.status === 'ready';
+    const newStatus = isPublished ? 'draft' : 'ready';
+
+    // Optimistic update — switch toggles immediately
+    setOptimisticStatus((prev) => new Map(prev).set(doc.id, newStatus));
     setUpdatingStatusIds((prev) => new Set(prev).add(doc.id));
 
     try {
@@ -153,11 +159,10 @@ export function KnowledgeTable({
           color: 'green',
         });
 
-        queryClient.invalidateQueries({
+        // Wait for refetch to complete before clearing optimistic state
+        await queryClient.invalidateQueries({
           queryKey: ['documents', activeDocType],
         });
-
-        router.refresh();
       } else {
         showNotification({
           title: t.knowledge.error,
@@ -171,18 +176,25 @@ export function KnowledgeTable({
         message: error instanceof Error ? error.message : 'Operation failed',
         color: 'red',
       });
-    } finally {
-      setUpdatingStatusIds((prev) => {
-        const next = new Set(prev);
-        next.delete(doc.id);
-        return next;
-      });
     }
+
+    // Clear after refetch landed (success) or immediately (error)
+    setOptimisticStatus((prev) => {
+      const next = new Map(prev);
+      next.delete(doc.id);
+      return next;
+    });
+    setUpdatingStatusIds((prev) => {
+      const next = new Set(prev);
+      next.delete(doc.id);
+      return next;
+    });
   };
 
   const renderStatusSwitch = (doc: KnowledgeDocument) => {
     const isUpdating = updatingStatusIds.has(doc.id);
-    const isPublished = doc.status === 'ready';
+    const effectiveStatus = optimisticStatus.get(doc.id) ?? doc.status;
+    const isPublished = effectiveStatus === 'ready';
     return (
       <Tooltip label={isPublished ? t.knowledge.unpublish : t.knowledge.publish} openDelay={300}>
         <Box onClick={(e) => e.stopPropagation()} style={{ display: 'inline-block' }}>
@@ -299,7 +311,14 @@ export function KnowledgeTable({
     const summary = doc.outline_summary;
 
     return (
-      <Popover width={320} position="bottom" shadow="md" withArrow>
+      <Popover
+        width={320}
+        position="bottom"
+        shadow="md"
+        withArrow
+        opened={openOutlinePopoverId === doc.id}
+        onChange={(opened) => setOpenOutlinePopoverId(opened ? doc.id : null)}
+      >
         <Popover.Target>
           <Tooltip label={t.knowledge.viewOutline} openDelay={300}>
             <Badge
@@ -307,7 +326,7 @@ export function KnowledgeTable({
               color="teal"
               size="sm"
               style={{ cursor: 'pointer' }}
-              leftSection={!readOnly && <Pencil size={10} />}
+              onClick={() => setOpenOutlinePopoverId((prev) => (prev === doc.id ? null : doc.id))}
             >
               {summary.count} Sec · {summary.totalKPs} KPs
             </Badge>
@@ -319,15 +338,17 @@ export function KnowledgeTable({
               {t.knowledge.outline}
             </Text>
             {!readOnly && (
-              <Button
-                size="compact-xs"
-                variant="light"
+              <ActionIcon
+                size="sm"
+                variant="subtle"
                 color="gray"
-                leftSection={<Pencil size={10} />}
-                onClick={() => setEditOutlineTarget(doc)}
+                onClick={() => {
+                  setOpenOutlinePopoverId(null);
+                  setEditOutlineTarget(doc);
+                }}
               >
-                {t.knowledge.editDocument}
-              </Button>
+                <Pencil size={14} />
+              </ActionIcon>
             )}
           </Group>
           <Divider mb="xs" />
@@ -507,6 +528,8 @@ export function KnowledgeTable({
     );
   }
 
+  const cellPadding = '12px 16px';
+
   const thStyle: CSSProperties = {
     fontSize: 'var(--mantine-font-size-xs)',
     color: 'var(--mantine-color-dimmed)',
@@ -514,7 +537,12 @@ export function KnowledgeTable({
     letterSpacing: '0.05em',
     fontWeight: 700,
     borderBottom: '1px solid var(--mantine-color-gray-2)',
-    padding: '12px 16px',
+    padding: cellPadding,
+  };
+
+  const tdStyle: CSSProperties = {
+    padding: cellPadding,
+    verticalAlign: 'middle',
   };
 
   return (
@@ -523,7 +551,7 @@ export function KnowledgeTable({
         <Table.Thead>
           <Table.Tr>
             <Table.Th
-              w="24%"
+              w="18%"
               style={{ ...thStyle, cursor: 'pointer', userSelect: 'none' }}
               onClick={() => toggleSort('name')}
             >
@@ -541,6 +569,11 @@ export function KnowledgeTable({
             <Table.Th w="14%" style={thStyle}>
               {activeDocType === 'lecture' ? t.knowledge.outline : t.knowledge.totalQuestions}
             </Table.Th>
+            {activeDocType !== 'lecture' && (
+              <Table.Th w="10%" style={thStyle}>
+                {t.knowledge.answerCoverage}
+              </Table.Th>
+            )}
             <Table.Th
               w="12%"
               style={{ ...thStyle, cursor: 'pointer', userSelect: 'none' }}
@@ -551,11 +584,6 @@ export function KnowledgeTable({
                 {renderSortIcon('date')}
               </Group>
             </Table.Th>
-            {activeDocType !== 'lecture' && (
-              <Table.Th w="10%" style={thStyle}>
-                {t.knowledge.answerCoverage}
-              </Table.Th>
-            )}
             <Table.Th w="10%" style={thStyle}>
               {t.knowledge.status}
             </Table.Th>
@@ -581,66 +609,63 @@ export function KnowledgeTable({
                 onClick={() => router.push(getDocDetailPath(doc))}
                 style={{ cursor: 'pointer' }}
               >
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    {(() => {
-                      const DocIcon = getDocIcon(doc.doc_type);
-                      return (
-                        <DocIcon
-                          size={16}
-                          color={`var(--mantine-color-${getDocColor(doc.doc_type)}-4)`}
-                        />
-                      );
-                    })()}
-                    <Text size="sm" fw={500} truncate>
-                      {doc.name}
-                    </Text>
-                  </Group>
+                <Table.Td style={{ ...tdStyle, maxWidth: 0 }}>
+                  <Tooltip label={doc.name} openDelay={300} multiline maw={300}>
+                    <Group gap="xs" wrap="nowrap">
+                      {(() => {
+                        const DocIcon = getDocIcon(doc.doc_type);
+                        return (
+                          <DocIcon
+                            size={16}
+                            style={{ flexShrink: 0 }}
+                            color={`var(--mantine-color-${getDocColor(doc.doc_type)}-4)`}
+                          />
+                        );
+                      })()}
+                      <Text size="sm" fw={500} truncate>
+                        {doc.name}
+                      </Text>
+                    </Group>
+                  </Tooltip>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={tdStyle}>
                   <Text size="sm" c="dimmed" truncate>
                     {doc.metadata?.school || '-'}
                   </Text>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={tdStyle}>
                   <Badge variant="dot" color="gray" size="sm">
                     {doc.metadata?.course || 'General'}
                   </Badge>
                 </Table.Td>
-                <Table.Td onClick={(e) => e.stopPropagation()}>
+                <Table.Td style={tdStyle} onClick={(e) => e.stopPropagation()}>
                   {renderOutlinePopover(doc)}
                   {(doc.doc_type === 'assignment' || doc.doc_type === 'exam') &&
                     renderStatsPopover(doc)}
                 </Table.Td>
-                <Table.Td>
-                  <Text size="xs" c="dimmed" suppressHydrationWarning>
-                    {new Date(doc.created_at).toLocaleDateString()}
-                  </Text>
-                </Table.Td>
                 {activeDocType !== 'lecture' && (
-                  <Table.Td>
+                  <Table.Td style={tdStyle}>
                     {(() => {
                       const stat = doc.metadata?.stats;
                       if (!stat || stat.itemCount === 0) return '-';
                       const pct = Math.round((stat.withAnswer / stat.itemCount) * 100);
+                      const color = pct === 100 ? 'teal' : pct >= 50 ? 'yellow' : 'red';
                       return (
-                        <Group gap={4}>
-                          <Text size="sm" fw={500}>
-                            {pct}%
-                          </Text>
-                          {stat.warningCount > 0 && (
-                            <Badge color="yellow" variant="light" size="xs">
-                              {stat.warningCount}⚠
-                            </Badge>
-                          )}
-                        </Group>
+                        <Text size="sm" fw={500} c={color}>
+                          {stat.withAnswer}/{stat.itemCount}
+                        </Text>
                       );
                     })()}
                   </Table.Td>
                 )}
-                <Table.Td>{renderStatusSwitch(doc)}</Table.Td>
+                <Table.Td style={tdStyle}>
+                  <Text size="xs" c="dimmed" suppressHydrationWarning>
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </Text>
+                </Table.Td>
+                <Table.Td style={tdStyle}>{renderStatusSwitch(doc)}</Table.Td>
                 {!readOnly && (
-                  <Table.Td onClick={(e) => e.stopPropagation()}>
+                  <Table.Td style={tdStyle} onClick={(e) => e.stopPropagation()}>
                     <Group gap={4}>
                       <Tooltip label={t.knowledge.editDocument}>
                         <ActionIcon

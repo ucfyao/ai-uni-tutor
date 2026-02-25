@@ -46,9 +46,14 @@ export function OutlineEditModal({
   const [saving, setSaving] = useState(false);
 
   // Sync state with props when modal opens or sections change
+  // Default to one empty section so the user can start filling immediately
   useEffect(() => {
     if (opened) {
-      setSections(initialSections);
+      setSections(
+        initialSections.length > 0
+          ? initialSections
+          : [{ title: '', briefDescription: '', knowledgePoints: [''] }],
+      );
     }
   }, [opened, initialSections]);
 
