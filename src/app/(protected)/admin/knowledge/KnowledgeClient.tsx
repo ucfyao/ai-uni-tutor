@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Check, FileText, Plus, Search, Upload, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
@@ -26,7 +26,6 @@ import {
   fetchDocuments,
   updateDocumentMeta,
 } from '@/app/actions/documents';
-
 import { AdminContent } from '@/components/admin/AdminContent';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { KnowledgeTable, type KnowledgeDocument } from '@/components/rag/KnowledgeTable';
@@ -48,9 +47,18 @@ interface KnowledgeClientProps {
 export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeClientProps) {
   const { t } = useLanguage();
   const router = useRouter();
+  const pathname = usePathname();
   const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
-  const [activeTab, setActiveTab] = useState<string>(initialDocType);
+  const [activeTab, setActiveTabState] = useState<string>(initialDocType);
+
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      setActiveTabState(tab);
+      window.history.replaceState(null, '', `${pathname}?tab=${tab}`);
+    },
+    [pathname],
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [debouncedSearch] = useDebouncedValue(searchQuery, 200);
