@@ -25,10 +25,12 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import type { ChatSource } from '@/types';
 import { ChatMessage, TutoringMode } from '@/types/index';
+import { ThinkingIndicator } from './ThinkingIndicator';
 
 const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
   ssr: false,
@@ -267,8 +269,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isStreaming = false,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onStreamingComplete,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  mode: _mode,
+  mode,
   onAddCard,
   onRegenerate,
 }) => {
@@ -484,6 +485,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.65}>
               {message.content}
             </Text>
+          ) : message.content === '' && isStreaming ? (
+            <ThinkingIndicator mode={mode} />
           ) : (
             <>
               <MarkdownRenderer content={message.content} tight />
@@ -508,7 +511,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         width: '5px',
                         height: '5px',
                         borderRadius: '50%',
-                        backgroundColor: 'var(--mantine-color-indigo-5)',
+                        backgroundColor:
+                          mode === 'Assignment Coach'
+                            ? `var(--mantine-color-${getDocColor('assignment')}-5)`
+                            : `var(--mantine-color-${getDocColor('lecture')}-5)`,
                         animation: `thinkingBounce 1.4s ease-in-out ${i * 0.16}s infinite both`,
                       }}
                     />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Group, Text } from '@mantine/core';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -10,28 +10,54 @@ interface ThinkingIndicatorProps {
 
 export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) => {
   const { t } = useLanguage();
+  const [phraseIndex, setPhraseIndex] = useState(0);
+
+  useEffect(() => {
+    // Array of string from translations
+    const defaultPhrases = (t.chat as any).thinkingPhrases as string[] | undefined;
+    const phrases = mode
+      ? [
+          mode === 'Assignment Coach' ? t.chat.organizingThoughts : t.chat.analyzingConcepts,
+          ...(defaultPhrases || []),
+        ]
+      : defaultPhrases || [];
+
+    if (!phrases || phrases.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % phrases.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [t.chat, mode]);
 
   const THINKING_TEXT: Record<string, string> = {
     'Lecture Helper': t.chat.analyzingConcepts,
     'Assignment Coach': t.chat.organizingThoughts,
   };
 
-  const text = (mode && THINKING_TEXT[mode]) || t.chat.thinking;
+  const modeText = mode ? THINKING_TEXT[mode] : null;
+  const defaultPhrases = (t.chat as any).thinkingPhrases as string[] | undefined;
+
+  const phrases = modeText
+    ? [modeText, ...(defaultPhrases || [])]
+    : defaultPhrases || [t.chat.thinking];
+  const text = phrases[phraseIndex % phrases.length] || t.chat.thinking;
+
   const color =
     mode === 'Assignment Coach'
       ? `var(--mantine-color-${getDocColor('assignment')}-5)`
       : `var(--mantine-color-${getDocColor('lecture')}-5)`;
 
   return (
-    <Box p="xs">
-      <Group gap={4} mb={6}>
+    <Group gap="sm" align="center">
+      <Group gap={4}>
         {[0, 1, 2].map((i) => (
           <Box
             key={i}
             className="thinking-dot"
             style={{
-              width: 8,
-              height: 8,
+              width: 5,
+              height: 5,
               borderRadius: '50%',
               backgroundColor: color,
               animation: `thinkingBounce 1.4s ease-in-out ${i * 0.16}s infinite both`,
@@ -57,6 +83,6 @@ export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) =>
           .thinking-dot { animation: none !important; opacity: 0.7 !important; }
         }
       `}</style>
-    </Box>
+    </Group>
   );
 };
