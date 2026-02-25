@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Group, Text } from '@mantine/core';
+import { Box, Stack, Text } from '@mantine/core';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { TutoringMode } from '@/types';
@@ -8,27 +8,11 @@ interface ThinkingIndicatorProps {
   mode?: TutoringMode | null;
 }
 
+const barWidths = ['60%', '80%', '45%'];
+
 export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) => {
   const { t } = useLanguage();
   const [phraseIndex, setPhraseIndex] = useState(0);
-
-  useEffect(() => {
-    // Array of string from translations
-    const defaultPhrases = (t.chat as any).thinkingPhrases as string[] | undefined;
-    const phrases = mode
-      ? [
-          mode === 'Assignment Coach' ? t.chat.organizingThoughts : t.chat.analyzingConcepts,
-          ...(defaultPhrases || []),
-        ]
-      : defaultPhrases || [];
-
-    if (!phrases || phrases.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setPhraseIndex((prev) => (prev + 1) % phrases.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [t.chat, mode]);
 
   const THINKING_TEXT: Record<string, string> = {
     'Lecture Helper': t.chat.analyzingConcepts,
@@ -37,52 +21,54 @@ export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ mode }) =>
 
   const modeText = mode ? THINKING_TEXT[mode] : null;
   const defaultPhrases = (t.chat as any).thinkingPhrases as string[] | undefined;
-
   const phrases = modeText
     ? [modeText, ...(defaultPhrases || [])]
     : defaultPhrases || [t.chat.thinking];
   const text = phrases[phraseIndex % phrases.length] || t.chat.thinking;
 
-  const color =
-    mode === 'Assignment Coach'
-      ? `var(--mantine-color-${getDocColor('assignment')}-5)`
-      : `var(--mantine-color-${getDocColor('lecture')}-5)`;
+  useEffect(() => {
+    if (phrases.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % phrases.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [phrases.length]);
+
+  const shimmerColor =
+    mode === 'Assignment Coach' ? getDocColor('assignment') : getDocColor('lecture');
 
   return (
-    <Group gap="sm" align="center">
-      <Group gap={4}>
-        {[0, 1, 2].map((i) => (
+    <Box>
+      <Stack gap={6} mb={8}>
+        {barWidths.map((width, i) => (
           <Box
             key={i}
-            className="thinking-dot"
+            className="shimmer-bar"
+            h={12}
             style={{
-              width: 5,
-              height: 5,
-              borderRadius: '50%',
-              backgroundColor: color,
-              animation: `thinkingBounce 1.4s ease-in-out ${i * 0.16}s infinite both`,
+              width,
+              borderRadius: 6,
+              background: `linear-gradient(90deg, var(--mantine-color-${shimmerColor}-1) 0%, var(--mantine-color-${shimmerColor}-2) 40%, var(--mantine-color-${shimmerColor}-1) 60%, var(--mantine-color-${shimmerColor}-1) 100%)`,
+              backgroundSize: '200% 100%',
+              animation: `shimmer 1.5s ease-in-out infinite`,
+              animationDelay: `${i * 0.15}s`,
             }}
           />
         ))}
-      </Group>
+      </Stack>
       <Text fz="xs" c="dimmed">
         {text}
       </Text>
       <style>{`
-        @keyframes thinkingBounce {
-          0%, 80%, 100% {
-            transform: scale(0.6);
-            opacity: 0.4;
-          }
-          40% {
-            transform: scale(1);
-            opacity: 1;
-          }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .thinking-dot { animation: none !important; opacity: 0.7 !important; }
+          .shimmer-bar { animation: none !important; }
         }
       `}</style>
-    </Group>
+    </Box>
   );
 };
