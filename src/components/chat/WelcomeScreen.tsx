@@ -53,12 +53,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             {(styles) => (
               <Stack align="center" gap="sm" style={styles}>
                 <Box pos="relative">
+                  {/* Radial gradient glow */}
+                  <Box
+                    pos="absolute"
+                    w={300}
+                    h={300}
+                    style={{
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      borderRadius: '50%',
+                      background: `radial-gradient(circle, var(--mantine-color-${metadata.color}-1) 0%, transparent 70%)`,
+                      opacity: 0.6,
+                      pointerEvents: 'none',
+                      zIndex: 0,
+                    }}
+                  />
                   <ThemeIcon
                     size={64}
                     radius="xl"
                     variant="gradient"
                     gradient={{ from: `${metadata.color}.1`, to: `${metadata.color}.0`, deg: 45 }}
-                    style={{ border: `1px solid var(--mantine-color-${metadata.color}-2)` }}
+                    style={{
+                      border: `1px solid var(--mantine-color-${metadata.color}-2)`,
+                      position: 'relative',
+                      zIndex: 1,
+                    }}
                   >
                     <Icon
                       size={32}
@@ -74,7 +94,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     pos="absolute"
                     bottom={-2}
                     right={-2}
-                    style={{ border: '3px solid var(--mantine-color-body)' }}
+                    style={{
+                      border: '3px solid var(--mantine-color-body)',
+                      zIndex: 1,
+                    }}
                   >
                     <Sparkles size={12} fill="white" />
                   </ThemeIcon>
@@ -121,7 +144,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 </Group>
 
                 <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
-                  {commands.map((cmd) => {
+                  {commands.map((cmd, index) => {
                     const cmdT = (
                       t.chat.commands as Record<string, { label: string; desc: string }>
                     )[cmd.labelKey];
@@ -134,16 +157,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         withBorder
                         style={{
                           cursor: 'pointer',
-                          transition: 'all 0.2s ease',
                           borderColor: 'var(--mantine-color-default-border)',
+                          opacity: mounted ? 1 : 0,
+                          transform: mounted ? 'translateY(0)' : 'translateY(12px)',
+                          transition: `opacity 0.4s ease-out ${index * 80}ms, transform 0.4s ease-out ${index * 80}ms`,
                         }}
                         styles={{
                           root: {
                             '&:hover': {
                               borderColor: `var(--mantine-color-${cmd.color}-3)`,
                               backgroundColor: `var(--mantine-color-${cmd.color}-0)`,
-                              transform: 'translateY(-1px)',
-                              boxShadow: `0 4px 12px color-mix(in srgb, var(--mantine-color-${cmd.color}-3) 25%, transparent)`,
+                              transform: 'translateY(-2px)',
+                              boxShadow: `0 8px 24px color-mix(in srgb, var(--mantine-color-${cmd.color}-3) 30%, transparent)`,
+                            },
+                            '&:hover .cmd-icon-theme': {
+                              transform: 'scale(1.1)',
                             },
                             '&:active': {
                               transform: 'translateY(0)',
@@ -154,11 +182,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                       >
                         <Group gap="sm" wrap="nowrap" align="flex-start">
                           <ThemeIcon
+                            className="cmd-icon-theme"
                             size={36}
                             radius="md"
                             variant="light"
                             color={cmd.color}
-                            style={{ flexShrink: 0 }}
+                            style={{
+                              flexShrink: 0,
+                              transition:
+                                'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
                           >
                             <CmdIcon size={18} strokeWidth={1.8} />
                           </ThemeIcon>
