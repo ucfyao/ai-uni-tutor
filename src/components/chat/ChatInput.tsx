@@ -248,11 +248,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               : 'var(--mantine-color-default-border)',
             backgroundColor: isDragging
               ? 'var(--mantine-color-indigo-0)'
-              : isStreaming
-                ? 'var(--mantine-color-default-hover)'
-                : 'var(--mantine-color-body)',
+              : 'var(--mantine-color-body)',
             transition: 'all 0.15s ease',
             boxShadow: '0 1px 6px rgba(0, 0, 0, 0.04)',
+            opacity: isStreaming ? 0.55 : 1,
+            pointerEvents: isStreaming ? 'none' : undefined,
             position: 'relative',
           }}
           className="group focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400"
@@ -335,6 +335,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 fontSize: '16px',
                 color: 'var(--mantine-color-text)',
                 lineHeight: 1.5,
+                backgroundColor: 'transparent',
+                cursor: isStreaming ? 'default' : undefined,
               },
             }}
           />
