@@ -471,6 +471,7 @@ describe('POST /api/chat/stream', () => {
           mode: 'Lecture Helper',
           userInput: 'What is recursion?',
         }),
+        undefined,
       );
     });
 
@@ -491,6 +492,7 @@ describe('POST /api/chat/stream', () => {
         expect.objectContaining({
           images: [{ data: 'base64data', mimeType: 'image/png' }],
         }),
+        undefined,
       );
     });
   });

@@ -45,6 +45,7 @@ import { Logo } from '@/components/Logo';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { chatCache } from '@/lib/chat-cache';
 import { showNotification } from '@/lib/notifications';
 import { ChatSession, TutoringMode } from '../types/index';
 
@@ -169,6 +170,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [sessions]);
 
   const handleSignOut = async () => {
+    await chatCache.clearAll();
     await signOut();
     router.refresh();
   };

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { chatCache } from '@/lib/chat-cache';
 import { ChatMessage, ChatSession } from '@/types';
 
 interface SessionUpdateOptions {
@@ -26,6 +27,23 @@ export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessi
       setSession(initialSession);
     }
   }, [initialSession, initialSession?.id]);
+
+  // Debounced write to IndexedDB cache whenever messages change
+  const debouncedSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!session?.id || session.messages.length === 0) return;
+
+    if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
+
+    debouncedSaveRef.current = setTimeout(() => {
+      chatCache.saveMessages(session.id, session.messages);
+    }, 500);
+
+    return () => {
+      if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
+    };
+  }, [session?.id, session?.messages]);
 
   // Update session and notify parent. Returns parent's promise so caller can await save.
   const updateSession = useCallback(

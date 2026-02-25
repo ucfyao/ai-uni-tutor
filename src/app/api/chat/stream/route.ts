@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { MODE_CONFIGS } from '@/constants/modes';
 import { AppError } from '@/lib/errors';
+import { getRedis } from '@/lib/redis';
 import { getChatService } from '@/lib/services/ChatService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -54,6 +55,8 @@ const chatStreamSchema = z.object({
     }),
   ),
   userInput: z.string().min(1),
+  requestId: z.string().uuid().optional(),
+  resumeFrom: z.number().int().min(0).optional(),
   images: z
     .array(
       z.object({
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
     return errorResponse('Invalid request body', 400, parsed.error.flatten());
   }
 
-  const { course, mode, history, userInput, images, document } = parsed.data;
+  const { course, mode, history, userInput, requestId, resumeFrom, images, document } = parsed.data;
 
   // 2. Validate AI chat config availability
   const hasAiChat = Object.entries(process.env).some(([k, v]) => /^AI_CHAT_\d+$/.test(k) && !!v);
@@ -127,20 +130,26 @@ export async function POST(req: NextRequest) {
   // 7. Create streaming response using ChatService
   try {
     const chatService = getChatService();
+    const isReconnect = resumeFrom !== undefined && !!requestId;
+    const sessionId = user.id;
+    const cacheConfig = isReconnect ? { requestId: requestId!, sessionId } : undefined;
 
     // Capture sources from RAG retrieval via callback
     let ragSources: import('@/types').ChatSource[] = [];
-    const streamGenerator = chatService.generateStream({
-      course: course as Course,
-      mode: mode as TutoringMode,
-      history: chatHistory,
-      userInput,
-      images,
-      document,
-      onSources: (sources) => {
-        ragSources = sources;
+    const streamGenerator = chatService.generateStream(
+      {
+        course: course as Course,
+        mode: mode as TutoringMode,
+        history: chatHistory,
+        userInput,
+        images,
+        document,
+        onSources: (sources) => {
+          ragSources = sources;
+        },
       },
-    });
+      cacheConfig,
+    );
 
     // Create SSE stream
     const encoder = new TextEncoder();
@@ -149,6 +158,16 @@ export async function POST(req: NextRequest) {
         try {
           let fullResponse = '';
           let sourcesSent = false;
+
+          // If reconnecting, replay cached chunks first
+          if (isReconnect) {
+            const redis = getRedis();
+            const key = `stream:${sessionId}:${requestId}`;
+            const cached = await redis.lrange(key, resumeFrom!, -1);
+            for (const chunk of cached) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+            }
+          }
 
           for await (const text of streamGenerator) {
             // Send sources on first chunk (RAG completes before first yield)
