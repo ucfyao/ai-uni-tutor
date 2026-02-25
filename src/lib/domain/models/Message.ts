@@ -15,6 +15,7 @@ export interface MessageEntity {
     mimeType: string;
   }[];
   createdAt: Date;
+  parentMessageId: string | null;
 }
 
 export interface CreateMessageDTO {
@@ -26,4 +27,5 @@ export interface CreateMessageDTO {
     mimeType: string;
   }[];
   timestamp: number;
+  parentMessageId?: string | null;
 }
