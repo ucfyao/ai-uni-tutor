@@ -1,6 +1,6 @@
 import dynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Drawer, Loader, Stack } from '@mantine/core';
+import { Box, Drawer, Loader, Stack, Text } from '@mantine/core';
 import { getLectureOutlines } from '@/app/actions/documents';
 import { askCardQuestion } from '@/app/actions/knowledge-cards';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -61,8 +61,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     onSessionUpdate: onUpdateSession,
   });
 
-  const { isStreaming, streamingMsgId, setStreamingMsgId, streamChatResponse, cancelStream } =
-    useChatStream();
+  const {
+    isStreaming,
+    isReconnecting,
+    streamingMsgId,
+    setStreamingMsgId,
+    streamChatResponse,
+    cancelStream,
+  } = useChatStream();
 
   // Knowledge cards management
   const { officialCards, userCards, loadRelatedCards, addManualCard, deleteCard } =
@@ -645,6 +651,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             transition: 'opacity 0.15s ease',
           }}
         >
+          {isReconnecting && (
+            <Text size="xs" c="orange" ta="center" py={4}>
+              {t.chat.reconnecting}
+            </Text>
+          )}
           <MessageList
             messages={session.messages}
             isTyping={isStreaming}
