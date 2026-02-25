@@ -57,6 +57,7 @@ export class SessionService {
         role: m.role,
         content: m.content,
         timestamp: m.createdAt.getTime(),
+        parentMessageId: m.parentMessageId,
       })),
       lastUpdated: session.updatedAt.getTime(),
       isPinned: session.isPinned,
@@ -79,6 +80,7 @@ export class SessionService {
       role: m.role,
       content: m.content,
       timestamp: m.createdAt.getTime(),
+      parentMessageId: m.parentMessageId,
     }));
   }
 
@@ -135,6 +137,7 @@ export class SessionService {
         role: m.role,
         content: m.content,
         timestamp: m.createdAt.getTime(),
+        parentMessageId: m.parentMessageId,
       })),
       lastUpdated: session.updatedAt.getTime(),
       isPinned: session.isPinned,
