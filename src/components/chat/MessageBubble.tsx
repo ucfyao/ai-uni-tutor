@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Pencil,
   Quote,
   RefreshCw,
   ThumbsDown,
@@ -21,7 +22,9 @@ import {
   Image,
   Portal,
   SimpleGrid,
+  Stack,
   Text,
+  Textarea,
   Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -128,6 +131,7 @@ interface MessageBubbleProps {
     },
   ) => void;
   onRegenerate?: (messageId: string) => void;
+  onEdit?: (messageId: string, newContent: string) => void;
 }
 
 const MessageActionBar: React.FC<{
@@ -136,7 +140,8 @@ const MessageActionBar: React.FC<{
   messageId: string;
   timestamp: number;
   onRegenerate?: (messageId: string) => void;
-}> = ({ isUser, content, messageId, timestamp, onRegenerate }) => {
+  onEditClick?: () => void;
+}> = ({ isUser, content, messageId, timestamp, onRegenerate, onEditClick }) => {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
@@ -195,6 +200,14 @@ const MessageActionBar: React.FC<{
       className="message-actions"
       style={{ opacity: 0, transition: 'opacity 0.15s ease' }}
     >
+      {isUser && onEditClick && (
+        <Tooltip label={t.chat.edit} position="bottom" withArrow>
+          <ActionIcon variant="subtle" color="gray" size={28} radius="md" onClick={onEditClick}>
+            <Pencil size={14} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+
       <Tooltip label={copied ? t.chat.copied : t.chat.copy} position="bottom" withArrow>
         <ActionIcon
           variant="subtle"
@@ -272,9 +285,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   mode,
   onAddCard,
   onRegenerate,
+  onEdit,
 }) => {
   const { t } = useLanguage();
   const isUser = message.role === 'user';
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
   const [selection, setSelection] = useState<{
     text: string;
     toolbar: { x: number; y: number; placement: 'top' | 'bottom' };
@@ -481,7 +497,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
 
         <Box className="markdown-content">
-          {isUser ? (
+          {isUser && isEditing ? (
+            <Stack gap={8}>
+              <Textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.currentTarget.value)}
+                autosize
+                minRows={2}
+                maxRows={10}
+                autoFocus
+                styles={{
+                  input: { fontSize: '16px', lineHeight: 1.65 },
+                }}
+              />
+              <Group gap={8} justify="flex-end">
+                <Button
+                  size="compact-sm"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setIsEditing(false)}
+                >
+                  {t.chat.cancelEdit}
+                </Button>
+                <Button
+                  size="compact-sm"
+                  variant="filled"
+                  color="indigo"
+                  disabled={!editContent.trim() || editContent.trim() === message.content}
+                  onClick={() => {
+                    onEdit?.(message.id, editContent.trim());
+                    setIsEditing(false);
+                  }}
+                >
+                  {t.chat.saveAndResend}
+                </Button>
+              </Group>
+            </Stack>
+          ) : isUser ? (
             <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.65}>
               {message.content}
             </Text>
@@ -597,6 +649,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           messageId={message.id}
           timestamp={message.timestamp}
           onRegenerate={onRegenerate}
+          onEditClick={
+            isUser && onEdit
+              ? () => {
+                  setEditContent(message.content);
+                  setIsEditing(true);
+                }
+              : undefined
+          }
         />
       )}
     </Box>
@@ -610,5 +670,6 @@ export const MemoizedMessageBubble = React.memo(MessageBubble, (prev, next) => {
   if (prev.isStreaming !== next.isStreaming) return false;
   if (prev.message.sources !== next.message.sources) return false;
   if (prev.onRegenerate !== next.onRegenerate) return false;
+  if (prev.onEdit !== next.onEdit) return false;
   return true;
 });
