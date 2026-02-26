@@ -21,6 +21,7 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { fixIncompleteMarkdown } from '@/lib/markdown-utils';
 import type { HighlightResult } from '@/lib/shiki';
 import 'katex/dist/katex.min.css';
 
@@ -33,6 +34,7 @@ interface MarkdownRendererProps {
    * Useful for chat UIs where large markdown spacing feels detached.
    */
   tight?: boolean;
+  isStreaming?: boolean;
 }
 
 const CopyCodeButton: React.FC<{ code: string; t: { copyCode: string; copied: string } }> = ({
@@ -167,9 +169,11 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   onLinkClick,
   compact = false,
   tight = false,
+  isStreaming = false,
 }) => {
   const { t } = useLanguage();
   const safeContent = content ?? '';
+  const renderedContent = isStreaming ? fixIncompleteMarkdown(safeContent) : safeContent;
   const isTightSpacing = compact || tight;
   return (
     <ReactMarkdown
@@ -410,7 +414,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ),
       }}
     >
-      {safeContent}
+      {renderedContent}
     </ReactMarkdown>
   );
 };
