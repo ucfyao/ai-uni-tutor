@@ -8,8 +8,12 @@ const mockHighlighter = {
   loadLanguage: vi.fn().mockResolvedValue(undefined),
 };
 
-vi.mock('shiki/bundle/web', () => ({
-  createHighlighter: vi.fn().mockResolvedValue(mockHighlighter),
+vi.mock('shiki/core', () => ({
+  createHighlighterCore: vi.fn().mockResolvedValue(mockHighlighter),
+}));
+
+vi.mock('shiki/engine/javascript', () => ({
+  createJavaScriptRegexEngine: vi.fn().mockReturnValue({}),
 }));
 
 describe('shiki singleton', () => {
