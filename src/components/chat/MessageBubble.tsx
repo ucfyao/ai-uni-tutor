@@ -541,7 +541,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <ThinkingIndicator mode={mode} />
           ) : (
             <>
-              <MarkdownRenderer content={message.content} tight />
+              <MarkdownRenderer content={message.content} tight isStreaming={isStreaming} />
               {isStreaming && (
                 <Box
                   component="span"

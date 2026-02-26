@@ -4,20 +4,25 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActionIcon,
   Blockquote,
   Box,
   Code,
   Divider,
+  Group,
   Image,
   Paper,
+  ScrollArea,
   Text,
   Title,
   Tooltip,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { fixIncompleteMarkdown } from '@/lib/markdown-utils';
+import type { HighlightResult } from '@/lib/shiki';
 import 'katex/dist/katex.min.css';
 
 interface MarkdownRendererProps {
@@ -29,6 +34,7 @@ interface MarkdownRendererProps {
    * Useful for chat UIs where large markdown spacing feels detached.
    */
   tight?: boolean;
+  isStreaming?: boolean;
 }
 
 const CopyCodeButton: React.FC<{ code: string; t: { copyCode: string; copied: string } }> = ({
@@ -73,14 +79,101 @@ const CopyCodeButton: React.FC<{ code: string; t: { copyCode: string; copied: st
   );
 };
 
+const ShikiCodeBlock: React.FC<{
+  code: string;
+  language: string;
+  compact: boolean;
+  isTightSpacing: boolean;
+  t: { copyCode: string; copied: string };
+}> = ({ code, language, compact, isTightSpacing, t }) => {
+  const { colorScheme } = useMantineColorScheme();
+  const [result, setResult] = useState<HighlightResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const theme = colorScheme === 'dark' ? 'github-dark' : 'github-light';
+    import('@/lib/shiki')
+      .then(({ highlightCode }) =>
+        highlightCode(code, language, theme).then((r) => {
+          if (!cancelled) setResult(r);
+        }),
+      )
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [code, language, colorScheme]);
+
+  return (
+    <Box pos="relative" className="group/code" my={isTightSpacing ? 'sm' : 'md'}>
+      <Paper
+        p={0}
+        bg="var(--mantine-color-default-hover)"
+        withBorder
+        radius="md"
+        style={{ overflow: 'hidden' }}
+      >
+        <Group
+          justify="space-between"
+          px={compact ? 'sm' : 'md'}
+          py={4}
+          style={{
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            background: 'var(--mantine-color-default)',
+          }}
+        >
+          <Text size="xs" c="dimmed" fw={500} tt="uppercase">
+            {language}
+          </Text>
+        </Group>
+
+        <ScrollArea type="auto">
+          <Box
+            p={compact ? 'sm' : 'md'}
+            style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
+          >
+            {result ? (
+              <pre style={{ margin: 0, background: 'transparent' }}>
+                <code>
+                  {result.tokens.map((line, i) => (
+                    <span key={i}>
+                      {line.map((token, j) => (
+                        <span key={j} style={{ color: token.color }}>
+                          {token.content}
+                        </span>
+                      ))}
+                      {i < result.tokens.length - 1 && '\n'}
+                    </span>
+                  ))}
+                </code>
+              </pre>
+            ) : (
+              <Code
+                block
+                bg="transparent"
+                style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
+              >
+                {code}
+              </Code>
+            )}
+          </Box>
+        </ScrollArea>
+      </Paper>
+      <CopyCodeButton code={code} t={t} />
+    </Box>
+  );
+};
+
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   onLinkClick,
   compact = false,
   tight = false,
+  isStreaming = false,
 }) => {
   const { t } = useLanguage();
   const safeContent = content ?? '';
+  const renderedContent = isStreaming ? fixIncompleteMarkdown(safeContent) : safeContent;
   const isTightSpacing = compact || tight;
   return (
     <ReactMarkdown
@@ -159,39 +252,102 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ),
         code: ({ className, children }: React.ComponentPropsWithoutRef<'code'>) => {
           const match = /language-(\w+)/.exec(className || '');
-          const isInline = !match;
-          return isInline ? (
-            <Code
-              bg="var(--mantine-color-default-hover)"
-              style={{
-                fontWeight: 500,
-                fontSize: compact ? '0.85em' : '0.9em',
-                padding: '2px 4px',
-              }}
-            >
-              {children}
-            </Code>
-          ) : (
-            <Box pos="relative" className="group/code" my={isTightSpacing ? 'sm' : 'md'}>
-              <Paper
-                p={compact ? 'sm' : 'md'}
+          const codeString = String(children).replace(/\n$/, '');
+
+          if (!match) {
+            return (
+              <Code
                 bg="var(--mantine-color-default-hover)"
-                withBorder
-                radius="md"
-                style={{ overflow: 'auto' }}
+                style={{
+                  fontWeight: 500,
+                  fontSize: compact ? '0.85em' : '0.9em',
+                  padding: '2px 4px',
+                }}
               >
-                <Code
-                  block
-                  bg="transparent"
-                  style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
-                >
-                  {children}
-                </Code>
-              </Paper>
-              <CopyCodeButton code={String(children).replace(/\n$/, '')} t={t.chat} />
-            </Box>
+                {children}
+              </Code>
+            );
+          }
+
+          return (
+            <ShikiCodeBlock
+              code={codeString}
+              language={match[1]}
+              compact={compact}
+              isTightSpacing={isTightSpacing}
+              t={t.chat}
+            />
           );
         },
+        table: ({ children }: React.ComponentPropsWithoutRef<'table'>) => (
+          <Paper
+            withBorder
+            radius="md"
+            my={isTightSpacing ? 'sm' : 'md'}
+            style={{ overflow: 'hidden' }}
+          >
+            <ScrollArea type="auto">
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: compact ? '13px' : '14px',
+                }}
+              >
+                {children}
+              </table>
+            </ScrollArea>
+          </Paper>
+        ),
+        thead: ({ children }: React.ComponentPropsWithoutRef<'thead'>) => (
+          <thead
+            style={{
+              background: 'var(--mantine-color-default)',
+              borderBottom: '2px solid var(--mantine-color-default-border)',
+            }}
+          >
+            {children}
+          </thead>
+        ),
+        tbody: ({ children }: React.ComponentPropsWithoutRef<'tbody'>) => <tbody>{children}</tbody>,
+        tr: ({ children, ...props }: React.ComponentPropsWithoutRef<'tr'>) => (
+          <tr
+            {...props}
+            style={{
+              borderBottom: '1px solid var(--mantine-color-default-border)',
+              transition: 'background 0.1s ease',
+            }}
+            className="hover:bg-[var(--mantine-color-default-hover)]"
+          >
+            {children}
+          </tr>
+        ),
+        th: ({ children }: React.ComponentPropsWithoutRef<'th'>) => (
+          <th
+            style={{
+              padding: compact ? '6px 10px' : '8px 14px',
+              textAlign: 'left',
+              fontWeight: 600,
+              fontSize: compact ? '12px' : '13px',
+              color: 'var(--mantine-color-text)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {children}
+          </th>
+        ),
+        td: ({ children }: React.ComponentPropsWithoutRef<'td'>) => (
+          <td
+            style={{
+              padding: compact ? '6px 10px' : '8px 14px',
+              fontSize: compact ? '13px' : '14px',
+              color: 'var(--mantine-color-text)',
+              wordBreak: 'break-word',
+            }}
+          >
+            {children}
+          </td>
+        ),
         blockquote: ({ children }) => (
           <Blockquote
             color="gray"
@@ -258,7 +414,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ),
       }}
     >
-      {safeContent}
+      {renderedContent}
     </ReactMarkdown>
   );
 };
