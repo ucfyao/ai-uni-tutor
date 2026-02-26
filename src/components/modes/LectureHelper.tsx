@@ -436,43 +436,43 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const userMsg = session.messages[msgIndex - 1];
     if (userMsg.role !== 'user') return;
 
-    // Build correct state directly from the snapshot `session` to avoid
-    // stale-closure issues (removeMessages + handleSend would read stale React state).
     isSendingRef.current = true;
     setLastError(null);
     setLastInput(userMsg.content);
 
-    // Keep messages BEFORE the user+assistant pair being regenerated
-    const keepMessages = session.messages.slice(0, msgIndex - 1);
-    const lastKept = keepMessages[keepMessages.length - 1];
+    // Keep messages up to and including the user message
+    const keepMessages = session.messages.slice(0, msgIndex);
 
-    // Re-create user message with correct parentMessageId
-    const newUserMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: userMsg.content,
-      timestamp: Date.now(),
-      images: userMsg.images,
-      parentMessageId: lastKept?.id ?? null,
-    };
-
+    // Create new assistant as sibling of original (same parent = userMsg)
+    const originalAssistantId = session.messages[msgIndex].id;
     const aiMsgId = crypto.randomUUID();
     const aiMsg: ChatMessage = {
       id: aiMsgId,
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
-      parentMessageId: newUserMsg.id,
+      parentMessageId: userMsg.id,
+    };
+
+    // Compute updated siblingsMap client-side
+    const prevMap = session.siblingsMap ?? {};
+    const existingSiblings = prevMap[userMsg.id];
+    const updatedSiblingsMap = {
+      ...prevMap,
+      [userMsg.id]: existingSiblings
+        ? [...existingSiblings, aiMsgId]
+        : [originalAssistantId, aiMsgId],
     };
 
     setInput('');
     setSession(
       {
         ...session,
-        messages: [...keepMessages, newUserMsg, aiMsg],
+        messages: [...keepMessages, aiMsg],
+        siblingsMap: updatedSiblingsMap,
         lastUpdated: Date.now(),
       },
-      { streamingMessageId: aiMsgId },
+      { streamingMessageId: aiMsgId, resetSavedIndex: keepMessages.length },
     );
     setStreamingMsgId(aiMsgId);
 
@@ -482,7 +482,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       {
         course: session.course ?? { code: '', name: '' },
         mode: session.mode,
-        history: keepMessages.map((m) => ({
+        // History EXCLUDES the user message (userInput provides it separately)
+        history: session.messages.slice(0, msgIndex - 1).map((m) => ({
           role: m.role,
           content: m.content,
           images: m.images,
@@ -496,7 +497,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           updateLastMessage(accumulatedContent, aiMsgId);
         },
         onError: (error, isLimitError) => {
-          removeMessages(2); // Remove both AI placeholder AND user message
+          removeMessages(1); // Only remove the 1 new assistant placeholder
           isSendingRef.current = false;
 
           if (isLimitError) {
