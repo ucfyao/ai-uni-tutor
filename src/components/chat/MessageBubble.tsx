@@ -152,7 +152,7 @@ const MessageActionBar: React.FC<{
   isUser,
   content,
   messageId,
-  parentMessageId,
+  parentMessageId: _parentMessageId,
   timestamp,
   onRegenerate,
   onEditClick,
@@ -210,15 +210,15 @@ const MessageActionBar: React.FC<{
     [feedback, messageId, t.toast.feedbackThanks],
   );
 
-  // Branch nav only on assistant messages.
-  // The assistant's parent is a user msg; look up that user msg in siblingsMap.
+  // Branch nav: check if THIS message is a sibling at any fork point.
+  // Works for both user messages (edit forks) and assistant messages (regenerate forks).
   let branchForkId: string | null = null;
   let branchSiblings: string[] | undefined;
   let branchIndex = -1;
 
-  if (!isUser && parentMessageId && siblingsMap) {
+  if (siblingsMap) {
     for (const [forkId, s] of siblingsMap) {
-      const idx = s.indexOf(parentMessageId);
+      const idx = s.indexOf(messageId);
       if (idx !== -1) {
         branchForkId = forkId;
         branchSiblings = s;
@@ -231,158 +231,172 @@ const MessageActionBar: React.FC<{
 
   const actionBtnStyle = { transition: 'color 0.15s ease, background 0.15s ease' };
 
-  return (
+  const branchNavPill = (
     <Group
-      gap={1}
-      mt={isUser ? 4 : 0}
-      className={isUser ? 'message-actions' : undefined}
-      style={isUser ? { opacity: 0, transition: 'opacity 0.15s ease' } : undefined}
+      gap={0}
+      style={{
+        borderRadius: 20,
+        background: 'var(--mantine-color-gray-0)',
+        padding: '2px 4px',
+        border: '1px solid var(--mantine-color-gray-2)',
+      }}
     >
-      {/* Branch navigation — cohesive pill */}
-      {showBranchNav && (
-        <>
-          <Group
-            gap={0}
-            style={{
-              borderRadius: 20,
-              background: 'var(--mantine-color-gray-0)',
-              padding: '2px 4px',
-              border: '1px solid var(--mantine-color-gray-2)',
-            }}
-          >
-            <ActionIcon
-              size={26}
-              variant="transparent"
-              color="gray"
-              radius="xl"
-              onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex - 1])}
-              disabled={branchIndex <= 0}
-              style={actionBtnStyle}
-            >
-              <ChevronLeft size={16} />
-            </ActionIcon>
-            <Text
-              size="xs"
-              c="dimmed"
-              fw={600}
-              px={4}
-              style={{ userSelect: 'none', fontVariantNumeric: 'tabular-nums' }}
-            >
-              {t.chat.branchOf
-                .replace('{current}', String(branchIndex + 1))
-                .replace('{total}', String(branchSiblings!.length))}
-            </Text>
-            <ActionIcon
-              size={26}
-              variant="transparent"
-              color="gray"
-              radius="xl"
-              onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex + 1])}
-              disabled={branchIndex >= branchSiblings!.length - 1}
-              style={actionBtnStyle}
-            >
-              <ChevronRight size={16} />
-            </ActionIcon>
-          </Group>
-          <Box w={4} style={{ flexShrink: 0 }} />
-        </>
-      )}
-
-      {isUser && onEditClick && (
-        <Tooltip label={t.chat.edit} position="bottom" withArrow>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size={32}
-            radius="md"
-            onClick={onEditClick}
-            style={actionBtnStyle}
-          >
-            <Pencil size={16} />
-          </ActionIcon>
-        </Tooltip>
-      )}
-
-      <Tooltip label={copied ? t.chat.copied : t.chat.copy} position="bottom" withArrow>
-        <ActionIcon
-          variant="subtle"
-          color={copied ? 'teal' : 'gray'}
-          size={32}
-          radius="md"
-          onClick={handleCopy}
-          style={actionBtnStyle}
-        >
-          {copied ? <Check size={16} /> : <Copy size={16} />}
-        </ActionIcon>
-      </Tooltip>
-
-      {!isUser && onRegenerate && (
-        <Tooltip label={t.chat.regenerate} position="bottom" withArrow>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size={32}
-            radius="md"
-            onClick={() => {
-              onRegenerate(messageId);
-              showNotification({
-                message: t.toast.regenerating,
-                color: 'indigo',
-                autoClose: 3000,
-              });
-            }}
-            style={actionBtnStyle}
-          >
-            <RefreshCw size={16} />
-          </ActionIcon>
-        </Tooltip>
-      )}
-
-      {/* AI feedback */}
-      {!isUser && (
-        <>
-          <Box
-            w={1}
-            h={16}
-            mx={3}
-            style={{
-              flexShrink: 0,
-              background: 'var(--mantine-color-gray-3)',
-              opacity: 0.6,
-              borderRadius: 1,
-            }}
-          />
-          <Tooltip label={t.chat.helpful} position="bottom" withArrow>
-            <ActionIcon
-              variant="subtle"
-              color={feedback === 'up' ? 'teal' : 'gray'}
-              size={32}
-              radius="md"
-              onClick={() => handleFeedback('up')}
-              style={actionBtnStyle}
-            >
-              <ThumbsUp size={16} fill={feedback === 'up' ? 'currentColor' : 'none'} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label={t.chat.notHelpful} position="bottom" withArrow>
-            <ActionIcon
-              variant="subtle"
-              color={feedback === 'down' ? 'red' : 'gray'}
-              size={32}
-              radius="md"
-              onClick={() => handleFeedback('down')}
-              style={actionBtnStyle}
-            >
-              <ThumbsDown size={16} fill={feedback === 'down' ? 'currentColor' : 'none'} />
-            </ActionIcon>
-          </Tooltip>
-        </>
-      )}
-
-      <Text size="xs" c="dimmed" ml={6} style={{ opacity: 0.7 }}>
-        {formatRelativeTime(timestamp)}
+      <ActionIcon
+        size={26}
+        variant="transparent"
+        color="gray"
+        radius="xl"
+        onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex - 1])}
+        disabled={branchIndex <= 0}
+        style={actionBtnStyle}
+      >
+        <ChevronLeft size={16} />
+      </ActionIcon>
+      <Text
+        size="xs"
+        c="dimmed"
+        fw={600}
+        px={4}
+        style={{ userSelect: 'none', fontVariantNumeric: 'tabular-nums' }}
+      >
+        {t.chat.branchOf
+          .replace('{current}', String(branchIndex + 1))
+          .replace('{total}', String(branchSiblings!.length))}
       </Text>
+      <ActionIcon
+        size={26}
+        variant="transparent"
+        color="gray"
+        radius="xl"
+        onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex + 1])}
+        disabled={branchIndex >= branchSiblings!.length - 1}
+        style={actionBtnStyle}
+      >
+        <ChevronRight size={16} />
+      </ActionIcon>
     </Group>
+  );
+
+  return (
+    <>
+      {/* Branch nav for USER messages — always visible, right-aligned */}
+      {isUser && showBranchNav && (
+        <Group gap={0} mt={4} justify="flex-end">
+          {branchNavPill}
+        </Group>
+      )}
+
+      {/* Action bar (hover-to-show for user, always visible for assistant) */}
+      <Group
+        gap={1}
+        mt={isUser ? (showBranchNav ? 2 : 4) : 0}
+        className={isUser ? 'message-actions' : undefined}
+        style={isUser ? { opacity: 0, transition: 'opacity 0.15s ease' } : undefined}
+      >
+        {/* Branch navigation for ASSISTANT messages — inside action bar */}
+        {!isUser && showBranchNav && (
+          <>
+            {branchNavPill}
+            <Box w={4} style={{ flexShrink: 0 }} />
+          </>
+        )}
+
+        {isUser && onEditClick && (
+          <Tooltip label={t.chat.edit} position="bottom" withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size={32}
+              radius="md"
+              onClick={onEditClick}
+              style={actionBtnStyle}
+            >
+              <Pencil size={16} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+
+        <Tooltip label={copied ? t.chat.copied : t.chat.copy} position="bottom" withArrow>
+          <ActionIcon
+            variant="subtle"
+            color={copied ? 'teal' : 'gray'}
+            size={32}
+            radius="md"
+            onClick={handleCopy}
+            style={actionBtnStyle}
+          >
+            {copied ? <Check size={16} /> : <Copy size={16} />}
+          </ActionIcon>
+        </Tooltip>
+
+        {!isUser && onRegenerate && (
+          <Tooltip label={t.chat.regenerate} position="bottom" withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size={32}
+              radius="md"
+              onClick={() => {
+                onRegenerate(messageId);
+                showNotification({
+                  message: t.toast.regenerating,
+                  color: 'indigo',
+                  autoClose: 3000,
+                });
+              }}
+              style={actionBtnStyle}
+            >
+              <RefreshCw size={16} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+
+        {/* AI feedback */}
+        {!isUser && (
+          <>
+            <Box
+              w={1}
+              h={16}
+              mx={3}
+              style={{
+                flexShrink: 0,
+                background: 'var(--mantine-color-gray-3)',
+                opacity: 0.6,
+                borderRadius: 1,
+              }}
+            />
+            <Tooltip label={t.chat.helpful} position="bottom" withArrow>
+              <ActionIcon
+                variant="subtle"
+                color={feedback === 'up' ? 'teal' : 'gray'}
+                size={32}
+                radius="md"
+                onClick={() => handleFeedback('up')}
+                style={actionBtnStyle}
+              >
+                <ThumbsUp size={16} fill={feedback === 'up' ? 'currentColor' : 'none'} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label={t.chat.notHelpful} position="bottom" withArrow>
+              <ActionIcon
+                variant="subtle"
+                color={feedback === 'down' ? 'red' : 'gray'}
+                size={32}
+                radius="md"
+                onClick={() => handleFeedback('down')}
+                style={actionBtnStyle}
+              >
+                <ThumbsDown size={16} fill={feedback === 'down' ? 'currentColor' : 'none'} />
+              </ActionIcon>
+            </Tooltip>
+          </>
+        )}
+
+        <Text size="xs" c="dimmed" ml={6} style={{ opacity: 0.7 }}>
+          {formatRelativeTime(timestamp)}
+        </Text>
+      </Group>
+    </>
   );
 };
 
