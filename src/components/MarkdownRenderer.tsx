@@ -18,7 +18,7 @@ import {
   Text,
   Title,
   Tooltip,
-  useMantineColorScheme,
+  useComputedColorScheme,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { fixIncompleteMarkdown } from '@/lib/markdown-utils';
@@ -86,23 +86,23 @@ const ShikiCodeBlock: React.FC<{
   isTightSpacing: boolean;
   t: { copyCode: string; copied: string };
 }> = ({ code, language, compact, isTightSpacing, t }) => {
-  const { colorScheme } = useMantineColorScheme();
+  const computedScheme = useComputedColorScheme('light');
   const [result, setResult] = useState<HighlightResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const theme = colorScheme === 'dark' ? 'github-dark' : 'github-light';
+    const theme = computedScheme === 'dark' ? 'github-dark' : 'github-light';
     import('@/lib/shiki')
       .then(({ highlightCode }) =>
         highlightCode(code, language, theme).then((r) => {
           if (!cancelled) setResult(r);
         }),
       )
-      .catch(() => {});
+      .catch((err) => console.error('[ShikiCodeBlock] highlight failed:', err));
     return () => {
       cancelled = true;
     };
-  }, [code, language, colorScheme]);
+  }, [code, language, computedScheme]);
 
   return (
     <Box pos="relative" className="group/code" my={isTightSpacing ? 'sm' : 'md'}>
@@ -133,28 +133,29 @@ const ShikiCodeBlock: React.FC<{
             style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
           >
             {result ? (
-              <pre style={{ margin: 0, background: 'transparent' }}>
-                <code>
-                  {result.tokens.map((line, i) => (
-                    <span key={i}>
-                      {line.map((token, j) => (
-                        <span key={j} style={{ color: token.color }}>
-                          {token.content}
-                        </span>
-                      ))}
-                      {i < result.tokens.length - 1 && '\n'}
-                    </span>
-                  ))}
-                </code>
-              </pre>
+              <code style={{ fontFamily: 'var(--mantine-font-family-monospace)' }}>
+                {result.tokens.map((line, i) => (
+                  <span key={i}>
+                    {line.map((token, j) => (
+                      <span key={j} style={{ color: token.color }}>
+                        {token.content}
+                      </span>
+                    ))}
+                    {i < result.tokens.length - 1 && '\n'}
+                  </span>
+                ))}
+              </code>
             ) : (
-              <Code
-                block
-                bg="transparent"
-                style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
+              <code
+                style={{
+                  fontFamily: 'var(--mantine-font-family-monospace)',
+                  fontSize: compact ? '13px' : '14px',
+                  lineHeight: '1.6',
+                  whiteSpace: 'pre',
+                }}
               >
                 {code}
-              </Code>
+              </code>
             )}
           </Box>
         </ScrollArea>
@@ -250,6 +251,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             {children}
           </Text>
         ),
+        pre: ({ children }: React.ComponentPropsWithoutRef<'pre'>) => <>{children}</>,
         code: ({ className, children }: React.ComponentPropsWithoutRef<'code'>) => {
           const match = /language-(\w+)/.exec(className || '');
           const codeString = String(children).replace(/\n$/, '');
