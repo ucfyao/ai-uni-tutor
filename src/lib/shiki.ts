@@ -1,33 +1,30 @@
-import type { HighlighterCore, ThemedToken } from 'shiki/core';
+import { createHighlighterCore, type HighlighterCore, type ThemedToken } from 'shiki/core';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 
 let highlighterPromise: Promise<HighlighterCore> | null = null;
 
-const PRELOAD_LANGS = [
-  'python',
-  'javascript',
-  'typescript',
-  'java',
-  'c',
-  'cpp',
-  'sql',
-  'r',
-  'matlab',
-  'html',
-  'css',
-  'bash',
-  'json',
-  'latex',
-];
-
 export async function getHighlighter(): Promise<HighlighterCore> {
   if (!highlighterPromise) {
-    highlighterPromise = (async () => {
-      const { createHighlighter } = await import('shiki/bundle/web');
-      return createHighlighter({
-        themes: ['github-dark', 'github-light'],
-        langs: PRELOAD_LANGS,
-      });
-    })();
+    highlighterPromise = createHighlighterCore({
+      engine: createJavaScriptRegexEngine(),
+      themes: [import('shiki/themes/github-dark.mjs'), import('shiki/themes/github-light.mjs')],
+      langs: [
+        import('shiki/langs/python.mjs'),
+        import('shiki/langs/javascript.mjs'),
+        import('shiki/langs/typescript.mjs'),
+        import('shiki/langs/java.mjs'),
+        import('shiki/langs/c.mjs'),
+        import('shiki/langs/cpp.mjs'),
+        import('shiki/langs/sql.mjs'),
+        import('shiki/langs/r.mjs'),
+        import('shiki/langs/matlab.mjs'),
+        import('shiki/langs/html.mjs'),
+        import('shiki/langs/css.mjs'),
+        import('shiki/langs/bash.mjs'),
+        import('shiki/langs/json.mjs'),
+        import('shiki/langs/latex.mjs'),
+      ],
+    });
   }
   return highlighterPromise;
 }
