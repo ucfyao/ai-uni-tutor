@@ -25,6 +25,7 @@ const mockMessageRepo = {
   create: vi.fn(),
   getChildren: vi.fn(),
   getActivePath: vi.fn(),
+  getActivePathWithForks: vi.fn(),
 };
 
 // Mock CourseService (required by SessionService constructor path)
@@ -80,11 +81,15 @@ describe('SessionService branching', () => {
       mockMessageRepo.create.mockResolvedValue(
         makeMsg('msg-3', 'msg-1', 'user', 'new question', '2025-06-01T10:02:00Z'),
       );
-      mockMessageRepo.getActivePath.mockResolvedValue([msg1, makeMsg('msg-3', 'msg-1')]);
+      mockMessageRepo.getActivePathWithForks.mockResolvedValue({
+        path: [msg1, makeMsg('msg-3', 'msg-1')],
+        siblingsMap: { 'msg-1': ['msg-2', 'msg-3'] },
+      });
 
       const result = await service.editAndRegenerate('sess-1', 'user-1', 'msg-2', 'new question');
 
       expect(result.newMessageId).toBe('msg-3');
+      expect(result.siblingsMap).toEqual({ 'msg-1': ['msg-2', 'msg-3'] });
       expect(mockMessageRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ parentMessageId: 'msg-1' }),
       );
@@ -96,7 +101,7 @@ describe('SessionService branching', () => {
 
       mockMessageRepo.findBySessionId.mockResolvedValue([msg1, msg2]);
       mockMessageRepo.create.mockResolvedValue(makeMsg('msg-3', 'msg-1', 'user', 'new'));
-      mockMessageRepo.getActivePath.mockResolvedValue([]);
+      mockMessageRepo.getActivePathWithForks.mockResolvedValue({ path: [], siblingsMap: {} });
 
       await service.editAndRegenerate('sess-1', 'user-1', 'msg-2', 'new');
 
@@ -143,9 +148,9 @@ describe('SessionService branching', () => {
 
       const result = await service.switchBranch('sess-1', 'user-1', 'msg-root', 'msg-2a');
 
-      expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('msg-root');
-      expect(result[1].id).toBe('msg-2a');
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[0].id).toBe('msg-root');
+      expect(result.messages[1].id).toBe('msg-2a');
     });
 
     it('should share prefix across branches', async () => {
@@ -160,10 +165,10 @@ describe('SessionService branching', () => {
 
       const resultA = await service.switchBranch('sess-1', 'user-1', 'msg-2', 'msg-3a');
 
-      expect(resultA).toHaveLength(3);
-      expect(resultA[0].id).toBe('msg-1'); // shared prefix
-      expect(resultA[1].id).toBe('msg-2'); // shared prefix
-      expect(resultA[2].id).toBe('msg-3a'); // selected branch
+      expect(resultA.messages).toHaveLength(3);
+      expect(resultA.messages[0].id).toBe('msg-1'); // shared prefix
+      expect(resultA.messages[1].id).toBe('msg-2'); // shared prefix
+      expect(resultA.messages[2].id).toBe('msg-3a'); // selected branch
     });
 
     it('should follow latest descendants from target to leaf', async () => {
@@ -179,11 +184,11 @@ describe('SessionService branching', () => {
 
       const result = await service.switchBranch('sess-1', 'user-1', 'msg-root', 'msg-2a');
 
-      expect(result).toHaveLength(4);
-      expect(result[0].id).toBe('msg-root');
-      expect(result[1].id).toBe('msg-2a');
-      expect(result[2].id).toBe('msg-3');
-      expect(result[3].id).toBe('msg-4');
+      expect(result.messages).toHaveLength(4);
+      expect(result.messages[0].id).toBe('msg-root');
+      expect(result.messages[1].id).toBe('msg-2a');
+      expect(result.messages[2].id).toBe('msg-3');
+      expect(result.messages[3].id).toBe('msg-4');
     });
 
     it('should reject if targetChildId is not a child of parentMessageId', async () => {

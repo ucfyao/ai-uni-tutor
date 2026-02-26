@@ -78,6 +78,7 @@ function createMockMessageRepo(): Record<keyof MessageRepository, ReturnType<typ
     create: vi.fn(),
     getChildren: vi.fn(),
     getActivePath: vi.fn(),
+    getActivePathWithForks: vi.fn(),
   };
 }
 
@@ -114,7 +115,7 @@ describe('SessionService', () => {
 
       expect(result).toBeNull();
       expect(sessionRepo.findByIdAndUserId).toHaveBeenCalledWith('sess-1', 'user-1');
-      expect(messageRepo.findBySessionId).not.toHaveBeenCalled();
+      expect(messageRepo.getActivePathWithForks).not.toHaveBeenCalled();
     });
 
     it('should return full session with messages', async () => {
@@ -125,7 +126,10 @@ describe('SessionService', () => {
       ];
 
       sessionRepo.findByIdAndUserId.mockResolvedValue(session);
-      messageRepo.findBySessionId.mockResolvedValue(messages);
+      messageRepo.getActivePathWithForks.mockResolvedValue({
+        path: messages,
+        siblingsMap: {},
+      });
 
       const result = await service.getFullSession('sess-1', 'user-1');
 
@@ -142,6 +146,7 @@ describe('SessionService', () => {
       expect(result!.lastUpdated).toBe(now.getTime());
       expect(result!.isPinned).toBe(false);
       expect(result!.isShared).toBe(false);
+      expect(result!.siblingsMap).toEqual({});
     });
   });
 
@@ -155,7 +160,7 @@ describe('SessionService', () => {
       const result = await service.getSessionMessages('sess-1', 'user-bad');
 
       expect(result).toBeNull();
-      expect(messageRepo.findBySessionId).not.toHaveBeenCalled();
+      expect(messageRepo.getActivePath).not.toHaveBeenCalled();
     });
 
     it('should return mapped messages when user owns the session', async () => {
@@ -164,7 +169,7 @@ describe('SessionService', () => {
         makeMessageEntity({ id: 'msg-1', content: 'Q1', role: 'user' }),
         makeMessageEntity({ id: 'msg-2', content: 'A1', role: 'assistant' }),
       ];
-      messageRepo.findBySessionId.mockResolvedValue(messages);
+      messageRepo.getActivePath.mockResolvedValue(messages);
 
       const result = await service.getSessionMessages('sess-1', 'user-1');
 
@@ -218,7 +223,7 @@ describe('SessionService', () => {
       const result = await service.getSharedSession('sess-99');
 
       expect(result).toBeNull();
-      expect(messageRepo.findBySessionId).not.toHaveBeenCalled();
+      expect(messageRepo.getActivePathWithForks).not.toHaveBeenCalled();
     });
 
     it('should return shared session with messages', async () => {
@@ -226,7 +231,10 @@ describe('SessionService', () => {
       const messages = [makeMessageEntity()];
 
       sessionRepo.findSharedById.mockResolvedValue(session);
-      messageRepo.findBySessionId.mockResolvedValue(messages);
+      messageRepo.getActivePathWithForks.mockResolvedValue({
+        path: messages,
+        siblingsMap: {},
+      });
 
       const result = await service.getSharedSession('sess-1');
 
@@ -286,16 +294,19 @@ describe('SessionService', () => {
         role: 'user' as const,
         content: 'Hello AI',
         timestamp: Date.now(),
+        parentMessageId: 'msg-prev',
       };
 
       await service.saveMessage('sess-1', 'user-1', message);
 
       expect(sessionRepo.verifyOwnership).toHaveBeenCalledWith('sess-1', 'user-1');
       expect(messageRepo.create).toHaveBeenCalledWith({
+        id: 'msg-new',
         sessionId: 'sess-1',
         role: 'user',
         content: 'Hello AI',
         timestamp: message.timestamp,
+        parentMessageId: 'msg-prev',
       });
     });
 

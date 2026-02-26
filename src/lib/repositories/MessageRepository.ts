@@ -22,6 +22,27 @@ interface MessageRow {
 
 const SELECT_COLS = 'id, session_id, role, content, created_at, parent_message_id';
 
+/**
+ * Backward-compatibility helper: infer parent chain for legacy messages
+ * that have parent_message_id = null.
+ *
+ * Messages are assumed sorted by created_at ASC (from DB).
+ * Null-parent messages are chained to the previous message in chronological order.
+ * Messages that already have a parentMessageId are left unchanged.
+ */
+export function inferParentChain(messages: MessageEntity[]): MessageEntity[] {
+  let previousId: string | null = null;
+  return messages.map((msg) => {
+    if (msg.parentMessageId === null) {
+      const inferred = { ...msg, parentMessageId: previousId };
+      previousId = msg.id;
+      return inferred;
+    }
+    previousId = msg.id;
+    return msg;
+  });
+}
+
 export class MessageRepository implements IMessageRepository {
   /**
    * Map database row to domain entity
@@ -66,14 +87,17 @@ export class MessageRepository implements IMessageRepository {
   /**
    * Walk the message tree from root, choosing the latest child at each fork.
    * Returns a flat array representing the "active path" (current conversation view).
+   * Uses inferParentChain for backward compatibility with legacy null-parent messages.
    */
   async getActivePath(sessionId: string): Promise<MessageEntity[]> {
     const allMessages = await this.findBySessionId(sessionId);
     if (allMessages.length === 0) return [];
 
+    const inferred = inferParentChain(allMessages);
+
     // Build parent→children map
     const childrenMap = new Map<string, MessageEntity[]>();
-    for (const msg of allMessages) {
+    for (const msg of inferred) {
       const key = msg.parentMessageId ?? '__root__';
       const children = childrenMap.get(key) ?? [];
       children.push(msg);
@@ -94,18 +118,74 @@ export class MessageRepository implements IMessageRepository {
     return path;
   }
 
+  /**
+   * Walk the message tree and also compute fork-point sibling info.
+   * Returns both the active path and a siblingsMap for branch navigation.
+   */
+  async getActivePathWithForks(
+    sessionId: string,
+  ): Promise<{ path: MessageEntity[]; siblingsMap: Record<string, string[]> }> {
+    const allMessages = await this.findBySessionId(sessionId);
+    if (allMessages.length === 0) return { path: [], siblingsMap: {} };
+
+    const inferred = inferParentChain(allMessages);
+
+    // Build parent→children map
+    const childrenMap = new Map<string, MessageEntity[]>();
+    for (const msg of inferred) {
+      const key = msg.parentMessageId ?? '__root__';
+      const children = childrenMap.get(key) ?? [];
+      children.push(msg);
+      childrenMap.set(key, children);
+    }
+
+    // Walk from root, always picking the latest child at each fork
+    const path: MessageEntity[] = [];
+    let currentParent = '__root__';
+    while (true) {
+      const children = childrenMap.get(currentParent);
+      if (!children || children.length === 0) break;
+      const latestChild = children[children.length - 1];
+      path.push(latestChild);
+      currentParent = latestChild.id;
+    }
+
+    // Compute siblings map: only fork points with >1 child, excluding __root__
+    const siblingsMap: Record<string, string[]> = {};
+    for (const [key, children] of childrenMap) {
+      if (key !== '__root__' && children.length > 1) {
+        siblingsMap[key] = children.map((c) => c.id);
+      }
+    }
+
+    return { path, siblingsMap };
+  }
+
   async create(dto: CreateMessageDTO): Promise<MessageEntity> {
     const supabase = await createClient();
 
+    const insertData: {
+      id?: string;
+      session_id: string;
+      role: 'user' | 'assistant';
+      content: string;
+      created_at: string;
+      parent_message_id: string | null;
+    } = {
+      session_id: dto.sessionId,
+      role: dto.role,
+      content: dto.content,
+      created_at: new Date(dto.timestamp).toISOString(),
+      parent_message_id: dto.parentMessageId ?? null,
+    };
+    // Use client-provided UUID if given (keeps client/DB IDs in sync)
+    if (dto.id) {
+      insertData.id = dto.id;
+    }
+
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert({
-        session_id: dto.sessionId,
-        role: dto.role,
-        content: dto.content,
-        created_at: new Date(dto.timestamp).toISOString(),
-        parent_message_id: dto.parentMessageId ?? null,
-      })
+      .insert(insertData)
       .select(SELECT_COLS)
       .single();
 

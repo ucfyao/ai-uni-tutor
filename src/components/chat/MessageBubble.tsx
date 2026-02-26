@@ -2,6 +2,8 @@ import {
   BookOpen,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Copy,
   Pencil,
@@ -132,16 +134,31 @@ interface MessageBubbleProps {
   ) => void;
   onRegenerate?: (messageId: string) => void;
   onEdit?: (messageId: string, newContent: string) => void;
+  onSwitchBranch?: (parentMessageId: string, targetChildId: string) => void;
+  siblingsMap?: Map<string, string[]>;
 }
 
 const MessageActionBar: React.FC<{
   isUser: boolean;
   content: string;
   messageId: string;
+  parentMessageId?: string | null;
   timestamp: number;
   onRegenerate?: (messageId: string) => void;
   onEditClick?: () => void;
-}> = ({ isUser, content, messageId, timestamp, onRegenerate, onEditClick }) => {
+  onSwitchBranch?: (parentMessageId: string, targetChildId: string) => void;
+  siblingsMap?: Map<string, string[]>;
+}> = ({
+  isUser,
+  content,
+  messageId,
+  parentMessageId,
+  timestamp,
+  onRegenerate,
+  onEditClick,
+  onSwitchBranch,
+  siblingsMap,
+}) => {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
@@ -193,17 +210,95 @@ const MessageActionBar: React.FC<{
     [feedback, messageId, t.toast.feedbackThanks],
   );
 
+  // Branch nav only on assistant messages.
+  // The assistant's parent is a user msg; look up that user msg in siblingsMap.
+  let branchForkId: string | null = null;
+  let branchSiblings: string[] | undefined;
+  let branchIndex = -1;
+
+  if (!isUser && parentMessageId && siblingsMap) {
+    for (const [forkId, s] of siblingsMap) {
+      const idx = s.indexOf(parentMessageId);
+      if (idx !== -1) {
+        branchForkId = forkId;
+        branchSiblings = s;
+        branchIndex = idx;
+        break;
+      }
+    }
+  }
+  const showBranchNav = branchForkId !== null && branchSiblings && branchIndex !== -1;
+
+  const actionBtnStyle = { transition: 'color 0.15s ease, background 0.15s ease' };
+
   return (
     <Group
-      gap={2}
-      mt={6}
-      className="message-actions"
-      style={{ opacity: 0, transition: 'opacity 0.15s ease' }}
+      gap={1}
+      mt={isUser ? 4 : 0}
+      className={isUser ? 'message-actions' : undefined}
+      style={isUser ? { opacity: 0, transition: 'opacity 0.15s ease' } : undefined}
     >
+      {/* Branch navigation — cohesive pill */}
+      {showBranchNav && (
+        <>
+          <Group
+            gap={0}
+            style={{
+              borderRadius: 20,
+              background: 'var(--mantine-color-gray-0)',
+              padding: '2px 4px',
+              border: '1px solid var(--mantine-color-gray-2)',
+            }}
+          >
+            <ActionIcon
+              size={26}
+              variant="transparent"
+              color="gray"
+              radius="xl"
+              onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex - 1])}
+              disabled={branchIndex <= 0}
+              style={actionBtnStyle}
+            >
+              <ChevronLeft size={16} />
+            </ActionIcon>
+            <Text
+              size="xs"
+              c="dimmed"
+              fw={600}
+              px={4}
+              style={{ userSelect: 'none', fontVariantNumeric: 'tabular-nums' }}
+            >
+              {t.chat.branchOf
+                .replace('{current}', String(branchIndex + 1))
+                .replace('{total}', String(branchSiblings!.length))}
+            </Text>
+            <ActionIcon
+              size={26}
+              variant="transparent"
+              color="gray"
+              radius="xl"
+              onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex + 1])}
+              disabled={branchIndex >= branchSiblings!.length - 1}
+              style={actionBtnStyle}
+            >
+              <ChevronRight size={16} />
+            </ActionIcon>
+          </Group>
+          <Box w={4} style={{ flexShrink: 0 }} />
+        </>
+      )}
+
       {isUser && onEditClick && (
         <Tooltip label={t.chat.edit} position="bottom" withArrow>
-          <ActionIcon variant="subtle" color="gray" size={28} radius="md" onClick={onEditClick}>
-            <Pencil size={14} />
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size={32}
+            radius="md"
+            onClick={onEditClick}
+            style={actionBtnStyle}
+          >
+            <Pencil size={16} />
           </ActionIcon>
         </Tooltip>
       )}
@@ -212,11 +307,12 @@ const MessageActionBar: React.FC<{
         <ActionIcon
           variant="subtle"
           color={copied ? 'teal' : 'gray'}
-          size={28}
+          size={32}
           radius="md"
           onClick={handleCopy}
+          style={actionBtnStyle}
         >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? <Check size={16} /> : <Copy size={16} />}
         </ActionIcon>
       </Tooltip>
 
@@ -225,7 +321,7 @@ const MessageActionBar: React.FC<{
           <ActionIcon
             variant="subtle"
             color="gray"
-            size={28}
+            size={32}
             radius="md"
             onClick={() => {
               onRegenerate(messageId);
@@ -235,42 +331,55 @@ const MessageActionBar: React.FC<{
                 autoClose: 3000,
               });
             }}
+            style={actionBtnStyle}
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={16} />
           </ActionIcon>
         </Tooltip>
       )}
 
-      {/* AI feedback buttons */}
+      {/* AI feedback */}
       {!isUser && (
         <>
-          <Box w={1} h={16} bg="gray.2" mx={4} style={{ flexShrink: 0 }} />
+          <Box
+            w={1}
+            h={16}
+            mx={3}
+            style={{
+              flexShrink: 0,
+              background: 'var(--mantine-color-gray-3)',
+              opacity: 0.6,
+              borderRadius: 1,
+            }}
+          />
           <Tooltip label={t.chat.helpful} position="bottom" withArrow>
             <ActionIcon
               variant="subtle"
               color={feedback === 'up' ? 'teal' : 'gray'}
-              size={28}
+              size={32}
               radius="md"
               onClick={() => handleFeedback('up')}
+              style={actionBtnStyle}
             >
-              <ThumbsUp size={14} fill={feedback === 'up' ? 'currentColor' : 'none'} />
+              <ThumbsUp size={16} fill={feedback === 'up' ? 'currentColor' : 'none'} />
             </ActionIcon>
           </Tooltip>
           <Tooltip label={t.chat.notHelpful} position="bottom" withArrow>
             <ActionIcon
               variant="subtle"
               color={feedback === 'down' ? 'red' : 'gray'}
-              size={28}
+              size={32}
               radius="md"
               onClick={() => handleFeedback('down')}
+              style={actionBtnStyle}
             >
-              <ThumbsDown size={14} fill={feedback === 'down' ? 'currentColor' : 'none'} />
+              <ThumbsDown size={16} fill={feedback === 'down' ? 'currentColor' : 'none'} />
             </ActionIcon>
           </Tooltip>
         </>
       )}
 
-      <Text size="xs" c="dimmed" ml={4}>
+      <Text size="xs" c="dimmed" ml={6} style={{ opacity: 0.7 }}>
         {formatRelativeTime(timestamp)}
       </Text>
     </Group>
@@ -286,6 +395,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onAddCard,
   onRegenerate,
   onEdit,
+  onSwitchBranch,
+  siblingsMap,
 }) => {
   const { t } = useLanguage();
   const isUser = message.role === 'user';
@@ -454,7 +565,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     >
       <Box
         w="100%"
-        p="12px 16px"
+        p={isUser ? '12px 16px' : '12px 16px 2px 16px'}
         onMouseUp={handleMouseUp} // Listen for selection
         style={{
           borderRadius: isUser ? '18px 18px 4px 18px' : '16px',
@@ -647,8 +758,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           isUser={isUser}
           content={message.content}
           messageId={message.id}
+          parentMessageId={message.parentMessageId}
           timestamp={message.timestamp}
           onRegenerate={onRegenerate}
+          onSwitchBranch={onSwitchBranch}
+          siblingsMap={siblingsMap}
           onEditClick={
             isUser && onEdit
               ? () => {
@@ -671,5 +785,7 @@ export const MemoizedMessageBubble = React.memo(MessageBubble, (prev, next) => {
   if (prev.message.sources !== next.message.sources) return false;
   if (prev.onRegenerate !== next.onRegenerate) return false;
   if (prev.onEdit !== next.onEdit) return false;
+  if (prev.onSwitchBranch !== next.onSwitchBranch) return false;
+  if (prev.siblingsMap !== next.siblingsMap) return false;
   return true;
 });

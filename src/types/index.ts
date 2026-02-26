@@ -35,6 +35,8 @@ export interface ChatSession {
   lastUpdated: number;
   isPinned?: boolean;
   isShared?: boolean;
+  /** Fork points: parentMessageId → ordered child IDs (only parents with >1 child) */
+  siblingsMap?: Record<string, string[]>;
 }
 
 export type { ExamPaper, ExamQuestion, MockExam, MockExamQuestion, MockExamResponse } from './exam';
