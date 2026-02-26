@@ -207,8 +207,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
 
     // Add user message and AI placeholder in one update (avoid stale session: second addMessage would overwrite user msg)
+    const lastMsg = session.messages[session.messages.length - 1];
     const userMsg: ChatMessage = {
-      id: `u_${Date.now()}`,
+      id: crypto.randomUUID(),
       role: 'user',
       content:
         options?.displayContent ||
@@ -216,6 +217,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         (imageData.length > 0 ? '(Image attached)' : '(Document attached)'),
       timestamp: Date.now(),
       images: imageData.length > 0 ? imageData : undefined,
+      parentMessageId: lastMsg?.id ?? null,
     };
 
     if (!retryInput) {
@@ -225,12 +227,13 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       setImagePreviews([]);
     }
 
-    const aiMsgId = `a_${Date.now()}`;
+    const aiMsgId = crypto.randomUUID();
     const aiMsg: ChatMessage = {
       id: aiMsgId,
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
+      parentMessageId: userMsg.id,
     };
     setSession(
       { ...session, messages: [...session.messages, userMsg, aiMsg], lastUpdated: Date.now() },
@@ -365,17 +368,20 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       .join('\n\n---\n\n');
 
     // Display as user prompt + assistant response
+    const lastMsg = session.messages[session.messages.length - 1];
     const userMsg: ChatMessage = {
-      id: `u_${Date.now()}`,
+      id: crypto.randomUUID(),
       role: 'user',
       content: '/summary',
       timestamp: Date.now(),
+      parentMessageId: lastMsg?.id ?? null,
     };
     const aiMsg: ChatMessage = {
-      id: `a_${Date.now()}`,
+      id: crypto.randomUUID(),
       role: 'assistant',
       content: markdown,
       timestamp: Date.now(),
+      parentMessageId: userMsg.id,
     };
     setSession({
       ...session,
@@ -430,12 +436,85 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const userMsg = session.messages[msgIndex - 1];
     if (userMsg.role !== 'user') return;
 
-    // Remove from the user message onwards
-    const messagesToRemove = session.messages.length - msgIndex + 1;
-    removeMessages(messagesToRemove);
+    // Build correct state directly from the snapshot `session` to avoid
+    // stale-closure issues (removeMessages + handleSend would read stale React state).
+    isSendingRef.current = true;
+    setLastError(null);
+    setLastInput(userMsg.content);
 
-    // Re-send with the original user input
-    handleSend(userMsg.content);
+    // Keep messages BEFORE the user+assistant pair being regenerated
+    const keepMessages = session.messages.slice(0, msgIndex - 1);
+    const lastKept = keepMessages[keepMessages.length - 1];
+
+    // Re-create user message with correct parentMessageId
+    const newUserMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: userMsg.content,
+      timestamp: Date.now(),
+      images: userMsg.images,
+      parentMessageId: lastKept?.id ?? null,
+    };
+
+    const aiMsgId = crypto.randomUUID();
+    const aiMsg: ChatMessage = {
+      id: aiMsgId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+      parentMessageId: newUserMsg.id,
+    };
+
+    setInput('');
+    setSession(
+      {
+        ...session,
+        messages: [...keepMessages, newUserMsg, aiMsg],
+        lastUpdated: Date.now(),
+      },
+      { streamingMessageId: aiMsgId },
+    );
+    setStreamingMsgId(aiMsgId);
+
+    let accumulatedContent = '';
+
+    await streamChatResponse(
+      {
+        course: session.course ?? { code: '', name: '' },
+        mode: session.mode,
+        history: keepMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          images: m.images,
+        })),
+        userInput: userMsg.content,
+        images: userMsg.images,
+      },
+      {
+        onChunk: (text) => {
+          accumulatedContent += text;
+          updateLastMessage(accumulatedContent, aiMsgId);
+        },
+        onError: (error, isLimitError) => {
+          removeMessages(2); // Remove both AI placeholder AND user message
+          isSendingRef.current = false;
+
+          if (isLimitError) {
+            setLimitModalOpen(true);
+          } else {
+            setLastError({ message: error, canRetry: true });
+            showNotification({ title: 'Error', message: error, color: 'red' });
+          }
+        },
+        onComplete: async () => {
+          await updateLastMessage(accumulatedContent, null);
+          setLastError(null);
+          isSendingRef.current = false;
+          loadRelatedCards(userMsg.content);
+          requestAnimationFrame(() => chatInputRef.current?.focus());
+        },
+      },
+    );
   };
 
   const handleEdit = async (messageId: string, newContent: string) => {
@@ -450,20 +529,22 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       const updatedSession: ChatSession = {
         ...session,
         messages: updatedMessages,
+        siblingsMap: result.siblingsMap,
         lastUpdated: Date.now(),
       };
 
       // Create AI placeholder and stream regeneration
-      const aiMsgId = `a_${Date.now()}`;
+      const aiMsgId = crypto.randomUUID();
       const aiMsg: ChatMessage = {
         id: aiMsgId,
         role: 'assistant',
         content: '',
         timestamp: Date.now(),
+        parentMessageId: result.newMessageId,
       };
       setSession(
         { ...updatedSession, messages: [...updatedMessages, aiMsg], lastUpdated: Date.now() },
-        { streamingMessageId: aiMsgId },
+        { streamingMessageId: aiMsgId, resetSavedIndex: updatedMessages.length },
       );
       setStreamingMsgId(aiMsgId);
 
@@ -514,9 +595,17 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
     try {
       const { switchBranch } = await import('@/app/actions/chat');
-      const messages = await switchBranch(session.id, parentMessageId, targetChildId);
-      if (messages) {
-        setSession({ ...session, messages, lastUpdated: Date.now() });
+      const result = await switchBranch(session.id, parentMessageId, targetChildId);
+      if (result) {
+        setSession(
+          {
+            ...session,
+            messages: result.messages,
+            siblingsMap: result.siblingsMap,
+            lastUpdated: Date.now(),
+          },
+          { resetSavedIndex: result.messages.length },
+        );
       }
     } catch (error) {
       console.error('Switch branch failed:', error);
@@ -528,22 +617,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   };
 
-  // Build siblingsMap: parentId → ordered child IDs (only for fork points with >1 child)
+  // siblingsMap: convert server-provided Record to Map for MessageList
   const siblingsMap = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const msg of session?.messages ?? []) {
-      const parentId = msg.parentMessageId;
-      if (!parentId) continue;
-      const siblings = map.get(parentId) ?? [];
-      siblings.push(msg.id);
-      map.set(parentId, siblings);
-    }
-    // Remove entries with only one child (no fork)
-    for (const [key, children] of map) {
-      if (children.length <= 1) map.delete(key);
-    }
-    return map;
-  }, [session?.messages]);
+    if (!session?.siblingsMap) return new Map<string, string[]>();
+    return new Map(Object.entries(session.siblingsMap));
+  }, [session?.siblingsMap]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;

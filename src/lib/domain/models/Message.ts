@@ -19,6 +19,8 @@ export interface MessageEntity {
 }
 
 export interface CreateMessageDTO {
+  /** Optional: client-provided UUID. If omitted, DB generates one. */
+  id?: string;
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;

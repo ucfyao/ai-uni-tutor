@@ -8,10 +8,42 @@
 import type { MessageEntity } from '@/lib/domain/models/Message';
 import { ForbiddenError } from '@/lib/errors';
 import { getMessageRepository, getSessionRepository } from '@/lib/repositories';
-import type { MessageRepository } from '@/lib/repositories/MessageRepository';
+import { inferParentChain, type MessageRepository } from '@/lib/repositories/MessageRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
 import { getCourseService } from '@/lib/services/CourseService';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types';
+
+/** Helper: convert MessageEntity to ChatMessage */
+function toChat(m: MessageEntity): ChatMessage {
+  return {
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    timestamp: m.createdAt.getTime(),
+    parentMessageId: m.parentMessageId,
+  };
+}
+
+/**
+ * Build siblingsMap from a list of (possibly inferred) messages.
+ * Returns only fork points where a parent has >1 child.
+ */
+function buildSiblingsMap(messages: MessageEntity[]): Record<string, string[]> {
+  const childrenMap = new Map<string, string[]>();
+  for (const msg of messages) {
+    const key = msg.parentMessageId ?? '__root__';
+    const children = childrenMap.get(key) ?? [];
+    children.push(msg.id);
+    childrenMap.set(key, children);
+  }
+  const result: Record<string, string[]> = {};
+  for (const [key, children] of childrenMap) {
+    if (key !== '__root__' && children.length > 1) {
+      result[key] = children;
+    }
+  }
+  return result;
+}
 
 export class SessionService {
   private readonly sessionRepo: SessionRepository;
@@ -39,13 +71,13 @@ export class SessionService {
   }
 
   /**
-   * Get a complete session with all messages
+   * Get a complete session with active-path messages + siblingsMap
    */
   async getFullSession(sessionId: string, userId: string): Promise<ChatSession | null> {
     const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
     if (!session) return null;
 
-    const messageEntities = await this.messageRepo.findBySessionId(sessionId);
+    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(sessionId);
     const course = await this.resolveCourse(session.courseId);
 
     return {
@@ -53,13 +85,8 @@ export class SessionService {
       course,
       mode: session.mode,
       title: session.title,
-      messages: messageEntities.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        timestamp: m.createdAt.getTime(),
-        parentMessageId: m.parentMessageId,
-      })),
+      messages: path.map(toChat),
+      siblingsMap,
       lastUpdated: session.updatedAt.getTime(),
       isPinned: session.isPinned,
       isShared: session.isShared,
@@ -67,22 +94,15 @@ export class SessionService {
   }
 
   /**
-   * Get only messages for a session (assumes ownership already verified)
+   * Get only active-path messages for a session
    */
   async getSessionMessages(sessionId: string, userId: string): Promise<ChatMessage[] | null> {
     // Verify ownership first
     const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
     if (!hasAccess) return null;
 
-    const messageEntities = await this.messageRepo.findBySessionId(sessionId);
-
-    return messageEntities.map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      timestamp: m.createdAt.getTime(),
-      parentMessageId: m.parentMessageId,
-    }));
+    const activePath = await this.messageRepo.getActivePath(sessionId);
+    return activePath.map(toChat);
   }
 
   /**
@@ -119,13 +139,13 @@ export class SessionService {
   }
 
   /**
-   * Get a shared session (public access)
+   * Get a shared session (public access) — active path only
    */
   async getSharedSession(sessionId: string): Promise<ChatSession | null> {
     const session = await this.sessionRepo.findSharedById(sessionId);
     if (!session) return null;
 
-    const messageEntities = await this.messageRepo.findBySessionId(sessionId);
+    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(sessionId);
     const course = await this.resolveCourse(session.courseId);
 
     return {
@@ -133,13 +153,8 @@ export class SessionService {
       course,
       mode: session.mode,
       title: session.title,
-      messages: messageEntities.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        timestamp: m.createdAt.getTime(),
-        parentMessageId: m.parentMessageId,
-      })),
+      messages: path.map(toChat),
+      siblingsMap,
       lastUpdated: session.updatedAt.getTime(),
       isPinned: session.isPinned,
       isShared: session.isShared,
@@ -176,7 +191,8 @@ export class SessionService {
   }
 
   /**
-   * Save a message to a session
+   * Save a message to a session.
+   * Passes client-provided id and parentMessageId to maintain the tree structure.
    */
   async saveMessage(sessionId: string, userId: string, message: ChatMessage): Promise<void> {
     // Verify ownership
@@ -186,10 +202,12 @@ export class SessionService {
     }
 
     await this.messageRepo.create({
+      id: message.id,
       sessionId,
       role: message.role,
       content: message.content,
       timestamp: message.timestamp,
+      parentMessageId: message.parentMessageId,
     });
 
     // Update session timestamp once per turn (not per message)
@@ -242,22 +260,29 @@ export class SessionService {
   /**
    * Edit a user message and create a new conversation branch.
    * Creates a sibling message with the same parentMessageId as the original.
+   * Uses inferParentChain for backward compatibility with legacy null-parent messages.
    */
   async editAndRegenerate(
     sessionId: string,
     userId: string,
     messageId: string,
     newContent: string,
-  ): Promise<{ newMessageId: string; messages: ChatMessage[] }> {
+  ): Promise<{
+    newMessageId: string;
+    messages: ChatMessage[];
+    siblingsMap: Record<string, string[]>;
+  }> {
     const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
     if (!session) throw new ForbiddenError('Session not found or not owned by user');
 
     const allMessages = await this.messageRepo.findBySessionId(sessionId);
-    const original = allMessages.find((m) => m.id === messageId);
+    // Infer parent chain for backward compat with legacy null-parent messages
+    const inferred = inferParentChain(allMessages);
+    const original = inferred.find((m) => m.id === messageId);
     if (!original) throw new Error('Message not found');
     if (original.role !== 'user') throw new Error('Can only edit user messages');
 
-    // Create a new sibling: same parent_message_id as the original
+    // Create a new sibling: same parent_message_id as the original (using inferred parent)
     const newMsg = await this.messageRepo.create({
       sessionId,
       role: 'user',
@@ -266,51 +291,49 @@ export class SessionService {
       parentMessageId: original.parentMessageId,
     });
 
-    // Build the active path through the new message
-    const activePath = await this.messageRepo.getActivePath(sessionId);
+    // Build the active path through the new message (getActivePath uses inferParentChain internally)
+    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(sessionId);
 
-    const messages = activePath.map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      timestamp: m.createdAt.getTime(),
-      parentMessageId: m.parentMessageId,
-    }));
-
-    return { newMessageId: newMsg.id, messages };
+    return {
+      newMessageId: newMsg.id,
+      messages: path.map(toChat),
+      siblingsMap,
+    };
   }
 
   /**
    * Switch to a different conversation branch at a fork point.
+   * Uses inferParentChain for backward compatibility.
    */
   async switchBranch(
     sessionId: string,
     userId: string,
     parentMessageId: string,
     targetChildId: string,
-  ): Promise<ChatMessage[]> {
+  ): Promise<{ messages: ChatMessage[]; siblingsMap: Record<string, string[]> }> {
     const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
     if (!session) throw new ForbiddenError('Session not found');
 
-    // Verify targetChildId is actually a child of parentMessageId
-    const children = await this.messageRepo.getChildren(parentMessageId);
-    const target = children.find((c) => c.id === targetChildId);
-    if (!target) throw new Error('Target message is not a child of the specified parent');
-
     const allMessages = await this.messageRepo.findBySessionId(sessionId);
+    const inferred = inferParentChain(allMessages);
 
-    // Build parent→children map
+    // Build parent→children map from inferred messages
     const childrenMap = new Map<string, MessageEntity[]>();
-    for (const msg of allMessages) {
+    for (const msg of inferred) {
       const key = msg.parentMessageId ?? '__root__';
       const list = childrenMap.get(key) ?? [];
       list.push(msg);
       childrenMap.set(key, list);
     }
 
+    // Verify targetChildId is actually a child of parentMessageId (using inferred parents)
+    const inferredChildren = childrenMap.get(parentMessageId) ?? [];
+    const target = inferredChildren.find((c) => c.id === targetChildId);
+    if (!target) throw new Error('Target message is not a child of the specified parent');
+
     // Build reverse lookup for walking up from parent
     const messageById = new Map<string, MessageEntity>();
-    for (const msg of allMessages) {
+    for (const msg of inferred) {
       messageById.set(msg.id, msg);
     }
 
@@ -336,13 +359,13 @@ export class SessionService {
       walkDown = latest.id;
     }
 
-    return path.map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      timestamp: m.createdAt.getTime(),
-      parentMessageId: m.parentMessageId,
-    }));
+    // Compute siblingsMap from all inferred messages
+    const siblingsMap = buildSiblingsMap(inferred);
+
+    return {
+      messages: path.map(toChat),
+      siblingsMap,
+    };
   }
 
   /**

@@ -126,8 +126,16 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
 
   // Handle session updates (messages, mode changes, etc.)
   const handleUpdateSession = useCallback(
-    async (updated: ChatSession, options?: { streamingMessageId?: string | null }) => {
+    async (
+      updated: ChatSession,
+      options?: { streamingMessageId?: string | null; resetSavedIndex?: number },
+    ) => {
       setSession(updated);
+
+      // Reset saved index when edit/branch-switch replaces the message array
+      if (options?.resetSavedIndex !== undefined) {
+        lastSavedIndexRef.current = options.resetSavedIndex;
+      }
 
       // Save new messages that haven't been saved yet (slice from last saved index)
       const unsavedMessages = updated.messages.slice(lastSavedIndexRef.current);

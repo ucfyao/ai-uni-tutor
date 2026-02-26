@@ -602,6 +602,34 @@ body {
   opacity: 1 !important;
 }
 
+/* Markdown: remove leading/trailing margin on first/last element */
+.markdown-content > :first-child {
+  margin-top: 0 !important;
+}
+
+.markdown-content > :last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Markdown: list marker — muted color + consistent spacing */
+.markdown-content :is(ul, ol) > li::marker {
+  color: var(--mantine-color-dimmed);
+}
+
+/* Markdown: nested list bullet styles */
+.markdown-content ul ul {
+  list-style-type: circle;
+}
+
+.markdown-content ul ul ul {
+  list-style-type: square;
+}
+
+/* Markdown: nested lists reduce top margin */
+.markdown-content li > :is(ul, ol) {
+  margin-top: 4px;
+}
+
 /* Markdown table striped rows */
 .markdown-content tbody tr:nth-child(even) {
   background: var(--mantine-color-default-hover);

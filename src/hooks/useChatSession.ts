@@ -5,6 +5,8 @@ import { ChatMessage, ChatSession } from '@/types';
 interface SessionUpdateOptions {
   /** When set, parent should not persist this message yet (streaming). Use null on stream complete to persist. */
   streamingMessageId?: string | null;
+  /** When set, parent resets its saved-message index to this value (used after edit/branch-switch replaces messages). */
+  resetSavedIndex?: number;
 }
 
 interface UseChatSessionOptions {

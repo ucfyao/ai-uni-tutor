@@ -26,6 +26,7 @@ const chatMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string().min(1),
   timestamp: z.number().finite(),
+  parentMessageId: z.string().nullable().optional(),
 });
 
 const sessionIdSchema = z.string().min(1);
@@ -250,13 +251,17 @@ const editAndRegenerateSchema = z.object({
 
 /**
  * Edit a user message and create a new conversation branch.
- * Returns the new branch ID and updated messages from the edit point.
+ * Returns the new branch ID, updated active-path messages, and siblingsMap.
  */
 export async function editAndRegenerate(
   sessionId: string,
   messageId: string,
   newContent: string,
-): Promise<{ newMessageId: string; messages: ChatMessage[] }> {
+): Promise<{
+  newMessageId: string;
+  messages: ChatMessage[];
+  siblingsMap: Record<string, string[]>;
+}> {
   const parsed = editAndRegenerateSchema.safeParse({ sessionId, messageId, newContent });
   if (!parsed.success) {
     throw new Error('Validation Failed: Invalid edit payload.');
@@ -277,12 +282,13 @@ const switchBranchSchema = z.object({
 
 /**
  * Switch to a different conversation branch at a fork point.
+ * Returns updated active-path messages and siblingsMap.
  */
 export async function switchBranch(
   sessionId: string,
   parentMessageId: string,
   targetChildId: string,
-): Promise<ChatMessage[] | null> {
+): Promise<{ messages: ChatMessage[]; siblingsMap: Record<string, string[]> } | null> {
   const parsed = switchBranchSchema.safeParse({ sessionId, parentMessageId, targetChildId });
   if (!parsed.success) return null;
 

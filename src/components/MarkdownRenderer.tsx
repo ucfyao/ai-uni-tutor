@@ -190,9 +190,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Title
             order={2}
             size={compact ? 18 : 24}
-            mt={compact ? 14 : isTightSpacing ? 16 : 20}
+            mt={compact ? 16 : isTightSpacing ? 22 : 28}
             mb={compact ? 6 : isTightSpacing ? 8 : 10}
             fw={700}
+            lh={1.3}
           >
             {children}
           </Title>
@@ -201,9 +202,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Title
             order={3}
             size={compact ? 16 : 20}
-            mt={compact ? 12 : isTightSpacing ? 14 : 18}
+            mt={compact ? 14 : isTightSpacing ? 20 : 24}
             mb={compact ? 6 : isTightSpacing ? 6 : 8}
             fw={600}
+            lh={1.35}
           >
             {children}
           </Title>
@@ -212,24 +214,24 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <Title
             order={4}
             size={compact ? 15 : 18}
-            mt={compact ? 10 : isTightSpacing ? 12 : 16}
+            mt={compact ? 12 : isTightSpacing ? 16 : 20}
             mb={compact ? 4 : isTightSpacing ? 5 : 6}
             fw={600}
+            lh={1.4}
           >
             {children}
           </Title>
         ),
         p: ({ children }) => (
           <Text
-            size={compact ? 'xs' : 'sm'}
             mb={compact ? 'xs' : isTightSpacing ? 6 : 'sm'}
-            style={{ lineHeight: compact ? 1.5 : 1.7, fontSize: compact ? '13px' : '16px' }}
+            style={{ lineHeight: compact ? 1.6 : 1.8, fontSize: compact ? '13px' : '16px' }}
           >
             {children}
           </Text>
         ),
         strong: ({ children }) => (
-          <Text span inherit fw={600}>
+          <Text span inherit fw={700}>
             {children}
           </Text>
         ),
@@ -303,11 +305,14 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           // Inline code (fenced code without language is handled by pre override)
           return (
             <Code
-              bg="var(--mantine-color-default-hover)"
               style={{
-                fontWeight: 500,
-                fontSize: compact ? '0.85em' : '0.9em',
-                padding: '2px 4px',
+                fontWeight: 600,
+                fontSize: compact ? '0.84em' : '0.87em',
+                padding: '2px 7px',
+                borderRadius: 5,
+                backgroundColor: 'var(--mantine-color-default-hover)',
+                border: '1px solid var(--mantine-color-default-border)',
+                color: 'var(--mantine-color-text)',
               }}
             >
               {children}
@@ -376,6 +381,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             style={{
               padding: compact ? '6px 10px' : '8px 14px',
               fontSize: compact ? '13px' : '14px',
+              lineHeight: 1.6,
               color: 'var(--mantine-color-text)',
               wordBreak: 'break-word',
             }}
@@ -393,7 +399,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             className="bg-surface-subtle"
             style={{ border: 'none', borderLeft: '4px solid var(--mantine-color-gray-4)' }}
           >
-            <Text size={compact ? 'xs' : 'md'} c="dimmed" style={{ lineHeight: 1.75 }}>
+            <Text component="div" c="dimmed" style={{ lineHeight: 1.85 }}>
               {children}
             </Text>
           </Blockquote>
@@ -401,8 +407,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ul: ({ children }) => (
           <ul
             style={{
-              paddingLeft: compact ? 18 : 22,
+              paddingLeft: compact ? 24 : 32,
               marginBottom: compact ? 8 : isTightSpacing ? 10 : 12,
+              listStyleType: 'disc',
             }}
           >
             {children}
@@ -411,8 +418,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ol: ({ children }) => (
           <ol
             style={{
-              paddingLeft: compact ? 18 : 22,
+              paddingLeft: compact ? 24 : 32,
               marginBottom: compact ? 8 : isTightSpacing ? 10 : 12,
+              listStyleType: 'decimal',
             }}
           >
             {children}
@@ -422,9 +430,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <li
             style={{
               fontSize: compact ? 13 : 16,
-              lineHeight: compact ? '20px' : '24px',
+              lineHeight: compact ? '22px' : '28px',
               color: 'var(--mantine-color-text)',
-              marginBottom: compact ? 2 : 4,
+              marginBottom: compact ? 3 : 6,
             }}
           >
             {children}
