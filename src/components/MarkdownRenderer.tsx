@@ -133,7 +133,12 @@ const ShikiCodeBlock: React.FC<{
             style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
           >
             {result ? (
-              <code style={{ fontFamily: 'var(--mantine-font-family-monospace)' }}>
+              <code
+                style={{
+                  fontFamily: 'var(--mantine-font-family-monospace)',
+                  whiteSpace: 'pre',
+                }}
+              >
                 {result.tokens.map((line, i) => (
                   <span key={i}>
                     {line.map((token, j) => (
@@ -251,34 +256,62 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             {children}
           </Text>
         ),
-        pre: ({ children }: React.ComponentPropsWithoutRef<'pre'>) => <>{children}</>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pre: ({ children, node }: React.ComponentPropsWithoutRef<'pre'> & { node?: any }) => {
+          // Fenced code without language: code override renders inline <Code>,
+          // but we need a block code display. Extract text from the hast node.
+          const codeChild = node?.children?.[0];
+          if (
+            codeChild?.type === 'element' &&
+            codeChild.tagName === 'code' &&
+            !codeChild.properties?.className
+          ) {
+            const text = (codeChild.children ?? [])
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .map((c: any) => (c.type === 'text' ? c.value : ''))
+              .join('')
+              .replace(/\n$/, '');
+            return (
+              <ShikiCodeBlock
+                code={text}
+                language="text"
+                compact={compact}
+                isTightSpacing={isTightSpacing}
+                t={t.chat}
+              />
+            );
+          }
+          // Code with language — already rendered as ShikiCodeBlock by code override
+          return <>{children}</>;
+        },
         code: ({ className, children }: React.ComponentPropsWithoutRef<'code'>) => {
           const match = /language-(\w+)/.exec(className || '');
           const codeString = String(children).replace(/\n$/, '');
 
-          if (!match) {
+          if (match) {
             return (
-              <Code
-                bg="var(--mantine-color-default-hover)"
-                style={{
-                  fontWeight: 500,
-                  fontSize: compact ? '0.85em' : '0.9em',
-                  padding: '2px 4px',
-                }}
-              >
-                {children}
-              </Code>
+              <ShikiCodeBlock
+                code={codeString}
+                language={match[1]}
+                compact={compact}
+                isTightSpacing={isTightSpacing}
+                t={t.chat}
+              />
             );
           }
 
+          // Inline code (fenced code without language is handled by pre override)
           return (
-            <ShikiCodeBlock
-              code={codeString}
-              language={match[1]}
-              compact={compact}
-              isTightSpacing={isTightSpacing}
-              t={t.chat}
-            />
+            <Code
+              bg="var(--mantine-color-default-hover)"
+              style={{
+                fontWeight: 500,
+                fontSize: compact ? '0.85em' : '0.9em',
+                padding: '2px 4px',
+              }}
+            >
+              {children}
+            </Code>
           );
         },
         table: ({ children }: React.ComponentPropsWithoutRef<'table'>) => (
