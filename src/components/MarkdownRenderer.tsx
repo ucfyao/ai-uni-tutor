@@ -4,20 +4,24 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActionIcon,
   Blockquote,
   Box,
   Code,
   Divider,
+  Group,
   Image,
   Paper,
+  ScrollArea,
   Text,
   Title,
   Tooltip,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
+import type { HighlightResult } from '@/lib/shiki';
 import 'katex/dist/katex.min.css';
 
 interface MarkdownRendererProps {
@@ -70,6 +74,91 @@ const CopyCodeButton: React.FC<{ code: string; t: { copyCode: string; copied: st
         {copied ? <Check size={14} /> : <Copy size={14} />}
       </ActionIcon>
     </Tooltip>
+  );
+};
+
+const ShikiCodeBlock: React.FC<{
+  code: string;
+  language: string;
+  compact: boolean;
+  isTightSpacing: boolean;
+  t: { copyCode: string; copied: string };
+}> = ({ code, language, compact, isTightSpacing, t }) => {
+  const { colorScheme } = useMantineColorScheme();
+  const [result, setResult] = useState<HighlightResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const theme = colorScheme === 'dark' ? 'github-dark' : 'github-light';
+    import('@/lib/shiki')
+      .then(({ highlightCode }) =>
+        highlightCode(code, language, theme).then((r) => {
+          if (!cancelled) setResult(r);
+        }),
+      )
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [code, language, colorScheme]);
+
+  return (
+    <Box pos="relative" className="group/code" my={isTightSpacing ? 'sm' : 'md'}>
+      <Paper
+        p={0}
+        bg="var(--mantine-color-default-hover)"
+        withBorder
+        radius="md"
+        style={{ overflow: 'hidden' }}
+      >
+        <Group
+          justify="space-between"
+          px={compact ? 'sm' : 'md'}
+          py={4}
+          style={{
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            background: 'var(--mantine-color-default)',
+          }}
+        >
+          <Text size="xs" c="dimmed" fw={500} tt="uppercase">
+            {language}
+          </Text>
+        </Group>
+
+        <ScrollArea type="auto">
+          <Box
+            p={compact ? 'sm' : 'md'}
+            style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
+          >
+            {result ? (
+              <pre style={{ margin: 0, background: 'transparent' }}>
+                <code>
+                  {result.tokens.map((line, i) => (
+                    <span key={i}>
+                      {line.map((token, j) => (
+                        <span key={j} style={{ color: token.color }}>
+                          {token.content}
+                        </span>
+                      ))}
+                      {i < result.tokens.length - 1 && '\n'}
+                    </span>
+                  ))}
+                </code>
+              </pre>
+            ) : (
+              <Code
+                block
+                bg="transparent"
+                style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
+              >
+                {code}
+              </Code>
+            )}
+          </Box>
+        </ScrollArea>
+      </Paper>
+      <CopyCodeButton code={code} t={t} />
+    </Box>
   );
 };
 
@@ -159,37 +248,31 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ),
         code: ({ className, children }: React.ComponentPropsWithoutRef<'code'>) => {
           const match = /language-(\w+)/.exec(className || '');
-          const isInline = !match;
-          return isInline ? (
-            <Code
-              bg="var(--mantine-color-default-hover)"
-              style={{
-                fontWeight: 500,
-                fontSize: compact ? '0.85em' : '0.9em',
-                padding: '2px 4px',
-              }}
-            >
-              {children}
-            </Code>
-          ) : (
-            <Box pos="relative" className="group/code" my={isTightSpacing ? 'sm' : 'md'}>
-              <Paper
-                p={compact ? 'sm' : 'md'}
+          const codeString = String(children).replace(/\n$/, '');
+
+          if (!match) {
+            return (
+              <Code
                 bg="var(--mantine-color-default-hover)"
-                withBorder
-                radius="md"
-                style={{ overflow: 'auto' }}
+                style={{
+                  fontWeight: 500,
+                  fontSize: compact ? '0.85em' : '0.9em',
+                  padding: '2px 4px',
+                }}
               >
-                <Code
-                  block
-                  bg="transparent"
-                  style={{ fontSize: compact ? '13px' : '14px', lineHeight: '1.6' }}
-                >
-                  {children}
-                </Code>
-              </Paper>
-              <CopyCodeButton code={String(children).replace(/\n$/, '')} t={t.chat} />
-            </Box>
+                {children}
+              </Code>
+            );
+          }
+
+          return (
+            <ShikiCodeBlock
+              code={codeString}
+              language={match[1]}
+              compact={compact}
+              isTightSpacing={isTightSpacing}
+              t={t.chat}
+            />
           );
         },
         blockquote: ({ children }) => (
