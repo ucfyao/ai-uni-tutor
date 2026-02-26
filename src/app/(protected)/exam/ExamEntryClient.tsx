@@ -186,10 +186,18 @@ export function ExamEntryClient({
           Number(numQuestions),
           difficulty as 'easy' | 'medium' | 'hard' | 'mixed',
           [],
+          selectedMode,
         );
       }
       if (result.success) {
-        router.push(`/exam/mock/${result.mockId}`);
+        const params = new URLSearchParams();
+        if (source === 'ai') {
+          params.set('topic', topic.trim());
+          params.set('n', numQuestions ?? '10');
+          params.set('d', difficulty ?? 'mixed');
+        }
+        const qs = params.toString();
+        router.push(`/exam/${result.mockId}${qs ? `?${qs}` : ''}`);
       } else {
         setError(result.error);
       }

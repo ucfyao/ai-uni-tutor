@@ -354,9 +354,10 @@ export function MockExamClient({ initialMock }: Props) {
             style={{
               flexShrink: 0,
               borderRight: '1px solid var(--mantine-color-gray-3)',
+              alignSelf: 'stretch',
             }}
           >
-            <ScrollArea h="calc(100vh - 200px)" style={{ maxHeight: 600 }}>
+            <ScrollArea h="100%">
               <Stack gap={0}>
                 {mock.questions.map((q, i) => {
                   const status = getQuestionStatus(i);

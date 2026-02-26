@@ -12,6 +12,7 @@ export async function generateMockFromTopic(
   numQuestions: number,
   difficulty: 'easy' | 'medium' | 'hard' | 'mixed',
   questionTypes: string[],
+  mode: 'practice' | 'exam' = 'practice',
 ): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
   try {
     const user = await getCurrentUser();
@@ -25,26 +26,57 @@ export async function generateMockFromTopic(
       return { success: false, error: 'Invalid difficulty level' };
     }
 
-    await getQuotaService().enforce(user.id);
-
     const service = getMockExamService();
-    const { mockId } = await service.generateFromTopic(user.id, {
+    const { mockId } = await service.createMockStub(user.id, {
       topic: topic.trim(),
       numQuestions,
       difficulty,
       questionTypes,
+      mode,
     });
 
     revalidatePath('/exam');
     return { success: true, mockId };
   } catch (error) {
+    console.error('Mock exam stub creation error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create mock exam',
+    };
+  }
+}
+
+export async function generateMockQuestions(
+  mockId: string,
+  topic: string,
+  numQuestions: number,
+  difficulty: 'easy' | 'medium' | 'hard' | 'mixed',
+  questionTypes: string[],
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    await getQuotaService().enforce(user.id);
+
+    const service = getMockExamService();
+    await service.generateQuestionsFromTopic(user.id, mockId, {
+      topic,
+      numQuestions,
+      difficulty,
+      questionTypes,
+    });
+
+    revalidatePath(`/exam/${mockId}`);
+    return { success: true };
+  } catch (error) {
     if (error instanceof QuotaExceededError) {
       return { success: false, error: error.message };
     }
-    console.error('Topic-based mock exam generation error:', error);
+    console.error('Mock exam question generation error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate mock exam from topic',
+      error: error instanceof Error ? error.message : 'Failed to generate questions',
     };
   }
 }

@@ -56,7 +56,7 @@ describe('MockExamRepository', () => {
 
       const result = await repo.create({
         userId: 'user-free-001',
-        paperId: 'paper-001',
+
         mode: 'practice',
         sessionId: 'session-001',
         title: 'CS101 Midterm Practice',
@@ -71,7 +71,7 @@ describe('MockExamRepository', () => {
       expect(mockSupabase.client.from).toHaveBeenCalledWith('mock_exams');
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith({
         user_id: 'user-free-001',
-        paper_id: 'paper-001',
+
         mode: 'practice',
         session_id: 'session-001',
         title: 'CS101 Midterm Practice',
@@ -91,7 +91,7 @@ describe('MockExamRepository', () => {
 
       await repo.create({
         userId: 'user-free-001',
-        paperId: 'paper-001',
+
         mode: 'practice',
         title: 'Minimal Mock',
         questions: [] as unknown as import('@/types/database').Json,
@@ -101,7 +101,7 @@ describe('MockExamRepository', () => {
 
       expect(mockSupabase.client._chain.insert).toHaveBeenCalledWith({
         user_id: 'user-free-001',
-        paper_id: 'paper-001',
+
         mode: 'practice',
         session_id: null,
         title: 'Minimal Mock',
@@ -120,7 +120,7 @@ describe('MockExamRepository', () => {
       await expect(
         repo.create({
           userId: 'user-free-001',
-          paperId: 'paper-001',
+  
           mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
@@ -131,7 +131,7 @@ describe('MockExamRepository', () => {
       await expect(
         repo.create({
           userId: 'user-free-001',
-          paperId: 'paper-001',
+  
           mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
@@ -147,7 +147,7 @@ describe('MockExamRepository', () => {
       await expect(
         repo.create({
           userId: 'user-free-001',
-          paperId: 'paper-001',
+  
           mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
@@ -340,63 +340,6 @@ describe('MockExamRepository', () => {
     });
   });
 
-  // ── countByUserAndPaper ──
-
-  describe('countByUserAndPaper', () => {
-    it('should return count when found', async () => {
-      // The count query returns { count, data, error } structure.
-      // Our mock resolves with { data, error } but the repo reads `count` from the response.
-      // We need to set the response so that `count` is available at the top level.
-      mockSupabase.setResponse(null);
-      // Override: countByUserAndPaper reads `count` not `data` from the response.
-      // The mock chain resolves to { data: null, error: null }.
-      // We need to also include `count` in the response.
-      // The mock's chain.then resolves { data, error }. The real Supabase returns { data, error, count }.
-      // Let's directly set the response to include count field.
-      mockSupabase.client._chain.then.mockImplementation((resolve: (v: unknown) => void) => {
-        return Promise.resolve({ data: null, error: null, count: 5 }).then(resolve);
-      });
-
-      const result = await repo.countByUserAndPaper('user-free-001', 'paper-001');
-
-      expect(result).toBe(5);
-      expect(mockSupabase.client.from).toHaveBeenCalledWith('mock_exams');
-      expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('id', {
-        count: 'exact',
-        head: true,
-      });
-      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('user_id', 'user-free-001');
-      expect(mockSupabase.client._chain.eq).toHaveBeenCalledWith('paper_id', 'paper-001');
-    });
-
-    it('should return 0 when count is null', async () => {
-      mockSupabase.client._chain.then.mockImplementation((resolve: (v: unknown) => void) => {
-        return Promise.resolve({ data: null, error: null, count: null }).then(resolve);
-      });
-
-      const result = await repo.countByUserAndPaper('user-free-001', 'paper-001');
-
-      expect(result).toBe(0);
-    });
-
-    it('should throw DatabaseError on fetch failure', async () => {
-      mockSupabase.client._chain.then.mockImplementation((resolve: (v: unknown) => void) => {
-        return Promise.resolve({
-          data: null,
-          error: dbError('Count failed'),
-          count: null,
-        }).then(resolve);
-      });
-
-      await expect(repo.countByUserAndPaper('user-free-001', 'paper-001')).rejects.toThrow(
-        DatabaseError,
-      );
-      await expect(repo.countByUserAndPaper('user-free-001', 'paper-001')).rejects.toThrow(
-        'Failed to count mock exams',
-      );
-    });
-  });
-
   // ── update ──
 
   describe('update', () => {
@@ -482,7 +425,6 @@ describe('MockExamRepository', () => {
       expect(result).not.toBeNull();
       expect(result!.id).toBe(mockExamRow.id);
       expect(result!.userId).toBe(mockExamRow.user_id);
-      expect(result!.paperId).toBe(mockExamRow.paper_id);
       expect(result!.title).toBe(mockExamRow.title);
       expect(result!.questions).toEqual(mockExamRow.questions);
       expect(result!.responses).toEqual(mockExamRow.responses);

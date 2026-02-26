@@ -31,11 +31,9 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   useEffect(() => {
     const id =
       pathname?.match(/^\/(lecture|assignment)\/([^/]+)/)?.[2] ??
-      pathname?.match(/^\/exam\/mock\/([^/]+)/)?.[1] ??
       pathname?.match(/^\/exam\/([^/]+)/)?.[1] ??
       null;
-    // Special case: if match is 'mock', it's the start of /exam/mock/[id], handled by the previous line
-    setActiveSessionId(id === 'mock' ? null : id);
+    setActiveSessionId(id);
   }, [pathname]);
 
   const { headerContent } = useHeader();

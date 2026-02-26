@@ -179,10 +179,16 @@ const MockExamModal: React.FC<MockExamModalProps> = ({
           Number(numQuestions),
           difficulty as 'easy' | 'medium' | 'hard' | 'mixed',
           [],
+          mode,
         );
         if (result.success) {
           saveSelection();
-          router.push(`/exam/mock/${result.mockId}`);
+          const params = new URLSearchParams();
+          params.set('topic', topic.trim());
+          params.set('n', numQuestions ?? '10');
+          params.set('d', difficulty ?? 'mixed');
+          const qs = params.toString();
+          router.push(`/exam/${result.mockId}${qs ? `?${qs}` : ''}`);
           setTimeout(onClose, 500);
         } else {
           setError(result.error);
@@ -204,7 +210,7 @@ const MockExamModal: React.FC<MockExamModalProps> = ({
       }
       if (result.success) {
         saveSelection();
-        router.push(`/exam/mock/${result.mockId}`);
+        router.push(`/exam/${result.mockId}`);
         setTimeout(onClose, 500);
       } else {
         setError(result.error);

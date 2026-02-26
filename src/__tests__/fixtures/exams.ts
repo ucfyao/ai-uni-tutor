@@ -139,7 +139,6 @@ export const mockExamResponses: MockExamResponse[] = [
 export const mockExamRow = {
   id: 'mock-exam-001',
   user_id: 'user-free-001',
-  paper_id: 'paper-001',
   mode: 'practice' as const,
   session_id: null as string | null,
   title: 'CS101 Midterm Practice',
@@ -174,7 +173,6 @@ export const completedMockExamRow = {
 export const mockExamEntity: MockExam = {
   id: mockExamRow.id,
   userId: mockExamRow.user_id,
-  paperId: mockExamRow.paper_id,
   mode: 'practice',
   title: mockExamRow.title,
   questions: mockExamQuestions,

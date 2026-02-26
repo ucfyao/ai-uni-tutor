@@ -55,7 +55,7 @@ Important:
 
 // ==================== Types ====================
 
-interface TopicGenerateOptions {
+export interface TopicGenerateOptions {
   topic: string;
   numQuestions: number;
   difficulty: 'easy' | 'medium' | 'hard' | 'mixed';
@@ -71,6 +71,126 @@ export class MockExamService {
   constructor(mockRepo?: MockExamRepository, paperRepo?: ExamPaperRepository) {
     this.mockRepo = mockRepo ?? getMockExamRepository();
     this.paperRepo = paperRepo ?? getExamPaperRepository();
+  }
+
+  /**
+   * Create an empty mock exam stub (no questions yet).
+   * Used as phase 1 of the two-phase AI mock flow.
+   */
+  async createMockStub(
+    userId: string,
+    options: TopicGenerateOptions & { mode: 'practice' | 'exam' },
+  ): Promise<{ mockId: string }> {
+    const title = `${options.topic} - Practice Exam`;
+
+    const mockId = await this.mockRepo.create({
+      userId,
+      sessionId: null,
+      title,
+      mode: options.mode,
+      questions: [] as unknown as Json,
+      responses: [] as unknown as Json,
+      totalPoints: 0,
+      currentIndex: 0,
+      status: 'in_progress',
+    });
+
+    return { mockId };
+  }
+
+  /**
+   * Generate questions for an existing mock exam stub using AI.
+   * Used as phase 2 of the two-phase AI mock flow.
+   */
+  async generateQuestionsFromTopic(
+    userId: string,
+    mockId: string,
+    options: TopicGenerateOptions,
+  ): Promise<void> {
+    if (!(await this.mockRepo.verifyOwnership(mockId, userId))) {
+      throw new AppError('NOT_FOUND', 'Mock exam not found');
+    }
+
+    const mock = await this.mockRepo.findById(mockId);
+    if (!mock) throw new AppError('NOT_FOUND', 'Mock exam not found');
+
+    if (mock.questions.length > 0) {
+      throw new AppError('VALIDATION', 'Questions already generated');
+    }
+
+    const ai = getGenAI();
+
+    const typesInstruction =
+      options.questionTypes.length > 0
+        ? `Question types to include: ${options.questionTypes.join(', ')}`
+        : 'Use a mix of question types appropriate for the topic';
+
+    const difficultyInstruction =
+      options.difficulty === 'mixed'
+        ? 'Use a mix of easy, medium, and hard questions'
+        : `All questions should be ${options.difficulty} difficulty`;
+
+    const prompt = `${TOPIC_GENERATION_PROMPT}
+Topic/Course: ${options.topic}
+Number of questions: ${options.numQuestions}
+${difficultyInstruction}
+${typesInstruction}
+`;
+
+    let responseText: string;
+    try {
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODELS.chat,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+        },
+      });
+      responseText = response.text ?? '';
+    } catch (error) {
+      throw AppError.from(error);
+    }
+
+    const parsed = parseAIResponse<{
+      title?: string;
+      questions?: Array<{
+        order_num: number;
+        type: string;
+        content: string;
+        options: Record<string, string> | null;
+        answer: string;
+        explanation: string;
+        points: number;
+        knowledge_point?: string;
+        difficulty?: string;
+      }>;
+    }>(responseText);
+
+    const questions = parsed.questions ?? [];
+    if (questions.length === 0) {
+      throw new AppError('VALIDATION', 'AI could not generate questions for this topic');
+    }
+
+    const title = parsed.title || `${options.topic} - Practice Exam`;
+
+    const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
+      content: q.content,
+      type: q.type,
+      options: (q.options ?? null) as Record<string, string> | null,
+      answer: q.answer ?? '',
+      explanation: q.explanation ?? '',
+      points: q.points ?? 1,
+      sourceQuestionId: null,
+    }));
+
+    const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
+
+    await this.mockRepo.update(mockId, {
+      title,
+      questions: mockQuestions as unknown as Json,
+      totalPoints,
+    });
   }
 
   /**
@@ -90,8 +210,7 @@ export class MockExamService {
       throw new AppError('NOT_FOUND', 'No questions found for this paper');
     }
 
-    const count = await this.mockRepo.countByUserAndPaper(userId, paperId);
-    const title = `${paper.title} #${count + 1}`;
+    const title = paper.title;
 
     const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
       content: q.content,
@@ -107,7 +226,6 @@ export class MockExamService {
 
     const mockId = await this.mockRepo.create({
       userId,
-      paperId,
       title,
       mode,
       questions: mockQuestions as unknown as Json,
@@ -165,148 +283,12 @@ export class MockExamService {
 
     const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
 
-    // Create a virtual paper for FK constraint
-    const virtualPaperId = await this.paperRepo.create({
-      userId,
-      title: `Random Mix — ${courseCode}`,
-      course: courseCode,
-      visibility: 'private',
-      status: 'ready',
-      questionTypes: [...new Set(mockQuestions.map((q) => q.type))],
-    });
-
     const title = `Random Mix — ${courseCode} (${selected.length} questions)`;
 
     const mockId = await this.mockRepo.create({
       userId,
-      paperId: virtualPaperId,
       title,
       mode,
-      questions: mockQuestions as unknown as Json,
-      responses: [] as unknown as Json,
-      totalPoints,
-      currentIndex: 0,
-      status: 'in_progress',
-    });
-
-    return { mockId };
-  }
-
-  /**
-   * Generate a mock exam from a topic using AI.
-   * Creates a virtual exam paper (satisfying FK constraint) and a mock exam.
-   */
-  async generateFromTopic(
-    userId: string,
-    options: TopicGenerateOptions,
-  ): Promise<{ mockId: string }> {
-    const ai = getGenAI();
-
-    // Build the prompt
-    const typesInstruction =
-      options.questionTypes.length > 0
-        ? `Question types to include: ${options.questionTypes.join(', ')}`
-        : 'Use a mix of question types appropriate for the topic';
-
-    const difficultyInstruction =
-      options.difficulty === 'mixed'
-        ? 'Use a mix of easy, medium, and hard questions'
-        : `All questions should be ${options.difficulty} difficulty`;
-
-    const prompt = `${TOPIC_GENERATION_PROMPT}
-Topic/Course: ${options.topic}
-Number of questions: ${options.numQuestions}
-${difficultyInstruction}
-${typesInstruction}
-`;
-
-    // Single Gemini call
-    let responseText: string;
-    try {
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODELS.chat,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-        },
-      });
-      responseText = response.text ?? '';
-    } catch (error) {
-      throw AppError.from(error);
-    }
-
-    const parsed = parseAIResponse<{
-      title?: string;
-      questions?: Array<{
-        order_num: number;
-        type: string;
-        content: string;
-        options: Record<string, string> | null;
-        answer: string;
-        explanation: string;
-        points: number;
-        knowledge_point?: string;
-        difficulty?: string;
-      }>;
-    }>(responseText);
-
-    const questions = parsed.questions ?? [];
-    if (questions.length === 0) {
-      throw new AppError('VALIDATION', 'AI could not generate questions for this topic');
-    }
-
-    const title = parsed.title || `${options.topic} - Practice Exam`;
-
-    // 1. Create virtual exam_paper
-    const questionTypes = [...new Set(questions.map((q) => q.type))];
-    const paperId = await this.paperRepo.create({
-      userId,
-      title,
-      course: options.topic,
-      visibility: 'private',
-      status: 'ready',
-      questionTypes,
-    });
-
-    // 2. Batch insert exam_questions
-    await this.paperRepo.insertQuestions(
-      questions.map((q) => ({
-        paperId,
-        orderNum: q.order_num,
-        type: q.type,
-        content: q.content,
-        options: q.options ?? null,
-        answer: q.answer ?? '',
-        explanation: q.explanation ?? '',
-        points: q.points ?? 1,
-        metadata: {
-          knowledge_point: q.knowledge_point ?? null,
-          difficulty: q.difficulty ?? null,
-        },
-      })),
-    );
-
-    // 3. Build MockExamQuestion[]
-    const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
-      content: q.content,
-      type: q.type,
-      options: (q.options ?? null) as Record<string, string> | null,
-      answer: q.answer ?? '',
-      explanation: q.explanation ?? '',
-      points: q.points ?? 1,
-      sourceQuestionId: null,
-    }));
-
-    const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
-
-    // 4. Create mock_exam
-    const mockId = await this.mockRepo.create({
-      userId,
-      paperId,
-      sessionId: null,
-      title,
-      mode: 'practice',
       questions: mockQuestions as unknown as Json,
       responses: [] as unknown as Json,
       totalPoints,
@@ -374,11 +356,7 @@ ${typesInstruction}
     const paper = await this.paperRepo.findById(paperId);
     if (!paper) throw new AppError('NOT_FOUND', 'Paper not found');
 
-    // Count existing mocks by this user for this paper (for naming)
-    const count = await this.mockRepo.countByUserAndPaper(userId, paperId);
-
-    const mockNumber = count + 1;
-    const title = `${paper.title} #${mockNumber}`;
+    const title = paper.title;
 
     // Generate variant questions using Gemini in batches of 3
     const ai = getGenAI();
@@ -460,7 +438,6 @@ Return JSON with these exact fields:
     // Create mock_exams entry
     const mockId = await this.mockRepo.create({
       userId,
-      paperId,
       sessionId: sessionId ?? null,
       title,
       mode,

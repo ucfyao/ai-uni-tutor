@@ -18,7 +18,8 @@ vi.mock('next/cache', () => ({
 
 const mockMockExamService = {
   startFromCourse: vi.fn(),
-  generateFromTopic: vi.fn(),
+  createMockStub: vi.fn(),
+  generateQuestionsFromTopic: vi.fn(),
   generateMock: vi.fn(),
   findPaperByCourse: vi.fn(),
   submitAnswer: vi.fn(),
@@ -44,6 +45,7 @@ vi.mock('@/lib/services/QuotaService', () => ({
 
 const {
   generateMockFromTopic,
+  generateMockQuestions,
   submitMockAnswer,
   batchSubmitMockAnswers,
   getMockExamIdBySessionId,
@@ -60,7 +62,6 @@ function makeMockExam(overrides: Partial<MockExam> = {}): MockExam {
   return {
     id: 'mock-1',
     userId: 'user-1',
-    paperId: 'paper-1',
     mode: 'practice',
     title: 'Mock Exam',
     questions: [],
@@ -106,22 +107,34 @@ describe('Mock Exam Actions', () => {
   });
 
   // =========================================================================
-  // generateMockFromTopic
+  // generateMockFromTopic (now creates stub only)
   // =========================================================================
   describe('generateMockFromTopic', () => {
-    it('should generate mock from topic successfully', async () => {
-      mockMockExamService.generateFromTopic.mockResolvedValue({ mockId: 'mock-2' });
+    it('should create mock stub successfully', async () => {
+      mockMockExamService.createMockStub.mockResolvedValue({ mockId: 'mock-2' });
 
       const result = await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
 
       expect(result).toEqual({ success: true, mockId: 'mock-2' });
-      expect(mockMockExamService.generateFromTopic).toHaveBeenCalledWith('user-1', {
+      expect(mockMockExamService.createMockStub).toHaveBeenCalledWith('user-1', {
         topic: 'Recursion',
         numQuestions: 10,
         difficulty: 'medium',
         questionTypes: ['choice'],
+        mode: 'practice',
       });
       expect(mockRevalidatePath).toHaveBeenCalledWith('/exam');
+    });
+
+    it('should pass mode parameter', async () => {
+      mockMockExamService.createMockStub.mockResolvedValue({ mockId: 'mock-2' });
+
+      await generateMockFromTopic('Recursion', 10, 'medium', ['choice'], 'exam');
+
+      expect(mockMockExamService.createMockStub).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ mode: 'exam' }),
+      );
     });
 
     it('should return error when user is not authenticated', async () => {
@@ -154,25 +167,9 @@ describe('Mock Exam Actions', () => {
     });
 
     it('should accept valid number of questions (5)', async () => {
-      mockMockExamService.generateFromTopic.mockResolvedValue({ mockId: 'mock-3' });
+      mockMockExamService.createMockStub.mockResolvedValue({ mockId: 'mock-3' });
 
       const result = await generateMockFromTopic('Recursion', 5, 'easy', ['choice']);
-
-      expect(result.success).toBe(true);
-    });
-
-    it('should accept valid number of questions (15)', async () => {
-      mockMockExamService.generateFromTopic.mockResolvedValue({ mockId: 'mock-3' });
-
-      const result = await generateMockFromTopic('Recursion', 15, 'hard', ['choice']);
-
-      expect(result.success).toBe(true);
-    });
-
-    it('should accept valid number of questions (20)', async () => {
-      mockMockExamService.generateFromTopic.mockResolvedValue({ mockId: 'mock-3' });
-
-      const result = await generateMockFromTopic('Recursion', 20, 'mixed', ['choice']);
 
       expect(result.success).toBe(true);
     });
@@ -188,32 +185,12 @@ describe('Mock Exam Actions', () => {
       expect(result).toEqual({ success: false, error: 'Invalid difficulty level' });
     });
 
-    it('should return error when quota is exceeded', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
-
-      const result = await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('exceeded');
-      }
-    });
-
-    it('should enforce quota before generating mock', async () => {
-      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(5, 5));
-
-      await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
-
-      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
-      expect(mockMockExamService.generateFromTopic).not.toHaveBeenCalled();
-    });
-
     it('should trim topic before passing to service', async () => {
-      mockMockExamService.generateFromTopic.mockResolvedValue({ mockId: 'mock-4' });
+      mockMockExamService.createMockStub.mockResolvedValue({ mockId: 'mock-4' });
 
       await generateMockFromTopic('  Recursion  ', 10, 'medium', ['choice']);
 
-      expect(mockMockExamService.generateFromTopic).toHaveBeenCalledWith(
+      expect(mockMockExamService.createMockStub).toHaveBeenCalledWith(
         'user-1',
         expect.objectContaining({ topic: 'Recursion' }),
       );
@@ -221,23 +198,81 @@ describe('Mock Exam Actions', () => {
 
     it('should handle service errors with Error message', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockMockExamService.generateFromTopic.mockRejectedValue(new Error('AI generation failed'));
+      mockMockExamService.createMockStub.mockRejectedValue(new Error('Creation failed'));
 
       const result = await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
 
-      expect(result).toEqual({ success: false, error: 'AI generation failed' });
+      expect(result).toEqual({ success: false, error: 'Creation failed' });
     });
 
     it('should handle non-Error thrown objects', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockMockExamService.generateFromTopic.mockRejectedValue('string error');
+      mockMockExamService.createMockStub.mockRejectedValue('string error');
 
       const result = await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
 
       expect(result).toEqual({
         success: false,
-        error: 'Failed to generate mock exam from topic',
+        error: 'Failed to create mock exam',
       });
+    });
+  });
+
+  // =========================================================================
+  // generateMockQuestions
+  // =========================================================================
+  describe('generateMockQuestions', () => {
+    it('should generate questions successfully', async () => {
+      mockMockExamService.generateQuestionsFromTopic.mockResolvedValue(undefined);
+
+      const result = await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', ['choice']);
+
+      expect(result).toEqual({ success: true });
+      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
+      expect(mockMockExamService.generateQuestionsFromTopic).toHaveBeenCalledWith('user-1', 'mock-1', {
+        topic: 'Recursion',
+        numQuestions: 10,
+        difficulty: 'medium',
+        questionTypes: ['choice'],
+      });
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/exam/mock-1');
+    });
+
+    it('should return error when user is not authenticated', async () => {
+      mockGetCurrentUser.mockResolvedValue(null);
+
+      const result = await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', []);
+
+      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+    });
+
+    it('should return error when quota is exceeded', async () => {
+      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
+
+      const result = await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', []);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('exceeded');
+      }
+    });
+
+    it('should enforce quota before generating', async () => {
+      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(5, 5));
+
+      await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', []);
+
+      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
+      expect(mockMockExamService.generateQuestionsFromTopic).not.toHaveBeenCalled();
+    });
+
+    it('should handle service errors', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockMockExamService.generateQuestionsFromTopic.mockRejectedValue(new Error('AI failed'));
+
+      const result = await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', []);
+
+      expect(result).toEqual({ success: false, error: 'AI failed' });
     });
   });
 

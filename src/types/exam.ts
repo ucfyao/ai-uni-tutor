@@ -70,7 +70,6 @@ export interface MockExamResponse {
 export interface MockExam {
   id: string;
   userId: string;
-  paperId: string;
   mode: ExamMode;
   title: string;
   questions: MockExamQuestion[];
