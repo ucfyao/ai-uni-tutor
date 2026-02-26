@@ -602,6 +602,11 @@ body {
   opacity: 1 !important;
 }
 
+/* Markdown table striped rows */
+.markdown-content tbody tr:nth-child(even) {
+  background: var(--mantine-color-default-hover);
+}
+
 /*
  * Align Mantine color tokens with design-system variables.
  * !important is needed because Mantine's runtime <style> injects

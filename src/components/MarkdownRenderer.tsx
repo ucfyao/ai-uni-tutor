@@ -275,6 +275,75 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             />
           );
         },
+        table: ({ children }: React.ComponentPropsWithoutRef<'table'>) => (
+          <Paper
+            withBorder
+            radius="md"
+            my={isTightSpacing ? 'sm' : 'md'}
+            style={{ overflow: 'hidden' }}
+          >
+            <ScrollArea type="auto">
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: compact ? '13px' : '14px',
+                }}
+              >
+                {children}
+              </table>
+            </ScrollArea>
+          </Paper>
+        ),
+        thead: ({ children }: React.ComponentPropsWithoutRef<'thead'>) => (
+          <thead
+            style={{
+              background: 'var(--mantine-color-default)',
+              borderBottom: '2px solid var(--mantine-color-default-border)',
+            }}
+          >
+            {children}
+          </thead>
+        ),
+        tbody: ({ children }: React.ComponentPropsWithoutRef<'tbody'>) => <tbody>{children}</tbody>,
+        tr: ({ children, ...props }: React.ComponentPropsWithoutRef<'tr'>) => (
+          <tr
+            {...props}
+            style={{
+              borderBottom: '1px solid var(--mantine-color-default-border)',
+              transition: 'background 0.1s ease',
+            }}
+            className="hover:bg-[var(--mantine-color-default-hover)]"
+          >
+            {children}
+          </tr>
+        ),
+        th: ({ children }: React.ComponentPropsWithoutRef<'th'>) => (
+          <th
+            style={{
+              padding: compact ? '6px 10px' : '8px 14px',
+              textAlign: 'left',
+              fontWeight: 600,
+              fontSize: compact ? '12px' : '13px',
+              color: 'var(--mantine-color-text)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {children}
+          </th>
+        ),
+        td: ({ children }: React.ComponentPropsWithoutRef<'td'>) => (
+          <td
+            style={{
+              padding: compact ? '6px 10px' : '8px 14px',
+              fontSize: compact ? '13px' : '14px',
+              color: 'var(--mantine-color-text)',
+              wordBreak: 'break-word',
+            }}
+          >
+            {children}
+          </td>
+        ),
         blockquote: ({ children }) => (
           <Blockquote
             color="gray"
