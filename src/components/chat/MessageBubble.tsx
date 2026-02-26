@@ -231,7 +231,7 @@ const MessageActionBar: React.FC<{
 
   const actionBtnStyle = { transition: 'color 0.15s ease, background 0.15s ease' };
 
-  const branchNavPill = (
+  const branchNavPill = showBranchNav ? (
     <Group
       gap={0}
       style={{
@@ -275,7 +275,7 @@ const MessageActionBar: React.FC<{
         <ChevronRight size={16} />
       </ActionIcon>
     </Group>
-  );
+  ) : null;
 
   return (
     <>
