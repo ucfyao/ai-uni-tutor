@@ -41,6 +41,7 @@ interface LectureHelperProps {
   onUpdateSession: (session: ChatSession) => void;
   openDrawerTrigger?: number; // Increment to trigger drawer open
   isLoading?: boolean;
+  desktopPanelCollapsed?: boolean;
 }
 
 export const LectureHelper: React.FC<LectureHelperProps> = ({
@@ -48,6 +49,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   onUpdateSession,
   openDrawerTrigger,
   isLoading = false,
+  desktopPanelCollapsed = false,
 }) => {
   const { t } = useLanguage();
   const {
@@ -788,35 +790,36 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         </Stack>
 
         {/* Knowledge Panel – overlays chat area on lg+ screens, right: 8px leaves room for scrollbar */}
-        <Box
-          hiddenFrom="base"
-          visibleFrom="lg"
-          pos="absolute"
-          top={0}
-          right={8}
-          h="100%"
-          w={380}
-          style={{
-            zIndex: 10,
-            backgroundColor: 'var(--mantine-color-body)',
-          }}
-        >
-          <KnowledgePanel
-            officialCards={officialCards}
-            userCards={userCards}
-            visible={true}
-            activeCardId={activeCardId}
-            onCardClick={setActiveCardId}
-            onAsk={handleCardAsk}
-            onDelete={deleteCard}
-            loadingCardId={loadingCardId}
-            scrollToCardId={pendingScrollToCardId}
-            scrollTrigger={scrollTrigger}
-            onScrolledToCard={() => setPendingScrollToCardId(null)}
-            prefillInput={cardPrefillInput}
-            onPrefillConsumed={() => setCardPrefillInput(null)}
-          />
-        </Box>
+        {!desktopPanelCollapsed && (
+          <Box
+            hiddenFrom="base"
+            visibleFrom="lg"
+            pos="absolute"
+            top={0}
+            right={8}
+            h="100%"
+            w={380}
+            style={{
+              zIndex: 10,
+            }}
+          >
+            <KnowledgePanel
+              officialCards={officialCards}
+              userCards={userCards}
+              visible={true}
+              activeCardId={activeCardId}
+              onCardClick={setActiveCardId}
+              onAsk={handleCardAsk}
+              onDelete={deleteCard}
+              loadingCardId={loadingCardId}
+              scrollToCardId={pendingScrollToCardId}
+              scrollTrigger={scrollTrigger}
+              onScrolledToCard={() => setPendingScrollToCardId(null)}
+              prefillInput={cardPrefillInput}
+              onPrefillConsumed={() => setCardPrefillInput(null)}
+            />
+          </Box>
+        )}
       </Box>
 
       {/* Knowledge Panel Drawer for smaller screens */}
