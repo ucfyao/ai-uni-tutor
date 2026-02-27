@@ -230,12 +230,16 @@ describe('Mock Exam Actions', () => {
 
       expect(result).toEqual({ success: true });
       expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
-      expect(mockMockExamService.generateQuestionsFromTopic).toHaveBeenCalledWith('user-1', 'mock-1', {
-        topic: 'Recursion',
-        numQuestions: 10,
-        difficulty: 'medium',
-        questionTypes: ['choice'],
-      });
+      expect(mockMockExamService.generateQuestionsFromTopic).toHaveBeenCalledWith(
+        'user-1',
+        'mock-1',
+        {
+          topic: 'Recursion',
+          numQuestions: 10,
+          difficulty: 'medium',
+          questionTypes: ['choice'],
+        },
+      );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/exam/mock-1');
     });
 

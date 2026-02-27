@@ -29,10 +29,10 @@ const TOPIC_GENERATION_PROMPT = `You are an expert exam question generator. Give
 For each question, generate:
 - "order_num": sequential question number starting from 1
 - "type": one of "choice", "fill_blank", "short_answer", "calculation", "proof", "essay", "true_false"
-- "content": the question text in Markdown format. Use KaTeX for math (inline: $...$, block: $$...$$)
-- "options": for "choice" or "true_false" questions, an object like {"A": "...", "B": "...", ...}. null for other types
+- "content": the question text in Markdown. Wrap ALL math in $...$ (inline) or $$...$$ (block)
+- "options": for "choice" or "true_false" questions, an object like {"A": "...", "B": "...", ...}. null for other types. Wrap math in $...$
 - "answer": the correct answer. For "choice" or "true_false" questions, use comma-separated option keys (e.g. "A" for single, "A,C" for multiple correct answers)
-- "explanation": a clear explanation of the correct answer
+- "explanation": a clear explanation of the correct answer. Wrap ALL math in $...$ (inline) or $$...$$ (block)
 - "points": the point value of the question (typically 1-5 based on difficulty)
 - "knowledge_point": the main topic or concept tested
 - "difficulty": one of "easy", "medium", "hard"
@@ -47,7 +47,7 @@ Return a JSON object with:
 }
 
 Important:
-- Use KaTeX syntax for all mathematical notation
+- ALL math MUST be wrapped in dollar-sign delimiters: inline $...$ or block $$...$$. Never use bare LaTeX commands like \\text{} or \\frac{} outside of dollar signs. Example: write "$x \\text{ AND } (x-1)$" not "x \\text{ AND } (x-1)"
 - Generate original, pedagogically sound questions
 - Ensure answers and explanations are accurate
 - Vary question styles within each type
@@ -309,7 +309,12 @@ ${typesInstruction}
 
     const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
 
-    const updateData: { title: string; questions: Json; totalPoints: number; mode?: 'practice' | 'exam' } = {
+    const updateData: {
+      title: string;
+      questions: Json;
+      totalPoints: number;
+      mode?: 'practice' | 'exam';
+    } = {
       title,
       questions: mockQuestions as unknown as Json,
       totalPoints,
@@ -603,7 +608,7 @@ Return JSON with these exact fields:
 {
   "is_correct": true/false,
   "score": (number from 0 to ${question.points}),
-  "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement"
+  "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$."
 }`;
 
       const response = await ai.models.generateContent({
@@ -766,7 +771,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
   {
     "is_correct": true/false,
     "score": (number from 0 to the question's maximum points),
-    "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement"
+    "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$."
   },
   ...
 ]`;
@@ -802,9 +807,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
       });
     } catch (err) {
       const geminiErr = AppError.from(err);
-      console.warn(
-        `Batch AI judging failed [${geminiErr.code}], falling back to simple matching`,
-      );
+      console.warn(`Batch AI judging failed [${geminiErr.code}], falling back to simple matching`);
       return entries.map((e) => this.gradeFallback(e.question, e.questionIndex, e.userAnswer));
     }
   }
@@ -874,7 +877,10 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
       }
 
       if (DETERMINISTIC_TYPES.has(question.type)) {
-        responseMap.set(a.questionIndex, this.gradeDeterministic(question, a.questionIndex, a.userAnswer));
+        responseMap.set(
+          a.questionIndex,
+          this.gradeDeterministic(question, a.questionIndex, a.userAnswer),
+        );
       } else {
         aiEntries.push({ question, questionIndex: a.questionIndex, userAnswer: a.userAnswer });
       }

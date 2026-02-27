@@ -28,6 +28,7 @@ function createMockMockExamRepo(): {
     findById: vi.fn(),
     verifyOwnership: vi.fn(),
     findBySessionId: vi.fn(),
+    findMockIdsBySessionIds: vi.fn(),
     findByUserId: vi.fn(),
     update: vi.fn(),
   };

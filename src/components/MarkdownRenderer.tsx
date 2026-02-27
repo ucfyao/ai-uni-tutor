@@ -21,7 +21,7 @@ import {
   useComputedColorScheme,
 } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { fixIncompleteMarkdown } from '@/lib/markdown-utils';
+import { fixIncompleteMarkdown, normalizeMathDelimiters } from '@/lib/markdown-utils';
 import type { HighlightResult } from '@/lib/shiki';
 import 'katex/dist/katex.min.css';
 
@@ -179,7 +179,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 }) => {
   const { t } = useLanguage();
   const safeContent = content ?? '';
-  const renderedContent = isStreaming ? fixIncompleteMarkdown(safeContent) : safeContent;
+  const normalized = normalizeMathDelimiters(safeContent);
+  const renderedContent = isStreaming ? fixIncompleteMarkdown(normalized) : normalized;
   const isTightSpacing = compact || tight;
   return (
     <ReactMarkdown

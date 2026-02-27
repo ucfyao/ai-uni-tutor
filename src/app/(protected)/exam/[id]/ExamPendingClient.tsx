@@ -52,7 +52,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
   const [loadingPapers, setLoadingPapers] = useState(!!courseCode);
 
   // Random / AI shared
-  const [numQuestions, setNumQuestions] = useState<string | null>('5');
+  const [numQuestions, setNumQuestions] = useState<string | null>('1');
 
   // AI-only options
   const [topic, setTopic] = useState('');
@@ -167,12 +167,14 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
               color={`var(--mantine-color-${getDocColor('exam')}-5)`}
             />
             <Title order={3}>
-              {source === 'ai' ? 'Generating Questions...' : 'Loading Questions...'}
+              {source === 'ai' ? t.exam.generatingQuestions : t.exam.loadingQuestions}
             </Title>
             <Text c="dimmed" maw={400}>
               {source === 'ai'
-                ? `AI is creating ${numQuestions} questions on "${topic}". This may take a moment.`
-                : 'Setting up your mock exam...'}
+                ? t.exam.aiCreatingQuestions
+                    .replace('{n}', String(numQuestions))
+                    .replace('{topic}', topic)
+                : t.exam.settingUpExam}
             </Text>
           </Stack>
         </Card>
@@ -232,7 +234,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
               {source === 'real' && papers.length > 0 && (
                 <Select
                   label={t.exam.selectPaper}
-                  placeholder="Select an exam paper"
+                  placeholder={t.exam.selectExamPaperPlaceholder}
                   data={papers.map((p) => ({
                     value: p.id,
                     label: `${p.title}${p.year ? ` (${p.year})` : ''}${p.questionCount ? ` — ${p.questionCount} Q` : ''}`,
@@ -246,7 +248,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
               {source === 'random' && papers.length > 0 && (
                 <Select
                   label={t.exam.numQuestions}
-                  data={['5', '10', '15', '20']}
+                  data={['1', '3', '5']}
                   value={numQuestions}
                   onChange={setNumQuestions}
                   size="md"
@@ -257,7 +259,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
                 <Stack gap="sm">
                   <TextInput
                     label={t.exam.topic}
-                    placeholder="e.g., Binary Trees, Linear Regression"
+                    placeholder={t.exam.topicPlaceholder}
                     value={topic}
                     onChange={(e) => setTopic(e.currentTarget.value)}
                     size="md"
@@ -265,7 +267,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
                   <Group grow>
                     <Select
                       label={t.exam.numQuestions}
-                      data={['5', '10', '15', '20']}
+                      data={['1', '3', '5']}
                       value={numQuestions}
                       onChange={setNumQuestions}
                       size="md"
@@ -273,10 +275,10 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
                     <Select
                       label={t.exam.difficulty}
                       data={[
-                        { value: 'mixed', label: 'Mixed' },
-                        { value: 'easy', label: 'Easy' },
-                        { value: 'medium', label: 'Medium' },
-                        { value: 'hard', label: 'Hard' },
+                        { value: 'mixed', label: t.exam.difficultyMixed },
+                        { value: 'easy', label: t.exam.difficultyEasy },
+                        { value: 'medium', label: t.exam.difficultyMedium },
+                        { value: 'hard', label: t.exam.difficultyHard },
                       ]}
                       value={difficulty}
                       onChange={setDifficulty}
