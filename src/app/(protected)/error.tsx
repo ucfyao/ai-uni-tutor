@@ -13,7 +13,7 @@ export default function ProtectedError({
   const router = useRouter();
 
   return (
-    <Center h="100vh">
+    <Center h="100%">
       <Stack align="center" gap="md" ta="center" p="xl" style={{ borderRadius: 16 }}>
         <Title order={2}>Oops! Something went wrong</Title>
         <Text c="dimmed" maw={400}>
