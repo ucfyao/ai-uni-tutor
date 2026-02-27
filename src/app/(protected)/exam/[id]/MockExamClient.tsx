@@ -242,6 +242,77 @@ export function MockExamClient({ initialMock }: Props) {
         <Progress value={progressValue} size="sm" color={getDocColor('exam')} />
       </Box>
 
+      {/* Score summary banner (shown for completed exams) */}
+      {isCompleted &&
+        mock.score !== null &&
+        (() => {
+          const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
+          const ringColor =
+            scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
+          const correctCount = mock.responses.filter((r) => r.isCorrect).length;
+          const incorrectCount = mock.responses.filter((r) => !r.isCorrect).length;
+
+          return (
+            <Paper
+              withBorder
+              radius="lg"
+              p="md"
+              className="animate-fade-in-up animate-delay-100"
+              style={{
+                borderColor: 'var(--mantine-color-gray-2)',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                opacity: 0,
+              }}
+            >
+              <Group justify="center" gap="lg" wrap="wrap">
+                <RingProgress
+                  size={64}
+                  thickness={6}
+                  roundCaps
+                  sections={[{ value: scorePercent, color: ringColor }]}
+                  label={
+                    <Text ta="center" fw={700} fz="xs">
+                      {scorePercent}%
+                    </Text>
+                  }
+                />
+                <Text fw={700} fz="lg">
+                  {mock.score}/{mock.totalPoints}
+                </Text>
+                <SimpleGrid cols={3} spacing="sm">
+                  <Group gap={4}>
+                    <Target size={14} color="var(--mantine-color-dimmed)" />
+                    <Text fz="sm" c="dimmed">
+                      {t.exam.totalQuestions}
+                    </Text>
+                    <Text fw={700} fz="sm">
+                      {totalQuestions}
+                    </Text>
+                  </Group>
+                  <Group gap={4}>
+                    <Check size={14} color="var(--mantine-color-green-6)" />
+                    <Text fz="sm" c="dimmed">
+                      {t.exam.correct}
+                    </Text>
+                    <Text fw={700} fz="sm" c="green">
+                      {correctCount}
+                    </Text>
+                  </Group>
+                  <Group gap={4}>
+                    <X size={14} color="var(--mantine-color-red-6)" />
+                    <Text fz="sm" c="dimmed">
+                      {t.exam.incorrect}
+                    </Text>
+                    <Text fw={700} fz="sm" c="red">
+                      {incorrectCount}
+                    </Text>
+                  </Group>
+                </SimpleGrid>
+              </Group>
+            </Paper>
+          );
+        })()}
+
       {/* Two-column layout — fills remaining height */}
       <Card
         withBorder
@@ -334,87 +405,6 @@ export function MockExamClient({ initialMock }: Props) {
             {/* Scrollable content area */}
             <ScrollArea style={{ flex: 1 }} type="auto" offsetScrollbars>
               <Stack gap="lg" p="lg">
-                {/* Completion score card (shown on revisit) */}
-                {isCompleted &&
-                  mock.score !== null &&
-                  currentQuestionIndex === 0 &&
-                  !currentFeedback &&
-                  (() => {
-                    const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
-                    const ringColor =
-                      scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
-                    const correctCount = mock.responses.filter((r) => r.isCorrect).length;
-                    const incorrectCount = mock.responses.filter((r) => !r.isCorrect).length;
-
-                    return (
-                      <Card
-                        withBorder
-                        radius="lg"
-                        p="xl"
-                        ta="center"
-                        style={{
-                          borderColor: 'var(--mantine-color-gray-2)',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                        }}
-                      >
-                        <Stack align="center" gap="md">
-                          <Trophy size={48} color="gold" />
-                          <Title order={2}>{t.exam.examCompleted}</Title>
-
-                          <RingProgress
-                            size={120}
-                            thickness={10}
-                            roundCaps
-                            sections={[{ value: scorePercent, color: ringColor }]}
-                            label={
-                              <Text ta="center" fw={700} fz="lg">
-                                {scorePercent}%
-                              </Text>
-                            }
-                          />
-
-                          <Text size="lg" fw={700}>
-                            {mock.score}/{mock.totalPoints}
-                          </Text>
-
-                          <SimpleGrid cols={3} spacing="sm" w="100%">
-                            <Paper withBorder radius="md" p="sm" ta="center">
-                              <Group gap={4} justify="center" mb={4}>
-                                <Target size={14} color="var(--mantine-color-dimmed)" />
-                                <Text fz="xs" c="dimmed">
-                                  {t.exam.totalQuestions}
-                                </Text>
-                              </Group>
-                              <Text fw={700}>{totalQuestions}</Text>
-                            </Paper>
-                            <Paper withBorder radius="md" p="sm" ta="center">
-                              <Group gap={4} justify="center" mb={4}>
-                                <Check size={14} color="var(--mantine-color-green-6)" />
-                                <Text fz="xs" c="dimmed">
-                                  {t.exam.correct}
-                                </Text>
-                              </Group>
-                              <Text fw={700} c="green">
-                                {correctCount}
-                              </Text>
-                            </Paper>
-                            <Paper withBorder radius="md" p="sm" ta="center">
-                              <Group gap={4} justify="center" mb={4}>
-                                <X size={14} color="var(--mantine-color-red-6)" />
-                                <Text fz="xs" c="dimmed">
-                                  {t.exam.incorrect}
-                                </Text>
-                              </Group>
-                              <Text fw={700} c="red">
-                                {incorrectCount}
-                              </Text>
-                            </Paper>
-                          </SimpleGrid>
-                        </Stack>
-                      </Card>
-                    );
-                  })()}
-
                 {/* Current question */}
                 {currentQuestion && (
                   <QuestionCard
