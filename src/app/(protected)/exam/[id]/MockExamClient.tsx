@@ -194,12 +194,9 @@ export function MockExamClient({ initialMock }: Props) {
       {/* Header */}
       <Group justify="space-between" align="flex-start" className="animate-fade-in-up">
         <Box>
-          <Group gap="xs">
-            {isCompleted && <Trophy size={20} color="gold" />}
-            <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
-              {mock.title}
-            </Title>
-          </Group>
+          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
+            {mock.title}
+          </Title>
           <Text c="dimmed" size="md" fw={400} mt={2}>
             {isCompleted
               ? `Completed · ${totalQuestions} questions`
@@ -227,6 +224,15 @@ export function MockExamClient({ initialMock }: Props) {
                 {formatTime(timeRemaining)}
               </Text>
             )}
+          </Group>
+        )}
+
+        {isCompleted && mock.score !== null && (
+          <Group gap="xs">
+            <Trophy size={18} color="gold" />
+            <Text fw={700}>
+              {mock.score}/{mock.totalPoints}
+            </Text>
           </Group>
         )}
       </Group>
