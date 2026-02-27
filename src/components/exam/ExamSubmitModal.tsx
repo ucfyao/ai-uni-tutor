@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Flag, Loader2, Target, Trophy, X } from 'lucide-react';
+import { AlertTriangle, Check, Flag, Target, Trophy, X } from 'lucide-react';
 import {
   Badge,
   Box,
   Button,
   Group,
   Loader,
-  Modal,
   Paper,
   RingProgress,
   SimpleGrid,
@@ -17,6 +16,7 @@ import {
   Title,
 } from '@mantine/core';
 import { batchSubmitMockAnswers } from '@/app/actions/mock-exams';
+import { FullScreenModal } from '@/components/FullScreenModal';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -336,7 +336,7 @@ export function ExamSubmitModal({
   const isGrading = phase === 'grading';
 
   return (
-    <Modal
+    <FullScreenModal
       opened={opened}
       onClose={isGrading ? () => {} : onClose}
       title={phase === 'confirm' ? t.exam.confirmSubmitTitle : undefined}
@@ -350,6 +350,6 @@ export function ExamSubmitModal({
       {phase === 'grading' && renderGrading()}
       {phase === 'results' && renderResults()}
       {phase === 'error' && renderError()}
-    </Modal>
+    </FullScreenModal>
   );
 }
