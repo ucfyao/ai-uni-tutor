@@ -248,7 +248,10 @@ export function MockExamClient({ initialMock }: Props) {
           const ringColor =
             scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
           const correctCount = mock.responses.filter((r) => r.isCorrect).length;
-          const incorrectCount = mock.responses.filter((r) => !r.isCorrect).length;
+          const incorrectCount = mock.responses.filter(
+            (r) => !r.isCorrect && r.userAnswer.trim(),
+          ).length;
+          const unansweredCount = mock.responses.filter((r) => !r.userAnswer.trim()).length;
 
           return (
             <Paper
@@ -278,7 +281,7 @@ export function MockExamClient({ initialMock }: Props) {
                 <Text fw={700} fz="lg">
                   {mock.score}/{mock.totalPoints}
                 </Text>
-                <SimpleGrid cols={3} spacing="sm">
+                <SimpleGrid cols={unansweredCount > 0 ? 4 : 3} spacing="sm">
                   <Group gap={4}>
                     <Target size={14} color="var(--mantine-color-dimmed)" />
                     <Text fz="sm" c="dimmed">
@@ -306,6 +309,16 @@ export function MockExamClient({ initialMock }: Props) {
                       {incorrectCount}
                     </Text>
                   </Group>
+                  {unansweredCount > 0 && (
+                    <Group gap={4}>
+                      <Text fz="sm" c="dimmed">
+                        {t.exam.unansweredCount}
+                      </Text>
+                      <Text fw={700} fz="sm" c="gray">
+                        {unansweredCount}
+                      </Text>
+                    </Group>
+                  )}
                 </SimpleGrid>
               </Group>
             </Paper>

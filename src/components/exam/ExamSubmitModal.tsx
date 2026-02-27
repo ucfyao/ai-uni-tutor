@@ -78,11 +78,11 @@ export function ExamSubmitModal({
   }, [opened, autoSubmit]);
 
   const handleSubmit = useCallback(async () => {
-    const answersToSubmit = Object.entries(answers)
-      .filter(([, v]) => v.trim())
-      .map(([k, v]) => ({ questionIndex: Number(k), userAnswer: v }));
-
-    if (answersToSubmit.length === 0) return;
+    // Submit all questions — unanswered ones get empty string (graded as incorrect)
+    const answersToSubmit = questions.map((_, i) => ({
+      questionIndex: i,
+      userAnswer: answers[i]?.trim() || '',
+    }));
 
     setPhase('grading');
     setError(null);
@@ -112,7 +112,7 @@ export function ExamSubmitModal({
         color: 'red',
       });
     }
-  }, [answers, mockId, onSubmitSuccess, t.exam.submitFailed]);
+  }, [answers, questions, mockId, onSubmitSuccess, t.exam.submitFailed]);
 
   const handleNavigate = (index: number) => {
     onClose();
@@ -222,9 +222,9 @@ export function ExamSubmitModal({
 
     const scorePercent = Math.round((result.score / result.totalPoints) * 100);
     const ringColor = scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
+    const unanswered = result.responses.filter((r) => !r.userAnswer.trim()).length;
     const correctCount = result.responses.filter((r) => r.isCorrect).length;
-    const incorrectCount = result.responses.filter((r) => !r.isCorrect).length;
-    const unanswered = totalQuestions - result.responses.length;
+    const incorrectCount = result.responses.filter((r) => !r.isCorrect && r.userAnswer.trim()).length;
 
     return (
       <Stack align="center" gap="md" py="md">
