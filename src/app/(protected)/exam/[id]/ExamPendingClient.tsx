@@ -55,7 +55,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
   const [numQuestions, setNumQuestions] = useState<string | null>('10');
 
   // AI-only options
-  const [topic, setTopic] = useState(courseCode ?? '');
+  const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState<string | null>('mixed');
 
   // Mode selector
