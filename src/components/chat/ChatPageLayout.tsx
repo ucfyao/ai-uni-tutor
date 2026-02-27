@@ -15,6 +15,7 @@ interface ChatPageLayoutProps {
   onPin: () => void;
   onDelete: () => void;
   showKnowledgePanel?: boolean;
+  knowledgePanelCollapsed?: boolean;
   onKnowledgePanelToggle?: () => void;
   children: ReactNode;
 }
@@ -30,6 +31,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
   onPin,
   onDelete,
   showKnowledgePanel = false,
+  knowledgePanelCollapsed = false,
   onKnowledgePanelToggle,
   children,
 }) => {
@@ -83,9 +85,17 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
         </Group>
 
         <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-          {showKnowledgePanel && isCompact && (
+          {showKnowledgePanel && (
             <ActionIcon
-              variant={mobileKnowledgeOpened ? 'light' : 'subtle'}
+              variant={
+                isCompact
+                  ? mobileKnowledgeOpened
+                    ? 'light'
+                    : 'subtle'
+                  : knowledgePanelCollapsed
+                    ? 'subtle'
+                    : 'light'
+              }
               color="indigo"
               radius="xl"
               size={isMobile ? 'md' : 'lg'}
@@ -93,8 +103,8 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
                 setMobileKnowledgeOpened(true);
                 onKnowledgePanelToggle?.();
               }}
-              aria-label="Open knowledge panel"
-              aria-expanded={mobileKnowledgeOpened}
+              aria-label="Toggle knowledge panel"
+              aria-expanded={isCompact ? mobileKnowledgeOpened : !knowledgePanelCollapsed}
             >
               <BookOpen size={isMobile ? 18 : 20} strokeWidth={1.5} />
             </ActionIcon>
@@ -150,6 +160,7 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
       session.mode,
       session.isPinned,
       showKnowledgePanel,
+      knowledgePanelCollapsed,
       isCompact,
       isMobile,
       mobileKnowledgeOpened,

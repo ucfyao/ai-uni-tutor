@@ -38,6 +38,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [knowledgeDrawerTrigger, setKnowledgeDrawerTrigger] = useState(0); // Increment to trigger drawer open
+  const [desktopPanelCollapsed, setDesktopPanelCollapsed] = useState(false);
 
   const { removeSession, updateSessionLocal, sessions } = useSessions();
   const sessionsRef = useRef(sessions);
@@ -289,7 +290,11 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
         onPin={handleTogglePin}
         onDelete={() => setDeleteModalOpen(true)}
         showKnowledgePanel={true}
-        onKnowledgePanelToggle={() => setKnowledgeDrawerTrigger((prev) => prev + 1)}
+        knowledgePanelCollapsed={desktopPanelCollapsed}
+        onKnowledgePanelToggle={() => {
+          setKnowledgeDrawerTrigger((prev) => prev + 1);
+          setDesktopPanelCollapsed((prev) => !prev);
+        }}
       >
         <LectureHelper
           key={session.id}
@@ -297,6 +302,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           onUpdateSession={handleUpdateSession}
           openDrawerTrigger={knowledgeDrawerTrigger}
           isLoading={loading}
+          desktopPanelCollapsed={desktopPanelCollapsed}
         />
       </ChatPageLayout>
 
