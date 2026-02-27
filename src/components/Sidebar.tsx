@@ -152,19 +152,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [activeSessionMode]);
 
-  // Group sessions by mode, sorted pinned-first + lastUpdated desc, max 10
+  // Group sessions by mode, sorted pinned-first + lastUpdated desc
   const sessionsByMode = useMemo(() => {
     const map: Record<string, ChatSession[]> = {};
     for (const mod of CHAT_MODULES) {
-      const filtered = sessions
-        .filter((s) => s.mode === mod.mode)
-        .sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          return b.lastUpdated - a.lastUpdated;
-        })
-        .slice(0, 10);
-      map[mod.mode] = filtered;
+      map[mod.mode] = sessions.filter((s) => s.mode === mod.mode);
     }
     return map;
   }, [sessions]);
