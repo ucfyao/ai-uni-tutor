@@ -17,6 +17,7 @@ import { AssignmentCoach } from '@/components/modes/AssignmentCoach';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
 import { useSessions } from '@/context/SessionContext';
+import { chatCache } from '@/lib/chat-cache';
 import { ChatSession } from '@/types';
 
 interface AssignmentClientProps {
@@ -78,6 +79,18 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
       try {
         const fromList = sessionsRef.current.find((s) => s.id === id);
         if (fromList && fromList.mode === 'Assignment Coach') {
+          // 1. Try IndexedDB cache first for instant display
+          const cached = await chatCache.getMessages(id);
+          if (cancelled) return;
+
+          if (cached && cached.length > 0) {
+            const cachedData: ChatSession = { ...fromList, messages: cached };
+            savedMsgIdsRef.current = new Set(cached.map((m) => m.id));
+            setSession(cachedData);
+            setLoading(false);
+          }
+
+          // 2. Always fetch from server for freshest data
           const messages = await getChatMessages(id);
           if (cancelled) return;
           if (messages === null) {
@@ -85,9 +98,22 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
             routerRef.current.push('/study');
             return;
           }
-          const data: ChatSession = { ...fromList, messages };
-          savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
-          setSession(data);
+          setSession((prevSession) => {
+            if (!prevSession) {
+              savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
+              return { ...fromList, messages };
+            }
+
+            // Merge: keep client-only messages (sent while server fetch was in-flight)
+            const serverMessageIds = new Set(messages.map((m) => m.id));
+            const clientOnlyMessages = prevSession.messages.filter(
+              (m) => !serverMessageIds.has(m.id),
+            );
+            const mergedMessages = [...messages, ...clientOnlyMessages];
+
+            savedMsgIdsRef.current = new Set(mergedMessages.map((m) => m.id));
+            return { ...prevSession, messages: mergedMessages };
+          });
           setLoading(false);
           return;
         }
