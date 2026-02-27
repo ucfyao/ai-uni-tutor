@@ -29,7 +29,7 @@ const chatMessageSchema = z.object({
   parentMessageId: z.string().nullable().optional(),
 });
 
-const sessionIdSchema = z.string().min(1);
+const sessionIdSchema = z.string().uuid();
 
 const createSessionSchema = z
   .object({
