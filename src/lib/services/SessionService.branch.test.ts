@@ -93,6 +93,8 @@ describe('SessionService branching', () => {
       expect(mockMessageRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ parentMessageId: 'msg-1' }),
       );
+      // Should persist the leaf of the new branch
+      expect(mockSessionRepo.update).toHaveBeenCalledWith('sess-1', { activeLeafId: 'msg-3' });
     });
 
     it('should NOT modify or delete the original message', async () => {
@@ -151,6 +153,8 @@ describe('SessionService branching', () => {
       expect(result.messages).toHaveLength(2);
       expect(result.messages[0].id).toBe('msg-root');
       expect(result.messages[1].id).toBe('msg-2a');
+      // Should persist the leaf of the selected branch
+      expect(mockSessionRepo.update).toHaveBeenCalledWith('sess-1', { activeLeafId: 'msg-2a' });
     });
 
     it('should share prefix across branches', async () => {

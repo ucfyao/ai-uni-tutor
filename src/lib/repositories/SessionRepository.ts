@@ -25,6 +25,7 @@ interface SessionRow {
   is_pinned: boolean;
   is_shared: boolean;
   share_expires_at: string | null;
+  active_leaf_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +44,7 @@ export class SessionRepository implements ISessionRepository {
       isPinned: row.is_pinned,
       isShared: row.is_shared,
       shareExpiresAt: row.share_expires_at ? new Date(row.share_expires_at) : null,
+      activeLeafId: row.active_leaf_id,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
@@ -69,7 +71,7 @@ export class SessionRepository implements ISessionRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('chat_sessions')
-      .select('id, user_id, course_id, mode, title, is_pinned, is_shared, created_at, updated_at')
+      .select('id, user_id, course_id, mode, title, is_pinned, is_shared, active_leaf_id, created_at, updated_at')
       .eq('user_id', userId)
       .order('is_pinned', { ascending: false })
       .order('updated_at', { ascending: false });
@@ -132,6 +134,7 @@ export class SessionRepository implements ISessionRepository {
     if (dto.shareExpiresAt !== undefined) {
       updates.share_expires_at = dto.shareExpiresAt?.toISOString() ?? null;
     }
+    if (dto.activeLeafId !== undefined) updates.active_leaf_id = dto.activeLeafId;
 
     const { error } = await supabase.from('chat_sessions').update(updates).eq('id', id);
 

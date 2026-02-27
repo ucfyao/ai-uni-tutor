@@ -16,6 +16,7 @@ export interface SessionEntity {
   isPinned: boolean;
   isShared: boolean;
   shareExpiresAt: Date | null;
+  activeLeafId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,4 +34,5 @@ export interface UpdateSessionDTO {
   isPinned?: boolean;
   isShared?: boolean;
   shareExpiresAt?: Date | null;
+  activeLeafId?: string | null;
 }

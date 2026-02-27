@@ -312,6 +312,30 @@ describe('SessionRepository', () => {
       );
     });
 
+    it('should map activeLeafId to active_leaf_id', async () => {
+      mockSupabase.setResponse(null);
+
+      await repo.update('session-001', { activeLeafId: 'msg-leaf-1' });
+
+      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          active_leaf_id: 'msg-leaf-1',
+        }),
+      );
+    });
+
+    it('should map activeLeafId null to active_leaf_id null', async () => {
+      mockSupabase.setResponse(null);
+
+      await repo.update('session-001', { activeLeafId: null });
+
+      expect(mockSupabase.client._chain.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          active_leaf_id: null,
+        }),
+      );
+    });
+
     it('should always include updated_at', async () => {
       mockSupabase.setResponse(null);
 
