@@ -88,29 +88,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     router.push(targetPath);
   };
 
-  const handleSelectSession = (id: string) => {
-    const session = sessions.find((s) => s.id === id);
-    if (!session?.mode) {
-      router.push(`/`);
-      if (isMobile) toggleMobile();
-      return;
-    }
-
-    if (session.mode === 'Mock Exam') {
-      const mockId = session.mockId;
-      if (mockId) {
-        setActiveSessionId(mockId);
-        requestAnimationFrame(() => router.push(`/exam/${mockId}`));
-      } else {
-        router.push(`/exam/not-found`);
-      }
-      if (isMobile) toggleMobile();
-      return;
-    }
-
-    const modeRoute = MODES_METADATA[session.mode].id;
-    setActiveSessionId(id);
-    requestAnimationFrame(() => router.push(`/${modeRoute}/${id}`));
+  const handleSelectSession = () => {
     if (isMobile) toggleMobile();
   };
 
