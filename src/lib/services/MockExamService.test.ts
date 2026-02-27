@@ -729,11 +729,9 @@ describe('MockExamService', () => {
       mockRepo.findById.mockResolvedValue(MOCK_EXAM);
       mockRepo.update.mockResolvedValue(undefined);
 
-      // 2 answers, so 2 AI calls in one batch
-      mockAISequence([
-        JSON.stringify({ is_correct: true, score: 5, feedback: 'Correct!' }),
-        JSON.stringify({ is_correct: false, score: 3, feedback: 'Partially correct.' }),
-      ]);
+      // Choice Q0 (answer=B, user=B) is graded deterministically → correct, score=5
+      // Short-answer Q1 goes to batch AI → single call returning array
+      mockAI(JSON.stringify([{ is_correct: false, score: 3, feedback: 'Partially correct.' }]));
 
       const result = await service.batchSubmitAnswers(USER_ID, MOCK_ID, [
         { questionIndex: 0, userAnswer: 'B' },
@@ -741,8 +739,17 @@ describe('MockExamService', () => {
       ]);
 
       expect(result.responses).toHaveLength(2);
+      // Choice: 5 (deterministic correct) + short_answer: 3 (AI) = 8
       expect(result.score).toBe(8);
       expect(result.totalPoints).toBe(15);
+
+      // Choice question graded deterministically
+      expect(result.responses[0].isCorrect).toBe(true);
+      expect(result.responses[0].score).toBe(5);
+
+      // Short answer graded via batch AI
+      expect(result.responses[1].isCorrect).toBe(false);
+      expect(result.responses[1].score).toBe(3);
 
       // Mock updated with completed status
       expect(mockRepo.update).toHaveBeenCalledWith(
@@ -787,9 +794,7 @@ describe('MockExamService', () => {
       mockRepo.findById.mockResolvedValue(MOCK_EXAM);
       mockRepo.update.mockResolvedValue(undefined);
 
-      // First answer is valid, second has invalid index
-      mockAI(JSON.stringify({ is_correct: true, score: 5, feedback: 'OK' }));
-
+      // Q0 is choice (graded deterministically), Q99 is invalid index
       const result = await service.batchSubmitAnswers(USER_ID, MOCK_ID, [
         { questionIndex: 0, userAnswer: 'B' },
         { questionIndex: 99, userAnswer: 'X' },
@@ -804,9 +809,9 @@ describe('MockExamService', () => {
       expect(invalidResponse?.aiFeedback).toBe('Invalid question index.');
     });
 
-    it('should process answers in batches of 3', async () => {
-      // Create mock with 5 questions
-      const fiveQMock: MockExam = {
+    it('should grade choice questions deterministically without AI calls', async () => {
+      // All 5 questions are choice type → deterministic grading, 0 AI calls
+      const fiveChoiceMock: MockExam = {
         ...MOCK_EXAM,
         questions: Array.from({ length: 5 }, (_, i) => ({
           content: `Q${i}`,
@@ -821,15 +826,10 @@ describe('MockExamService', () => {
       };
 
       mockRepo.verifyOwnership.mockResolvedValue(true);
-      mockRepo.findById.mockResolvedValue(fiveQMock);
+      mockRepo.findById.mockResolvedValue(fiveChoiceMock);
       mockRepo.update.mockResolvedValue(undefined);
 
       const generateContent = vi.fn();
-      for (let i = 0; i < 5; i++) {
-        generateContent.mockResolvedValueOnce({
-          text: JSON.stringify({ is_correct: true, score: 2, feedback: 'OK' }),
-        });
-      }
       vi.mocked(geminiModule.getGenAI).mockReturnValue({
         models: { generateContent },
       } as unknown as ReturnType<typeof geminiModule.getGenAI>);
@@ -843,7 +843,53 @@ describe('MockExamService', () => {
 
       expect(result.responses).toHaveLength(5);
       expect(result.score).toBe(10);
-      expect(generateContent).toHaveBeenCalledTimes(5);
+      // No AI calls — all choice questions graded deterministically
+      expect(generateContent).toHaveBeenCalledTimes(0);
+    });
+
+    it('should batch open-ended questions into a single AI call', async () => {
+      // 3 short_answer questions → single batch AI call
+      const openEndedMock: MockExam = {
+        ...MOCK_EXAM,
+        questions: Array.from({ length: 3 }, (_, i) => ({
+          content: `Short answer Q${i}`,
+          type: 'short_answer',
+          options: null,
+          answer: `Answer ${i}`,
+          explanation: `Explanation ${i}`,
+          points: 4,
+          sourceQuestionId: null,
+        })),
+        totalPoints: 12,
+      };
+
+      mockRepo.verifyOwnership.mockResolvedValue(true);
+      mockRepo.findById.mockResolvedValue(openEndedMock);
+      mockRepo.update.mockResolvedValue(undefined);
+
+      // Single AI call returning array of 3 results
+      const generateContent = vi.fn().mockResolvedValue({
+        text: JSON.stringify([
+          { is_correct: true, score: 4, feedback: 'Correct Q0' },
+          { is_correct: false, score: 2, feedback: 'Partial Q1' },
+          { is_correct: true, score: 4, feedback: 'Correct Q2' },
+        ]),
+      });
+      vi.mocked(geminiModule.getGenAI).mockReturnValue({
+        models: { generateContent },
+      } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+
+      const answers = Array.from({ length: 3 }, (_, i) => ({
+        questionIndex: i,
+        userAnswer: `My answer ${i}`,
+      }));
+
+      const result = await service.batchSubmitAnswers(USER_ID, MOCK_ID, answers);
+
+      expect(result.responses).toHaveLength(3);
+      expect(result.score).toBe(10); // 4 + 2 + 4
+      // Single batch AI call instead of 3 individual calls
+      expect(generateContent).toHaveBeenCalledTimes(1);
     });
   });
 
