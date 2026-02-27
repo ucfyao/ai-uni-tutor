@@ -700,7 +700,141 @@ Return JSON with these exact fields:
   }
 
   /**
+   * Deterministically grade a choice or true_false question without LLM.
+   * Compares normalized comma-separated option keys.
+   */
+  private gradeDeterministic(
+    question: MockExamQuestion,
+    questionIndex: number,
+    userAnswer: string,
+  ): MockExamResponse {
+    const normalize = (s: string) =>
+      s
+        .split(',')
+        .map((k) => k.trim().toUpperCase())
+        .filter(Boolean)
+        .sort()
+        .join(',');
+
+    const normalizedUser = normalize(userAnswer);
+    const normalizedCorrect = normalize(question.answer);
+    const isCorrect = normalizedUser === normalizedCorrect;
+
+    return {
+      questionIndex,
+      userAnswer,
+      isCorrect,
+      score: isCorrect ? question.points : 0,
+      aiFeedback: isCorrect
+        ? 'Correct! Well done.'
+        : `Incorrect. The correct answer is: ${question.answer}. ${question.explanation}`,
+    };
+  }
+
+  /**
+   * Batch-judge multiple open-ended questions in a single LLM call.
+   * Returns one MockExamResponse per input entry, preserving order.
+   */
+  private async batchJudgeAnswers(
+    entries: Array<{ question: MockExamQuestion; questionIndex: number; userAnswer: string }>,
+  ): Promise<MockExamResponse[]> {
+    if (entries.length === 0) return [];
+
+    try {
+      const ai = getGenAI();
+
+      const questionsBlock = entries
+        .map(
+          (e, i) =>
+            `--- Question ${i + 1} ---
+Question: ${e.question.content}
+Question type: ${e.question.type}
+${e.question.options ? `Options: ${JSON.stringify(e.question.options)}` : ''}
+Correct answer: ${e.question.answer}
+Explanation: ${e.question.explanation}
+Maximum points: ${e.question.points}
+Student's answer: ${e.userAnswer}`,
+        )
+        .join('\n\n');
+
+      const prompt = `You are an exam grader. Evaluate ALL ${entries.length} student answers below against their correct answers.
+
+${questionsBlock}
+
+Return a JSON array with exactly ${entries.length} objects, one per question in the same order:
+[
+  {
+    "is_correct": true/false,
+    "score": (number from 0 to the question's maximum points),
+    "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement"
+  },
+  ...
+]`;
+
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODELS.chat,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+        },
+      });
+
+      const parsed = parseAIResponse<
+        Array<{ is_correct?: boolean; score?: number; feedback?: string }>
+      >(response.text);
+
+      const results = Array.isArray(parsed) ? parsed : [];
+
+      return entries.map((e, i) => {
+        const r = results[i];
+        if (r) {
+          return {
+            questionIndex: e.questionIndex,
+            userAnswer: e.userAnswer,
+            isCorrect: Boolean(r.is_correct),
+            score: Math.min(Math.max(Number(r.score) || 0, 0), e.question.points),
+            aiFeedback: r.feedback || 'Unable to generate feedback.',
+          };
+        }
+        // Fallback if AI returned fewer items than expected
+        return this.gradeFallback(e.question, e.questionIndex, e.userAnswer);
+      });
+    } catch (err) {
+      const geminiErr = AppError.from(err);
+      console.warn(
+        `Batch AI judging failed [${geminiErr.code}], falling back to simple matching`,
+      );
+      return entries.map((e) => this.gradeFallback(e.question, e.questionIndex, e.userAnswer));
+    }
+  }
+
+  /** Simple string-matching fallback when AI grading fails. */
+  private gradeFallback(
+    question: MockExamQuestion,
+    questionIndex: number,
+    userAnswer: string,
+  ): MockExamResponse {
+    const normalizedUser = userAnswer.trim().toLowerCase();
+    const normalizedAnswer = question.answer.trim().toLowerCase();
+    const isCorrect = normalizedUser === normalizedAnswer;
+
+    return {
+      questionIndex,
+      userAnswer,
+      isCorrect,
+      score: isCorrect ? question.points : 0,
+      aiFeedback: isCorrect
+        ? 'Correct! Well done.'
+        : `Incorrect. The correct answer is: ${question.answer}`,
+    };
+  }
+
+  /**
    * Batch submit and judge all answers for exam mode.
+   *
+   * Optimization: choice/true_false questions are graded deterministically (no LLM).
+   * All other question types are batched into a single LLM call.
    */
   async batchSubmitAnswers(
     userId: string,
@@ -717,29 +851,43 @@ Return JSON with these exact fields:
     if (mock.status === 'completed')
       throw new AppError('VALIDATION', 'Mock exam already completed');
 
-    // Judge all answers in batches of 3
-    const allResponses: MockExamResponse[] = [];
+    const DETERMINISTIC_TYPES = new Set(['choice', 'true_false']);
+    const responseMap = new Map<number, MockExamResponse>();
+    const aiEntries: Array<{
+      question: MockExamQuestion;
+      questionIndex: number;
+      userAnswer: string;
+    }> = [];
 
-    for (let i = 0; i < answers.length; i += 3) {
-      const batch = answers.slice(i, i + 3);
-      const batchResults = await Promise.all(
-        batch.map((a) => {
-          const question = mock.questions[a.questionIndex];
-          if (!question) {
-            return Promise.resolve<MockExamResponse>({
-              questionIndex: a.questionIndex,
-              userAnswer: a.userAnswer,
-              isCorrect: false,
-              score: 0,
-              aiFeedback: 'Invalid question index.',
-            });
-          }
-          return this.judgeAnswer(question, a.questionIndex, a.userAnswer);
-        }),
-      );
-      allResponses.push(...batchResults);
+    // Split answers into deterministic vs AI-needed
+    for (const a of answers) {
+      const question = mock.questions[a.questionIndex];
+      if (!question) {
+        responseMap.set(a.questionIndex, {
+          questionIndex: a.questionIndex,
+          userAnswer: a.userAnswer,
+          isCorrect: false,
+          score: 0,
+          aiFeedback: 'Invalid question index.',
+        });
+        continue;
+      }
+
+      if (DETERMINISTIC_TYPES.has(question.type)) {
+        responseMap.set(a.questionIndex, this.gradeDeterministic(question, a.questionIndex, a.userAnswer));
+      } else {
+        aiEntries.push({ question, questionIndex: a.questionIndex, userAnswer: a.userAnswer });
+      }
     }
 
+    // Batch all open-ended questions into a single LLM call
+    const aiResults = await this.batchJudgeAnswers(aiEntries);
+    for (const r of aiResults) {
+      responseMap.set(r.questionIndex, r);
+    }
+
+    // Reassemble in original order
+    const allResponses = answers.map((a) => responseMap.get(a.questionIndex)!);
     const totalScore = allResponses.reduce((sum, r) => sum + r.score, 0);
 
     await this.mockRepo.update(mockId, {
