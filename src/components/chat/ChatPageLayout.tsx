@@ -100,7 +100,9 @@ export const ChatPageLayout: React.FC<ChatPageLayoutProps> = ({
               radius="xl"
               size={isMobile ? 'md' : 'lg'}
               onClick={() => {
-                setMobileKnowledgeOpened(true);
+                if (isCompact) {
+                  setMobileKnowledgeOpened(true);
+                }
                 onKnowledgePanelToggle?.();
               }}
               aria-label="Toggle knowledge panel"
