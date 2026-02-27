@@ -101,7 +101,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
       if (mockId) {
         router.push(`/exam/${mockId}`);
       } else {
-        router.push('/study');
+        router.push(`/exam/not-found`);
       }
       if (isMobile) toggleMobile();
       return;
