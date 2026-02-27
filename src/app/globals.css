@@ -607,7 +607,9 @@ body {
   margin-top: 0 !important;
 }
 
-.markdown-content > :last-child {
+.markdown-content > :last-child,
+.exam-option-md > :last-child,
+.feedback-answer-md > :last-child {
   margin-bottom: 0 !important;
 }
 
@@ -755,6 +757,21 @@ body {
 
 .animate-delay-400 {
   animation-delay: 0.4s;
+}
+
+/* Exam: timer flash when time is almost up */
+@keyframes timer-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.exam-timer-flash {
+  animation: timer-flash 1s ease-in-out infinite;
 }
 
 /* Marketing homepage: hero buttons (Mantine-compatible) */

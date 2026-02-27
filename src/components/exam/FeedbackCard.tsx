@@ -53,11 +53,7 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
               <Text size="xs" fw={600} c="red.7" mb={4}>
                 {t.exam.yourAnswer}
               </Text>
-              <MarkdownRenderer
-                content={feedback.userAnswer || t.exam.noAnswer}
-                compact
-                tight
-              />
+              <MarkdownRenderer content={feedback.userAnswer || t.exam.noAnswer} compact tight />
             </Paper>
             <Paper withBorder radius="md" p="sm" bg="green.0" className="feedback-answer-md">
               <Text size="xs" fw={600} c="green.7" mb={4}>
@@ -82,13 +78,6 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
           <MarkdownRenderer content={explanation} />
         </Paper>
       </Stack>
-
-      {/* Strip trailing margins from MarkdownRenderer inside answer cards */}
-      <style>{`
-        .feedback-answer-md > *:last-child {
-          margin-bottom: 0 !important;
-        }
-      `}</style>
     </Card>
   );
 }
