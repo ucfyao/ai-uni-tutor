@@ -265,6 +265,7 @@ export function MockExamClient({ initialMock }: Props) {
               }}
             >
               <Group justify="center" gap="lg" wrap="wrap">
+                <Trophy size={28} color="gold" />
                 <RingProgress
                   size={64}
                   thickness={6}
