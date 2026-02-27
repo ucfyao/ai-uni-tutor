@@ -49,21 +49,21 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
         {/* Answer comparison when incorrect */}
         {!feedback.isCorrect && correctAnswer && (
           <Group grow gap="sm">
-            <Paper withBorder radius="md" p="sm" bg="red.0">
+            <Paper withBorder radius="md" p="sm" bg="red.0" className="feedback-answer-md">
               <Text size="xs" fw={600} c="red.7" mb={4}>
                 {t.exam.yourAnswer}
               </Text>
-              <Text size="sm" c="red.8">
-                {feedback.userAnswer || t.exam.noAnswer}
-              </Text>
+              <MarkdownRenderer
+                content={feedback.userAnswer || t.exam.noAnswer}
+                compact
+                tight
+              />
             </Paper>
-            <Paper withBorder radius="md" p="sm" bg="green.0">
+            <Paper withBorder radius="md" p="sm" bg="green.0" className="feedback-answer-md">
               <Text size="xs" fw={600} c="green.7" mb={4}>
                 {t.exam.correctAnswer}
               </Text>
-              <Text size="sm" c="green.8">
-                {correctAnswer}
-              </Text>
+              <MarkdownRenderer content={correctAnswer} compact tight />
             </Paper>
           </Group>
         )}
@@ -82,6 +82,13 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
           <MarkdownRenderer content={explanation} />
         </Paper>
       </Stack>
+
+      {/* Strip trailing margins from MarkdownRenderer inside answer cards */}
+      <style>{`
+        .feedback-answer-md > *:last-child {
+          margin-bottom: 0 !important;
+        }
+      `}</style>
     </Card>
   );
 }
