@@ -24,7 +24,18 @@ export default async function ExamPage({
   const hasQuestions = mock.questions.length > 0;
 
   return (
-    <Container size={hasQuestions ? 'xl' : 'md'} py={48} style={{ position: 'relative' }}>
+    <Container
+      size={hasQuestions ? 'xl' : 'md'}
+      py={hasQuestions ? 'md' : 48}
+      style={{
+        position: 'relative',
+        ...(hasQuestions && {
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column' as const,
+        }),
+      }}
+    >
       <Box
         style={{
           position: 'absolute',
@@ -39,7 +50,18 @@ export default async function ExamPage({
           opacity: 0.7,
         }}
       />
-      <Box style={{ position: 'relative', zIndex: 1 }}>
+      <Box
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          ...(hasQuestions && {
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column' as const,
+          }),
+        }}
+      >
         {hasQuestions ? (
           <MockExamClient key={id} initialMock={mock} />
         ) : (

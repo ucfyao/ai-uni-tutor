@@ -36,16 +36,24 @@ interface Props {
   showMarkButton?: boolean;
 }
 
-/** Check if a choice question expects multiple answers */
+/**
+ * Check if a choice question expects multiple answers.
+ *
+ * Handles delimiter-separated ("A,B", "A、B", "A B") and concatenated ("AB")
+ * answer formats. Option keys are single uppercase letters by convention
+ * (enforced by the AI prompt and exam parser).
+ */
 function isMultiAnswer(question: MockExamQuestion): boolean {
   if (question.type !== 'choice' || !question.options || !question.answer) return false;
   const optionKeys = Object.keys(question.options);
-  // Extract answer keys: handles "A,B", "AB", "A、B", "A B"
-  const answerKeys = question.answer
-    .replace(/[,、\s]/g, '')
-    .split('')
-    .filter((c) => optionKeys.includes(c));
-  return answerKeys.length > 1;
+  // 1. Try delimiter-based split first (handles "A,B", "A、B", "A B")
+  const byDelimiter = question.answer.split(/[,、\s]+/).filter((k) => k && optionKeys.includes(k));
+  if (byDelimiter.length > 1) return true;
+  // 2. Fallback: if no delimiters found and every character is a valid option
+  //    key, treat as concatenated answer (e.g. "AB" → ["A", "B"])
+  const trimmed = question.answer.trim();
+  if (trimmed.length > 1 && [...trimmed].every((ch) => optionKeys.includes(ch))) return true;
+  return false;
 }
 
 export function QuestionCard({
@@ -125,7 +133,8 @@ export function QuestionCard({
           <SimpleGrid cols={2} spacing="sm">
             {Object.entries(question.options).map(([key, text]) => {
               const isSelected = value === key;
-              const isTrue = key === 'A'; // A = True, B = False by convention
+              const normalised = text.trim().toLowerCase();
+              const isTrue = /^(true|对|正确|是|t|√)$/.test(normalised);
               return (
                 <Paper
                   key={key}
@@ -189,7 +198,9 @@ export function QuestionCard({
                   withBorder
                   radius="md"
                   p="sm"
-                  onClick={multiSelect ? () => handleMultiToggle(key) : () => handleSingleSelect(key)}
+                  onClick={
+                    multiSelect ? () => handleMultiToggle(key) : () => handleSingleSelect(key)
+                  }
                   style={{
                     cursor: disabled ? 'default' : 'pointer',
                     borderColor: isSelected
@@ -249,13 +260,6 @@ export function QuestionCard({
           />
         )}
       </Stack>
-
-      {/* Strip trailing margins from MarkdownRenderer inside option cards */}
-      <style>{`
-        .exam-option-md > *:last-child {
-          margin-bottom: 0 !important;
-        }
-      `}</style>
     </Card>
   );
 }

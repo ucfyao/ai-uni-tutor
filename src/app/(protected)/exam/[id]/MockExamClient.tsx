@@ -277,7 +277,7 @@ export function MockExamClient({ initialMock }: Props) {
     mode === 'practice' && mock.responses.some((r) => r.questionIndex === currentQuestionIndex);
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
       {/* Header */}
       <Group justify="space-between" align="flex-start" className="animate-fade-in-up">
         <Box>
@@ -306,11 +306,7 @@ export function MockExamClient({ initialMock }: Props) {
                 fw={700}
                 ff="monospace"
                 c={timeRemaining < 60 ? 'red' : timeRemaining < 300 ? 'orange' : undefined}
-                style={
-                  timeRemaining < 60
-                    ? { animation: 'timer-flash 1s ease-in-out infinite' }
-                    : undefined
-                }
+                className={timeRemaining < 60 ? 'exam-timer-flash' : undefined}
               >
                 {formatTime(timeRemaining)}
               </Text>
@@ -333,7 +329,7 @@ export function MockExamClient({ initialMock }: Props) {
         <Progress value={progressValue} size="sm" color={getDocColor('exam')} />
       </Box>
 
-      {/* Two-column layout */}
+      {/* Two-column layout — fills remaining height */}
       <Card
         withBorder
         radius="lg"
@@ -344,9 +340,13 @@ export function MockExamClient({ initialMock }: Props) {
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
           overflow: 'hidden',
           opacity: 0,
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Group align="flex-start" gap={0} wrap="nowrap" style={{ minHeight: 500 }}>
+        <Group align="stretch" gap={0} wrap="nowrap" style={{ flex: 1, minHeight: 0 }}>
           {/* Left sidebar — Question list (hidden on mobile, replaced by bottom nav) */}
           <Box
             w={280}
@@ -354,7 +354,6 @@ export function MockExamClient({ initialMock }: Props) {
             style={{
               flexShrink: 0,
               borderRight: '1px solid var(--mantine-color-gray-3)',
-              alignSelf: 'stretch',
             }}
           >
             <ScrollArea h="100%">
@@ -421,221 +420,227 @@ export function MockExamClient({ initialMock }: Props) {
             </ScrollArea>
           </Box>
 
-          {/* Right panel — Question detail */}
-          <Box style={{ flex: 1, minWidth: 0 }} p="lg">
-            <Stack gap="lg">
-              {/* Completion score card */}
-              {isCompleted &&
-                mock.score !== null &&
-                currentQuestionIndex === 0 &&
-                !currentFeedback &&
-                (() => {
-                  const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
-                  const ringColor =
-                    scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
-                  const correctCount = mock.responses.filter((r) => r.isCorrect).length;
-                  const incorrectCount = mock.responses.filter((r) => !r.isCorrect).length;
+          {/* Right panel — flex column: scrollable content + sticky action bar */}
+          <Box style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* Scrollable content area */}
+            <ScrollArea style={{ flex: 1 }} type="auto" offsetScrollbars>
+              <Stack gap="lg" p="lg">
+                {/* Completion score card */}
+                {isCompleted &&
+                  mock.score !== null &&
+                  currentQuestionIndex === 0 &&
+                  !currentFeedback &&
+                  (() => {
+                    const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
+                    const ringColor =
+                      scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
+                    const correctCount = mock.responses.filter((r) => r.isCorrect).length;
+                    const incorrectCount = mock.responses.filter((r) => !r.isCorrect).length;
 
-                  return (
-                    <Card
-                      withBorder
-                      radius="lg"
-                      p="xl"
-                      ta="center"
-                      style={{
-                        borderColor: 'var(--mantine-color-gray-2)',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                      }}
-                    >
-                      <Stack align="center" gap="md">
-                        <Trophy size={48} color="gold" />
-                        <Title order={2}>Exam Completed!</Title>
+                    return (
+                      <Card
+                        withBorder
+                        radius="lg"
+                        p="xl"
+                        ta="center"
+                        style={{
+                          borderColor: 'var(--mantine-color-gray-2)',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                        }}
+                      >
+                        <Stack align="center" gap="md">
+                          <Trophy size={48} color="gold" />
+                          <Title order={2}>Exam Completed!</Title>
 
-                        <RingProgress
-                          size={120}
-                          thickness={10}
-                          roundCaps
-                          sections={[{ value: scorePercent, color: ringColor }]}
-                          label={
-                            <Text ta="center" fw={700} fz="lg">
-                              {scorePercent}%
-                            </Text>
-                          }
-                        />
-
-                        <Text size="lg" fw={700}>
-                          {mock.score}/{mock.totalPoints}
-                        </Text>
-
-                        <SimpleGrid cols={3} spacing="sm" w="100%">
-                          <Paper withBorder radius="md" p="sm" ta="center">
-                            <Group gap={4} justify="center" mb={4}>
-                              <Target size={14} color="var(--mantine-color-dimmed)" />
-                              <Text fz="xs" c="dimmed">
-                                Total
+                          <RingProgress
+                            size={120}
+                            thickness={10}
+                            roundCaps
+                            sections={[{ value: scorePercent, color: ringColor }]}
+                            label={
+                              <Text ta="center" fw={700} fz="lg">
+                                {scorePercent}%
                               </Text>
-                            </Group>
-                            <Text fw={700}>{totalQuestions}</Text>
-                          </Paper>
-                          <Paper withBorder radius="md" p="sm" ta="center">
-                            <Group gap={4} justify="center" mb={4}>
-                              <Check size={14} color="var(--mantine-color-green-6)" />
-                              <Text fz="xs" c="dimmed">
-                                Correct
+                            }
+                          />
+
+                          <Text size="lg" fw={700}>
+                            {mock.score}/{mock.totalPoints}
+                          </Text>
+
+                          <SimpleGrid cols={3} spacing="sm" w="100%">
+                            <Paper withBorder radius="md" p="sm" ta="center">
+                              <Group gap={4} justify="center" mb={4}>
+                                <Target size={14} color="var(--mantine-color-dimmed)" />
+                                <Text fz="xs" c="dimmed">
+                                  Total
+                                </Text>
+                              </Group>
+                              <Text fw={700}>{totalQuestions}</Text>
+                            </Paper>
+                            <Paper withBorder radius="md" p="sm" ta="center">
+                              <Group gap={4} justify="center" mb={4}>
+                                <Check size={14} color="var(--mantine-color-green-6)" />
+                                <Text fz="xs" c="dimmed">
+                                  Correct
+                                </Text>
+                              </Group>
+                              <Text fw={700} c="green">
+                                {correctCount}
                               </Text>
-                            </Group>
-                            <Text fw={700} c="green">
-                              {correctCount}
-                            </Text>
-                          </Paper>
-                          <Paper withBorder radius="md" p="sm" ta="center">
-                            <Group gap={4} justify="center" mb={4}>
-                              <X size={14} color="var(--mantine-color-red-6)" />
-                              <Text fz="xs" c="dimmed">
-                                Incorrect
+                            </Paper>
+                            <Paper withBorder radius="md" p="sm" ta="center">
+                              <Group gap={4} justify="center" mb={4}>
+                                <X size={14} color="var(--mantine-color-red-6)" />
+                                <Text fz="xs" c="dimmed">
+                                  Incorrect
+                                </Text>
+                              </Group>
+                              <Text fw={700} c="red">
+                                {incorrectCount}
                               </Text>
-                            </Group>
-                            <Text fw={700} c="red">
-                              {incorrectCount}
-                            </Text>
-                          </Paper>
-                        </SimpleGrid>
+                            </Paper>
+                          </SimpleGrid>
 
-                        <Text size="sm" c="dimmed">
-                          Click any question in the sidebar to review
-                        </Text>
-                      </Stack>
-                    </Card>
-                  );
-                })()}
+                          <Text size="sm" c="dimmed">
+                            Click any question in the sidebar to review
+                          </Text>
+                        </Stack>
+                      </Card>
+                    );
+                  })()}
 
-              {/* Current question */}
-              {currentQuestion && (
-                <QuestionCard
-                  question={currentQuestion}
-                  index={currentQuestionIndex}
-                  total={totalQuestions}
-                  value={getCurrentAnswer()}
-                  onChange={
-                    isCompleted || isPracticeAnswered
-                      ? () => {}
-                      : mode === 'practice'
-                        ? setPracticeUserAnswer
-                        : handleExamAnswerChange
-                  }
-                  disabled={isCompleted || isPracticeAnswered || !!practiceFeedback}
-                  marked={markedQuestions.has(currentQuestionIndex)}
-                  onToggleMark={() => toggleMark(currentQuestionIndex)}
-                  showMarkButton={mode === 'exam' && !isCompleted}
-                />
-              )}
+                {/* Current question */}
+                {currentQuestion && (
+                  <QuestionCard
+                    question={currentQuestion}
+                    index={currentQuestionIndex}
+                    total={totalQuestions}
+                    value={getCurrentAnswer()}
+                    onChange={
+                      isCompleted || isPracticeAnswered
+                        ? () => {}
+                        : mode === 'practice'
+                          ? setPracticeUserAnswer
+                          : handleExamAnswerChange
+                    }
+                    disabled={isCompleted || isPracticeAnswered || !!practiceFeedback}
+                    marked={markedQuestions.has(currentQuestionIndex)}
+                    onToggleMark={() => toggleMark(currentQuestionIndex)}
+                    showMarkButton={mode === 'exam' && !isCompleted}
+                  />
+                )}
 
-              {/* Feedback */}
-              {currentFeedback && currentQuestion && (
-                <FeedbackCard
-                  feedback={currentFeedback}
-                  explanation={currentQuestion.explanation}
-                  correctAnswer={currentQuestion.answer}
-                />
-              )}
+                {/* Feedback */}
+                {currentFeedback && currentQuestion && (
+                  <FeedbackCard
+                    feedback={currentFeedback}
+                    explanation={currentQuestion.explanation}
+                    correctAnswer={currentQuestion.answer}
+                  />
+                )}
 
-              {/* Actions */}
-              <Group justify="space-between">
-                <Button
-                  variant="subtle"
-                  leftSection={<ArrowLeft size={16} />}
-                  disabled={currentQuestionIndex <= 0}
-                  onClick={() => goToQuestion(currentQuestionIndex - 1)}
-                >
-                  Previous
-                </Button>
-
-                {!isCompleted &&
-                  mode === 'practice' &&
-                  !practiceFeedback &&
-                  !isPracticeAnswered && (
-                    <Button
-                      leftSection={<Check size={16} />}
-                      loading={isPending}
-                      disabled={!practiceUserAnswer.trim()}
-                      onClick={handlePracticeSubmit}
-                    >
-                      Submit Answer
-                    </Button>
-                  )}
-
-                {!isCompleted &&
-                  mode === 'practice' &&
-                  (practiceFeedback || isPracticeAnswered) && (
-                    <Button rightSection={<ArrowRight size={16} />} onClick={handlePracticeNext}>
-                      {currentQuestionIndex >= totalQuestions - 1 ? 'Finish Exam' : 'Next Question'}
-                    </Button>
-                  )}
-
-                {!isCompleted && mode === 'exam' && (
-                  <Button
-                    leftSection={<Send size={16} />}
-                    loading={isPending}
-                    disabled={answeredCount === 0}
-                    onClick={() => setConfirmModalOpen(true)}
-                    color={getDocColor('exam')}
-                  >
-                    Submit All ({answeredCount}/{totalQuestions})
+                {/* Back to exams link */}
+                {isCompleted && (
+                  <Button variant="subtle" onClick={() => router.push('/study')} mt="md">
+                    Back to Exam Practice
                   </Button>
                 )}
+              </Stack>
+            </ScrollArea>
 
-                {isCompleted && (
-                  <Text size="sm" c="dimmed">
-                    {currentQuestionIndex + 1} / {totalQuestions}
-                  </Text>
-                )}
+            {/* Sticky action bar */}
+            <Group
+              justify="space-between"
+              px="lg"
+              py="sm"
+              style={{ borderTop: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}
+            >
+              <Button
+                variant="subtle"
+                leftSection={<ArrowLeft size={16} />}
+                disabled={currentQuestionIndex <= 0}
+                onClick={() => goToQuestion(currentQuestionIndex - 1)}
+              >
+                Previous
+              </Button>
 
+              {!isCompleted && mode === 'practice' && !practiceFeedback && !isPracticeAnswered && (
                 <Button
-                  variant="subtle"
-                  rightSection={<ArrowRight size={16} />}
-                  disabled={currentQuestionIndex >= totalQuestions - 1}
-                  onClick={() => goToQuestion(currentQuestionIndex + 1)}
+                  leftSection={<Check size={16} />}
+                  loading={isPending}
+                  disabled={!practiceUserAnswer.trim()}
+                  onClick={handlePracticeSubmit}
                 >
-                  Next
-                </Button>
-              </Group>
-
-              {/* Back to exams link */}
-              {isCompleted && (
-                <Button variant="subtle" onClick={() => router.push('/study')} mt="md">
-                  Back to Exam Practice
+                  Submit Answer
                 </Button>
               )}
-            </Stack>
+
+              {!isCompleted && mode === 'practice' && (practiceFeedback || isPracticeAnswered) && (
+                <Button rightSection={<ArrowRight size={16} />} onClick={handlePracticeNext}>
+                  {currentQuestionIndex >= totalQuestions - 1 ? 'Finish Exam' : 'Next Question'}
+                </Button>
+              )}
+
+              {!isCompleted && mode === 'exam' && (
+                <Button
+                  leftSection={<Send size={16} />}
+                  loading={isPending}
+                  disabled={answeredCount === 0}
+                  onClick={() => setConfirmModalOpen(true)}
+                  color={getDocColor('exam')}
+                >
+                  Submit All ({answeredCount}/{totalQuestions})
+                </Button>
+              )}
+
+              {isCompleted && (
+                <Text size="sm" c="dimmed">
+                  {currentQuestionIndex + 1} / {totalQuestions}
+                </Text>
+              )}
+
+              <Button
+                variant="subtle"
+                rightSection={<ArrowRight size={16} />}
+                disabled={currentQuestionIndex >= totalQuestions - 1}
+                onClick={() => goToQuestion(currentQuestionIndex + 1)}
+              >
+                Next
+              </Button>
+            </Group>
           </Box>
         </Group>
-      </Card>
 
-      {/* Mobile bottom question nav */}
-      <Box
-        hiddenFrom="sm"
-        py="xs"
-        px="md"
-        style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
-      >
-        <ScrollArea type="never">
-          <Group gap={6} wrap="nowrap">
-            {mock.questions.map((_, i) => (
-              <Button
-                key={i}
-                size="compact-xs"
-                radius="xl"
-                variant={i === currentQuestionIndex ? 'filled' : 'light'}
-                color={getStatusColor(getQuestionStatus(i))}
-                onClick={() => goToQuestion(i)}
-                miw={32}
-              >
-                {i + 1}
-              </Button>
-            ))}
-          </Group>
-        </ScrollArea>
-      </Box>
+        {/* Mobile bottom question nav */}
+        <Box
+          hiddenFrom="sm"
+          py="xs"
+          px="md"
+          style={{
+            borderTop: '1px solid var(--mantine-color-gray-2)',
+            flexShrink: 0,
+          }}
+        >
+          <ScrollArea type="never">
+            <Group gap={6} wrap="nowrap">
+              {mock.questions.map((_, i) => (
+                <Button
+                  key={i}
+                  size="compact-xs"
+                  radius="xl"
+                  variant={i === currentQuestionIndex ? 'filled' : 'light'}
+                  color={getStatusColor(getQuestionStatus(i))}
+                  onClick={() => goToQuestion(i)}
+                  miw={32}
+                >
+                  {i + 1}
+                </Button>
+              ))}
+            </Group>
+          </ScrollArea>
+        </Box>
+      </Card>
 
       {/* Submit confirmation modal */}
       <Modal
@@ -700,17 +705,6 @@ export function MockExamClient({ initialMock }: Props) {
           </Group>
         </Stack>
       </Modal>
-
-      {/* Timer flash animation */}
-      <style>{`
-        @keyframes timer-flash {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          * { animation-duration: 0s !important; }
-        }
-      `}</style>
     </Stack>
   );
 }
