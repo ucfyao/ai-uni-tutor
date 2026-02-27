@@ -31,7 +31,7 @@ For each question, generate:
 - "type": one of "choice", "fill_blank", "short_answer", "calculation", "proof", "essay", "true_false"
 - "content": the question text in Markdown format. Use KaTeX for math (inline: $...$, block: $$...$$)
 - "options": for "choice" or "true_false" questions, an object like {"A": "...", "B": "...", ...}. null for other types
-- "answer": the correct answer
+- "answer": the correct answer. For "choice" or "true_false" questions, use comma-separated option keys (e.g. "A" for single, "A,C" for multiple correct answers)
 - "explanation": a clear explanation of the correct answer
 - "points": the point value of the question (typically 1-5 based on difficulty)
 - "knowledge_point": the main topic or concept tested

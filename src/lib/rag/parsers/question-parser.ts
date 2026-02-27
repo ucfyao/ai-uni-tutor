@@ -43,7 +43,7 @@ For each question, extract:
 - type: Question type — one of "choice", "fill_blank", "short_answer", "calculation", "proof", "essay", "true_false"
 - parentIndex: If this is a sub-question (like (a), (b), (i), (ii)), the 0-based index of its parent in the results array. null for top-level questions.
 - options: Array of answer options if it's a multiple choice question (omit if not MC)
-- referenceAnswer: The reference answer or solution if provided in the document (omit if not found)
+- referenceAnswer: The reference answer or solution if provided in the document (omit if not found). For "choice" or "true_false" questions, use comma-separated option keys (e.g. "A" for single, "A,C" for multiple correct answers)
 - explanation: Step-by-step solution explanation if provided in the document (omit if not found)
 - score: Points/marks allocated if shown (omit if not shown)
 - sourcePage: The page number where the question appears
