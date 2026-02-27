@@ -1,5 +1,5 @@
 import { ArrowUp, Mic, MicOff, Paperclip, Square, Upload } from 'lucide-react';
-import React, { useCallback, useEffect, useRef as useReactRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef as useReactRef, useState } from 'react';
 import {
   ActionIcon,
   Box,
@@ -14,7 +14,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import type { ChatCommand } from '@/constants/commands';
-import { filterCommands } from '@/constants/commands';
+import { filterCommands, parseCommand } from '@/constants/commands';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -87,6 +87,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setShowPalette(false);
     }
   }, [input, mode]);
+
+  // Detect active command for showing usage hint
+  const activeCommandHint = useMemo(() => {
+    if (!mode || !input.startsWith('/')) return null;
+    const parsed = parseCommand(input, mode);
+    if (!parsed) return null;
+    // Hide hint once user has typed enough context after the command
+    if (parsed.args.length > 20) return null;
+    const cmdT = (t.chat.commands as Record<string, { label: string; desc: string; example?: string }>)[
+      parsed.command.labelKey
+    ];
+    return cmdT?.example ?? null;
+  }, [input, mode, t.chat.commands]);
 
   // Track the text that was in the input before voice started
   const preVoiceInputRef = useReactRef('');
@@ -297,6 +310,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               selectedIndex={paletteIndex}
               onSelect={handlePaletteSelect}
             />
+          )}
+          {activeCommandHint && !showPalette && (
+            <Text
+              size="xs"
+              c="dimmed"
+              px="md"
+              py={4}
+              style={{ fontStyle: 'italic' }}
+            >
+              {activeCommandHint}
+            </Text>
           )}
           <Box
             p={4}
