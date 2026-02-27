@@ -77,7 +77,10 @@ export class SessionService {
     const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
     if (!session) return null;
 
-    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(sessionId);
+    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(
+      sessionId,
+      session.activeLeafId,
+    );
     const course = await this.resolveCourse(session.courseId);
 
     return {
@@ -97,11 +100,10 @@ export class SessionService {
    * Get only active-path messages for a session
    */
   async getSessionMessages(sessionId: string, userId: string): Promise<ChatMessage[] | null> {
-    // Verify ownership first
-    const hasAccess = await this.sessionRepo.verifyOwnership(sessionId, userId);
-    if (!hasAccess) return null;
+    const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
+    if (!session) return null;
 
-    const activePath = await this.messageRepo.getActivePath(sessionId);
+    const activePath = await this.messageRepo.getActivePath(sessionId, session.activeLeafId);
     return activePath.map(toChat);
   }
 
@@ -145,7 +147,10 @@ export class SessionService {
     const session = await this.sessionRepo.findSharedById(sessionId);
     if (!session) return null;
 
-    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(sessionId);
+    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(
+      sessionId,
+      session.activeLeafId,
+    );
     const course = await this.resolveCourse(session.courseId);
 
     return {
@@ -210,8 +215,8 @@ export class SessionService {
       parentMessageId: message.parentMessageId,
     });
 
-    // Update session timestamp once per turn (not per message)
-    await this.sessionRepo.update(sessionId, {});
+    // Update session timestamp and track the latest message as active leaf
+    await this.sessionRepo.update(sessionId, { activeLeafId: message.id });
   }
 
   /**
@@ -294,6 +299,12 @@ export class SessionService {
     // Build the active path through the new message (getActivePath uses inferParentChain internally)
     const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(sessionId);
 
+    // Persist the new branch leaf
+    const leaf = path[path.length - 1];
+    if (leaf) {
+      await this.sessionRepo.update(sessionId, { activeLeafId: leaf.id });
+    }
+
     return {
       newMessageId: newMsg.id,
       messages: path.map(toChat),
@@ -361,6 +372,12 @@ export class SessionService {
 
     // Compute siblingsMap from all inferred messages
     const siblingsMap = buildSiblingsMap(inferred);
+
+    // Persist the selected branch leaf
+    const leaf = path[path.length - 1];
+    if (leaf) {
+      await this.sessionRepo.update(sessionId, { activeLeafId: leaf.id });
+    }
 
     return {
       messages: path.map(toChat),

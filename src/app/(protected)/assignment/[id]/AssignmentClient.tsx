@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Anchor, Button, Center, Loader, Stack, Text, Title } from '@mantine/core';
 import {
-  getChatMessages,
   getChatSession,
   saveChatMessage,
   toggleSessionPin,
@@ -90,29 +89,29 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
             setLoading(false);
           }
 
-          // 2. Always fetch from server for freshest data
-          const messages = await getChatMessages(id);
+          // 2. Always fetch full session from server (includes siblingsMap + correct branch)
+          const freshSession = await getChatSession(id);
           if (cancelled) return;
-          if (messages === null) {
+          if (!freshSession) {
             setLoading(false);
             routerRef.current.push('/study');
             return;
           }
           setSession((prevSession) => {
             if (!prevSession) {
-              savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
-              return { ...fromList, messages };
+              savedMsgIdsRef.current = new Set(freshSession.messages.map((m) => m.id));
+              return freshSession;
             }
 
             // Merge: keep client-only messages (sent while server fetch was in-flight)
-            const serverMessageIds = new Set(messages.map((m) => m.id));
+            const serverMessageIds = new Set(freshSession.messages.map((m) => m.id));
             const clientOnlyMessages = prevSession.messages.filter(
               (m) => !serverMessageIds.has(m.id),
             );
-            const mergedMessages = [...messages, ...clientOnlyMessages];
+            const mergedMessages = [...freshSession.messages, ...clientOnlyMessages];
 
             savedMsgIdsRef.current = new Set(mergedMessages.map((m) => m.id));
-            return { ...prevSession, messages: mergedMessages };
+            return { ...freshSession, messages: mergedMessages };
           });
           setLoading(false);
           return;

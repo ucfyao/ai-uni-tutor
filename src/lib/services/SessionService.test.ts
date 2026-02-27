@@ -42,6 +42,7 @@ function makeSessionEntity(overrides: Partial<SessionEntity> = {}): SessionEntit
     isPinned: false,
     isShared: false,
     shareExpiresAt: null,
+    activeLeafId: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -154,8 +155,8 @@ describe('SessionService', () => {
   // getSessionMessages
   // =========================================================================
   describe('getSessionMessages', () => {
-    it('should return null when ownership verification fails', async () => {
-      sessionRepo.verifyOwnership.mockResolvedValue(false);
+    it('should return null when session is not found', async () => {
+      sessionRepo.findByIdAndUserId.mockResolvedValue(null);
 
       const result = await service.getSessionMessages('sess-1', 'user-bad');
 
@@ -163,8 +164,9 @@ describe('SessionService', () => {
       expect(messageRepo.getActivePath).not.toHaveBeenCalled();
     });
 
-    it('should return mapped messages when user owns the session', async () => {
-      sessionRepo.verifyOwnership.mockResolvedValue(true);
+    it('should return mapped messages and pass activeLeafId', async () => {
+      const session = makeSessionEntity({ activeLeafId: 'msg-leaf' });
+      sessionRepo.findByIdAndUserId.mockResolvedValue(session);
       const messages = [
         makeMessageEntity({ id: 'msg-1', content: 'Q1', role: 'user' }),
         makeMessageEntity({ id: 'msg-2', content: 'A1', role: 'assistant' }),
@@ -181,6 +183,7 @@ describe('SessionService', () => {
         timestamp: now.getTime(),
         parentMessageId: null,
       });
+      expect(messageRepo.getActivePath).toHaveBeenCalledWith('sess-1', 'msg-leaf');
     });
   });
 
@@ -308,6 +311,8 @@ describe('SessionService', () => {
         timestamp: message.timestamp,
         parentMessageId: 'msg-prev',
       });
+      // Should persist the message as active leaf
+      expect(sessionRepo.update).toHaveBeenCalledWith('sess-1', { activeLeafId: 'msg-new' });
     });
 
     it('should throw ForbiddenError when user does not own the session', async () => {
