@@ -197,15 +197,17 @@ export function MockExamClient({ initialMock }: Props) {
           </Title>
           <Text c="dimmed" size="md" fw={400} mt={2}>
             {isCompleted
-              ? `Completed · ${totalQuestions} questions`
-              : `${mode === 'practice' ? 'Practice' : 'Exam'} Mode · ${totalQuestions} questions`}
+              ? t.exam.completedQuestions.replace('{n}', String(totalQuestions))
+              : t.exam.modeQuestions
+                  .replace('{mode}', mode === 'practice' ? t.exam.practiceMode : t.exam.examMode)
+                  .replace('{n}', String(totalQuestions))}
           </Text>
         </Box>
 
         {!isCompleted && (
           <Group gap="xs">
             <Switch
-              label="Timer"
+              label={t.exam.timer}
               size="sm"
               checked={timerEnabled}
               onChange={(e) => setTimerEnabled(e.currentTarget.checked)}
@@ -393,7 +395,7 @@ export function MockExamClient({ initialMock }: Props) {
                                 q.type}
                             </Badge>
                             <Text size="xs" c="dimmed">
-                              {q.points} pts
+                              {q.points} {t.exam.points}
                             </Text>
                           </Group>
                         </div>
@@ -457,7 +459,7 @@ export function MockExamClient({ initialMock }: Props) {
                 disabled={currentQuestionIndex <= 0}
                 onClick={() => goToQuestion(currentQuestionIndex - 1)}
               >
-                Previous
+                {t.exam.previous}
               </Button>
 
               {!isCompleted && (
@@ -483,7 +485,7 @@ export function MockExamClient({ initialMock }: Props) {
                 disabled={currentQuestionIndex >= totalQuestions - 1}
                 onClick={() => goToQuestion(currentQuestionIndex + 1)}
               >
-                Next
+                {t.exam.next}
               </Button>
             </Group>
           </Box>

@@ -23,6 +23,7 @@ export interface IMockExamRepository {
   findById(id: string): Promise<MockExam | null>;
   verifyOwnership(id: string, userId: string): Promise<boolean>;
   findBySessionId(sessionId: string): Promise<string | null>; // returns mock ID
+  findMockIdsBySessionIds(sessionIds: string[]): Promise<Map<string, string>>; // sessionId → mockId
   findByUserId(userId: string, limit?: number, offset?: number): Promise<MockExam[]>;
 
   update(

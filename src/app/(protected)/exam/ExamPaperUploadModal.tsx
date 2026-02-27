@@ -6,6 +6,7 @@ import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/c
 import { Dropzone, MIME_TYPES } from '@mantine/dropzone';
 import { uploadAndParseExamPaper, type ExamPaperUploadState } from '@/app/actions/exam-papers';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const ExamIcon = getDocIcon('exam');
 
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
+  const { t } = useLanguage();
   const [file, setFile] = useState<File | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -36,7 +38,7 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Upload Exam Paper" centered size="md">
+    <Modal opened={opened} onClose={onClose} title={t.exam.uploadExamPaper} centered size="md">
       <form ref={formRef} action={formAction}>
         <Stack gap="md">
           <Dropzone
@@ -62,10 +64,10 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
               </Dropzone.Idle>
               <div>
                 <Text size="sm" inline>
-                  Drag a PDF here or click to select
+                  {t.exam.dragPdfHere}
                 </Text>
                 <Text size="xs" c="dimmed" inline mt={4}>
-                  Max file size: 20 MB
+                  {t.exam.maxFileSize}
                 </Text>
               </div>
             </Group>
@@ -83,17 +85,17 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
             </Group>
           )}
 
-          <TextInput name="school" label="School" placeholder="e.g. MIT" />
-          <TextInput name="course" label="Course" placeholder="e.g. Linear Algebra" />
-          <TextInput name="year" label="Year / Semester" placeholder="e.g. 2024 Fall Final" />
+          <TextInput name="school" label={t.exam.school} placeholder={t.exam.schoolPlaceholder} />
+          <TextInput name="course" label={t.exam.course} placeholder={t.exam.coursePlaceholder} />
+          <TextInput name="year" label={t.exam.yearSemester} placeholder={t.exam.yearPlaceholder} />
 
           {isAdmin && (
             <Select
               name="visibility"
-              label="Visibility"
+              label={t.exam.visibility}
               data={[
-                { value: 'public', label: 'Public (all users)' },
-                { value: 'private', label: 'Private (only me)' },
+                { value: 'public', label: t.exam.publicAllUsers },
+                { value: 'private', label: t.exam.privateOnlyMe },
               ]}
               defaultValue="public"
             />
@@ -111,7 +113,7 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
           )}
 
           <Button type="submit" loading={isPending} disabled={!file} fullWidth>
-            Upload & Parse
+            {t.exam.uploadAndParse}
           </Button>
         </Stack>
       </form>

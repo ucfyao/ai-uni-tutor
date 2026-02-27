@@ -57,7 +57,11 @@ export async function createMockExamStub(
     if (!sessionId.trim()) return { success: false, error: 'Session ID is required' };
 
     const service = getMockExamService();
-    const { mockId } = await service.createMinimalStub(user.id, sessionId.trim(), title || 'Mock Exam');
+    const { mockId } = await service.createMinimalStub(
+      user.id,
+      sessionId.trim(),
+      title || 'Mock Exam',
+    );
 
     return { success: true, mockId };
   } catch (error) {

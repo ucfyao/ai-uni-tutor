@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Check, Flag, Target, Trophy, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Badge,
   Box,
@@ -55,9 +55,7 @@ export function ExamSubmitModal({
 
   const totalQuestions = questions.length;
   const answeredCount = Object.values(answers).filter((v) => v.trim()).length;
-  const unansweredIndices = questions
-    .map((_, i) => i)
-    .filter((i) => !answers[i]?.trim());
+  const unansweredIndices = questions.map((_, i) => i).filter((i) => !answers[i]?.trim());
   const markedIndices = Array.from(markedQuestions).sort((a, b) => a - b);
 
   // Reset phase when modal opens
@@ -224,7 +222,9 @@ export function ExamSubmitModal({
     const ringColor = scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
     const unanswered = result.responses.filter((r) => !r.userAnswer.trim()).length;
     const correctCount = result.responses.filter((r) => r.isCorrect).length;
-    const incorrectCount = result.responses.filter((r) => !r.isCorrect && r.userAnswer.trim()).length;
+    const incorrectCount = result.responses.filter(
+      (r) => !r.isCorrect && r.userAnswer.trim(),
+    ).length;
 
     return (
       <Stack align="center" gap="md" py="md">
@@ -293,19 +293,9 @@ export function ExamSubmitModal({
           )}
         </SimpleGrid>
 
-        <Stack gap="xs" w="100%" mt="sm">
-          <Button color={color} fullWidth onClick={handleReview}>
-            {t.exam.reviewAnswers}
-          </Button>
-          <Button
-            variant="subtle"
-            fullWidth
-            component="a"
-            href="/study"
-          >
-            {t.exam.backToStudy}
-          </Button>
-        </Stack>
+        <Button color={color} fullWidth mt="sm" onClick={handleReview}>
+          {t.exam.reviewAnswers}
+        </Button>
       </Stack>
     );
   };

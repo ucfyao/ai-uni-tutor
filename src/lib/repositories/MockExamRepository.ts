@@ -107,6 +107,30 @@ export class MockExamRepository implements IMockExamRepository {
     return data.id;
   }
 
+  async findMockIdsBySessionIds(sessionIds: string[]): Promise<Map<string, string>> {
+    if (sessionIds.length === 0) return new Map();
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('mock_exams')
+      .select('id, session_id')
+      .in('session_id', sessionIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch mock IDs by session IDs: ${error.message}`, error);
+    }
+
+    // Keep only the latest mock per session (first seen wins due to desc order)
+    const map = new Map<string, string>();
+    for (const row of data ?? []) {
+      if (row.session_id && !map.has(row.session_id)) {
+        map.set(row.session_id, row.id);
+      }
+    }
+    return map;
+  }
+
   async findByUserId(userId: string, limit = 20, offset = 0): Promise<MockExam[]> {
     const supabase = await createClient();
     const { data, error } = await supabase

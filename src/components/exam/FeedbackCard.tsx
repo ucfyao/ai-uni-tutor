@@ -68,7 +68,7 @@ export function FeedbackCard({ feedback, explanation, correctAnswer }: Props) {
           <Text size="xs" fw={600} c="dimmed" mb={4}>
             {t.exam.feedback}
           </Text>
-          <Text size="sm">{feedback.aiFeedback}</Text>
+          <MarkdownRenderer content={feedback.aiFeedback} compact tight />
         </div>
 
         <Paper withBorder radius="md" p="sm">

@@ -9,6 +9,7 @@ import type { MessageEntity } from '@/lib/domain/models/Message';
 import { ForbiddenError } from '@/lib/errors';
 import { getMessageRepository, getSessionRepository } from '@/lib/repositories';
 import { inferParentChain, type MessageRepository } from '@/lib/repositories/MessageRepository';
+import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
 import { getCourseService } from '@/lib/services/CourseService';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types';
@@ -118,6 +119,13 @@ export class SessionService {
     ]);
     const courseMap = new Map<string, any>(allCourses.map((c) => [c.id, c]));
 
+    // Batch-fetch mockId for Mock Exam sessions
+    const examSessionIds = sessions.filter((s) => s.mode === 'Mock Exam').map((s) => s.id);
+    const mockIdMap =
+      examSessionIds.length > 0
+        ? await getMockExamRepository().findMockIdsBySessionIds(examSessionIds)
+        : new Map<string, string>();
+
     return sessions.map((s) => {
       const courseEntity = s.courseId ? courseMap.get(s.courseId) : null;
       return {
@@ -136,6 +144,7 @@ export class SessionService {
         lastUpdated: s.updatedAt.getTime(),
         isPinned: s.isPinned,
         isShared: s.isShared,
+        mockId: mockIdMap.get(s.id),
       };
     });
   }

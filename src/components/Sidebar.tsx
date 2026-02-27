@@ -140,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Auto-expand the module that contains the active session
   const activeSessionMode = useMemo(() => {
     if (!activeSessionId) return null;
-    const session = sessions.find((s) => s.id === activeSessionId);
+    const session = sessions.find((s) => s.id === activeSessionId || s.mockId === activeSessionId);
     return session?.mode ?? null;
   }, [activeSessionId, sessions]);
 
@@ -615,7 +615,7 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
             <SessionItem
               key={session.id}
               session={session}
-              isActive={activeSessionId === session.id}
+              isActive={activeSessionId === session.id || activeSessionId === session.mockId}
               onSelect={onSelectSession}
               onTogglePin={onTogglePin}
               onRename={onRenameSession}

@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
-import { createMockExamStub, getMockExamIdBySessionId } from '@/app/actions/mock-exams';
+import { createMockExamStub } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import { Logo } from '@/components/Logo';
 import NewSessionModal from '@/components/NewSessionModal';
@@ -88,7 +88,7 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     router.push(targetPath);
   };
 
-  const handleSelectSession = async (id: string) => {
+  const handleSelectSession = (id: string) => {
     const session = sessions.find((s) => s.id === id);
     if (!session?.mode) {
       router.push(`/`);
@@ -97,9 +97,10 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     }
 
     if (session.mode === 'Mock Exam') {
-      const mockId = await getMockExamIdBySessionId(id);
+      const mockId = session.mockId;
       if (mockId) {
-        router.push(`/exam/${mockId}`);
+        setActiveSessionId(mockId);
+        requestAnimationFrame(() => router.push(`/exam/${mockId}`));
       } else {
         router.push(`/exam/not-found`);
       }
@@ -108,7 +109,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     }
 
     const modeRoute = MODES_METADATA[session.mode].id;
-    router.push(`/${modeRoute}/${id}`);
+    setActiveSessionId(id);
+    requestAnimationFrame(() => router.push(`/${modeRoute}/${id}`));
     if (isMobile) toggleMobile();
   };
 

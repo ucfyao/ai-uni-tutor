@@ -35,6 +35,8 @@ export interface ChatSession {
   lastUpdated: number;
   isPinned?: boolean;
   isShared?: boolean;
+  /** Mock exam ID for Mock Exam sessions (used for sidebar active-state matching) */
+  mockId?: string;
   /** Fork points: parentMessageId → ordered child IDs (only parents with >1 child) */
   siblingsMap?: Record<string, string[]>;
 }
