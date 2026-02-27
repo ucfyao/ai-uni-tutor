@@ -1,7 +1,6 @@
 'use client';
 
 import { ArrowLeft, ArrowRight, Check, Flag, Target, Trophy, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Badge,
@@ -40,7 +39,6 @@ function formatTime(seconds: number): string {
 }
 
 export function MockExamClient({ initialMock }: Props) {
-  const router = useRouter();
   const { t } = useLanguage();
   const [mock, setMock] = useState(initialMock);
 
@@ -430,12 +428,6 @@ export function MockExamClient({ initialMock }: Props) {
                   />
                 )}
 
-                {/* Back to exams link */}
-                {isCompleted && (
-                  <Button variant="subtle" onClick={() => router.push('/study')} mt="md">
-                    Back to Exam Practice
-                  </Button>
-                )}
               </Stack>
             </ScrollArea>
 
