@@ -519,7 +519,7 @@ export const translations = {
       incorrect: '错误',
       timeRemaining: '剩余时间',
       examComplete: '考试完成',
-      reviewAnswers: '查看答案',
+      reviewAnswers: '查看详情',
       tryAgain: '重新尝试',
       createExam: '创建考试',
       noExams: '暂无考试',
@@ -581,6 +581,14 @@ export const translations = {
       continueAnswering: '继续答题',
       confirmSubmit: '确认提交',
       selectMultiple: '请选择所有正确选项',
+      gradingInProgress: '正在批改中...',
+      questionsSubmitted: '已提交 {n} 道题',
+      submitFailed: '提交失败，请重试',
+      retry: '重试',
+      backToStudy: '返回学习',
+      examCompleted: '考试完成！',
+      unansweredCount: '未作答',
+      cancel: '取消',
     },
     // Sidebar
     sidebar: {
@@ -1504,6 +1512,14 @@ export const translations = {
       continueAnswering: 'Continue Answering',
       confirmSubmit: 'Confirm Submit',
       selectMultiple: 'Select all that apply',
+      gradingInProgress: 'Grading your answers...',
+      questionsSubmitted: '{n} questions submitted',
+      submitFailed: 'Submission failed. Please try again.',
+      retry: 'Retry',
+      backToStudy: 'Back to Study',
+      examCompleted: 'Exam Completed!',
+      unansweredCount: 'Unanswered',
+      cancel: 'Cancel',
     },
     // Sidebar
     sidebar: {
