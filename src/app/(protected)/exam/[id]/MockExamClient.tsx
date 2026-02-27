@@ -1,15 +1,13 @@
 'use client';
 
-import { ArrowLeft, ArrowRight, Check, Flag, Send, Target, Trophy, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { ArrowLeft, ArrowRight, Check, Flag, Target, Trophy, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Badge,
   Box,
   Button,
   Card,
   Group,
-  Modal,
   Paper,
   Progress,
   RingProgress,
@@ -21,12 +19,12 @@ import {
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import { batchSubmitMockAnswers } from '@/app/actions/mock-exams';
+import { ExamSubmitModal } from '@/components/exam/ExamSubmitModal';
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { MockExam, MockExamResponse } from '@/types/exam';
+import type { BatchSubmitResult, MockExam, MockExamResponse } from '@/types/exam';
 
 interface Props {
   initialMock: MockExam;
@@ -41,10 +39,8 @@ function formatTime(seconds: number): string {
 }
 
 export function MockExamClient({ initialMock }: Props) {
-  const router = useRouter();
   const { t } = useLanguage();
   const [mock, setMock] = useState(initialMock);
-  const [isPending, startTransition] = useTransition();
 
   // Mode locked from record
   const mode = mock.mode;
@@ -73,8 +69,9 @@ export function MockExamClient({ initialMock }: Props) {
     });
   }, []);
 
-  // Submit confirmation modal
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  // Submit modal
+  const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [timerExpired, setTimerExpired] = useState(false);
 
   // Timer
   const [timerEnabled, setTimerEnabled] = useState(false);
@@ -85,14 +82,15 @@ export function MockExamClient({ initialMock }: Props) {
   const currentQuestion = mock.questions[currentQuestionIndex];
   const totalQuestions = mock.questions.length;
 
-  // Timer countdown
+  // Timer countdown — auto-opens submit modal on expiry
   useEffect(() => {
-    if (timerEnabled && !isCompleted) {
+    if (timerEnabled && !isCompleted && !hasSubmitted) {
       timerRef.current = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
-            handleBatchSubmit();
             if (timerRef.current) clearInterval(timerRef.current);
+            setTimerExpired(true);
+            setSubmitModalOpen(true);
             return 0;
           }
           return prev - 1;
@@ -102,8 +100,23 @@ export function MockExamClient({ initialMock }: Props) {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timerEnabled, isCompleted]);
+  }, [timerEnabled, isCompleted, hasSubmitted]);
+
+  // Handle successful submission from ExamSubmitModal
+  const handleSubmitSuccess = useCallback(
+    (result: BatchSubmitResult) => {
+      setHasSubmitted(true);
+      setMock((prev) => ({
+        ...prev,
+        status: 'completed',
+        score: result.score,
+        responses: result.responses,
+        currentIndex: totalQuestions,
+      }));
+      setCurrentQuestionIndex(0);
+    },
+    [totalQuestions],
+  );
 
   // Determine question status for sidebar
   const getQuestionStatus = (index: number) => {
@@ -146,31 +159,6 @@ export function MockExamClient({ initialMock }: Props) {
     },
     [currentQuestionIndex],
   );
-
-  // Batch submit all answers (both modes)
-  const handleBatchSubmit = useCallback(() => {
-    const answersToSubmit = Object.entries(answers)
-      .filter(([, v]) => v.trim())
-      .map(([k, v]) => ({ questionIndex: Number(k), userAnswer: v }));
-
-    if (answersToSubmit.length === 0) return;
-    setHasSubmitted(true);
-
-    startTransition(async () => {
-      const result = await batchSubmitMockAnswers(mock.id, answersToSubmit);
-      if (result.success) {
-        setMock((prev) => ({
-          ...prev,
-          status: 'completed',
-          score: result.result.score,
-          responses: result.result.responses,
-          currentIndex: totalQuestions,
-        }));
-        setCurrentQuestionIndex(0); // Show first question for review
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mock.id, answers, totalQuestions]);
 
   // Navigate to question
   const goToQuestion = (index: number) => {
@@ -251,6 +239,91 @@ export function MockExamClient({ initialMock }: Props) {
       <Box className="animate-fade-in-up animate-delay-100" style={{ opacity: 0 }}>
         <Progress value={progressValue} size="sm" color={getDocColor('exam')} />
       </Box>
+
+      {/* Score summary banner (shown for completed exams) */}
+      {isCompleted &&
+        mock.score !== null &&
+        (() => {
+          const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
+          const ringColor =
+            scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
+          const correctCount = mock.responses.filter((r) => r.isCorrect).length;
+          const incorrectCount = mock.responses.filter(
+            (r) => !r.isCorrect && r.userAnswer.trim(),
+          ).length;
+          const unansweredCount = mock.responses.filter((r) => !r.userAnswer.trim()).length;
+
+          return (
+            <Paper
+              withBorder
+              radius="lg"
+              p="md"
+              className="animate-fade-in-up animate-delay-100"
+              style={{
+                borderColor: 'var(--mantine-color-gray-2)',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                opacity: 0,
+              }}
+            >
+              <Group justify="center" gap="lg" wrap="wrap">
+                <Trophy size={28} color="gold" />
+                <RingProgress
+                  size={64}
+                  thickness={6}
+                  roundCaps
+                  sections={[{ value: scorePercent, color: ringColor }]}
+                  label={
+                    <Text ta="center" fw={700} fz="xs">
+                      {scorePercent}%
+                    </Text>
+                  }
+                />
+                <Text fw={700} fz="lg">
+                  {mock.score}/{mock.totalPoints}
+                </Text>
+                <SimpleGrid cols={unansweredCount > 0 ? 4 : 3} spacing="sm">
+                  <Group gap={4}>
+                    <Target size={14} color="var(--mantine-color-dimmed)" />
+                    <Text fz="sm" c="dimmed">
+                      {t.exam.totalQuestions}
+                    </Text>
+                    <Text fw={700} fz="sm">
+                      {totalQuestions}
+                    </Text>
+                  </Group>
+                  <Group gap={4}>
+                    <Check size={14} color="var(--mantine-color-green-6)" />
+                    <Text fz="sm" c="dimmed">
+                      {t.exam.correct}
+                    </Text>
+                    <Text fw={700} fz="sm" c="green">
+                      {correctCount}
+                    </Text>
+                  </Group>
+                  <Group gap={4}>
+                    <X size={14} color="var(--mantine-color-red-6)" />
+                    <Text fz="sm" c="dimmed">
+                      {t.exam.incorrect}
+                    </Text>
+                    <Text fw={700} fz="sm" c="red">
+                      {incorrectCount}
+                    </Text>
+                  </Group>
+                  {unansweredCount > 0 && (
+                    <Group gap={4}>
+                      <Text fz="sm" c="dimmed">
+                        {t.exam.unansweredCount}
+                      </Text>
+                      <Text fw={700} fz="sm" c="gray">
+                        {unansweredCount}
+                      </Text>
+                    </Group>
+                  )}
+                </SimpleGrid>
+              </Group>
+            </Paper>
+          );
+        })()}
 
       {/* Two-column layout — fills remaining height */}
       <Card
@@ -344,91 +417,6 @@ export function MockExamClient({ initialMock }: Props) {
             {/* Scrollable content area */}
             <ScrollArea style={{ flex: 1 }} type="auto" offsetScrollbars>
               <Stack gap="lg" p="lg">
-                {/* Completion score card */}
-                {isCompleted &&
-                  mock.score !== null &&
-                  currentQuestionIndex === 0 &&
-                  !currentFeedback &&
-                  (() => {
-                    const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
-                    const ringColor =
-                      scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
-                    const correctCount = mock.responses.filter((r) => r.isCorrect).length;
-                    const incorrectCount = mock.responses.filter((r) => !r.isCorrect).length;
-
-                    return (
-                      <Card
-                        withBorder
-                        radius="lg"
-                        p="xl"
-                        ta="center"
-                        style={{
-                          borderColor: 'var(--mantine-color-gray-2)',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                        }}
-                      >
-                        <Stack align="center" gap="md">
-                          <Trophy size={48} color="gold" />
-                          <Title order={2}>Exam Completed!</Title>
-
-                          <RingProgress
-                            size={120}
-                            thickness={10}
-                            roundCaps
-                            sections={[{ value: scorePercent, color: ringColor }]}
-                            label={
-                              <Text ta="center" fw={700} fz="lg">
-                                {scorePercent}%
-                              </Text>
-                            }
-                          />
-
-                          <Text size="lg" fw={700}>
-                            {mock.score}/{mock.totalPoints}
-                          </Text>
-
-                          <SimpleGrid cols={3} spacing="sm" w="100%">
-                            <Paper withBorder radius="md" p="sm" ta="center">
-                              <Group gap={4} justify="center" mb={4}>
-                                <Target size={14} color="var(--mantine-color-dimmed)" />
-                                <Text fz="xs" c="dimmed">
-                                  Total
-                                </Text>
-                              </Group>
-                              <Text fw={700}>{totalQuestions}</Text>
-                            </Paper>
-                            <Paper withBorder radius="md" p="sm" ta="center">
-                              <Group gap={4} justify="center" mb={4}>
-                                <Check size={14} color="var(--mantine-color-green-6)" />
-                                <Text fz="xs" c="dimmed">
-                                  Correct
-                                </Text>
-                              </Group>
-                              <Text fw={700} c="green">
-                                {correctCount}
-                              </Text>
-                            </Paper>
-                            <Paper withBorder radius="md" p="sm" ta="center">
-                              <Group gap={4} justify="center" mb={4}>
-                                <X size={14} color="var(--mantine-color-red-6)" />
-                                <Text fz="xs" c="dimmed">
-                                  Incorrect
-                                </Text>
-                              </Group>
-                              <Text fw={700} c="red">
-                                {incorrectCount}
-                              </Text>
-                            </Paper>
-                          </SimpleGrid>
-
-                          <Text size="sm" c="dimmed">
-                            Click any question in the sidebar to review
-                          </Text>
-                        </Stack>
-                      </Card>
-                    );
-                  })()}
-
                 {/* Current question */}
                 {currentQuestion && (
                   <QuestionCard
@@ -453,12 +441,6 @@ export function MockExamClient({ initialMock }: Props) {
                   />
                 )}
 
-                {/* Back to exams link */}
-                {isCompleted && (
-                  <Button variant="subtle" onClick={() => router.push('/study')} mt="md">
-                    Back to Exam Practice
-                  </Button>
-                )}
               </Stack>
             </ScrollArea>
 
@@ -480,13 +462,12 @@ export function MockExamClient({ initialMock }: Props) {
 
               {!isCompleted && (
                 <Button
-                  leftSection={<Send size={16} />}
-                  loading={isPending}
-                  disabled={answeredCount === 0}
-                  onClick={() => setConfirmModalOpen(true)}
+                  loading={hasSubmitted}
+                  disabled={answeredCount === 0 || hasSubmitted}
+                  onClick={() => setSubmitModalOpen(true)}
                   color={getDocColor('exam')}
                 >
-                  Submit All ({answeredCount}/{totalQuestions})
+                  {t.exam.submitAnswer} ({answeredCount}/{totalQuestions})
                 </Button>
               )}
 
@@ -538,69 +519,21 @@ export function MockExamClient({ initialMock }: Props) {
         </Box>
       </Card>
 
-      {/* Submit confirmation modal */}
-      <Modal
-        opened={confirmModalOpen}
-        onClose={() => setConfirmModalOpen(false)}
-        title={t.exam.confirmSubmitTitle}
-        centered
-      >
-        <Stack gap="md">
-          <Text>{t.exam.confirmSubmitAll.replace('{n}', String(totalQuestions))}</Text>
-
-          {/* Unanswered questions warning */}
-          {answeredCount < totalQuestions && (
-            <Box>
-              <Text size="sm" fw={500} c="red" mb="xs">
-                {t.exam.unansweredQuestions} ({totalQuestions - answeredCount})
-              </Text>
-              <Group gap={4} wrap="wrap">
-                {mock.questions.map((_, i) =>
-                  !answers[i]?.trim() ? (
-                    <Badge key={i} size="sm" color="red" variant="light">
-                      Q{i + 1}
-                    </Badge>
-                  ) : null,
-                )}
-              </Group>
-            </Box>
-          )}
-
-          {/* Marked questions reminder */}
-          {markedQuestions.size > 0 && (
-            <Box>
-              <Text size="sm" fw={500} c="orange" mb="xs">
-                {t.exam.markedQuestions} ({markedQuestions.size})
-              </Text>
-              <Group gap={4} wrap="wrap">
-                {Array.from(markedQuestions)
-                  .sort((a, b) => a - b)
-                  .map((i) => (
-                    <Badge key={i} size="sm" color="orange" variant="light">
-                      Q{i + 1}
-                    </Badge>
-                  ))}
-              </Group>
-            </Box>
-          )}
-
-          <Group justify="flex-end" gap="sm" mt="sm">
-            <Button variant="default" onClick={() => setConfirmModalOpen(false)}>
-              {t.exam.continueAnswering}
-            </Button>
-            <Button
-              color={getDocColor('exam')}
-              loading={isPending}
-              onClick={() => {
-                setConfirmModalOpen(false);
-                handleBatchSubmit();
-              }}
-            >
-              {t.exam.confirmSubmit}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      {/* Submit modal — three phases: confirm → grading → results */}
+      <ExamSubmitModal
+        opened={submitModalOpen}
+        onClose={() => {
+          setSubmitModalOpen(false);
+          setTimerExpired(false);
+        }}
+        mockId={mock.id}
+        answers={answers}
+        questions={mock.questions}
+        markedQuestions={markedQuestions}
+        onSubmitSuccess={handleSubmitSuccess}
+        onNavigateToQuestion={(index) => setCurrentQuestionIndex(index)}
+        autoSubmit={timerExpired}
+      />
     </Stack>
   );
 }
