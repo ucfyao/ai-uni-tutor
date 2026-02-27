@@ -52,7 +52,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
   const [loadingPapers, setLoadingPapers] = useState(!!courseCode);
 
   // Random / AI shared
-  const [numQuestions, setNumQuestions] = useState<string | null>('10');
+  const [numQuestions, setNumQuestions] = useState<string | null>('5');
 
   // AI-only options
   const [topic, setTopic] = useState(courseCode ?? '');

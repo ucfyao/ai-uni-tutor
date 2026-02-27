@@ -21,7 +21,7 @@ import {
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import { batchSubmitMockAnswers, submitMockAnswer } from '@/app/actions/mock-exams';
+import { batchSubmitMockAnswers } from '@/app/actions/mock-exams';
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
 import { getDocColor } from '@/constants/doc-types';
@@ -55,16 +55,10 @@ export function MockExamClient({ initialMock }: Props) {
     initialMock.status === 'completed' ? 0 : initialMock.currentIndex,
   );
 
-  // Practice mode state
-  const [practiceUserAnswer, setPracticeUserAnswer] = useState('');
-  const [practiceFeedback, setPracticeFeedback] = useState<MockExamResponse | null>(null);
+  // Unified answer collection for both modes
+  const [answers, setAnswers] = useState<Record<number, string>>({});
 
-  // Exam mode state
-  const [examAnswers, setExamAnswers] = useState<Record<number, string>>({});
-  const [examSubmitted, setExamSubmitted] = useState(false);
-  const [examResults, setExamResults] = useState<MockExamResponse[]>([]);
-
-  // Question marking (exam mode only)
+  // Question marking
   const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(new Set());
 
   const toggleMark = useCallback((index: number) => {
@@ -87,7 +81,7 @@ export function MockExamClient({ initialMock }: Props) {
   const [timeRemaining, setTimeRemaining] = useState(DEFAULT_TIMER_SECONDS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isCompleted = mock.status === 'completed' || examSubmitted;
+  const isCompleted = mock.status === 'completed';
   const currentQuestion = mock.questions[currentQuestionIndex];
   const totalQuestions = mock.questions.length;
 
@@ -97,10 +91,7 @@ export function MockExamClient({ initialMock }: Props) {
       timerRef.current = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
-            // Auto-submit in exam mode when time expires
-            if (mode === 'exam') {
-              handleBatchSubmit();
-            }
+            handleBatchSubmit();
             if (timerRef.current) clearInterval(timerRef.current);
             return 0;
           }
@@ -118,31 +109,21 @@ export function MockExamClient({ initialMock }: Props) {
   const getQuestionStatus = (index: number) => {
     if (index === currentQuestionIndex) return 'active';
     if (isCompleted) {
-      // Check if we have feedback for it
-      const response =
-        mock.status === 'completed'
-          ? mock.responses[index]
-          : examResults.find((r) => r.questionIndex === index);
+      const response = mock.responses.find((r) => r.questionIndex === index);
       if (response) return response.isCorrect ? 'correct' : 'incorrect';
       return 'unanswered';
     }
-    if (mode === 'practice') {
-      const hasResponse = mock.responses.some((r) => r.questionIndex === index);
-      return hasResponse ? 'submitted' : 'unanswered';
-    }
-    // Exam mode
+    // In-progress: check local answers
     if (markedQuestions.has(index)) {
-      return examAnswers[index] ? 'marked-answered' : 'marked';
+      return answers[index]?.trim() ? 'marked-answered' : 'marked';
     }
-    return examAnswers[index] ? 'answered' : 'unanswered';
+    return answers[index]?.trim() ? 'answered' : 'unanswered';
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
         return 'indigo';
-      case 'submitted':
-        return 'green';
       case 'correct':
         return 'green';
       case 'incorrect':
@@ -158,54 +139,17 @@ export function MockExamClient({ initialMock }: Props) {
     }
   };
 
-  // Practice mode: submit single answer
-  const handlePracticeSubmit = useCallback(() => {
-    if (!practiceUserAnswer.trim()) return;
-    setHasSubmitted(true);
-
-    startTransition(async () => {
-      const result = await submitMockAnswer(mock.id, currentQuestionIndex, practiceUserAnswer);
-      if (result.success) {
-        setPracticeFeedback(result.feedback);
-        setMock((prev) => ({
-          ...prev,
-          responses: [...prev.responses, result.feedback],
-        }));
-      }
-    });
-  }, [mock.id, currentQuestionIndex, practiceUserAnswer]);
-
-  // Practice mode: go to next question
-  const handlePracticeNext = useCallback(() => {
-    setPracticeFeedback(null);
-    setPracticeUserAnswer('');
-
-    const nextIndex = currentQuestionIndex + 1;
-    if (nextIndex >= totalQuestions) {
-      setMock((prev) => ({
-        ...prev,
-        status: 'completed',
-        score: prev.responses.reduce((sum, r) => sum + r.score, 0),
-        currentIndex: totalQuestions,
-      }));
-      setCurrentQuestionIndex(0); // Reset to first for review
-    } else {
-      setCurrentQuestionIndex(nextIndex);
-      setMock((prev) => ({ ...prev, currentIndex: nextIndex }));
-    }
-  }, [currentQuestionIndex, totalQuestions]);
-
-  // Exam mode: update answer for current question
-  const handleExamAnswerChange = useCallback(
+  // Update answer for current question
+  const handleAnswerChange = useCallback(
     (value: string) => {
-      setExamAnswers((prev) => ({ ...prev, [currentQuestionIndex]: value }));
+      setAnswers((prev) => ({ ...prev, [currentQuestionIndex]: value }));
     },
     [currentQuestionIndex],
   );
 
-  // Exam mode: batch submit all answers
+  // Batch submit all answers (both modes)
   const handleBatchSubmit = useCallback(() => {
-    const answersToSubmit = Object.entries(examAnswers)
+    const answersToSubmit = Object.entries(answers)
       .filter(([, v]) => v.trim())
       .map(([k, v]) => ({ questionIndex: Number(k), userAnswer: v }));
 
@@ -215,8 +159,6 @@ export function MockExamClient({ initialMock }: Props) {
     startTransition(async () => {
       const result = await batchSubmitMockAnswers(mock.id, answersToSubmit);
       if (result.success) {
-        setExamResults(result.result.responses);
-        setExamSubmitted(true);
         setMock((prev) => ({
           ...prev,
           status: 'completed',
@@ -228,53 +170,34 @@ export function MockExamClient({ initialMock }: Props) {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mock.id, examAnswers, totalQuestions]);
+  }, [mock.id, answers, totalQuestions]);
 
   // Navigate to question
   const goToQuestion = (index: number) => {
     setCurrentQuestionIndex(index);
-    // In practice mode, clear current answer/feedback when navigating to a new question
-    if (mode === 'practice' && !isCompleted) {
-      setPracticeUserAnswer('');
-      setPracticeFeedback(null);
-    }
   };
 
   // Get current answer value
   const getCurrentAnswer = () => {
     if (isCompleted) {
-      // Show submitted answer in review
-      const response =
-        mock.responses[currentQuestionIndex] ??
-        examResults.find((r) => r.questionIndex === currentQuestionIndex);
+      const response = mock.responses.find((r) => r.questionIndex === currentQuestionIndex);
       return response?.userAnswer ?? '';
     }
-    if (mode === 'practice') return practiceUserAnswer;
-    return examAnswers[currentQuestionIndex] ?? '';
+    return answers[currentQuestionIndex] ?? '';
   };
 
   // Get current feedback
   const getCurrentFeedback = (): MockExamResponse | null => {
-    if (mode === 'practice' && practiceFeedback) return practiceFeedback;
     if (isCompleted) {
-      return (
-        mock.responses[currentQuestionIndex] ??
-        examResults.find((r) => r.questionIndex === currentQuestionIndex) ??
-        null
-      );
+      return mock.responses.find((r) => r.questionIndex === currentQuestionIndex) ?? null;
     }
     return null;
   };
 
-  const answeredCount =
-    mode === 'exam'
-      ? Object.values(examAnswers).filter((v) => v.trim()).length
-      : mock.responses.length;
+  const answeredCount = Object.values(answers).filter((v) => v.trim()).length;
   const progressValue = isCompleted ? 100 : (answeredCount / totalQuestions) * 100;
 
   const currentFeedback = getCurrentFeedback();
-  const isPracticeAnswered =
-    mode === 'practice' && mock.responses.some((r) => r.questionIndex === currentQuestionIndex);
 
   return (
     <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
@@ -385,11 +308,7 @@ export function MockExamClient({ initialMock }: Props) {
                           variant={status === 'unanswered' ? 'light' : 'filled'}
                           color={statusColor}
                         >
-                          {status === 'submitted' || status === 'correct' ? (
-                            <Check size={12} />
-                          ) : (
-                            i + 1
-                          )}
+                          {status === 'correct' ? <Check size={12} /> : i + 1}
                         </Badge>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <Text size="xs" lineClamp={1}>
@@ -517,17 +436,11 @@ export function MockExamClient({ initialMock }: Props) {
                     index={currentQuestionIndex}
                     total={totalQuestions}
                     value={getCurrentAnswer()}
-                    onChange={
-                      isCompleted || isPracticeAnswered
-                        ? () => {}
-                        : mode === 'practice'
-                          ? setPracticeUserAnswer
-                          : handleExamAnswerChange
-                    }
-                    disabled={isCompleted || isPracticeAnswered || !!practiceFeedback}
+                    onChange={isCompleted ? () => {} : handleAnswerChange}
+                    disabled={isCompleted}
                     marked={markedQuestions.has(currentQuestionIndex)}
                     onToggleMark={() => toggleMark(currentQuestionIndex)}
-                    showMarkButton={mode === 'exam' && !isCompleted}
+                    showMarkButton={!isCompleted}
                   />
                 )}
 
@@ -565,24 +478,7 @@ export function MockExamClient({ initialMock }: Props) {
                 Previous
               </Button>
 
-              {!isCompleted && mode === 'practice' && !practiceFeedback && !isPracticeAnswered && (
-                <Button
-                  leftSection={<Check size={16} />}
-                  loading={isPending}
-                  disabled={!practiceUserAnswer.trim()}
-                  onClick={handlePracticeSubmit}
-                >
-                  Submit Answer
-                </Button>
-              )}
-
-              {!isCompleted && mode === 'practice' && (practiceFeedback || isPracticeAnswered) && (
-                <Button rightSection={<ArrowRight size={16} />} onClick={handlePracticeNext}>
-                  {currentQuestionIndex >= totalQuestions - 1 ? 'Finish Exam' : 'Next Question'}
-                </Button>
-              )}
-
-              {!isCompleted && mode === 'exam' && (
+              {!isCompleted && (
                 <Button
                   leftSection={<Send size={16} />}
                   loading={isPending}
@@ -660,7 +556,7 @@ export function MockExamClient({ initialMock }: Props) {
               </Text>
               <Group gap={4} wrap="wrap">
                 {mock.questions.map((_, i) =>
-                  !examAnswers[i]?.trim() ? (
+                  !answers[i]?.trim() ? (
                     <Badge key={i} size="sm" color="red" variant="light">
                       Q{i + 1}
                     </Badge>
