@@ -292,8 +292,11 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
         showKnowledgePanel={true}
         knowledgePanelCollapsed={desktopPanelCollapsed}
         onKnowledgePanelToggle={() => {
-          setKnowledgeDrawerTrigger((prev) => prev + 1);
-          setDesktopPanelCollapsed((prev) => !prev);
+          if (window.matchMedia('(max-width: 75em)').matches) {
+            setKnowledgeDrawerTrigger((prev) => prev + 1);
+          } else {
+            setDesktopPanelCollapsed((prev) => !prev);
+          }
         }}
       >
         <LectureHelper
