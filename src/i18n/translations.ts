@@ -580,6 +580,7 @@ export const translations = {
       markedQuestions: '已标记的题目',
       continueAnswering: '继续答题',
       confirmSubmit: '确认提交',
+      selectMultiple: '请选择所有正确选项',
     },
     // Sidebar
     sidebar: {
@@ -1502,6 +1503,7 @@ export const translations = {
       markedQuestions: 'Marked questions',
       continueAnswering: 'Continue Answering',
       confirmSubmit: 'Confirm Submit',
+      selectMultiple: 'Select all that apply',
     },
     // Sidebar
     sidebar: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleCheck, Flag } from 'lucide-react';
+import { Check, CircleCheck, Flag, Square, SquareCheck } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import {
   ActionIcon,
@@ -9,10 +9,10 @@ import {
   Card,
   Group,
   Paper,
+  SimpleGrid,
   Stack,
   Text,
   Textarea,
-  TextInput,
 } from '@mantine/core';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -36,6 +36,18 @@ interface Props {
   showMarkButton?: boolean;
 }
 
+/** Check if a choice question expects multiple answers */
+function isMultiAnswer(question: MockExamQuestion): boolean {
+  if (question.type !== 'choice' || !question.options || !question.answer) return false;
+  const optionKeys = Object.keys(question.options);
+  // Extract answer keys: handles "A,B", "AB", "A、B", "A B"
+  const answerKeys = question.answer
+    .replace(/[,、\s]/g, '')
+    .split('')
+    .filter((c) => optionKeys.includes(c));
+  return answerKeys.length > 1;
+}
+
 export function QuestionCard({
   question,
   index,
@@ -48,6 +60,28 @@ export function QuestionCard({
   showMarkButton,
 }: Props) {
   const { t } = useLanguage();
+  const color = getDocColor('exam');
+  const multiSelect = isMultiAnswer(question);
+
+  // Display translated question type label
+  const typeLabel =
+    (t.knowledge.questionTypes as Record<string, string>)[question.type] ?? question.type;
+
+  // Multi-select helpers
+  const selectedKeys = multiSelect ? value.split(',').filter(Boolean) : [];
+
+  const handleMultiToggle = (key: string) => {
+    if (disabled) return;
+    const next = selectedKeys.includes(key)
+      ? selectedKeys.filter((k) => k !== key)
+      : [...selectedKeys, key].sort();
+    onChange(next.join(','));
+  };
+
+  const handleSingleSelect = (key: string) => {
+    if (disabled) return;
+    onChange(key);
+  };
 
   return (
     <Card
@@ -61,7 +95,7 @@ export function QuestionCard({
     >
       <Stack gap="md">
         <Group justify="space-between">
-          <Badge variant="light" color={getDocColor('exam')}>
+          <Badge variant="light" color={color}>
             Q{index + 1}/{total}
           </Badge>
           <Group gap="xs">
@@ -77,8 +111,8 @@ export function QuestionCard({
                 <Flag size={14} />
               </ActionIcon>
             )}
-            <Badge variant="dot">{question.type}</Badge>
-            <Badge variant="light" color={getDocColor('exam')}>
+            <Badge variant="dot">{typeLabel}</Badge>
+            <Badge variant="light" color={color}>
               {question.points} {t.exam.points}
             </Badge>
           </Group>
@@ -86,26 +120,82 @@ export function QuestionCard({
 
         <MarkdownRenderer content={question.content} />
 
-        {/* Clickable option cards for choice questions */}
-        {question.type === 'choice' && question.options ? (
-          <Stack gap="xs">
+        {/* ── True / False ── */}
+        {question.type === 'true_false' && question.options ? (
+          <SimpleGrid cols={2} spacing="sm">
             {Object.entries(question.options).map(([key, text]) => {
               const isSelected = value === key;
+              const isTrue = key === 'A'; // A = True, B = False by convention
+              return (
+                <Paper
+                  key={key}
+                  withBorder
+                  radius="md"
+                  p="md"
+                  onClick={disabled ? undefined : () => onChange(key)}
+                  style={{
+                    cursor: disabled ? 'default' : 'pointer',
+                    borderColor: isSelected ? `var(--mantine-color-${color}-5)` : undefined,
+                    backgroundColor: isSelected ? `var(--mantine-color-${color}-0)` : undefined,
+                    transition: 'all 150ms ease',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Stack align="center" gap={6}>
+                    <Box
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: isSelected
+                          ? `var(--mantine-color-${color}-5)`
+                          : isTrue
+                            ? 'var(--mantine-color-green-0)'
+                            : 'var(--mantine-color-red-0)',
+                        color: isSelected
+                          ? 'white'
+                          : isTrue
+                            ? 'var(--mantine-color-green-6)'
+                            : 'var(--mantine-color-red-6)',
+                        transition: 'all 150ms ease',
+                      }}
+                    >
+                      {isTrue ? <Check size={18} /> : <span style={{ fontSize: 16 }}>✕</span>}
+                    </Box>
+                    <Text size="sm" fw={isSelected ? 600 : 400}>
+                      {text}
+                    </Text>
+                  </Stack>
+                </Paper>
+              );
+            })}
+          </SimpleGrid>
+        ) : /* ── Choice (single or multi) ── */
+        question.type === 'choice' && question.options ? (
+          <Stack gap="xs">
+            {multiSelect && (
+              <Text size="xs" c="dimmed">
+                {t.exam.selectMultiple}
+              </Text>
+            )}
+            {Object.entries(question.options).map(([key, text]) => {
+              const isSelected = multiSelect ? selectedKeys.includes(key) : value === key;
               return (
                 <Paper
                   key={key}
                   withBorder
                   radius="md"
                   p="sm"
-                  onClick={disabled ? undefined : () => onChange(key)}
+                  onClick={multiSelect ? () => handleMultiToggle(key) : () => handleSingleSelect(key)}
                   style={{
                     cursor: disabled ? 'default' : 'pointer',
                     borderColor: isSelected
-                      ? `var(--mantine-color-${getDocColor('exam')}-5)`
+                      ? `var(--mantine-color-${color}-5)`
                       : 'var(--mantine-color-gray-3)',
-                    backgroundColor: isSelected
-                      ? `var(--mantine-color-${getDocColor('exam')}-0)`
-                      : undefined,
+                    backgroundColor: isSelected ? `var(--mantine-color-${color}-0)` : undefined,
                     transition: 'all 150ms ease',
                   }}
                 >
@@ -114,32 +204,41 @@ export function QuestionCard({
                       size="lg"
                       circle
                       variant={isSelected ? 'filled' : 'light'}
-                      color={isSelected ? getDocColor('exam') : 'gray'}
+                      color={isSelected ? color : 'gray'}
                     >
                       {key}
                     </Badge>
-                    <Text size="sm" style={{ flex: 1 }}>
-                      {text}
-                    </Text>
-                    {isSelected && (
-                      <CircleCheck
-                        size={20}
-                        color={`var(--mantine-color-${getDocColor('exam')}-5)`}
-                      />
+                    <Box style={{ flex: 1 }} className="exam-option-md">
+                      <MarkdownRenderer content={text} compact tight />
+                    </Box>
+                    {multiSelect ? (
+                      isSelected ? (
+                        <SquareCheck size={20} color={`var(--mantine-color-${color}-5)`} />
+                      ) : (
+                        <Square size={20} color="var(--mantine-color-gray-4)" />
+                      )
+                    ) : (
+                      isSelected && (
+                        <CircleCheck size={20} color={`var(--mantine-color-${color}-5)`} />
+                      )
                     )}
                   </Group>
                 </Paper>
               );
             })}
           </Stack>
-        ) : question.type === 'fill_blank' || question.type === 'true_false' ? (
-          <TextInput
+        ) : /* ── Fill in the blank ── */
+        question.type === 'fill_blank' ? (
+          <Textarea
             placeholder={t.exam.enterAnswer}
             value={value}
             onChange={(e) => onChange(e.currentTarget.value)}
+            minRows={1}
+            autosize
             disabled={disabled}
           />
         ) : (
+          /* ── Short answer / calculation / proof / essay ── */
           <Textarea
             placeholder={t.exam.writeAnswer}
             value={value}
@@ -150,6 +249,13 @@ export function QuestionCard({
           />
         )}
       </Stack>
+
+      {/* Strip trailing margins from MarkdownRenderer inside option cards */}
+      <style>{`
+        .exam-option-md > *:last-child {
+          margin-bottom: 0 !important;
+        }
+      `}</style>
     </Card>
   );
 }

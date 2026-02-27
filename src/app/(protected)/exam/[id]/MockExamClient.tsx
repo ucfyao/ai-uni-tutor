@@ -398,7 +398,8 @@ export function MockExamClient({ initialMock }: Props) {
                           </Text>
                           <Group gap={4} mt={2}>
                             <Badge size="xs" variant="dot">
-                              {q.type}
+                              {(t.knowledge.questionTypes as Record<string, string>)[q.type] ??
+                                q.type}
                             </Badge>
                             <Text size="xs" c="dimmed">
                               {q.points} pts
