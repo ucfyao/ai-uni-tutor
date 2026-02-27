@@ -105,9 +105,22 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
             return;
           }
 
-          const data: ChatSession = { ...fromList, messages };
-          lastSavedIndexRef.current = messages.length;
-          setSession(data);
+          setSession((prevSession) => {
+            if (!prevSession) {
+              lastSavedIndexRef.current = messages.length;
+              return { ...fromList, messages };
+            }
+
+            // Merge: keep client-only messages (sent while server fetch was in-flight)
+            const serverMessageIds = new Set(messages.map((m) => m.id));
+            const clientOnlyMessages = prevSession.messages.filter(
+              (m) => !serverMessageIds.has(m.id),
+            );
+            const mergedMessages = [...messages, ...clientOnlyMessages];
+
+            lastSavedIndexRef.current = mergedMessages.length;
+            return { ...prevSession, messages: mergedMessages };
+          });
           setLoading(false);
           return;
         }

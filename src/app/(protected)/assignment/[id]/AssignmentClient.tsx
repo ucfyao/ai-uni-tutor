@@ -98,9 +98,22 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
             routerRef.current.push('/study');
             return;
           }
-          const data: ChatSession = { ...fromList, messages };
-          savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
-          setSession(data);
+          setSession((prevSession) => {
+            if (!prevSession) {
+              savedMsgIdsRef.current = new Set(messages.map((m) => m.id));
+              return { ...fromList, messages };
+            }
+
+            // Merge: keep client-only messages (sent while server fetch was in-flight)
+            const serverMessageIds = new Set(messages.map((m) => m.id));
+            const clientOnlyMessages = prevSession.messages.filter(
+              (m) => !serverMessageIds.has(m.id),
+            );
+            const mergedMessages = [...messages, ...clientOnlyMessages];
+
+            savedMsgIdsRef.current = new Set(mergedMessages.map((m) => m.id));
+            return { ...prevSession, messages: mergedMessages };
+          });
           setLoading(false);
           return;
         }
