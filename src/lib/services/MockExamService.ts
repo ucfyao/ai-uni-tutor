@@ -99,13 +99,136 @@ export class MockExamService {
   }
 
   /**
+   * Create a minimal stub linked to a session (no questions, no config).
+   * Used when starting a Mock Exam from the sidebar/study page.
+   */
+  async createMinimalStub(
+    userId: string,
+    sessionId: string,
+    title: string,
+  ): Promise<{ mockId: string }> {
+    const mockId = await this.mockRepo.create({
+      userId,
+      sessionId,
+      title,
+      mode: 'practice',
+      questions: [] as unknown as Json,
+      responses: [] as unknown as Json,
+      totalPoints: 0,
+      currentIndex: 0,
+      status: 'in_progress',
+    });
+
+    return { mockId };
+  }
+
+  /**
+   * Populate an existing stub with questions from an exam paper (Real Exam source).
+   */
+  async populateFromPaper(
+    userId: string,
+    mockId: string,
+    paperId: string,
+    mode: 'practice' | 'exam' = 'practice',
+  ): Promise<void> {
+    if (!(await this.mockRepo.verifyOwnership(mockId, userId))) {
+      throw new AppError('NOT_FOUND', 'Mock exam not found');
+    }
+
+    const paper = await this.paperRepo.findById(paperId);
+    if (!paper) throw new AppError('NOT_FOUND', 'Exam paper not found');
+
+    const questions = await this.paperRepo.findQuestionsByPaperId(paperId);
+    if (questions.length === 0) {
+      throw new AppError('NOT_FOUND', 'No questions found for this paper');
+    }
+
+    const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
+      content: q.content,
+      type: q.type,
+      options: q.options as Record<string, string> | null,
+      answer: q.answer,
+      explanation: q.explanation,
+      points: q.points,
+      sourceQuestionId: q.id,
+    }));
+
+    const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
+
+    await this.mockRepo.update(mockId, {
+      title: paper.title,
+      mode,
+      questions: mockQuestions as unknown as Json,
+      totalPoints,
+    });
+  }
+
+  /**
+   * Populate an existing stub with randomly selected questions from course papers.
+   */
+  async populateRandomMix(
+    userId: string,
+    mockId: string,
+    courseCode: string,
+    numQuestions: number,
+    mode: 'practice' | 'exam' = 'practice',
+  ): Promise<void> {
+    if (!(await this.mockRepo.verifyOwnership(mockId, userId))) {
+      throw new AppError('NOT_FOUND', 'Mock exam not found');
+    }
+
+    const papers = await this.paperRepo.findAllByCourse(courseCode);
+    if (papers.length === 0) {
+      throw new AppError('NOT_FOUND', 'No exam papers available for this course');
+    }
+
+    const allQuestions: Array<ExamQuestion & { paperTitle: string }> = [];
+    for (const paper of papers) {
+      const questions = await this.paperRepo.findQuestionsByPaperId(paper.id);
+      allQuestions.push(...questions.map((q) => ({ ...q, paperTitle: paper.title })));
+    }
+
+    if (allQuestions.length === 0) {
+      throw new AppError('NOT_FOUND', 'No questions found for this course');
+    }
+
+    // Shuffle using Fisher-Yates
+    for (let i = allQuestions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+    }
+
+    const selected = allQuestions.slice(0, Math.min(numQuestions, allQuestions.length));
+
+    const mockQuestions: MockExamQuestion[] = selected.map((q) => ({
+      content: q.content,
+      type: q.type,
+      options: q.options as Record<string, string> | null,
+      answer: q.answer,
+      explanation: q.explanation,
+      points: q.points,
+      sourceQuestionId: q.id,
+    }));
+
+    const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
+    const title = `Random Mix — ${courseCode} (${selected.length} questions)`;
+
+    await this.mockRepo.update(mockId, {
+      title,
+      mode,
+      questions: mockQuestions as unknown as Json,
+      totalPoints,
+    });
+  }
+
+  /**
    * Generate questions for an existing mock exam stub using AI.
    * Used as phase 2 of the two-phase AI mock flow.
    */
   async generateQuestionsFromTopic(
     userId: string,
     mockId: string,
-    options: TopicGenerateOptions,
+    options: TopicGenerateOptions & { mode?: 'practice' | 'exam' },
   ): Promise<void> {
     if (!(await this.mockRepo.verifyOwnership(mockId, userId))) {
       throw new AppError('NOT_FOUND', 'Mock exam not found');
@@ -186,11 +309,14 @@ ${typesInstruction}
 
     const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
 
-    await this.mockRepo.update(mockId, {
+    const updateData: { title: string; questions: Json; totalPoints: number; mode?: 'practice' | 'exam' } = {
       title,
       questions: mockQuestions as unknown as Json,
       totalPoints,
-    });
+    };
+    if (options.mode) updateData.mode = options.mode;
+
+    await this.mockRepo.update(mockId, updateData);
   }
 
   /**

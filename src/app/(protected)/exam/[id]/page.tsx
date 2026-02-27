@@ -9,7 +9,7 @@ export default async function ExamPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ topic?: string; n?: string; d?: string; types?: string }>;
+  searchParams: Promise<{ courseCode?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -62,10 +62,7 @@ export default async function ExamPage({
         ) : (
           <ExamPendingClient
             mock={mock}
-            topic={sp.topic ?? mock.title}
-            numQuestions={Number(sp.n) || 10}
-            difficulty={(sp.d as 'easy' | 'medium' | 'hard' | 'mixed') ?? 'mixed'}
-            questionTypes={sp.types ? sp.types.split(',') : []}
+            courseCode={sp.courseCode}
           />
         )}
       </Box>

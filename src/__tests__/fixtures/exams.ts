@@ -173,6 +173,7 @@ export const completedMockExamRow = {
 export const mockExamEntity: MockExam = {
   id: mockExamRow.id,
   userId: mockExamRow.user_id,
+  sessionId: null,
   mode: 'practice',
   title: mockExamRow.title,
   questions: mockExamQuestions,

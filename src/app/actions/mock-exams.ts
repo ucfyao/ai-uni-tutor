@@ -46,12 +46,97 @@ export async function generateMockFromTopic(
   }
 }
 
+export async function createMockExamStub(
+  sessionId: string,
+  title: string,
+): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!sessionId.trim()) return { success: false, error: 'Session ID is required' };
+
+    const service = getMockExamService();
+    const { mockId } = await service.createMinimalStub(user.id, sessionId.trim(), title || 'Mock Exam');
+
+    return { success: true, mockId };
+  } catch (error) {
+    console.error('Mock exam stub creation error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create mock exam stub',
+    };
+  }
+}
+
+export async function populateMockFromPaper(
+  mockId: string,
+  paperId: string,
+  mode: 'practice' | 'exam',
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!mockId.trim()) return { success: false, error: 'Mock ID is required' };
+    if (!paperId.trim()) return { success: false, error: 'Paper ID is required' };
+    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+
+    const service = getMockExamService();
+    await service.populateFromPaper(user.id, mockId.trim(), paperId.trim(), mode);
+
+    revalidatePath(`/exam/${mockId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Populate mock from paper error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to populate mock exam',
+    };
+  }
+}
+
+export async function populateMockRandomMix(
+  mockId: string,
+  courseCode: string,
+  numQuestions: number,
+  mode: 'practice' | 'exam',
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!mockId.trim()) return { success: false, error: 'Mock ID is required' };
+    if (!courseCode.trim()) return { success: false, error: 'Course code is required' };
+    if (![5, 10, 15, 20].includes(numQuestions)) {
+      return { success: false, error: 'Number of questions must be 5, 10, 15, or 20' };
+    }
+    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+
+    const service = getMockExamService();
+    await service.populateRandomMix(user.id, mockId.trim(), courseCode.trim(), numQuestions, mode);
+
+    revalidatePath(`/exam/${mockId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
+    console.error('Populate mock random mix error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to populate random mix exam',
+    };
+  }
+}
+
 export async function generateMockQuestions(
   mockId: string,
   topic: string,
   numQuestions: number,
   difficulty: 'easy' | 'medium' | 'hard' | 'mixed',
   questionTypes: string[],
+  mode?: 'practice' | 'exam',
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const user = await getCurrentUser();
@@ -65,6 +150,7 @@ export async function generateMockQuestions(
       numQuestions,
       difficulty,
       questionTypes,
+      mode,
     });
 
     revalidatePath(`/exam/${mockId}`);

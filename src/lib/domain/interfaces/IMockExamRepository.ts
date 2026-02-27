@@ -34,6 +34,7 @@ export interface IMockExamRepository {
       currentIndex?: number;
       score?: number;
       totalPoints?: number;
+      mode?: 'practice' | 'exam';
       status?: 'in_progress' | 'completed';
     },
   ): Promise<void>;

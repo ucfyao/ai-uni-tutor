@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useTransition } from 'react';
 import { Box, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { createMockExamStub } from '@/app/actions/mock-exams';
 import { Logo } from '@/components/Logo';
 import NewSessionModal from '@/components/NewSessionModal';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
@@ -55,6 +56,17 @@ export function StudyPageClient() {
   const handleCourseSelected = async (courseId: string, mode: TutoringMode, courseCode: string) => {
     const newId = await addSession(courseId, mode, courseCode);
     if (!newId) return;
+
+    if (mode === 'Mock Exam') {
+      const result = await createMockExamStub(newId, courseCode);
+      if (result.success) {
+        startNavigating(() => {
+          router.push(`/exam/${result.mockId}?courseCode=${encodeURIComponent(courseCode)}`);
+          setTimeout(closeModal, 500);
+        });
+      }
+      return;
+    }
 
     startNavigating(() => {
       const modeRoute = MODES_METADATA[mode].id;

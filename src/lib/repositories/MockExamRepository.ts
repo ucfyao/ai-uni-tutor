@@ -19,6 +19,7 @@ export class MockExamRepository implements IMockExamRepository {
     return {
       id: row.id,
       userId: row.user_id,
+      sessionId: row.session_id ?? null,
       mode: (row.mode ?? 'practice') as 'practice' | 'exam',
       title: row.title,
       questions: (row.questions ?? []) as unknown as MockExamQuestion[],
@@ -129,6 +130,7 @@ export class MockExamRepository implements IMockExamRepository {
       currentIndex?: number;
       score?: number;
       totalPoints?: number;
+      mode?: 'practice' | 'exam';
       status?: 'in_progress' | 'completed';
     },
   ): Promise<void> {
@@ -141,6 +143,7 @@ export class MockExamRepository implements IMockExamRepository {
     if (data.currentIndex !== undefined) updates.current_index = data.currentIndex;
     if (data.score !== undefined) updates.score = data.score;
     if (data.totalPoints !== undefined) updates.total_points = data.totalPoints;
+    if (data.mode !== undefined) updates.mode = data.mode;
     if (data.status !== undefined) updates.status = data.status;
 
     const { error } = await supabase.from('mock_exams').update(updates).eq('id', id);

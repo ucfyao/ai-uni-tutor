@@ -62,6 +62,7 @@ function makeMockExam(overrides: Partial<MockExam> = {}): MockExam {
   return {
     id: 'mock-1',
     userId: 'user-1',
+    sessionId: null,
     mode: 'practice',
     title: 'Mock Exam',
     questions: [],

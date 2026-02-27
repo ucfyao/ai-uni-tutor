@@ -135,6 +135,7 @@ const MOCK_QUESTIONS: MockExamQuestion[] = [
 const MOCK_EXAM: MockExam = {
   id: MOCK_ID,
   userId: USER_ID,
+  sessionId: null,
   mode: 'practice',
   title: 'Calculus Final #1',
   questions: MOCK_QUESTIONS,
@@ -228,6 +229,7 @@ describe('MockExamService', () => {
     const EMPTY_MOCK: MockExam = {
       id: MOCK_ID,
       userId: USER_ID,
+      sessionId: null,
       mode: 'practice',
       title: 'Linear Algebra - Practice Exam',
       questions: [],
