@@ -1,4 +1,5 @@
-import { Anchor, Box, Button, Center, Container, Stack, Text, Title } from '@mantine/core';
+import { notFound } from 'next/navigation';
+import { Box, Container } from '@mantine/core';
 import { getMockExamDetail } from '@/app/actions/mock-exams';
 import { getDocColor } from '@/constants/doc-types';
 import { ExamPendingClient } from './ExamPendingClient';
@@ -17,25 +18,7 @@ export default async function ExamPage({
   const mock = await getMockExamDetail(id);
 
   if (!mock) {
-    return (
-      <Center h="100%">
-        <Stack align="center" gap="md" ta="center">
-          <Title order={1} size={80} c="gray.3" style={{ lineHeight: 1 }}>
-            404
-          </Title>
-          <Title order={2}>Exam Not Found</Title>
-          <Text c="dimmed" maw={400}>
-            The mock exam you are looking for does not exist or you do not have permission to view
-            it.
-          </Text>
-          <Anchor href="/study" underline="never">
-            <Button variant="light" color="indigo" mt="md">
-              Back to Exams
-            </Button>
-          </Anchor>
-        </Stack>
-      </Center>
-    );
+    notFound();
   }
 
   const hasQuestions = mock.questions.length > 0;
@@ -60,10 +43,7 @@ export default async function ExamPage({
         {hasQuestions ? (
           <MockExamClient key={id} initialMock={mock} />
         ) : (
-          <ExamPendingClient
-            mock={mock}
-            courseCode={sp.courseCode}
-          />
+          <ExamPendingClient mock={mock} courseCode={sp.courseCode} />
         )}
       </Box>
     </Container>
