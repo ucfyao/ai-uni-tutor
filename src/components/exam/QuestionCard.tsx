@@ -42,7 +42,7 @@ interface Props {
  */
 function isMultiAnswer(question: MockExamQuestion): boolean {
   if (question.type !== 'choice' || !question.answer) return false;
-  return question.answer.split(',').length > 1;
+  return question.answer.split(',').map((s) => s.trim()).filter(Boolean).length > 1;
 }
 
 export function QuestionCard({
