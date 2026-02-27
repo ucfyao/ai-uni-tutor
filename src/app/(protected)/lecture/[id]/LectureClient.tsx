@@ -17,6 +17,7 @@ import { LectureHelper } from '@/components/modes/LectureHelper';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
 import { useSessions } from '@/context/SessionContext';
+import { chatCache } from '@/lib/chat-cache';
 import { ChatSession } from '@/types';
 
 interface LectureClientProps {
@@ -83,6 +84,18 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
       try {
         const fromList = sessionsRef.current.find((s) => s.id === id);
         if (fromList && fromList.mode === 'Lecture Helper') {
+          // 1. Try IndexedDB cache first for instant display
+          const cached = await chatCache.getMessages(id);
+          if (cancelled) return;
+
+          if (cached && cached.length > 0) {
+            const cachedData: ChatSession = { ...fromList, messages: cached };
+            lastSavedIndexRef.current = cached.length;
+            setSession(cachedData);
+            setLoading(false);
+          }
+
+          // 2. Always fetch from server for freshest data
           const messages = await getChatMessages(id);
           if (cancelled) return;
 
