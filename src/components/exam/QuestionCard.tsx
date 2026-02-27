@@ -38,22 +38,11 @@ interface Props {
 
 /**
  * Check if a choice question expects multiple answers.
- *
- * Handles delimiter-separated ("A,B", "A、B", "A B") and concatenated ("AB")
- * answer formats. Option keys are single uppercase letters by convention
- * (enforced by the AI prompt and exam parser).
+ * Answer format convention: comma-separated option keys (e.g. "A" or "A,C").
  */
 function isMultiAnswer(question: MockExamQuestion): boolean {
-  if (question.type !== 'choice' || !question.options || !question.answer) return false;
-  const optionKeys = Object.keys(question.options);
-  // 1. Try delimiter-based split first (handles "A,B", "A、B", "A B")
-  const byDelimiter = question.answer.split(/[,、\s]+/).filter((k) => k && optionKeys.includes(k));
-  if (byDelimiter.length > 1) return true;
-  // 2. Fallback: if no delimiters found and every character is a valid option
-  //    key, treat as concatenated answer (e.g. "AB" → ["A", "B"])
-  const trimmed = question.answer.trim();
-  if (trimmed.length > 1 && [...trimmed].every((ch) => optionKeys.includes(ch))) return true;
-  return false;
+  if (question.type !== 'choice' || !question.answer) return false;
+  return question.answer.split(',').length > 1;
 }
 
 export function QuestionCard({
