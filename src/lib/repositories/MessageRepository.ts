@@ -85,37 +85,76 @@ export class MessageRepository implements IMessageRepository {
   }
 
   /**
-   * Walk the message tree from root, choosing the latest child at each fork.
-   * Returns a flat array representing the "active path" (current conversation view).
-   * Uses inferParentChain for backward compatibility with legacy null-parent messages.
+   * Build childrenMap and messageById from inferred messages.
    */
-  async getActivePath(sessionId: string): Promise<MessageEntity[]> {
-    const allMessages = await this.findBySessionId(sessionId);
-    if (allMessages.length === 0) return [];
-
-    const inferred = inferParentChain(allMessages);
-
-    // Build parent→children map
+  private buildMaps(inferred: MessageEntity[]): {
+    childrenMap: Map<string, MessageEntity[]>;
+    messageById: Map<string, MessageEntity>;
+  } {
     const childrenMap = new Map<string, MessageEntity[]>();
+    const messageById = new Map<string, MessageEntity>();
     for (const msg of inferred) {
+      messageById.set(msg.id, msg);
       const key = msg.parentMessageId ?? '__root__';
       const children = childrenMap.get(key) ?? [];
       children.push(msg);
       childrenMap.set(key, children);
     }
+    return { childrenMap, messageById };
+  }
 
-    // Walk from root, always picking the latest child at each fork
+  /**
+   * Walk the tree from root, preferring children in the ancestor set of activeLeafId.
+   * Falls back to latest child when activeLeafId is null/invalid or not in the ancestor set.
+   */
+  private walkPath(
+    childrenMap: Map<string, MessageEntity[]>,
+    messageById: Map<string, MessageEntity>,
+    activeLeafId?: string | null,
+  ): MessageEntity[] {
+    // Build ancestor set from activeLeafId
+    const ancestorSet = new Set<string>();
+    if (activeLeafId && messageById.has(activeLeafId)) {
+      let current: string | null = activeLeafId;
+      while (current) {
+        ancestorSet.add(current);
+        const msg = messageById.get(current);
+        current = msg?.parentMessageId ?? null;
+      }
+    }
+
     const path: MessageEntity[] = [];
     let currentParent = '__root__';
     while (true) {
       const children = childrenMap.get(currentParent);
       if (!children || children.length === 0) break;
-      const latestChild = children[children.length - 1];
-      path.push(latestChild);
-      currentParent = latestChild.id;
-    }
 
+      // Pick child in ancestor set if found, else latest
+      const ancestorChild = ancestorSet.size > 0
+        ? children.find((c) => ancestorSet.has(c.id))
+        : undefined;
+      const picked = ancestorChild ?? children[children.length - 1];
+      path.push(picked);
+      currentParent = picked.id;
+    }
     return path;
+  }
+
+  /**
+   * Walk the message tree from root, choosing the stored branch or latest child at each fork.
+   * Returns a flat array representing the "active path" (current conversation view).
+   * Uses inferParentChain for backward compatibility with legacy null-parent messages.
+   */
+  async getActivePath(
+    sessionId: string,
+    activeLeafId?: string | null,
+  ): Promise<MessageEntity[]> {
+    const allMessages = await this.findBySessionId(sessionId);
+    if (allMessages.length === 0) return [];
+
+    const inferred = inferParentChain(allMessages);
+    const { childrenMap, messageById } = this.buildMaps(inferred);
+    return this.walkPath(childrenMap, messageById, activeLeafId);
   }
 
   /**
@@ -124,31 +163,14 @@ export class MessageRepository implements IMessageRepository {
    */
   async getActivePathWithForks(
     sessionId: string,
+    activeLeafId?: string | null,
   ): Promise<{ path: MessageEntity[]; siblingsMap: Record<string, string[]> }> {
     const allMessages = await this.findBySessionId(sessionId);
     if (allMessages.length === 0) return { path: [], siblingsMap: {} };
 
     const inferred = inferParentChain(allMessages);
-
-    // Build parent→children map
-    const childrenMap = new Map<string, MessageEntity[]>();
-    for (const msg of inferred) {
-      const key = msg.parentMessageId ?? '__root__';
-      const children = childrenMap.get(key) ?? [];
-      children.push(msg);
-      childrenMap.set(key, children);
-    }
-
-    // Walk from root, always picking the latest child at each fork
-    const path: MessageEntity[] = [];
-    let currentParent = '__root__';
-    while (true) {
-      const children = childrenMap.get(currentParent);
-      if (!children || children.length === 0) break;
-      const latestChild = children[children.length - 1];
-      path.push(latestChild);
-      currentParent = latestChild.id;
-    }
+    const { childrenMap, messageById } = this.buildMaps(inferred);
+    const path = this.walkPath(childrenMap, messageById, activeLeafId);
 
     // Compute siblings map: only fork points with >1 child, excluding __root__
     const siblingsMap: Record<string, string[]> = {};

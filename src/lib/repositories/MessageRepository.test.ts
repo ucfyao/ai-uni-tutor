@@ -251,6 +251,143 @@ describe('MessageRepository', () => {
       expect(result[0].id).toBe('msg-root');
       expect(result[1].id).toBe('msg-b'); // latest child
     });
+
+    it('should follow stored branch when activeLeafId is set', async () => {
+      // root → childA (older), childB (newer) — childA has a descendant leaf
+      const rootMsg = {
+        ...userMessageRow,
+        id: 'msg-root',
+        parent_message_id: null,
+        created_at: '2025-06-01T10:00:00Z',
+      };
+      const childA = {
+        ...assistantMessageRow,
+        id: 'msg-a',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:01:00Z',
+      };
+      const childB = {
+        ...assistantMessageRow,
+        id: 'msg-b',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:02:00Z',
+      };
+      const leafA = {
+        ...userMessageRow,
+        id: 'msg-leaf-a',
+        parent_message_id: 'msg-a',
+        created_at: '2025-06-01T10:03:00Z',
+      };
+      mockSupabase.setQueryResponse([rootMsg, childA, childB, leafA]);
+
+      // activeLeafId points to leafA, which is on the childA branch
+      const result = await repo.getActivePath('session-001', 'msg-leaf-a');
+
+      expect(result).toHaveLength(3);
+      expect(result[0].id).toBe('msg-root');
+      expect(result[1].id).toBe('msg-a'); // follows ancestor, not latest
+      expect(result[2].id).toBe('msg-leaf-a');
+    });
+
+    it('should fall back to latest when activeLeafId is invalid', async () => {
+      const rootMsg = {
+        ...userMessageRow,
+        id: 'msg-root',
+        parent_message_id: null,
+        created_at: '2025-06-01T10:00:00Z',
+      };
+      const childA = {
+        ...assistantMessageRow,
+        id: 'msg-a',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:01:00Z',
+      };
+      const childB = {
+        ...assistantMessageRow,
+        id: 'msg-b',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:02:00Z',
+      };
+      mockSupabase.setQueryResponse([rootMsg, childA, childB]);
+
+      const result = await repo.getActivePath('session-001', 'nonexistent-id');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('msg-root');
+      expect(result[1].id).toBe('msg-b'); // latest child (fallback)
+    });
+
+    it('should extend past activeLeafId with latest child when new messages exist', async () => {
+      // root → childA → leafA → newChild (added after branch selection)
+      const rootMsg = {
+        ...userMessageRow,
+        id: 'msg-root',
+        parent_message_id: null,
+        created_at: '2025-06-01T10:00:00Z',
+      };
+      const childA = {
+        ...assistantMessageRow,
+        id: 'msg-a',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:01:00Z',
+      };
+      const childB = {
+        ...assistantMessageRow,
+        id: 'msg-b',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:02:00Z',
+      };
+      const leafA = {
+        ...userMessageRow,
+        id: 'msg-leaf-a',
+        parent_message_id: 'msg-a',
+        created_at: '2025-06-01T10:03:00Z',
+      };
+      const newChild = {
+        ...assistantMessageRow,
+        id: 'msg-new',
+        parent_message_id: 'msg-leaf-a',
+        created_at: '2025-06-01T10:04:00Z',
+      };
+      mockSupabase.setQueryResponse([rootMsg, childA, childB, leafA, newChild]);
+
+      // activeLeafId points to leafA, but newChild was added below it
+      const result = await repo.getActivePath('session-001', 'msg-leaf-a');
+
+      expect(result).toHaveLength(4);
+      expect(result[0].id).toBe('msg-root');
+      expect(result[1].id).toBe('msg-a');
+      expect(result[2].id).toBe('msg-leaf-a');
+      expect(result[3].id).toBe('msg-new'); // continues past stored leaf
+    });
+
+    it('should handle null activeLeafId same as no argument', async () => {
+      const rootMsg = {
+        ...userMessageRow,
+        id: 'msg-root',
+        parent_message_id: null,
+        created_at: '2025-06-01T10:00:00Z',
+      };
+      const childA = {
+        ...assistantMessageRow,
+        id: 'msg-a',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:01:00Z',
+      };
+      const childB = {
+        ...assistantMessageRow,
+        id: 'msg-b',
+        parent_message_id: 'msg-root',
+        created_at: '2025-06-01T10:02:00Z',
+      };
+      mockSupabase.setQueryResponse([rootMsg, childA, childB]);
+
+      const result = await repo.getActivePath('session-001', null);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('msg-root');
+      expect(result[1].id).toBe('msg-b'); // latest child
+    });
   });
 
   // ── Entity mapping ──

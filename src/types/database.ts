@@ -115,6 +115,7 @@ export interface Database {
           is_pinned: boolean;
           is_shared: boolean;
           share_expires_at: string | null;
+          active_leaf_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -127,6 +128,7 @@ export interface Database {
           is_pinned?: boolean;
           is_shared?: boolean;
           share_expires_at?: string | null;
+          active_leaf_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -139,6 +141,7 @@ export interface Database {
           is_pinned?: boolean;
           is_shared?: boolean;
           share_expires_at?: string | null;
+          active_leaf_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

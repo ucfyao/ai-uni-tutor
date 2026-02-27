@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Anchor, Button, Center, Loader, Stack, Text, Title } from '@mantine/core';
 import {
-  getChatMessages,
   getChatSession,
   saveChatMessage,
   toggleSessionPin,
@@ -95,11 +94,11 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
             setLoading(false);
           }
 
-          // 2. Always fetch from server for freshest data
-          const messages = await getChatMessages(id);
+          // 2. Always fetch full session from server (includes siblingsMap + correct branch)
+          const freshSession = await getChatSession(id);
           if (cancelled) return;
 
-          if (messages === null) {
+          if (!freshSession) {
             setLoading(false);
             routerRef.current.push('/study');
             return;
@@ -107,19 +106,19 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
 
           setSession((prevSession) => {
             if (!prevSession) {
-              lastSavedIndexRef.current = messages.length;
-              return { ...fromList, messages };
+              lastSavedIndexRef.current = freshSession.messages.length;
+              return freshSession;
             }
 
             // Merge: keep client-only messages (sent while server fetch was in-flight)
-            const serverMessageIds = new Set(messages.map((m) => m.id));
+            const serverMessageIds = new Set(freshSession.messages.map((m) => m.id));
             const clientOnlyMessages = prevSession.messages.filter(
               (m) => !serverMessageIds.has(m.id),
             );
-            const mergedMessages = [...messages, ...clientOnlyMessages];
+            const mergedMessages = [...freshSession.messages, ...clientOnlyMessages];
 
             lastSavedIndexRef.current = mergedMessages.length;
-            return { ...prevSession, messages: mergedMessages };
+            return { ...freshSession, messages: mergedMessages };
           });
           setLoading(false);
           return;

@@ -28,6 +28,7 @@ export const sessionRow = {
   is_pinned: false,
   is_shared: false,
   share_expires_at: null as string | null,
+  active_leaf_id: null as string | null,
   created_at: '2025-06-01T10:00:00Z',
   updated_at: '2025-06-01T12:00:00Z',
 };
@@ -43,6 +44,7 @@ export const sessionEntity: SessionEntity = {
   isPinned: sessionRow.is_pinned,
   isShared: sessionRow.is_shared,
   shareExpiresAt: null,
+  activeLeafId: null,
   createdAt: new Date(sessionRow.created_at),
   updatedAt: new Date(sessionRow.updated_at),
 };
