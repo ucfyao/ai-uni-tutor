@@ -43,6 +43,7 @@ import {
 import { signOut } from '@/app/actions/auth';
 import { Logo } from '@/components/Logo';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
+import { MODES_METADATA } from '@/constants/modes';
 import { useProfile } from '@/context/ProfileContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { chatCache } from '@/lib/chat-cache';
@@ -105,7 +106,7 @@ const JUMP_LINKS = [
 interface SidebarProps {
   sessions: ChatSession[];
   activeSessionId: string | null;
-  onSelectSession: (id: string) => void;
+  onSelectSession: () => void;
   onNewChat: (mode: TutoringMode) => void;
   onToggleSidebar: () => void;
   onTogglePin?: (id: string, isPinned: boolean) => void;
@@ -534,7 +535,7 @@ interface ModuleSectionProps {
   onToggle: () => void;
   onNewChat: () => void;
   activeSessionId: string | null;
-  onSelectSession: (id: string) => void;
+  onSelectSession: () => void;
   onTogglePin?: (id: string, isPinned: boolean) => void;
   onRenameSession?: (id: string, newTitle: string) => void;
   onDeleteSession?: (id: string) => void;
@@ -642,7 +643,7 @@ const ModuleSection: React.FC<ModuleSectionProps> = ({
 interface SessionItemProps {
   session: ChatSession;
   isActive: boolean;
-  onSelect: (id: string) => void;
+  onSelect: () => void;
   onTogglePin?: (id: string, isPinned: boolean) => void;
   onRename?: (id: string, title: string) => void;
   onDelete?: (id: string) => void;
@@ -663,10 +664,19 @@ const SessionItem: React.FC<SessionItemProps> = ({
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
 
+  const sessionHref = useMemo(() => {
+    if (!session.mode) return '/';
+    if (session.mode === 'Mock Exam') {
+      return session.mockId ? `/exam/${session.mockId}` : '/';
+    }
+    return `/${MODES_METADATA[session.mode].id}/${session.id}`;
+  }, [session.mode, session.mockId, session.id]);
+
   return (
     <UnstyledButton
-      component="div"
-      onClick={() => onSelect(session.id)}
+      component={Link}
+      href={sessionHref}
+      onClick={() => onSelect()}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       py={8}
