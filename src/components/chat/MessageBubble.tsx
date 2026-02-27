@@ -24,7 +24,6 @@ import {
   Image,
   Portal,
   SimpleGrid,
-  Stack,
   Text,
   Textarea,
   Tooltip,
@@ -232,31 +231,23 @@ const MessageActionBar: React.FC<{
   const actionBtnStyle = { transition: 'color 0.15s ease, background 0.15s ease' };
 
   const branchNavPill = showBranchNav ? (
-    <Group
-      gap={0}
-      style={{
-        borderRadius: 20,
-        background: 'var(--mantine-color-gray-0)',
-        padding: '2px 4px',
-        border: '1px solid var(--mantine-color-gray-2)',
-      }}
-    >
+    <Group gap={0} style={{ flexShrink: 0 }}>
       <ActionIcon
-        size={26}
-        variant="transparent"
+        size={28}
+        variant="subtle"
         color="gray"
-        radius="xl"
+        radius="md"
         onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex - 1])}
         disabled={branchIndex <= 0}
         style={actionBtnStyle}
       >
-        <ChevronLeft size={16} />
+        <ChevronLeft size={18} />
       </ActionIcon>
       <Text
-        size="xs"
+        size="sm"
         c="dimmed"
         fw={600}
-        px={4}
+        px={2}
         style={{ userSelect: 'none', fontVariantNumeric: 'tabular-nums' }}
       >
         {t.chat.branchOf
@@ -264,40 +255,33 @@ const MessageActionBar: React.FC<{
           .replace('{total}', String(branchSiblings!.length))}
       </Text>
       <ActionIcon
-        size={26}
-        variant="transparent"
+        size={28}
+        variant="subtle"
         color="gray"
-        radius="xl"
+        radius="md"
         onClick={() => onSwitchBranch?.(branchForkId!, branchSiblings![branchIndex + 1])}
         disabled={branchIndex >= branchSiblings!.length - 1}
         style={actionBtnStyle}
       >
-        <ChevronRight size={16} />
+        <ChevronRight size={18} />
       </ActionIcon>
     </Group>
   ) : null;
 
   return (
     <>
-      {/* Branch nav for USER messages — always visible, right-aligned */}
-      {isUser && showBranchNav && (
-        <Group gap={0} mt={4} justify="flex-end">
-          {branchNavPill}
-        </Group>
-      )}
-
       {/* Action bar (hover-to-show for user, always visible for assistant) */}
       <Group
         gap={1}
-        mt={isUser ? (showBranchNav ? 2 : 4) : 0}
+        mt={4}
         className={isUser ? 'message-actions' : undefined}
         style={isUser ? { opacity: 0, transition: 'opacity 0.15s ease' } : undefined}
       >
-        {/* Branch navigation for ASSISTANT messages — inside action bar */}
-        {!isUser && showBranchNav && (
+        {/* Branch navigation — inline with action buttons for both user and assistant */}
+        {showBranchNav && (
           <>
             {branchNavPill}
-            <Box w={4} style={{ flexShrink: 0 }} />
+            <Box w={2} style={{ flexShrink: 0 }} />
           </>
         )}
 
@@ -573,13 +557,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     <Box
       data-message-bubble
       style={{
-        width: isUser ? 'auto' : '100%',
-        maxWidth: isUser ? '85%' : '100%',
+        width: isUser && !isEditing ? 'auto' : '100%',
+        maxWidth: isUser && !isEditing ? '85%' : '100%',
       }}
     >
       <Box
         w="100%"
-        p={isUser ? '12px 16px' : '12px 16px 2px 16px'}
+        p={isUser ? '12px 16px' : '0 16px 2px 16px'}
         onMouseUp={handleMouseUp} // Listen for selection
         style={{
           borderRadius: isUser ? '18px 18px 4px 18px' : '16px',
@@ -623,21 +607,32 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         <Box className="markdown-content">
           {isUser && isEditing ? (
-            <Stack gap={8}>
+            <>
               <Textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.currentTarget.value)}
                 autosize
-                minRows={2}
+                minRows={1}
                 maxRows={10}
                 autoFocus
+                onFocus={(e) => {
+                  const el = e.currentTarget;
+                  el.selectionStart = el.selectionEnd = el.value.length;
+                }}
+                variant="unstyled"
                 styles={{
-                  input: { fontSize: '16px', lineHeight: 1.65 },
+                  input: {
+                    fontSize: '16px',
+                    lineHeight: 1.65,
+                    padding: 0,
+                    background: 'transparent',
+                    color: 'var(--mantine-color-text)',
+                  },
                 }}
               />
-              <Group gap={8} justify="flex-end">
+              <Group gap={8} justify="flex-end" mt={4}>
                 <Button
-                  size="compact-sm"
+                  size="compact-xs"
                   variant="subtle"
                   color="gray"
                   onClick={() => setIsEditing(false)}
@@ -645,7 +640,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   {t.chat.cancelEdit}
                 </Button>
                 <Button
-                  size="compact-sm"
+                  size="compact-xs"
                   variant="filled"
                   color="indigo"
                   disabled={!editContent.trim() || editContent.trim() === message.content}
@@ -657,7 +652,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   {t.chat.saveAndResend}
                 </Button>
               </Group>
-            </Stack>
+            </>
           ) : isUser ? (
             <Text style={{ whiteSpace: 'pre-wrap' }} fz="16px" lh={1.65}>
               {message.content}

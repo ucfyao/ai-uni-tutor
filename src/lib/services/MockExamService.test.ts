@@ -29,7 +29,6 @@ function createMockMockExamRepo(): {
     verifyOwnership: vi.fn(),
     findBySessionId: vi.fn(),
     findByUserId: vi.fn(),
-    countByUserAndPaper: vi.fn(),
     update: vi.fn(),
   };
 }
@@ -136,7 +135,7 @@ const MOCK_QUESTIONS: MockExamQuestion[] = [
 const MOCK_EXAM: MockExam = {
   id: MOCK_ID,
   userId: USER_ID,
-  paperId: PAPER_ID,
+  sessionId: null,
   mode: 'practice',
   title: 'Calculus Final #1',
   questions: MOCK_QUESTIONS,
@@ -186,9 +185,40 @@ describe('MockExamService', () => {
     );
   });
 
-  // ==================== generateFromTopic ====================
+  // ==================== createMockStub ====================
 
-  describe('generateFromTopic', () => {
+  describe('createMockStub', () => {
+    it('should create an empty mock exam stub and return mockId', async () => {
+      mockRepo.create.mockResolvedValue('new-stub-id');
+
+      const result = await service.createMockStub(USER_ID, {
+        topic: 'Linear Algebra',
+        numQuestions: 10,
+        difficulty: 'medium',
+        questionTypes: [],
+        mode: 'practice',
+      });
+
+      expect(result).toEqual({ mockId: 'new-stub-id' });
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: USER_ID,
+          sessionId: null,
+          title: 'Linear Algebra - Practice Exam',
+          mode: 'practice',
+          questions: [],
+          responses: [],
+          totalPoints: 0,
+          currentIndex: 0,
+          status: 'in_progress',
+        }),
+      );
+    });
+  });
+
+  // ==================== generateQuestionsFromTopic ====================
+
+  describe('generateQuestionsFromTopic', () => {
     const topicOptions = {
       topic: 'Linear Algebra',
       numQuestions: 5,
@@ -196,7 +226,22 @@ describe('MockExamService', () => {
       questionTypes: ['choice', 'short_answer'],
     };
 
-    it('should generate questions from AI, create paper, insert questions, and create mock', async () => {
+    const EMPTY_MOCK: MockExam = {
+      id: MOCK_ID,
+      userId: USER_ID,
+      sessionId: null,
+      mode: 'practice',
+      title: 'Linear Algebra - Practice Exam',
+      questions: [],
+      responses: [],
+      score: null,
+      totalPoints: 0,
+      currentIndex: 0,
+      status: 'in_progress',
+      createdAt: '2025-01-01T00:00:00Z',
+    };
+
+    it('should generate questions from AI and update mock exam', async () => {
       const aiResponse = JSON.stringify({
         title: 'Linear Algebra - Practice Exam',
         questions: [
@@ -226,61 +271,60 @@ describe('MockExamService', () => {
       });
 
       mockAI(aiResponse);
-      paperRepo.create.mockResolvedValue('virtual-paper-id');
-      paperRepo.insertQuestions.mockResolvedValue(undefined);
-      mockRepo.create.mockResolvedValue('new-mock-id');
+      mockRepo.verifyOwnership.mockResolvedValue(true);
+      mockRepo.findById.mockResolvedValue(EMPTY_MOCK);
+      mockRepo.update.mockResolvedValue(undefined);
 
-      const result = await service.generateFromTopic(USER_ID, topicOptions);
+      await service.generateQuestionsFromTopic(USER_ID, MOCK_ID, topicOptions);
 
-      expect(result).toEqual({ mockId: 'new-mock-id' });
-
-      // Paper created
-      expect(paperRepo.create).toHaveBeenCalledWith(
+      // Mock exam updated with questions
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        MOCK_ID,
         expect.objectContaining({
-          userId: USER_ID,
-          title: 'Linear Algebra - Practice Exam',
-          course: 'Linear Algebra',
-          visibility: 'private',
-          status: 'ready',
-        }),
-      );
-
-      // Questions inserted
-      expect(paperRepo.insertQuestions).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({ orderNum: 1, type: 'choice' }),
-          expect.objectContaining({ orderNum: 2, type: 'short_answer' }),
-        ]),
-      );
-
-      // Mock exam created
-      expect(mockRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: USER_ID,
-          paperId: 'virtual-paper-id',
-          sessionId: null,
           title: 'Linear Algebra - Practice Exam',
           totalPoints: 8,
-          currentIndex: 0,
-          status: 'in_progress',
         }),
       );
+
+      // Verify questions were passed
+      const updateCall = mockRepo.update.mock.calls[0][1];
+      expect(updateCall.questions).toHaveLength(2);
+    });
+
+    it('should throw NOT_FOUND when ownership fails', async () => {
+      mockRepo.verifyOwnership.mockResolvedValue(false);
+
+      await expect(
+        service.generateQuestionsFromTopic(USER_ID, MOCK_ID, topicOptions),
+      ).rejects.toThrow('Mock exam not found');
+    });
+
+    it('should throw NOT_FOUND when mock not found', async () => {
+      mockRepo.verifyOwnership.mockResolvedValue(true);
+      mockRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.generateQuestionsFromTopic(USER_ID, MOCK_ID, topicOptions),
+      ).rejects.toThrow('Mock exam not found');
+    });
+
+    it('should throw VALIDATION when questions already generated', async () => {
+      mockRepo.verifyOwnership.mockResolvedValue(true);
+      mockRepo.findById.mockResolvedValue(MOCK_EXAM); // has questions
+
+      await expect(
+        service.generateQuestionsFromTopic(USER_ID, MOCK_ID, topicOptions),
+      ).rejects.toThrow('Questions already generated');
     });
 
     it('should throw VALIDATION when AI returns no questions', async () => {
       mockAI(JSON.stringify({ title: 'Empty', questions: [] }));
+      mockRepo.verifyOwnership.mockResolvedValue(true);
+      mockRepo.findById.mockResolvedValue(EMPTY_MOCK);
 
-      await expect(service.generateFromTopic(USER_ID, topicOptions)).rejects.toThrow(
-        'AI could not generate questions for this topic',
-      );
-    });
-
-    it('should throw VALIDATION when AI returns null questions', async () => {
-      mockAI(JSON.stringify({ title: 'No questions' }));
-
-      await expect(service.generateFromTopic(USER_ID, topicOptions)).rejects.toThrow(
-        'AI could not generate questions for this topic',
-      );
+      await expect(
+        service.generateQuestionsFromTopic(USER_ID, MOCK_ID, topicOptions),
+      ).rejects.toThrow('AI could not generate questions for this topic');
     });
 
     it('should use fallback title when AI returns no title', async () => {
@@ -299,49 +343,16 @@ describe('MockExamService', () => {
       });
 
       mockAI(aiResponse);
-      paperRepo.create.mockResolvedValue('p1');
-      paperRepo.insertQuestions.mockResolvedValue(undefined);
-      mockRepo.create.mockResolvedValue('m1');
+      mockRepo.verifyOwnership.mockResolvedValue(true);
+      mockRepo.findById.mockResolvedValue(EMPTY_MOCK);
+      mockRepo.update.mockResolvedValue(undefined);
 
-      await service.generateFromTopic(USER_ID, topicOptions);
+      await service.generateQuestionsFromTopic(USER_ID, MOCK_ID, topicOptions);
 
-      expect(paperRepo.create).toHaveBeenCalledWith(
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        MOCK_ID,
         expect.objectContaining({ title: 'Linear Algebra - Practice Exam' }),
       );
-    });
-
-    it('should handle mixed difficulty instruction', async () => {
-      const mixedOptions = {
-        topic: 'Physics',
-        numQuestions: 3,
-        difficulty: 'mixed' as const,
-        questionTypes: [],
-      };
-
-      const aiResponse = JSON.stringify({
-        title: 'Physics Exam',
-        questions: [
-          {
-            order_num: 1,
-            type: 'choice',
-            content: 'Q?',
-            options: { A: '1' },
-            answer: 'A',
-            explanation: 'e',
-            points: 1,
-          },
-        ],
-      });
-
-      mockAI(aiResponse);
-      paperRepo.create.mockResolvedValue('p1');
-      paperRepo.insertQuestions.mockResolvedValue(undefined);
-      mockRepo.create.mockResolvedValue('m1');
-
-      await service.generateFromTopic(USER_ID, mixedOptions);
-
-      // Verify AI was called (prompt includes 'mix')
-      expect(geminiModule.getGenAI).toHaveBeenCalled();
     });
   });
 
@@ -351,7 +362,6 @@ describe('MockExamService', () => {
     it('should load paper questions, generate AI variants, and create mock exam', async () => {
       paperRepo.findQuestionsByPaperId.mockResolvedValue(EXAM_QUESTIONS);
       paperRepo.findById.mockResolvedValue(PAPER);
-      mockRepo.countByUserAndPaper.mockResolvedValue(0);
       mockRepo.create.mockResolvedValue(MOCK_ID);
 
       // Each question gets its own AI call; 2 questions = batch of 2 in one batch
@@ -370,14 +380,12 @@ describe('MockExamService', () => {
       expect(result).toEqual({ mockId: MOCK_ID });
       expect(paperRepo.findQuestionsByPaperId).toHaveBeenCalledWith(PAPER_ID);
       expect(paperRepo.findById).toHaveBeenCalledWith(PAPER_ID);
-      expect(mockRepo.countByUserAndPaper).toHaveBeenCalledWith(USER_ID, PAPER_ID);
 
-      // Mock exam created with correct title (count=0 => #1)
+      // Mock exam created with correct title
       expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: USER_ID,
-          paperId: PAPER_ID,
-          title: 'Calculus Final #1',
+          title: 'Calculus Final',
           totalPoints: 15,
           currentIndex: 0,
           status: 'in_progress',
@@ -388,7 +396,6 @@ describe('MockExamService', () => {
     it('should include sessionId when provided', async () => {
       paperRepo.findQuestionsByPaperId.mockResolvedValue(EXAM_QUESTIONS);
       paperRepo.findById.mockResolvedValue(PAPER);
-      mockRepo.countByUserAndPaper.mockResolvedValue(2);
       mockRepo.create.mockResolvedValue(MOCK_ID);
 
       const aiCalls = EXAM_QUESTIONS.map((q) =>
@@ -405,7 +412,7 @@ describe('MockExamService', () => {
       expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           sessionId: SESSION_ID,
-          title: 'Calculus Final #3', // count=2 => #3
+          title: 'Calculus Final',
         }),
       );
     });
@@ -430,7 +437,6 @@ describe('MockExamService', () => {
     it('should fallback to original question when AI variant generation fails', async () => {
       paperRepo.findQuestionsByPaperId.mockResolvedValue([EXAM_QUESTIONS[0]]);
       paperRepo.findById.mockResolvedValue(PAPER);
-      mockRepo.countByUserAndPaper.mockResolvedValue(0);
       mockRepo.create.mockResolvedValue(MOCK_ID);
 
       // Suppress console.warn
@@ -480,7 +486,6 @@ describe('MockExamService', () => {
 
       paperRepo.findQuestionsByPaperId.mockResolvedValue(fiveQuestions);
       paperRepo.findById.mockResolvedValue(PAPER);
-      mockRepo.countByUserAndPaper.mockResolvedValue(0);
       mockRepo.create.mockResolvedValue(MOCK_ID);
 
       // 5 AI responses

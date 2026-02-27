@@ -1,18 +1,47 @@
-import { Box, Container } from '@mantine/core';
-import { getChatSession } from '@/app/actions/chat';
+import { Anchor, Box, Button, Center, Container, Stack, Text, Title } from '@mantine/core';
+import { getMockExamDetail } from '@/app/actions/mock-exams';
 import { getDocColor } from '@/constants/doc-types';
-import { ExamEntryClient } from '../ExamEntryClient';
+import { ExamPendingClient } from './ExamPendingClient';
+import { MockExamClient } from './MockExamClient';
 
-export default async function ExamSessionPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ExamPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ courseCode?: string }>;
+}) {
   const { id } = await params;
-  const session = await getChatSession(id);
+  const sp = await searchParams;
 
-  const courseCode = session?.course?.code ?? null;
-  const courseName = session?.course?.name ?? null;
-  const uniId = session?.course?.universityId ?? null;
+  const mock = await getMockExamDetail(id);
+
+  if (!mock) {
+    return (
+      <Center h="100%">
+        <Stack align="center" gap="md" ta="center">
+          <Title order={1} size={80} c="gray.3" style={{ lineHeight: 1 }}>
+            404
+          </Title>
+          <Title order={2}>Exam Not Found</Title>
+          <Text c="dimmed" maw={400}>
+            The mock exam you are looking for does not exist or you do not have permission to view
+            it.
+          </Text>
+          <Anchor href="/study" underline="never">
+            <Button variant="light" color="indigo" mt="md">
+              Back to Exams
+            </Button>
+          </Anchor>
+        </Stack>
+      </Center>
+    );
+  }
+
+  const hasQuestions = mock.questions.length > 0;
 
   return (
-    <Container size="md" py={48} style={{ position: 'relative' }}>
+    <Container size={hasQuestions ? 'xl' : 'md'} py={48} style={{ position: 'relative' }}>
       <Box
         style={{
           position: 'absolute',
@@ -28,11 +57,14 @@ export default async function ExamSessionPage({ params }: { params: Promise<{ id
         }}
       />
       <Box style={{ position: 'relative', zIndex: 1 }}>
-        <ExamEntryClient
-          initialCourseCode={courseCode}
-          initialCourseName={courseName}
-          initialUniId={uniId}
-        />
+        {hasQuestions ? (
+          <MockExamClient key={id} initialMock={mock} />
+        ) : (
+          <ExamPendingClient
+            mock={mock}
+            courseCode={sp.courseCode}
+          />
+        )}
       </Box>
     </Container>
   );

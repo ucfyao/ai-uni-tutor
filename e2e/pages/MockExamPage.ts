@@ -24,7 +24,7 @@ export class MockExamPage {
   }
 
   async goto(examId: string) {
-    await this.page.goto(`/exam/mock/${examId}`);
+    await this.page.goto(`/exam/${examId}`);
   }
 
   async answerQuestion(answer: string) {

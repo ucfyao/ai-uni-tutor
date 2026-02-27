@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { AppShell, Box, Burger, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { toggleSessionPin, updateChatSessionTitle } from '@/app/actions/chat';
+import { createMockExamStub, getMockExamIdBySessionId } from '@/app/actions/mock-exams';
 import DeleteSessionModal from '@/components/DeleteSessionModal';
 import { Logo } from '@/components/Logo';
 import NewSessionModal from '@/components/NewSessionModal';
@@ -31,11 +32,9 @@ export default function ShellClient({ children }: { children: React.ReactNode })
   useEffect(() => {
     const id =
       pathname?.match(/^\/(lecture|assignment)\/([^/]+)/)?.[2] ??
-      pathname?.match(/^\/exam\/mock\/([^/]+)/)?.[1] ??
       pathname?.match(/^\/exam\/([^/]+)/)?.[1] ??
       null;
-    // Special case: if match is 'mock', it's the start of /exam/mock/[id], handled by the previous line
-    setActiveSessionId(id === 'mock' ? null : id);
+    setActiveSessionId(id);
   }, [pathname]);
 
   const { headerContent } = useHeader();
@@ -70,6 +69,18 @@ export default function ShellClient({ children }: { children: React.ReactNode })
       return;
     }
 
+    if (mode === 'Mock Exam') {
+      const result = await createMockExamStub(newId, courseCode);
+      if (result.success) {
+        setActiveSessionId(newId);
+        closeModal();
+        router.push(`/exam/${result.mockId}?courseCode=${encodeURIComponent(courseCode)}`);
+        return;
+      }
+      showNotification({ title: 'Error', message: result.error, color: 'red' });
+      return;
+    }
+
     const modeRoute = MODES_METADATA[mode].id;
     const targetPath = `/${modeRoute}/${newId}`;
     setActiveSessionId(newId);
@@ -81,6 +92,17 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     const session = sessions.find((s) => s.id === id);
     if (!session?.mode) {
       router.push(`/`);
+      if (isMobile) toggleMobile();
+      return;
+    }
+
+    if (session.mode === 'Mock Exam') {
+      const mockId = await getMockExamIdBySessionId(id);
+      if (mockId) {
+        router.push(`/exam/${mockId}`);
+      } else {
+        router.push('/study');
+      }
       if (isMobile) toggleMobile();
       return;
     }

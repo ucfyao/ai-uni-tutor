@@ -238,7 +238,7 @@ export const translations = {
       noContextTitle: '还没有上下文',
       noContextMessage: '请先上传文档或发送消息，让我知道你需要什么帮助。',
       edit: '编辑',
-      saveAndResend: '保存并重新发送',
+      saveAndResend: '发送',
       cancelEdit: '取消',
       branchOf: '{current} / {total}',
       reconnecting: '重连中...',
@@ -1155,7 +1155,7 @@ export const translations = {
       noContextMessage:
         'Please upload a document or send a message first so I know what to help with.',
       edit: 'Edit',
-      saveAndResend: 'Save & Resend',
+      saveAndResend: 'Send',
       cancelEdit: 'Cancel',
       branchOf: '{current} of {total}',
       reconnecting: 'Reconnecting...',

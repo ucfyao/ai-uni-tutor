@@ -10,7 +10,6 @@ import type { MockExam } from '@/types/exam';
 export interface IMockExamRepository {
   create(data: {
     userId: string;
-    paperId: string;
     sessionId?: string | null;
     title: string;
     mode: 'practice' | 'exam';
@@ -25,14 +24,17 @@ export interface IMockExamRepository {
   verifyOwnership(id: string, userId: string): Promise<boolean>;
   findBySessionId(sessionId: string): Promise<string | null>; // returns mock ID
   findByUserId(userId: string, limit?: number, offset?: number): Promise<MockExam[]>;
-  countByUserAndPaper(userId: string, paperId: string): Promise<number>;
 
   update(
     id: string,
     data: {
+      questions?: Json;
+      title?: string;
       responses?: Json;
       currentIndex?: number;
       score?: number;
+      totalPoints?: number;
+      mode?: 'practice' | 'exam';
       status?: 'in_progress' | 'completed';
     },
   ): Promise<void>;

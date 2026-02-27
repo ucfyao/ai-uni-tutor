@@ -438,7 +438,6 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          paper_id: string;
           session_id: string | null;
           title: string;
           questions: Json;
@@ -453,7 +452,6 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          paper_id: string;
           session_id?: string | null;
           title: string;
           mode?: 'practice' | 'exam';
@@ -468,7 +466,6 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          paper_id?: string;
           session_id?: string | null;
           title?: string;
           mode?: 'practice' | 'exam';

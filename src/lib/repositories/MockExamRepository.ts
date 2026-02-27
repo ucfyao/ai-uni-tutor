@@ -19,7 +19,7 @@ export class MockExamRepository implements IMockExamRepository {
     return {
       id: row.id,
       userId: row.user_id,
-      paperId: row.paper_id,
+      sessionId: row.session_id ?? null,
       mode: (row.mode ?? 'practice') as 'practice' | 'exam',
       title: row.title,
       questions: (row.questions ?? []) as unknown as MockExamQuestion[],
@@ -34,7 +34,6 @@ export class MockExamRepository implements IMockExamRepository {
 
   async create(data: {
     userId: string;
-    paperId: string;
     sessionId?: string | null;
     title: string;
     mode: 'practice' | 'exam';
@@ -49,7 +48,6 @@ export class MockExamRepository implements IMockExamRepository {
       .from('mock_exams')
       .insert({
         user_id: data.userId,
-        paper_id: data.paperId,
         session_id: data.sessionId ?? null,
         title: data.title,
         mode: data.mode,
@@ -123,33 +121,29 @@ export class MockExamRepository implements IMockExamRepository {
     return (data ?? []).map((row) => this.mapToMockExam(row));
   }
 
-  async countByUserAndPaper(userId: string, paperId: string): Promise<number> {
-    const supabase = await createClient();
-    const { count, error } = await supabase
-      .from('mock_exams')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('paper_id', paperId);
-
-    if (error) throw new DatabaseError(`Failed to count mock exams: ${error.message}`, error);
-    return count ?? 0;
-  }
-
   async update(
     id: string,
     data: {
+      questions?: Json;
+      title?: string;
       responses?: Json;
       currentIndex?: number;
       score?: number;
+      totalPoints?: number;
+      mode?: 'practice' | 'exam';
       status?: 'in_progress' | 'completed';
     },
   ): Promise<void> {
     const supabase = await createClient();
     const updates: Database['public']['Tables']['mock_exams']['Update'] = {};
 
+    if (data.questions !== undefined) updates.questions = data.questions;
+    if (data.title !== undefined) updates.title = data.title;
     if (data.responses !== undefined) updates.responses = data.responses;
     if (data.currentIndex !== undefined) updates.current_index = data.currentIndex;
     if (data.score !== undefined) updates.score = data.score;
+    if (data.totalPoints !== undefined) updates.total_points = data.totalPoints;
+    if (data.mode !== undefined) updates.mode = data.mode;
     if (data.status !== undefined) updates.status = data.status;
 
     const { error } = await supabase.from('mock_exams').update(updates).eq('id', id);

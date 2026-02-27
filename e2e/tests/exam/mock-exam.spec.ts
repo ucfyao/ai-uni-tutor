@@ -3,7 +3,7 @@ import { MockExamPage } from '../../pages/MockExamPage';
 
 test.describe('Mock Exam', () => {
   test('should display question and answer input on mock exam page', async ({ userPage }) => {
-    await userPage.goto('/exam/mock/test-exam-id');
+    await userPage.goto('/exam/test-exam-id');
 
     const url = userPage.url();
     if (url.includes('/exam') && !url.includes('/mock/')) {
@@ -15,10 +15,10 @@ test.describe('Mock Exam', () => {
   });
 
   test('should show progress indicator', async ({ userPage }) => {
-    await userPage.goto('/exam/mock/test-exam-id');
+    await userPage.goto('/exam/test-exam-id');
 
     const url = userPage.url();
-    if (!url.includes('/mock/')) {
+    if (!url.includes('/exam/')) {
       test.skip(true, 'No test exam data available');
     }
 
