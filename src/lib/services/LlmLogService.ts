@@ -5,9 +5,9 @@ import type {
   LlmLogStats,
   UserUsageBreakdown,
 } from '@/lib/repositories/LlmLogRepository';
+import type { Database } from '@/types/database';
 
 export type { UserUsageBreakdown };
-import type { Database } from '@/types/database';
 
 type LlmCallLogRow = Database['public']['Tables']['llm_call_logs']['Row'];
 type LlmCallLogInsert = Database['public']['Tables']['llm_call_logs']['Insert'];
@@ -24,7 +24,7 @@ const COST_PER_1M_OUTPUT: Record<string, number> = {
 };
 
 export interface LlmCallContext {
-  callType: 'chat' | 'parse' | 'exam' | 'embedding' | 'explain' | 'rerank' | 'unknown';
+  callType: 'chat' | 'parse' | 'exam' | 'embedding' | 'explain' | 'rerank' | 'writing' | 'unknown';
   userId?: string;
   metadata?: Record<string, unknown>;
 }
@@ -57,11 +57,7 @@ export class LlmLogService {
     return getLlmLogRepository().getUserTodayBreakdown(userId);
   }
 
-  estimateCost(
-    model: string,
-    inputTokens?: number | null,
-    outputTokens?: number | null,
-  ): number {
+  estimateCost(model: string, inputTokens?: number | null, outputTokens?: number | null): number {
     const input = inputTokens ?? 0;
     const output = outputTokens ?? 0;
     const inputCost = (COST_PER_1M_INPUT[model] ?? 0.1) * (input / 1_000_000);
