@@ -1,12 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import {
-  BookOpen,
-  CheckCircle,
-  Lightbulb,
-  ListChecks,
-  MessageCircleQuestion,
-  Route,
-} from 'lucide-react';
+import { CheckCircle, ListChecks, MessageCircleQuestion, Route } from 'lucide-react';
 import type { TutoringMode } from '@/types';
 
 // ============================================================================
@@ -16,7 +9,7 @@ import type { TutoringMode } from '@/types';
 export type CommandAction = 'send' | 'prefill';
 
 export interface ChatCommand {
-  /** Unique ID, e.g. 'summary' */
+  /** Unique ID, e.g. 'outline' */
   id: string;
   /** Slash command string, e.g. '/summary' */
   command: string;
@@ -48,39 +41,15 @@ export interface ChatCommand {
 export const COMMANDS: ChatCommand[] = [
   // ---- Lecture Helper ----
   {
-    id: 'summary',
-    command: '/summary',
+    id: 'outline',
+    command: '/outline',
     icon: ListChecks,
     color: 'indigo',
-    labelKey: 'summary',
-    descKey: 'summary',
+    labelKey: 'outline',
+    descKey: 'outline',
     modes: ['Lecture Helper'],
     action: 'send',
     promptTemplate: 'Summarize the key concepts of the last lecture',
-    requiresContext: true,
-  },
-  {
-    id: 'explain',
-    command: '/explain',
-    icon: BookOpen,
-    color: 'blue',
-    labelKey: 'explain',
-    descKey: 'explain',
-    modes: ['Lecture Helper', 'Assignment Coach'],
-    action: 'prefill',
-    promptTemplate: 'Explain the concept of: ',
-    requiresContext: false,
-  },
-  {
-    id: 'examples',
-    command: '/examples',
-    icon: Lightbulb,
-    color: 'orange',
-    labelKey: 'examples',
-    descKey: 'examples',
-    modes: ['Lecture Helper'],
-    action: 'send',
-    promptTemplate: 'Connect this topic to real-world examples',
     requiresContext: true,
   },
 
