@@ -57,25 +57,18 @@ export class LlmLogRepository {
   async getStats(startTime: string): Promise<LlmLogStats> {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-      .from('llm_call_logs')
-      .select('status, latency_ms, cost_estimate')
-      .gte('created_at', startTime);
+    const { data, error } = await supabase.rpc('get_llm_log_stats', {
+      start_time: startTime,
+    });
 
     if (error) throw error;
-    const rows = data ?? [];
-
-    const total = rows.length;
-    const errors = rows.filter((r) => r.status === 'error').length;
-    const avgLatency =
-      total > 0 ? Math.round(rows.reduce((sum, r) => sum + r.latency_ms, 0) / total) : 0;
-    const cost = rows.reduce((sum, r) => sum + (Number(r.cost_estimate) || 0), 0);
+    const row = data?.[0];
 
     return {
-      totalToday: total,
-      errorsToday: errors,
-      avgLatencyMs: avgLatency,
-      estimatedCostToday: cost,
+      totalToday: Number(row?.total_count ?? 0),
+      errorsToday: Number(row?.error_count ?? 0),
+      avgLatencyMs: Number(row?.avg_latency ?? 0),
+      estimatedCostToday: Number(row?.total_cost ?? 0),
     };
   }
 

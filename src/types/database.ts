@@ -722,6 +722,17 @@ export interface Database {
           similarity: number;
         }[];
       };
+      get_llm_log_stats: {
+        Args: {
+          start_time: string;
+        };
+        Returns: {
+          total_count: number;
+          error_count: number;
+          avg_latency: number;
+          total_cost: number;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
