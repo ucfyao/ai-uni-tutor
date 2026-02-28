@@ -29,8 +29,10 @@ function createMockMockExamRepo(): {
     verifyOwnership: vi.fn(),
     findBySessionId: vi.fn(),
     findMockIdsBySessionIds: vi.fn(),
+    findByUserIdGrouped: vi.fn(),
     findByUserId: vi.fn(),
     update: vi.fn(),
+    delete: vi.fn(),
   };
 }
 
@@ -145,6 +147,10 @@ const MOCK_EXAM: MockExam = {
   totalPoints: 15,
   currentIndex: 0,
   status: 'in_progress',
+  retakeOf: null,
+  courseCode: null,
+  courseName: null,
+  schoolName: null,
   createdAt: '2025-01-01T00:00:00Z',
 };
 
@@ -247,6 +253,10 @@ describe('MockExamService', () => {
       totalPoints: 0,
       currentIndex: 0,
       status: 'in_progress',
+      retakeOf: null,
+      courseCode: null,
+      courseName: null,
+      schoolName: null,
       createdAt: '2025-01-01T00:00:00Z',
     };
 

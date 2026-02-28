@@ -28,6 +28,10 @@ export class MockExamRepository implements IMockExamRepository {
       totalPoints: row.total_points,
       currentIndex: row.current_index,
       status: row.status,
+      retakeOf: row.retake_of ?? null,
+      courseCode: row.course_code ?? null,
+      courseName: row.course_name ?? null,
+      schoolName: row.school_name ?? null,
       createdAt: row.created_at,
     };
   }
@@ -42,6 +46,10 @@ export class MockExamRepository implements IMockExamRepository {
     totalPoints: number;
     currentIndex?: number;
     status?: 'in_progress' | 'completed';
+    retake_of?: string | null;
+    courseCode?: string | null;
+    courseName?: string | null;
+    schoolName?: string | null;
   }): Promise<string> {
     const supabase = await createClient();
     const { data: mock, error } = await supabase
@@ -57,6 +65,10 @@ export class MockExamRepository implements IMockExamRepository {
         total_points: data.totalPoints,
         current_index: data.currentIndex ?? 0,
         status: data.status ?? 'in_progress',
+        retake_of: data.retake_of ?? null,
+        course_code: data.courseCode ?? null,
+        course_name: data.courseName ?? null,
+        school_name: data.schoolName ?? null,
       })
       .select('id')
       .single();
@@ -131,6 +143,34 @@ export class MockExamRepository implements IMockExamRepository {
     return map;
   }
 
+  async findByUserIdGrouped(
+    userId: string,
+    filters?: { mode?: 'practice' | 'exam'; status?: 'in_progress' | 'completed' },
+    limit = 50,
+    offset = 0,
+  ): Promise<{ inProgress: MockExam[]; completed: MockExam[] }> {
+    const supabase = await createClient();
+    let query = supabase
+      .from('mock_exams')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (filters?.mode) query = query.eq('mode', filters.mode);
+    if (filters?.status) query = query.eq('status', filters.status);
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error } = await query;
+    if (error) throw new DatabaseError(`Failed to fetch mock exams: ${error.message}`, error);
+
+    const all = (data ?? []).map((row) => this.mapToMockExam(row));
+    return {
+      inProgress: all.filter((m) => m.status === 'in_progress'),
+      completed: all.filter((m) => m.status === 'completed'),
+    };
+  }
+
   async findByUserId(userId: string, limit = 20, offset = 0): Promise<MockExam[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -173,6 +213,12 @@ export class MockExamRepository implements IMockExamRepository {
     const { error } = await supabase.from('mock_exams').update(updates).eq('id', id);
 
     if (error) throw new DatabaseError(`Failed to update mock exam: ${error.message}`, error);
+  }
+
+  async delete(id: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.from('mock_exams').delete().eq('id', id);
+    if (error) throw new DatabaseError(`Failed to delete mock exam: ${error.message}`, error);
   }
 }
 

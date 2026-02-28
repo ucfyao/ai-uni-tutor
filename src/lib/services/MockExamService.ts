@@ -105,8 +105,9 @@ export class MockExamService {
    */
   async createMinimalStub(
     userId: string,
-    sessionId: string,
+    sessionId: string | null,
     title: string,
+    courseInfo?: { courseCode?: string | null; courseName?: string | null; schoolName?: string | null },
   ): Promise<{ mockId: string }> {
     const mockId = await this.mockRepo.create({
       userId,
@@ -118,6 +119,9 @@ export class MockExamService {
       totalPoints: 0,
       currentIndex: 0,
       status: 'in_progress',
+      courseCode: courseInfo?.courseCode ?? null,
+      courseName: courseInfo?.courseName ?? null,
+      schoolName: courseInfo?.schoolName ?? null,
     });
 
     return { mockId };
@@ -144,15 +148,35 @@ export class MockExamService {
       throw new AppError('NOT_FOUND', 'No questions found for this paper');
     }
 
-    const mockQuestions: MockExamQuestion[] = questions.map((q) => ({
-      content: q.content,
-      type: q.type,
-      options: q.options as Record<string, string> | null,
-      answer: q.answer,
-      explanation: q.explanation,
-      points: q.points,
-      sourceQuestionId: q.id,
-    }));
+    // Build group info from parent-child relationships
+    const parentMap = new Map<string, { index: number; title: string }>();
+    let groupIdx = 0;
+    for (const q of questions) {
+      if (!q.parentQuestionId) {
+        const hasChildren = questions.some((c) => c.parentQuestionId === q.id);
+        if (hasChildren) {
+          parentMap.set(q.id, { index: groupIdx++, title: q.content.slice(0, 80) });
+        }
+      }
+    }
+
+    // Map with group info, excluding parent-only questions
+    const mockQuestions: MockExamQuestion[] = questions
+      .filter((q) => !parentMap.has(q.id))
+      .map((q) => {
+        const group = q.parentQuestionId ? parentMap.get(q.parentQuestionId) : undefined;
+        return {
+          content: q.content,
+          type: q.type,
+          options: q.options as Record<string, string> | null,
+          answer: q.answer,
+          explanation: q.explanation,
+          points: q.points,
+          sourceQuestionId: q.id,
+          groupIndex: group?.index,
+          groupTitle: group?.title,
+        };
+      });
 
     const totalPoints = mockQuestions.reduce((sum, q) => sum + q.points, 0);
 
@@ -946,6 +970,57 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
    */
   async getHistory(userId: string, limit = 20, offset = 0): Promise<MockExam[]> {
     return this.mockRepo.findByUserId(userId, limit, offset);
+  }
+
+  /**
+   * Get mock exams grouped by status for the hub page.
+   */
+  async getMockExamList(
+    userId: string,
+    filters?: { mode?: 'practice' | 'exam' },
+  ): Promise<{ inProgress: MockExam[]; completed: MockExam[] }> {
+    return this.mockRepo.findByUserIdGrouped(userId, filters);
+  }
+
+  /**
+   * Create a retake of an existing mock exam with the same questions.
+   */
+  async retakeMock(userId: string, originalMockId: string): Promise<{ mockId: string }> {
+    const original = await this.mockRepo.findById(originalMockId);
+    if (!original) throw new AppError('NOT_FOUND', 'Original mock exam not found');
+    if (original.userId !== userId) throw new AppError('NOT_FOUND', 'Mock exam not found');
+
+    const mockId = await this.mockRepo.create({
+      userId,
+      sessionId: null,
+      title: original.title.replace(/\s*\(重考\)$/, ''),
+      mode: original.mode,
+      questions: original.questions as unknown as Json,
+      responses: [] as unknown as Json,
+      totalPoints: original.totalPoints,
+      currentIndex: 0,
+      status: 'in_progress',
+      retake_of: originalMockId,
+      courseCode: original.courseCode ?? null,
+      courseName: original.courseName ?? null,
+      schoolName: original.schoolName ?? null,
+    });
+
+    return { mockId };
+  }
+
+  /**
+   * Update the mode of a mock exam.
+   */
+  async updateMockMode(mockId: string, mode: 'practice' | 'exam'): Promise<void> {
+    await this.mockRepo.update(mockId, { mode });
+  }
+
+  async deleteMock(userId: string, mockId: string): Promise<void> {
+    const mock = await this.mockRepo.findById(mockId);
+    if (!mock) throw new AppError('NOT_FOUND', 'Mock exam not found');
+    if (mock.userId !== userId) throw new AppError('NOT_FOUND', 'Mock exam not found');
+    await this.mockRepo.delete(mockId);
   }
 }
 

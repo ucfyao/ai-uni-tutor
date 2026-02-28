@@ -21,6 +21,7 @@ import {
   Share,
   ShieldCheck,
   Sparkles,
+  Target,
   Trash,
   Wand2,
 } from 'lucide-react';
@@ -72,12 +73,6 @@ const CHAT_MODULES = [
     labelKey: 'assignments' as const,
     icon: getDocIcon('assignment'),
     color: getDocColor('assignment'),
-  },
-  {
-    mode: 'Mock Exam' as TutoringMode,
-    labelKey: 'mockExams' as const,
-    icon: getDocIcon('exam'),
-    color: getDocColor('exam'),
   },
 ];
 
@@ -252,6 +247,21 @@ const Sidebar: React.FC<SidebarProps> = ({
             </Tooltip>
           );
         })}
+
+        {/* Exam Hub */}
+        <Tooltip label={t.sidebar.mockExamHub} position="right">
+          <ActionIcon
+            component={Link}
+            href="/exam"
+            variant="subtle"
+            color={pathname.startsWith('/exam') ? getDocColor('exam') : 'gray'}
+            size={36}
+            radius="md"
+            mb={4}
+          >
+            <Target size={20} strokeWidth={1.5} />
+          </ActionIcon>
+        </Tooltip>
 
         <Box flex={1} />
 
@@ -431,6 +441,44 @@ const Sidebar: React.FC<SidebarProps> = ({
               onShareSession={onShareSession}
             />
           ))}
+
+          {/* Exam Hub link */}
+          <UnstyledButton
+            component={Link}
+            href="/exam"
+            w="100%"
+            py={7}
+            px={10}
+            mx={6}
+            className="sidebar-hover"
+            style={{
+              borderRadius: 8,
+              cursor: 'pointer',
+              width: 'calc(100% - 12px)',
+              backgroundColor: pathname.startsWith('/exam')
+                ? `var(--mantine-color-${getDocColor('exam')}-0)`
+                : undefined,
+            }}
+          >
+            <Group gap={10} wrap="nowrap">
+              <Target
+                size={18}
+                strokeWidth={1.5}
+                color={
+                  pathname.startsWith('/exam')
+                    ? `var(--mantine-color-${getDocColor('exam')}-6)`
+                    : 'var(--mantine-color-gray-6)'
+                }
+              />
+              <Text
+                size="md"
+                fw={pathname.startsWith('/exam') ? 600 : 400}
+                c={pathname.startsWith('/exam') ? `${getDocColor('exam')}.7` : undefined}
+              >
+                {t.sidebar.mockExamHub}
+              </Text>
+            </Group>
+          </UnstyledButton>
         </Stack>
       </ScrollArea>
 

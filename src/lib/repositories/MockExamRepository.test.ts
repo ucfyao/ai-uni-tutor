@@ -81,6 +81,10 @@ describe('MockExamRepository', () => {
         total_points: 15,
         current_index: 1,
         status: 'in_progress',
+        retake_of: null,
+        course_code: null,
+        course_name: null,
+        school_name: null,
       });
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('id');
       expect(mockSupabase.client._chain.single).toHaveBeenCalled();
@@ -111,6 +115,10 @@ describe('MockExamRepository', () => {
         total_points: 10,
         current_index: 0,
         status: 'in_progress',
+        retake_of: null,
+        course_code: null,
+        course_name: null,
+        school_name: null,
       });
     });
 

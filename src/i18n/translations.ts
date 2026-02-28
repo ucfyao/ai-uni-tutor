@@ -581,6 +581,7 @@ export const translations = {
       // Progressive disclosure
       recommended: '推荐',
       noPapersAvailableShort: '暂无真题',
+      selectCourseFirst: '请先选择课程',
       notEnoughPapers: '至少需要 2 套试卷',
       configureExam: '配置考试',
       // Question marking
@@ -620,6 +621,51 @@ export const translations = {
       difficultyEasy: '简单',
       difficultyMedium: '中等',
       difficultyHard: '困难',
+      // Exam Hub
+      examHub: '模考',
+      examTitle: '标题',
+      newMock: '新增',
+      examHistory: '历史记录',
+      continueExam: '继续答题',
+      inProgress: '进行中',
+      completed: '已完成',
+      noExamsYet: '还没有模考记录',
+      noExamsDescription: '点击「新增」开始你的第一次模拟考试',
+      questions: '题目',
+      questionsCount: '{n} 题',
+      scoreDisplay: '{score}/{total}',
+      correctRate: '正确率',
+      // Create modal
+      createMockTitle: '新建模考',
+      // Generation progress
+      generatingProgress: '正在生成第 {current}/{total} 题...',
+      generationComplete: '题目生成完成！',
+      generationFailed: '生成失败，请重试',
+      // Auto-save
+      progressRestored: '已恢复上次答题进度',
+      // Keyboard shortcuts
+      shortcutHint: '快捷键：← → 切题，A-D 选答案，M 标记',
+      backToList: '返回列表',
+      // Confirm dialogs
+      confirmRetake: '确定要重新参加这次考试吗？',
+      confirmDelete: '确定要删除这次考试记录吗？此操作不可撤销。',
+      // Retake
+      retake: '重考',
+      retakeOf: '重考（原始成绩：{score}%）',
+      previousScore: '上次成绩',
+      currentScore: '本次成绩',
+      improved: '进步',
+      regressed: '退步',
+      // Bookmarks
+      bookmark: '收藏',
+      unbookmark: '取消收藏',
+      bookmarkedOnly: '仅收藏',
+      // Filters
+      filterByCourse: '按课程筛选',
+      filterByMode: '按模式筛选',
+      allCourses: '全部课程',
+      allModes: '全部模式',
+      sortByTime: '按时间排序',
       // ExamPaperUploadModal
       uploadExamPaper: '上传考卷',
       dragPdfHere: '拖拽 PDF 文件到此处或点击选择',
@@ -657,6 +703,7 @@ export const translations = {
       pin: '置顶',
       unpin: '取消置顶',
       delete: '删除',
+      mockExamHub: '模考',
     },
     // Modals
     modals: {
@@ -1566,6 +1613,7 @@ export const translations = {
       // Progressive disclosure
       recommended: 'Recommended',
       noPapersAvailableShort: 'No papers yet',
+      selectCourseFirst: 'Select a course first',
       notEnoughPapers: 'Needs at least 2 papers',
       configureExam: 'Configure Exam',
       // Question marking
@@ -1605,6 +1653,51 @@ export const translations = {
       difficultyEasy: 'Easy',
       difficultyMedium: 'Medium',
       difficultyHard: 'Hard',
+      // Exam Hub
+      examHub: 'Mock Exams',
+      examTitle: 'Title',
+      newMock: 'New',
+      examHistory: 'History',
+      continueExam: 'Continue',
+      inProgress: 'In Progress',
+      completed: 'Completed',
+      noExamsYet: 'No mock exams yet',
+      noExamsDescription: 'Click "New" to start your first mock exam',
+      questions: 'Questions',
+      questionsCount: '{n} questions',
+      scoreDisplay: '{score}/{total}',
+      correctRate: 'Correct',
+      // Create modal
+      createMockTitle: 'New Mock Exam',
+      // Generation progress
+      generatingProgress: 'Generating question {current}/{total}...',
+      generationComplete: 'Questions generated!',
+      generationFailed: 'Generation failed, please try again',
+      // Auto-save
+      progressRestored: 'Previous progress restored',
+      // Keyboard shortcuts
+      shortcutHint: 'Shortcuts: ← → navigate, A-D answer, M mark',
+      backToList: 'Back to list',
+      // Confirm dialogs
+      confirmRetake: 'Are you sure you want to retake this exam?',
+      confirmDelete: 'Are you sure you want to delete this exam? This action cannot be undone.',
+      // Retake
+      retake: 'Retake',
+      retakeOf: 'Retake (original: {score}%)',
+      previousScore: 'Previous Score',
+      currentScore: 'Current Score',
+      improved: 'Improved',
+      regressed: 'Declined',
+      // Bookmarks
+      bookmark: 'Bookmark',
+      unbookmark: 'Remove Bookmark',
+      bookmarkedOnly: 'Bookmarked Only',
+      // Filters
+      filterByCourse: 'Filter by Course',
+      filterByMode: 'Filter by Mode',
+      allCourses: 'All Courses',
+      allModes: 'All Modes',
+      sortByTime: 'Sort by Time',
       // ExamPaperUploadModal
       uploadExamPaper: 'Upload Exam Paper',
       dragPdfHere: 'Drag a PDF here or click to select',
@@ -1642,6 +1735,7 @@ export const translations = {
       pin: 'Pin',
       unpin: 'Unpin',
       delete: 'Delete',
+      mockExamHub: 'Mock Exams',
     },
     // Modals
     modals: {
