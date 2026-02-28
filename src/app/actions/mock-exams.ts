@@ -316,3 +316,102 @@ export async function createRandomMixMock(
     };
   }
 }
+
+export async function getMockExamList(
+  filters?: { mode?: 'practice' | 'exam' },
+): Promise<
+  | { success: true; inProgress: MockExam[]; completed: MockExam[] }
+  | { success: false; error: string }
+> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    const service = getMockExamService();
+    const result = await service.getMockExamList(user.id, filters);
+
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('Fetch mock exam list error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch mock exams',
+    };
+  }
+}
+
+export async function retakeMockExam(
+  originalMockId: string,
+): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!originalMockId.trim()) return { success: false, error: 'Mock ID is required' };
+
+    const service = getMockExamService();
+    const { mockId } = await service.retakeMock(user.id, originalMockId.trim());
+
+    revalidatePath('/exam');
+    return { success: true, mockId };
+  } catch (error) {
+    console.error('Retake mock exam error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create retake',
+    };
+  }
+}
+
+export async function createStandaloneMock(
+  title: string,
+  mode: 'practice' | 'exam',
+  courseInfo?: { courseCode?: string | null; courseName?: string | null; schoolName?: string | null },
+): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    const service = getMockExamService();
+    const { mockId } = await service.createMinimalStub(
+      user.id,
+      null,
+      title || 'Mock Exam',
+      courseInfo,
+    );
+
+    await service.updateMockMode(mockId, mode);
+
+    revalidatePath('/exam');
+    return { success: true, mockId };
+  } catch (error) {
+    console.error('Create standalone mock error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create mock exam',
+    };
+  }
+}
+
+export async function deleteMockExam(
+  mockId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!mockId.trim()) return { success: false, error: 'Mock ID is required' };
+
+    const service = getMockExamService();
+    await service.deleteMock(user.id, mockId);
+
+    revalidatePath('/exam');
+    return { success: true };
+  } catch (error) {
+    console.error('Delete mock exam error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete mock exam',
+    };
+  }
+}

@@ -182,5 +182,9 @@ export const mockExamEntity: MockExam = {
   totalPoints: mockExamRow.total_points,
   currentIndex: mockExamRow.current_index,
   status: mockExamRow.status,
+  retakeOf: null,
+  courseCode: null,
+  courseName: null,
+  schoolName: null,
   createdAt: mockExamRow.created_at,
 };

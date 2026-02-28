@@ -249,12 +249,9 @@ export function ExamSubmitModal({
 
         <SimpleGrid cols={unanswered > 0 ? 4 : 3} spacing="sm" w="100%">
           <Paper withBorder radius="md" p="sm" ta="center">
-            <Group gap={4} justify="center" mb={4}>
-              <Target size={14} color="var(--mantine-color-dimmed)" />
-              <Text fz="xs" c="dimmed">
-                {t.exam.totalQuestions}
-              </Text>
-            </Group>
+            <Text fz="xs" c="dimmed" mb={4}>
+              {t.exam.questions}
+            </Text>
             <Text fw={700}>{totalQuestions}</Text>
           </Paper>
           <Paper withBorder radius="md" p="sm" ta="center">

@@ -450,6 +450,10 @@ export interface Database {
           current_index: number;
           status: 'in_progress' | 'completed';
           mode: 'practice' | 'exam';
+          retake_of: string | null;
+          course_code: string | null;
+          course_name: string | null;
+          school_name: string | null;
           created_at: string;
         };
         Insert: {
@@ -464,6 +468,10 @@ export interface Database {
           total_points?: number;
           current_index?: number;
           status?: 'in_progress' | 'completed';
+          retake_of?: string | null;
+          course_code?: string | null;
+          course_name?: string | null;
+          school_name?: string | null;
           created_at?: string;
         };
         Update: {
@@ -478,6 +486,31 @@ export interface Database {
           total_points?: number;
           current_index?: number;
           status?: 'in_progress' | 'completed';
+          retake_of?: string | null;
+          course_code?: string | null;
+          course_name?: string | null;
+          school_name?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      bookmarked_papers: {
+        Row: {
+          id: string;
+          user_id: string;
+          paper_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          paper_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          paper_id?: string;
           created_at?: string;
         };
         Relationships: [];

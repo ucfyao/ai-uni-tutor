@@ -57,6 +57,8 @@ export interface MockExamQuestion {
   explanation: string;
   points: number;
   sourceQuestionId: string | null;
+  groupIndex?: number;
+  groupTitle?: string;
 }
 
 export interface MockExamResponse {
@@ -79,6 +81,17 @@ export interface MockExam {
   totalPoints: number;
   currentIndex: number;
   status: 'in_progress' | 'completed';
+  retakeOf: string | null;
+  courseCode: string | null;
+  courseName: string | null;
+  schoolName: string | null;
+  createdAt: string;
+}
+
+export interface BookmarkedPaper {
+  id: string;
+  userId: string;
+  paperId: string;
   createdAt: string;
 }
 

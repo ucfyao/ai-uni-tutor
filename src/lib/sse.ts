@@ -43,6 +43,16 @@ interface SSELogEvent {
   level: 'info' | 'success' | 'warning' | 'error';
 }
 
+interface SSEExamProgressEvent {
+  current: number;
+  total: number;
+  message: string;
+}
+
+interface SSEExamCompleteEvent {
+  mockId: string;
+}
+
 export type SSEEventMap = {
   status: SSEStatusEvent;
   item: SSEItemEvent;
@@ -52,6 +62,8 @@ export type SSEEventMap = {
   document_created: SSEDocumentCreatedEvent;
   pipeline_progress: PipelineProgress;
   log: SSELogEvent;
+  exam_progress: SSEExamProgressEvent;
+  exam_complete: SSEExamCompleteEvent;
 };
 
 // ─── SSE Formatting ───

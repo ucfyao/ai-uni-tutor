@@ -18,12 +18,19 @@ export interface IMockExamRepository {
     totalPoints: number;
     currentIndex?: number;
     status?: 'in_progress' | 'completed';
+    retake_of?: string | null;
   }): Promise<string>; // returns mockId
 
   findById(id: string): Promise<MockExam | null>;
   verifyOwnership(id: string, userId: string): Promise<boolean>;
   findBySessionId(sessionId: string): Promise<string | null>; // returns mock ID
   findMockIdsBySessionIds(sessionIds: string[]): Promise<Map<string, string>>; // sessionId → mockId
+  findByUserIdGrouped(
+    userId: string,
+    filters?: { mode?: 'practice' | 'exam'; status?: 'in_progress' | 'completed' },
+    limit?: number,
+    offset?: number,
+  ): Promise<{ inProgress: MockExam[]; completed: MockExam[] }>;
   findByUserId(userId: string, limit?: number, offset?: number): Promise<MockExam[]>;
 
   update(
@@ -39,4 +46,6 @@ export interface IMockExamRepository {
       status?: 'in_progress' | 'completed';
     },
   ): Promise<void>;
+
+  delete(id: string): Promise<void>;
 }

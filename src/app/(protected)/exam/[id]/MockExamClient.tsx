@@ -1,8 +1,10 @@
 'use client';
 
 import { ArrowLeft, ArrowRight, Check, Flag, Target, Trophy, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActionIcon,
   Badge,
   Box,
   Button,
@@ -17,13 +19,16 @@ import {
   Switch,
   Text,
   Title,
+  Tooltip,
   UnstyledButton,
 } from '@mantine/core';
 import { ExamSubmitModal } from '@/components/exam/ExamSubmitModal';
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
+import { getMockExamDetail } from '@/app/actions/mock-exams';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { showNotification } from '@/lib/notifications';
 import type { BatchSubmitResult, MockExam, MockExamResponse } from '@/types/exam';
 
 interface Props {
@@ -39,6 +44,7 @@ function formatTime(seconds: number): string {
 }
 
 export function MockExamClient({ initialMock }: Props) {
+  const router = useRouter();
   const { t } = useLanguage();
   const [mock, setMock] = useState(initialMock);
 
@@ -82,6 +88,69 @@ export function MockExamClient({ initialMock }: Props) {
   const currentQuestion = mock.questions[currentQuestionIndex];
   const totalQuestions = mock.questions.length;
 
+  // ─── Retake comparison ───
+  const [originalMock, setOriginalMock] = useState<MockExam | null>(null);
+
+  useEffect(() => {
+    if (mock.retakeOf && isCompleted) {
+      getMockExamDetail(mock.retakeOf).then((original) => {
+        if (original) setOriginalMock(original);
+      });
+    }
+  }, [mock.retakeOf, isCompleted]);
+
+  // ─── Auto-save: localStorage key ───
+  const STORAGE_KEY = `mock-exam-${initialMock.id}-answers`;
+
+  // Restore from localStorage on mount
+  useEffect(() => {
+    if (initialMock.status === 'completed') return;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const data = JSON.parse(saved) as {
+        answers: Record<number, string>;
+        markedQuestions: number[];
+        currentIndex: number;
+      };
+      if (data.answers && Object.keys(data.answers).length > 0) {
+        setAnswers(data.answers);
+        setMarkedQuestions(new Set(data.markedQuestions ?? []));
+        setCurrentQuestionIndex(data.currentIndex ?? 0);
+        showNotification({ message: t.exam.progressRestored, color: 'teal', autoClose: 3000 });
+      }
+    } catch {
+      // Corrupted data — ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save to localStorage on changes (debounced)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isCompleted) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            answers,
+            markedQuestions: Array.from(markedQuestions),
+            currentIndex: currentQuestionIndex,
+          }),
+        );
+      } catch {
+        // Storage full or unavailable — silently fail
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [answers, markedQuestions, currentQuestionIndex, isCompleted, STORAGE_KEY]);
+
   // Timer countdown — auto-opens submit modal on expiry
   useEffect(() => {
     if (timerEnabled && !isCompleted && !hasSubmitted) {
@@ -114,8 +183,14 @@ export function MockExamClient({ initialMock }: Props) {
         currentIndex: totalQuestions,
       }));
       setCurrentQuestionIndex(0);
+      // Clear auto-saved data
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
     },
-    [totalQuestions],
+    [totalQuestions, STORAGE_KEY],
   );
 
   // Determine question status for sidebar
@@ -160,6 +235,53 @@ export function MockExamClient({ initialMock }: Props) {
     [currentQuestionIndex],
   );
 
+  // ─── Keyboard shortcuts ───
+  useEffect(() => {
+    if (isCompleted) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          if (currentQuestionIndex > 0) setCurrentQuestionIndex((i) => i - 1);
+          break;
+        case 'ArrowRight':
+          if (currentQuestionIndex < totalQuestions - 1) setCurrentQuestionIndex((i) => i + 1);
+          break;
+        case 'm':
+        case 'M':
+          toggleMark(currentQuestionIndex);
+          break;
+        case 'a':
+        case 'A':
+        case 'b':
+        case 'B':
+        case 'c':
+        case 'C':
+        case 'd':
+        case 'D': {
+          const q = mock.questions[currentQuestionIndex];
+          if (q?.type === 'choice' || q?.type === 'true_false') {
+            const key = e.key.toUpperCase();
+            if (q.options && key in q.options) {
+              handleAnswerChange(key);
+            }
+          }
+          break;
+        }
+        default:
+          if (e.ctrlKey && e.key === 'Enter') {
+            setSubmitModalOpen(true);
+          }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentQuestionIndex, totalQuestions, isCompleted, toggleMark, handleAnswerChange, mock.questions]);
+
   // Navigate to question
   const goToQuestion = (index: number) => {
     setCurrentQuestionIndex(index);
@@ -192,9 +314,16 @@ export function MockExamClient({ initialMock }: Props) {
       {/* Header */}
       <Group justify="space-between" align="flex-start" className="animate-fade-in-up">
         <Box>
-          <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
-            {mock.title}
-          </Title>
+          <Group gap="sm" align="center">
+            <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
+              {mock.title}
+            </Title>
+            {mock.retakeOf && (
+              <Badge variant="light" color="gray" size="sm">
+                {t.exam.retake}
+              </Badge>
+            )}
+          </Group>
           <Text c="dimmed" size="md" fw={400} mt={2}>
             {isCompleted
               ? t.exam.completedQuestions.replace('{n}', String(totalQuestions))
@@ -204,42 +333,59 @@ export function MockExamClient({ initialMock }: Props) {
           </Text>
         </Box>
 
-        {!isCompleted && (
-          <Group gap="xs">
-            <Switch
-              label={t.exam.timer}
-              size="sm"
-              checked={timerEnabled}
-              onChange={(e) => setTimerEnabled(e.currentTarget.checked)}
-              disabled={hasSubmitted}
-            />
-            {timerEnabled && (
-              <Text
+        <Group gap="sm">
+          {!isCompleted && (
+            <Group gap="xs">
+              <Switch
+                label={t.exam.timer}
                 size="sm"
-                fw={700}
-                ff="monospace"
-                c={timeRemaining < 60 ? 'red' : timeRemaining < 300 ? 'orange' : undefined}
-                className={timeRemaining < 60 ? 'exam-timer-flash' : undefined}
-              >
-                {formatTime(timeRemaining)}
-              </Text>
-            )}
-          </Group>
-        )}
+                checked={timerEnabled}
+                onChange={(e) => setTimerEnabled(e.currentTarget.checked)}
+                disabled={hasSubmitted}
+              />
+              {timerEnabled && (
+                <Text
+                  size="sm"
+                  fw={700}
+                  ff="monospace"
+                  c={timeRemaining < 60 ? 'red' : timeRemaining < 300 ? 'orange' : undefined}
+                  className={timeRemaining < 60 ? 'exam-timer-flash' : undefined}
+                >
+                  {formatTime(timeRemaining)}
+                </Text>
+              )}
+            </Group>
+          )}
 
-        {isCompleted && mock.score !== null && (
-          <Group gap="xs">
-            <Trophy size={18} color="gold" />
-            <Text fw={700}>
-              {mock.score}/{mock.totalPoints}
-            </Text>
-          </Group>
-        )}
+          {isCompleted && mock.score !== null && (
+            <Group gap="xs">
+              <Trophy size={18} color="gold" />
+              <Text fw={700}>
+                {mock.score}/{mock.totalPoints}
+              </Text>
+            </Group>
+          )}
+
+          <Tooltip label={t.exam.backToList}>
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              onClick={() => router.push('/exam')}
+            >
+              <ArrowLeft size={20} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
       </Group>
 
       {/* Progress bar */}
       <Box className="animate-fade-in-up animate-delay-100" style={{ opacity: 0 }}>
         <Progress value={progressValue} size="sm" color={getDocColor('exam')} />
+        {!isCompleted && (
+          <Text size="xs" c="dimmed" ta="center" mt={4} visibleFrom="sm">
+            {t.exam.shortcutHint}
+          </Text>
+        )}
       </Box>
 
       {/* Score summary banner (shown for completed exams) */}
@@ -322,6 +468,36 @@ export function MockExamClient({ initialMock }: Props) {
                     </Group>
                   )}
                 </SimpleGrid>
+                {originalMock && originalMock.score !== null && (() => {
+                  const originalPercent = Math.round(
+                    (originalMock.score / originalMock.totalPoints) * 100,
+                  );
+                  const improved = scorePercent > originalPercent;
+                  return (
+                    <Group gap={4}>
+                      <Text fz="sm" c="dimmed">
+                        {t.exam.previousScore}
+                      </Text>
+                      <Text fw={700} fz="sm">
+                        {originalPercent}%
+                      </Text>
+                      <Text fz="sm" c="dimmed">
+                        →
+                      </Text>
+                      <Text fw={700} fz="sm">
+                        {scorePercent}%
+                      </Text>
+                      <Text
+                        fz="sm"
+                        c={improved ? 'green' : 'red'}
+                      >
+                        {improved
+                          ? `↑ ${t.exam.improved}`
+                          : `↓ ${t.exam.regressed}`}
+                      </Text>
+                    </Group>
+                  );
+                })()}
               </Group>
             </Paper>
           );
@@ -356,60 +532,108 @@ export function MockExamClient({ initialMock }: Props) {
           >
             <ScrollArea h="100%">
               <Stack gap={0}>
-                {mock.questions.map((q, i) => {
-                  const status = getQuestionStatus(i);
-                  const isActive = i === currentQuestionIndex;
-                  const statusColor = getStatusColor(status);
+                {(() => {
+                  const renderQuestionItem = (i: number) => {
+                    const q = mock.questions[i];
+                    const status = getQuestionStatus(i);
+                    const isActive = i === currentQuestionIndex;
+                    const statusColor = getStatusColor(status);
+
+                    return (
+                      <UnstyledButton
+                        key={i}
+                        onClick={() => goToQuestion(i)}
+                        p="xs"
+                        style={{
+                          borderLeft: isActive
+                            ? `3px solid var(--mantine-color-${getDocColor('exam')}-5)`
+                            : '3px solid transparent',
+                          backgroundColor: isActive
+                            ? `var(--mantine-color-${getDocColor('exam')}-0)`
+                            : undefined,
+                          transition: 'all 150ms ease',
+                        }}
+                      >
+                        <Group gap="sm" wrap="nowrap">
+                          <Badge
+                            size="md"
+                            circle
+                            variant={status === 'unanswered' ? 'light' : 'filled'}
+                            color={statusColor}
+                          >
+                            {status === 'correct' ? <Check size={12} /> : i + 1}
+                          </Badge>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Text size="xs" lineClamp={1}>
+                              {q.content.replace(/[#*_`$\\]/g, '').slice(0, 50)}
+                            </Text>
+                            <Group gap={4} mt={2}>
+                              <Badge size="xs" variant="dot">
+                                {(t.knowledge.questionTypes as Record<string, string>)[q.type] ??
+                                  q.type}
+                              </Badge>
+                              <Text size="xs" c="dimmed">
+                                {q.points} {t.exam.points}
+                              </Text>
+                            </Group>
+                          </div>
+                          {markedQuestions.has(i) && (
+                            <Flag
+                              size={10}
+                              color="var(--mantine-color-orange-5)"
+                              style={{ flexShrink: 0 }}
+                            />
+                          )}
+                        </Group>
+                      </UnstyledButton>
+                    );
+                  };
+
+                  // Check for grouped questions
+                  const groups = new Map<
+                    number,
+                    { title: string; indices: number[] }
+                  >();
+                  const ungrouped: number[] = [];
+
+                  mock.questions.forEach((q, i) => {
+                    if (q.groupIndex !== undefined && q.groupTitle) {
+                      if (!groups.has(q.groupIndex)) {
+                        groups.set(q.groupIndex, { title: q.groupTitle, indices: [] });
+                      }
+                      groups.get(q.groupIndex)!.indices.push(i);
+                    } else {
+                      ungrouped.push(i);
+                    }
+                  });
+
+                  if (groups.size === 0) {
+                    return mock.questions.map((_, i) => renderQuestionItem(i));
+                  }
 
                   return (
-                    <UnstyledButton
-                      key={i}
-                      onClick={() => goToQuestion(i)}
-                      p="xs"
-                      style={{
-                        borderLeft: isActive
-                          ? `3px solid var(--mantine-color-${getDocColor('exam')}-5)`
-                          : '3px solid transparent',
-                        backgroundColor: isActive
-                          ? `var(--mantine-color-${getDocColor('exam')}-0)`
-                          : undefined,
-                        transition: 'all 150ms ease',
-                      }}
-                    >
-                      <Group gap="sm" wrap="nowrap">
-                        <Badge
-                          size="md"
-                          circle
-                          variant={status === 'unanswered' ? 'light' : 'filled'}
-                          color={statusColor}
-                        >
-                          {status === 'correct' ? <Check size={12} /> : i + 1}
-                        </Badge>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <Text size="xs" lineClamp={1}>
-                            {q.content.replace(/[#*_`$\\]/g, '').slice(0, 50)}
-                          </Text>
-                          <Group gap={4} mt={2}>
-                            <Badge size="xs" variant="dot">
-                              {(t.knowledge.questionTypes as Record<string, string>)[q.type] ??
-                                q.type}
-                            </Badge>
-                            <Text size="xs" c="dimmed">
-                              {q.points} {t.exam.points}
+                    <>
+                      {Array.from(groups.entries())
+                        .sort(([a], [b]) => a - b)
+                        .map(([groupIdx, group]) => (
+                          <Box key={`group-${groupIdx}`}>
+                            <Text
+                              size="xs"
+                              fw={600}
+                              c="dimmed"
+                              px="xs"
+                              py={4}
+                              bg="gray.0"
+                            >
+                              {`${groupIdx + 1}. ${group.title.slice(0, 40)}${group.title.length > 40 ? '...' : ''}`}
                             </Text>
-                          </Group>
-                        </div>
-                        {markedQuestions.has(i) && (
-                          <Flag
-                            size={10}
-                            color="var(--mantine-color-orange-5)"
-                            style={{ flexShrink: 0 }}
-                          />
-                        )}
-                      </Group>
-                    </UnstyledButton>
+                            {group.indices.map((i) => renderQuestionItem(i))}
+                          </Box>
+                        ))}
+                      {ungrouped.map((i) => renderQuestionItem(i))}
+                    </>
                   );
-                })}
+                })()}
               </Stack>
             </ScrollArea>
           </Box>
