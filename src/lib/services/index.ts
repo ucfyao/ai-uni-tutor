@@ -10,3 +10,4 @@ export { LectureDocumentService, getLectureDocumentService } from './DocumentSer
 export { ProfileService, getProfileService } from './ProfileService';
 export { KnowledgeCardService, getKnowledgeCardService } from './KnowledgeCardService';
 export { CourseService, getCourseService } from './CourseService';
+export { WritingAssistantService, getWritingAssistantService } from './WritingAssistantService';
