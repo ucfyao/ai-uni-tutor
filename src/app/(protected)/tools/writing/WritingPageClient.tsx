@@ -98,17 +98,6 @@ function htmlToMarkdown(html: string): string {
     return inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n') + '\n';
   });
   // Lists — ordered
-  let counter = 0;
-  md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner: string) => {
-    counter = 0;
-    return (
-      inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, () => {
-        counter++;
-        return `${counter}. `;
-      }) + '\n'
-    );
-  });
-  // Fix ordered list items properly (re-run to capture content)
   md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner: string) => {
     let idx = 0;
     return (

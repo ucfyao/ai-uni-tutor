@@ -107,10 +107,9 @@ async function runAnalysis(
     console.error('[writing/analyze] Analysis failed:', error);
 
     const appErr = error instanceof AppError ? error : AppError.from(error);
-    send('writing_result', {
-      service: services[0],
-      suggestions: [],
-      error: appErr.message,
+    send('error', {
+      message: appErr.message,
+      code: appErr.code,
     });
   } finally {
     close();
