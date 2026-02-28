@@ -33,9 +33,14 @@
   color: var(--mantine-color-dimmed);
 }
 
-.writing-editor-content .tiptap ul,
+.writing-editor-content .tiptap ul {
+  padding-left: 1.5em;
+  list-style-type: disc;
+}
+
 .writing-editor-content .tiptap ol {
   padding-left: 1.5em;
+  list-style-type: decimal;
 }
 
 .writing-editor-content .tiptap p.is-editor-empty:first-child::before {
