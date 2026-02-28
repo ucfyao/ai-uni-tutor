@@ -73,6 +73,68 @@ const SEVERITY_COLORS: Record<string, string> = {
   info: 'gray',
 };
 
+/** Lightweight HTML-to-Markdown converter for TipTap output. */
+function htmlToMarkdown(html: string): string {
+  let md = html;
+  // Headings
+  md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
+  md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
+  md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
+  // Bold / Italic / Underline / Strike
+  md = md.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+  md = md.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+  md = md.replace(/<u>(.*?)<\/u>/gi, '$1');
+  md = md.replace(/<s>(.*?)<\/s>/gi, '~~$1~~');
+  // Blockquote
+  md = md.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_m, inner: string) => {
+    const lines = inner
+      .replace(/<\/?p[^>]*>/gi, '')
+      .split('\n')
+      .filter(Boolean);
+    return lines.map((l: string) => `> ${l.trim()}`).join('\n') + '\n\n';
+  });
+  // Lists — unordered
+  md = md.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_m, inner: string) => {
+    return inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n') + '\n';
+  });
+  // Lists — ordered
+  let counter = 0;
+  md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner: string) => {
+    counter = 0;
+    return (
+      inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, () => {
+        counter++;
+        return `${counter}. `;
+      }) + '\n'
+    );
+  });
+  // Fix ordered list items properly (re-run to capture content)
+  md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner: string) => {
+    let idx = 0;
+    return (
+      inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_lm, content: string) => {
+        idx++;
+        return `${idx}. ${content.trim()}\n`;
+      }) + '\n'
+    );
+  });
+  // Paragraphs and line breaks
+  md = md.replace(/<br\s*\/?>/gi, '\n');
+  md = md.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n');
+  // Strip remaining tags
+  md = md.replace(/<[^>]+>/g, '');
+  // Decode HTML entities
+  md = md
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+  // Clean up excessive newlines
+  md = md.replace(/\n{3,}/g, '\n\n').trim();
+  return md;
+}
+
 export default function WritingPageClient() {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -82,7 +144,7 @@ export default function WritingPageClient() {
   // Editor state
   const [htmlContent, setHtmlContent] = useState('');
   const [textContent, setTextContent] = useState('');
-  const [editorContent, setEditorContent] = useState<string | undefined>(undefined);
+  const [importedContent, setImportedContent] = useState('');
   const [wordCount, setWordCount] = useState(0);
 
   // Service selection
@@ -99,38 +161,55 @@ export default function WritingPageClient() {
   // Mobile panel toggle
   const [showPanel, setShowPanel] = useState(!isMobile);
 
-  const handleEditorUpdate = useCallback((_html: string, text: string) => {
+  const handleEditorUpdate = useCallback((html: string, text: string) => {
+    setHtmlContent(html);
     setTextContent(text);
     const words = text.trim().split(/\s+/).filter(Boolean);
     setWordCount(words.length);
   }, []);
 
-  const handleFileImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Reset input so the same file can be re-imported
     e.target.value = '';
 
-    if (!file.name.endsWith('.txt')) {
-      showNotification({ message: 'Only .txt files are supported', color: 'orange' });
+    const text = await file.text();
+    // Convert plain text line breaks to HTML paragraphs for TipTap
+    const html = text
+      .split(/\n\n+/)
+      .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+      .join('');
+    setImportedContent(html);
+  }, []);
+
+  const downloadFile = useCallback((content: string, filename: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportTxt = useCallback(() => {
+    if (!textContent.trim()) {
+      showNotification({ message: t.tools.textTooShort, color: 'orange' });
       return;
     }
+    downloadFile(textContent, 'document.txt', 'text/plain');
+  }, [textContent, downloadFile, t]);
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result;
-      if (typeof text === 'string') {
-        // Convert plain text line breaks to HTML paragraphs for TipTap
-        const html = text
-          .split(/\n\n+/)
-          .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
-          .join('');
-        setEditorContent(html);
-      }
-    };
-    reader.readAsText(file);
-  }, []);
+  const handleExportMarkdown = useCallback(() => {
+    if (!htmlContent.trim()) {
+      showNotification({ message: t.tools.textTooShort, color: 'orange' });
+      return;
+    }
+    const md = htmlToMarkdown(htmlContent);
+    downloadFile(md, 'document.md', 'text/markdown');
+  }, [htmlContent, downloadFile, t]);
 
   const toggleService = useCallback((service: WritingService) => {
     setSelectedServices((prev) =>
@@ -327,9 +406,11 @@ export default function WritingPageClient() {
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
+              <Menu.Item onClick={handleExportMarkdown}>{t.tools.exportMarkdown}</Menu.Item>
+              <Menu.Item onClick={handleExportTxt}>{t.tools.exportTxt}</Menu.Item>
+              <Menu.Divider />
               <Menu.Item disabled>{t.tools.exportDocx}</Menu.Item>
               <Menu.Item disabled>{t.tools.exportPdf}</Menu.Item>
-              <Menu.Item disabled>{t.tools.exportMarkdown}</Menu.Item>
             </Menu.Dropdown>
           </Menu>
           {isMobile && (
@@ -352,7 +433,7 @@ export default function WritingPageClient() {
           }}
           p="md"
         >
-          <WritingEditor onUpdate={handleEditorUpdate} content={editorContent} />
+          <WritingEditor onUpdate={handleEditorUpdate} initialContent={importedContent} />
         </Box>
 
         {/* AI Panel */}
@@ -668,9 +749,9 @@ export default function WritingPageClient() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".txt"
+        accept=".txt,.md"
         style={{ display: 'none' }}
-        onChange={handleFileImport}
+        onChange={handleImport}
       />
     </Box>
   );

@@ -55,11 +55,9 @@ function ToolbarButton({
 interface WritingEditorProps {
   onUpdate?: (html: string, text: string) => void;
   initialContent?: string;
-  /** When set externally (e.g. file import), replaces the editor content. */
-  content?: string;
 }
 
-export function WritingEditor({ onUpdate, initialContent, content }: WritingEditorProps) {
+export function WritingEditor({ onUpdate, initialContent }: WritingEditorProps) {
   const { t } = useLanguage();
 
   const editor = useEditor({
@@ -78,12 +76,11 @@ export function WritingEditor({ onUpdate, initialContent, content }: WritingEdit
     },
   });
 
-  // Allow parent to push content into the editor (e.g. after file import)
   useEffect(() => {
-    if (editor && content !== undefined) {
-      editor.commands.setContent(content);
+    if (initialContent && editor) {
+      editor.commands.setContent(initialContent);
     }
-  }, [editor, content]);
+  }, [initialContent, editor]);
 
   if (!editor) return null;
 
