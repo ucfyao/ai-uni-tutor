@@ -304,9 +304,9 @@ export async function createRandomMixMock(
   }
 }
 
-export async function getMockExamList(
-  filters?: { mode?: 'practice' | 'exam' },
-): Promise<
+export async function getMockExamList(filters?: {
+  mode?: 'practice' | 'exam';
+}): Promise<
   | { success: true; inProgress: MockExam[]; completed: MockExam[] }
   | { success: false; error: string }
 > {
@@ -359,7 +359,7 @@ export async function createStandaloneMock(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    if (!courseInfo?.courseCode?.trim()) return { success: false, error: 'Course is required' };
+    if (!courseInfo.courseCode.trim()) return { success: false, error: 'Course is required' };
 
     const service = getMockExamService();
     const { mockId } = await service.createMinimalStub(
