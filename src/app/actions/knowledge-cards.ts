@@ -305,7 +305,7 @@ export async function askCardQuestion(
     return { success: true, data: answer };
   } catch (error) {
     if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, code: 'QUOTA_EXCEEDED' };
     }
     console.error('askCardQuestion error:', error);
     const message = error instanceof Error ? error.message : 'Failed to generate answer';

@@ -96,7 +96,7 @@ export function ExamSubmitModal({
       } else {
         setError(res.error);
         setPhase('error');
-        if (res.error.toLowerCase().includes('exceeded')) {
+        if (res.code === 'QUOTA_EXCEEDED') {
           setLimitModalOpen(true);
         } else {
           showNotification({

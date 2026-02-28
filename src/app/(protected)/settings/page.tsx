@@ -28,7 +28,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Language } from '@/i18n/translations';
 import { showNotification } from '@/lib/notifications';
-import type { AccessLimits } from '@/lib/services/QuotaService';
+import type { AccessLimits, QuotaResponse } from '@/lib/services/QuotaService';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -72,11 +72,11 @@ export default function SettingsPage() {
       try {
         const res = await fetch('/api/quota');
         if (!res.ok) throw new Error('Failed to fetch quota information');
-        const data = await res.json();
+        const data: QuotaResponse = await res.json();
         setLimits(data.limits);
         setUsage(data.status.usage);
-        setBreakdown(data.breakdown ?? null);
-        setResetAt(data.resetAt ?? null);
+        setBreakdown(data.breakdown);
+        setResetAt(data.resetAt);
       } catch (e) {
         console.error('Failed to fetch access limits', e);
       } finally {

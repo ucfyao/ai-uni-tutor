@@ -330,6 +330,7 @@ describe('Mock Exam Actions', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toContain('exceeded');
+        expect(result.code).toBe('QUOTA_EXCEEDED');
       }
     });
 
@@ -401,6 +402,7 @@ describe('Mock Exam Actions', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toContain('exceeded');
+        expect(result.code).toBe('QUOTA_EXCEEDED');
       }
     });
 

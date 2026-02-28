@@ -175,7 +175,9 @@ export async function submitMockAnswer(
   mockId: string,
   questionIndex: number,
   userAnswer: string,
-): Promise<{ success: true; feedback: MockExamResponse } | { success: false; error: string }> {
+): Promise<
+  { success: true; feedback: MockExamResponse } | { success: false; error: string; code?: string }
+> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -188,7 +190,7 @@ export async function submitMockAnswer(
     return { success: true, feedback };
   } catch (error) {
     if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, code: 'QUOTA_EXCEEDED' };
     }
     console.error('Submit answer error:', error);
     return {
@@ -201,7 +203,9 @@ export async function submitMockAnswer(
 export async function batchSubmitMockAnswers(
   mockId: string,
   answers: Array<{ questionIndex: number; userAnswer: string }>,
-): Promise<{ success: true; result: BatchSubmitResult } | { success: false; error: string }> {
+): Promise<
+  { success: true; result: BatchSubmitResult } | { success: false; error: string; code?: string }
+> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -214,7 +218,7 @@ export async function batchSubmitMockAnswers(
     return { success: true, result };
   } catch (error) {
     if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, code: 'QUOTA_EXCEEDED' };
     }
     console.error('Batch submit error:', error);
     return {
