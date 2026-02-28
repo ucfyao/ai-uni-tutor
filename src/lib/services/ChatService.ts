@@ -63,8 +63,10 @@ export class ChatService {
     const contents = this.prepareContents(history, processedInput, images, document);
 
     // Generate via chat pool with automatic retry/failover
-    const response = await getChatPool().withRetry((entry) =>
-      callByProvider(entry, { contents, systemInstruction, temperature: config.temperature }),
+    const response = await getChatPool().withRetry(
+      (entry) =>
+        callByProvider(entry, { contents, systemInstruction, temperature: config.temperature }),
+      { callType: 'chat' },
     );
     if (!response) throw new Error('Empty response from AI model.');
 
@@ -116,12 +118,14 @@ export class ChatService {
     const contents = this.prepareContents(history, processedInput, images, document);
 
     // Stream generation via chat pool
-    const textStream = await getChatPool().withRetry((entry) =>
-      callByProviderStream(entry, {
-        contents,
-        systemInstruction,
-        temperature: config.temperature,
-      }),
+    const textStream = await getChatPool().withRetry(
+      (entry) =>
+        callByProviderStream(entry, {
+          contents,
+          systemInstruction,
+          temperature: config.temperature,
+        }),
+      { callType: 'chat' },
     );
     for await (const text of textStream) {
       yield text;
@@ -159,21 +163,23 @@ Guidelines:
     }
 
     try {
-      const text = await getChatPool().withRetry((entry) =>
-        callByProvider(entry, {
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: `Explain "${concept}" briefly. Context from conversation: "${context.slice(0, 500)}"`,
-                },
-              ],
-            },
-          ],
-          systemInstruction,
-          temperature: 0.5,
-        }),
+      const text = await getChatPool().withRetry(
+        (entry) =>
+          callByProvider(entry, {
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `Explain "${concept}" briefly. Context from conversation: "${context.slice(0, 500)}"`,
+                  },
+                ],
+              },
+            ],
+            systemInstruction,
+            temperature: 0.5,
+          }),
+        { callType: 'explain' },
       );
       return text || 'Unable to generate explanation.';
     } catch (error) {

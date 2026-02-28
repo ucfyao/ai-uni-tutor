@@ -153,7 +153,7 @@ export async function extractFromPDF<T>(
           console.error('Failed to clean up file from Gemini API:', cleanupErr);
         }
       }
-    });
+    }, { callType: 'parse' });
   } catch (e) {
     if (e instanceof AppError) throw e;
     throw AppError.from(e);
