@@ -50,7 +50,7 @@ export function AdminFeedbackClient() {
       <Group gap={8} align="center" wrap="nowrap" px={isMobile ? 6 : 8} py={isMobile ? 4 : 6}>
         <MessageSquare size={isMobile ? 18 : 20} color="var(--mantine-color-indigo-5)" />
         <Text fw={650} size={isMobile ? 'md' : 'lg'}>
-          AI Feedback
+          Chat Feedback
         </Text>
       </Group>
     ),
