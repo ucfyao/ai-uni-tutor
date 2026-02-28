@@ -187,11 +187,6 @@ export const translations = {
           desc: '获取讲座大纲和关键概念',
           example: '按 ↵ 自动生成大纲摘要',
         },
-        quiz: {
-          label: '测验练习',
-          desc: '生成基于讲座内容的测试题',
-          example: '按 ↵ 自动生成测试题',
-        },
         explain: {
           label: '概念解释',
           desc: '深入解释某个概念',
@@ -1177,11 +1172,6 @@ export const translations = {
           label: 'Summarize',
           desc: 'Get lecture outline and key concepts',
           example: 'Press ↵ to generate outline',
-        },
-        quiz: {
-          label: 'Quiz Me',
-          desc: 'Generate quiz questions from lecture content',
-          example: 'Press ↵ to generate quiz questions',
         },
         explain: {
           label: 'Explain',

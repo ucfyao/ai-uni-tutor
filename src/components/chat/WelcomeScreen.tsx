@@ -63,7 +63,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
                       borderRadius: '50%',
-                      background: `radial-gradient(circle, var(--mantine-color-${metadata.color}-1) 0%, transparent 70%)`,
+                      background: `radial-gradient(circle, var(--mantine-color-${metadata.color}-2) 0%, transparent 70%)`,
                       opacity: 0.6,
                       pointerEvents: 'none',
                       zIndex: 0,
@@ -73,9 +73,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     size={64}
                     radius="xl"
                     variant="gradient"
-                    gradient={{ from: `${metadata.color}.1`, to: `${metadata.color}.0`, deg: 45 }}
+                    gradient={{ from: `${metadata.color}.2`, to: `${metadata.color}.1`, deg: 45 }}
                     style={{
-                      border: `1px solid var(--mantine-color-${metadata.color}-2)`,
+                      border: `1px solid var(--mantine-color-${metadata.color}-3)`,
                       position: 'relative',
                       zIndex: 1,
                     }}
@@ -143,26 +143,45 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                           '--cmd-color-border': `var(--mantine-color-${cmd.color}-4)`,
                           '--cmd-color-bg': `var(--mantine-color-${cmd.color}-0)`,
                           '--cmd-color-shadow': `0 8px 24px color-mix(in srgb, var(--mantine-color-${cmd.color}-4) 25%, transparent)`,
+                          '--cmd-color-glow-ring': `0 0 0 3px color-mix(in srgb, var(--mantine-color-${cmd.color}-3) 30%, transparent)`,
+                          background: `linear-gradient(135deg, var(--mantine-color-${cmd.color}-0) 0%, var(--mantine-color-body) 100%)`,
+                          borderColor: `var(--mantine-color-${cmd.color}-1)`,
                         } as React.CSSProperties
                       }
                       onClick={() => onCommandSelect(cmd)}
                     >
                       <Group gap="sm" wrap="nowrap" align="flex-start">
                         <ThemeIcon
-                          size={36}
+                          size={42}
                           radius="md"
                           variant="light"
                           color={cmd.color}
-                          style={{ flexShrink: 0 }}
+                          className="cmd-card__icon"
+                          style={{
+                            flexShrink: 0,
+                            boxShadow: `0 0 12px var(--mantine-color-${cmd.color}-2)`,
+                          }}
                         >
-                          <CmdIcon size={18} strokeWidth={1.8} />
+                          <CmdIcon size={20} strokeWidth={1.8} />
                         </ThemeIcon>
                         <Box style={{ minWidth: 0 }}>
                           <Group gap={6} align="center">
                             <Text fw={600} size="sm" truncate>
                               {cmdT?.label ?? cmd.id}
                             </Text>
-                            <Text size="xs" c={`${cmd.color}.5`} fw={500} ff="monospace">
+                            <Text
+                              size="xs"
+                              fw={500}
+                              ff="monospace"
+                              className="cmd-card__badge"
+                              style={{
+                                background: `var(--mantine-color-${cmd.color}-0)`,
+                                color: `var(--mantine-color-${cmd.color}-6)`,
+                                padding: '1px 8px',
+                                borderRadius: 6,
+                                lineHeight: 1.6,
+                              }}
+                            >
                               {cmd.command}
                             </Text>
                           </Group>
