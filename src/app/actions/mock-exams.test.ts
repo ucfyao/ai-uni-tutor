@@ -321,6 +321,27 @@ describe('Mock Exam Actions', () => {
 
       expect(result).toEqual({ success: false, error: 'Failed to submit answer' });
     });
+
+    it('should return error when quota is exceeded', async () => {
+      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
+
+      const result = await submitMockAnswer('mock-1', 0, 'A');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('exceeded');
+        expect(result.code).toBe('QUOTA_EXCEEDED');
+      }
+    });
+
+    it('should enforce quota before submitting', async () => {
+      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(5, 5));
+
+      await submitMockAnswer('mock-1', 0, 'A');
+
+      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
+      expect(mockMockExamService.submitAnswer).not.toHaveBeenCalled();
+    });
   });
 
   // =========================================================================
@@ -371,6 +392,27 @@ describe('Mock Exam Actions', () => {
       const result = await batchSubmitMockAnswers('mock-1', ANSWERS);
 
       expect(result).toEqual({ success: false, error: 'Failed to batch submit answers' });
+    });
+
+    it('should return error when quota is exceeded', async () => {
+      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(10, 10));
+
+      const result = await batchSubmitMockAnswers('mock-1', ANSWERS);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('exceeded');
+        expect(result.code).toBe('QUOTA_EXCEEDED');
+      }
+    });
+
+    it('should enforce quota before batch submitting', async () => {
+      mockQuotaService.enforce.mockRejectedValue(new QuotaExceededError(5, 5));
+
+      await batchSubmitMockAnswers('mock-1', ANSWERS);
+
+      expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
+      expect(mockMockExamService.batchSubmitAnswers).not.toHaveBeenCalled();
     });
   });
 

@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { batchSubmitMockAnswers } from '@/app/actions/mock-exams';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -52,6 +53,7 @@ export function ExamSubmitModal({
   const [phase, setPhase] = useState<SubmitPhase>('confirm');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BatchSubmitResult | null>(null);
+  const [isLimitModalOpen, setLimitModalOpen] = useState(false);
 
   const totalQuestions = questions.length;
   const answeredCount = Object.values(answers).filter((v) => v.trim()).length;
@@ -94,11 +96,15 @@ export function ExamSubmitModal({
       } else {
         setError(res.error);
         setPhase('error');
-        showNotification({
-          title: t.exam.submitFailed,
-          message: res.error,
-          color: 'red',
-        });
+        if (res.code === 'QUOTA_EXCEEDED') {
+          setLimitModalOpen(true);
+        } else {
+          showNotification({
+            title: t.exam.submitFailed,
+            message: res.error,
+            color: 'red',
+          });
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -340,6 +346,7 @@ export function ExamSubmitModal({
       {phase === 'grading' && renderGrading()}
       {phase === 'results' && renderResults()}
       {phase === 'error' && renderError()}
+      <UsageLimitModal opened={isLimitModalOpen} onClose={() => setLimitModalOpen(false)} />
     </FullScreenModal>
   );
 }

@@ -305,7 +305,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       );
 
       if (!result.success) {
-        showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
+        if (result.code === 'QUOTA_EXCEEDED') {
+          setLimitModalOpen(true);
+        } else {
+          showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
+        }
         return null;
       }
       return result.data;

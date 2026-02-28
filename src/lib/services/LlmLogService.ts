@@ -1,6 +1,12 @@
 import { GEMINI_MODELS } from '@/lib/gemini';
 import { getLlmLogRepository } from '@/lib/repositories/LlmLogRepository';
-import type { LlmLogFilters, LlmLogStats } from '@/lib/repositories/LlmLogRepository';
+import type {
+  LlmLogFilters,
+  LlmLogStats,
+  UserUsageBreakdown,
+} from '@/lib/repositories/LlmLogRepository';
+
+export type { UserUsageBreakdown };
 import type { Database } from '@/types/database';
 
 type LlmCallLogRow = Database['public']['Tables']['llm_call_logs']['Row'];
@@ -45,6 +51,10 @@ export class LlmLogService {
 
   async getRecentLogs(limit: number = 20): Promise<LlmCallLogRow[]> {
     return getLlmLogRepository().findRecent(limit);
+  }
+
+  async getUserTodayBreakdown(userId: string): Promise<UserUsageBreakdown> {
+    return getLlmLogRepository().getUserTodayBreakdown(userId);
   }
 
   estimateCost(
