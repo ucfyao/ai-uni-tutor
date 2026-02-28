@@ -1,6 +1,6 @@
 import 'server-only';
 import { extractExamQuestions } from './exam-extractor';
-import { validateExamItems } from './exam-validator';
+import { validateQuestionItems as validateExamItems } from './question-validator';
 import type { ExamOutline, ExamOutlineItem, ParseExamResult, PipelineProgress } from './types';
 
 interface ParseExamOptions {

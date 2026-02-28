@@ -37,19 +37,6 @@ export interface DocumentOutline {
   sections: OutlineSection[];
 }
 
-export interface CourseTopic {
-  topic: string;
-  subtopics: string[];
-  relatedDocuments: string[];
-  knowledgePointCount: number;
-}
-
-export interface CourseOutline {
-  courseId: string;
-  topics: CourseTopic[];
-  lastUpdated: string; // ISO 8601 string
-}
-
 export interface PipelineProgress {
   phase: 'extraction';
   phaseProgress: number;

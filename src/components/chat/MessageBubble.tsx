@@ -122,7 +122,6 @@ const SourcesSection: React.FC<{ sources: ChatSource[] }> = ({ sources }) => {
 interface MessageBubbleProps {
   message: ChatMessage;
   isStreaming?: boolean;
-  onStreamingComplete?: () => void;
   mode?: TutoringMode | null;
   onAddCard?: (
     title: string,
@@ -387,8 +386,6 @@ const MessageActionBar: React.FC<{
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isStreaming = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onStreamingComplete,
   mode,
   onAddCard,
   onRegenerate,
