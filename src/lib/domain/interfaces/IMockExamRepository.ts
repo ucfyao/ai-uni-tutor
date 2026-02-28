@@ -27,9 +27,9 @@ export interface IMockExamRepository {
   findMockIdsBySessionIds(sessionIds: string[]): Promise<Map<string, string>>; // sessionId → mockId
   findByUserIdGrouped(
     userId: string,
-    filters?: { mode?: 'practice' | 'exam'; status?: 'in_progress' | 'completed' },
-    limit?: number,
-    offset?: number,
+    filters?: { mode?: 'practice' | 'exam' },
+    completedLimit?: number,
+    completedOffset?: number,
   ): Promise<{ inProgress: MockExam[]; completed: MockExam[] }>;
   findByUserId(userId: string, limit?: number, offset?: number): Promise<MockExam[]>;
 
