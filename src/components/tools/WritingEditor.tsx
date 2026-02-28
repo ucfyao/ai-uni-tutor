@@ -23,6 +23,7 @@ import {
   UnderlineIcon,
   Undo,
 } from 'lucide-react';
+import { useEffect } from 'react';
 import { ActionIcon, Box, Divider, Group, Tooltip } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
@@ -54,9 +55,11 @@ function ToolbarButton({
 interface WritingEditorProps {
   onUpdate?: (html: string, text: string) => void;
   initialContent?: string;
+  /** When set externally (e.g. file import), replaces the editor content. */
+  content?: string;
 }
 
-export function WritingEditor({ onUpdate, initialContent }: WritingEditorProps) {
+export function WritingEditor({ onUpdate, initialContent, content }: WritingEditorProps) {
   const { t } = useLanguage();
 
   const editor = useEditor({
@@ -74,6 +77,13 @@ export function WritingEditor({ onUpdate, initialContent }: WritingEditorProps) 
       onUpdate?.(ed.getHTML(), ed.getText());
     },
   });
+
+  // Allow parent to push content into the editor (e.g. after file import)
+  useEffect(() => {
+    if (editor && content !== undefined) {
+      editor.commands.setContent(content);
+    }
+  }, [editor, content]);
 
   if (!editor) return null;
 

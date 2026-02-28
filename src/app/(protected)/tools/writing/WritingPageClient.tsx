@@ -77,9 +77,12 @@ export default function WritingPageClient() {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Editor state
+  const [htmlContent, setHtmlContent] = useState('');
   const [textContent, setTextContent] = useState('');
+  const [editorContent, setEditorContent] = useState<string | undefined>(undefined);
   const [wordCount, setWordCount] = useState(0);
 
   // Service selection
@@ -100,6 +103,33 @@ export default function WritingPageClient() {
     setTextContent(text);
     const words = text.trim().split(/\s+/).filter(Boolean);
     setWordCount(words.length);
+  }, []);
+
+  const handleFileImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be re-imported
+    e.target.value = '';
+
+    if (!file.name.endsWith('.txt')) {
+      showNotification({ message: 'Only .txt files are supported', color: 'orange' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (typeof text === 'string') {
+        // Convert plain text line breaks to HTML paragraphs for TipTap
+        const html = text
+          .split(/\n\n+/)
+          .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+          .join('');
+        setEditorContent(html);
+      }
+    };
+    reader.readAsText(file);
   }, []);
 
   const toggleService = useCallback((service: WritingService) => {
@@ -281,7 +311,13 @@ export default function WritingPageClient() {
           </Title>
         </Group>
         <Group gap="xs">
-          <Button variant="subtle" color="gray" size="xs" leftSection={<FileUp size={14} />}>
+          <Button
+            variant="subtle"
+            color="gray"
+            size="xs"
+            leftSection={<FileUp size={14} />}
+            onClick={() => fileInputRef.current?.click()}
+          >
             {t.tools.import}
           </Button>
           <Menu shadow="md" width={200}>
@@ -316,7 +352,7 @@ export default function WritingPageClient() {
           }}
           p="md"
         >
-          <WritingEditor onUpdate={handleEditorUpdate} />
+          <WritingEditor onUpdate={handleEditorUpdate} content={editorContent} />
         </Box>
 
         {/* AI Panel */}
@@ -627,6 +663,15 @@ export default function WritingPageClient() {
           </Text>
         )}
       </Group>
+
+      {/* Hidden file input for import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".txt"
+        style={{ display: 'none' }}
+        onChange={handleFileImport}
+      />
     </Box>
   );
 }
