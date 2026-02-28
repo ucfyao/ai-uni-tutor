@@ -696,6 +696,7 @@ export const translations = {
       exportDocx: '导出 DOCX',
       exportPdf: '导出 PDF',
       exportMarkdown: '导出 Markdown',
+      exportTxt: '导出纯文本',
       analyze: '开始分析',
       reAnalyze: '重新分析',
       // Services
@@ -1791,6 +1792,7 @@ export const translations = {
       exportDocx: 'Export DOCX',
       exportPdf: 'Export PDF',
       exportMarkdown: 'Export Markdown',
+      exportTxt: 'Export Plain Text',
       analyze: 'Analyze',
       reAnalyze: 'Re-analyze',
       formatCheck: 'Format Check',

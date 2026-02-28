@@ -13,7 +13,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ChangeEvent } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -168,7 +168,7 @@ export default function WritingPageClient() {
     setWordCount(words.length);
   }, []);
 
-  const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
