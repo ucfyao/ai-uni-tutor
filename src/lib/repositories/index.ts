@@ -23,3 +23,4 @@ export { UniversityRepository, getUniversityRepository } from './UniversityRepos
 export { CourseRepository, getCourseRepository } from './CourseRepository';
 export { AssignmentRepository, getAssignmentRepository } from './AssignmentRepository';
 export { AdminRepository, getAdminRepository } from './AdminRepository';
+export { LlmLogRepository, getLlmLogRepository } from './LlmLogRepository';

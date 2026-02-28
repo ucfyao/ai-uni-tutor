@@ -593,6 +593,54 @@ export interface Database {
         };
         Relationships: [];
       };
+      llm_call_logs: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          call_type: string;
+          provider: string;
+          model: string;
+          status: string;
+          error_message: string | null;
+          latency_ms: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          cost_estimate: number | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          call_type: string;
+          provider: string;
+          model: string;
+          status?: string;
+          error_message?: string | null;
+          latency_ms: number;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cost_estimate?: number | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          call_type?: string;
+          provider?: string;
+          model?: string;
+          status?: string;
+          error_message?: string | null;
+          latency_ms?: number;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cost_estimate?: number | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -672,6 +720,17 @@ export interface Database {
           explanation: string;
           points: number;
           similarity: number;
+        }[];
+      };
+      get_llm_log_stats: {
+        Args: {
+          start_time: string;
+        };
+        Returns: {
+          total_count: number;
+          error_count: number;
+          avg_latency: number;
+          total_cost: number;
         }[];
       };
     };

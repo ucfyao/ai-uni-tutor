@@ -3,17 +3,22 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
+  CheckCircle,
   Cpu,
   CreditCard,
   Database,
+  FileText,
   KeyRound,
   LayoutDashboard,
   RefreshCw,
+  XCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActionIcon,
   Alert,
+  Anchor,
   Badge,
   Box,
   Button,
@@ -25,12 +30,14 @@ import {
   ScrollArea,
   SimpleGrid,
   Stack,
+  Table,
   Text,
   Tooltip,
 } from '@mantine/core';
 import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { LlmLogRow, LlmLogsPreview, LlmLogStats } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types matching AdminDashboardService response
@@ -428,6 +435,139 @@ function ServiceCard<T>({
 }
 
 // ---------------------------------------------------------------------------
+// LLM Logs Preview
+// ---------------------------------------------------------------------------
+
+function formatLatencyBadge(ms: number) {
+  const label = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+  const color = ms < 1000 ? 'teal' : ms < 3000 ? 'yellow' : 'red';
+  return { label, color };
+}
+
+function LlmLogsPreviewSection() {
+  const {
+    data,
+    isLoading,
+    isError: hasError,
+    error,
+  } = useQuery<LlmLogsPreview>({
+    queryKey: ['admin-dashboard', 'llm-logs-preview'],
+    queryFn: () => fetchService<LlmLogsPreview>('llm-logs-preview'),
+    staleTime: 0,
+  });
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  };
+
+  return (
+    <Card withBorder shadow="sm" padding="lg">
+      <Group justify="space-between" mb="md">
+        <Group gap="xs">
+          <FileText size={18} color="var(--mantine-color-cyan-5)" />
+          <Text fw={600}>LLM Call Logs</Text>
+        </Group>
+        <Anchor component={Link} href="/admin/llm-logs" size="sm">
+          View All &rarr;
+        </Anchor>
+      </Group>
+
+      {isLoading ? (
+        <CardLoading />
+      ) : hasError ? (
+        <CardError message={error instanceof Error ? error.message : 'Failed to load'} />
+      ) : data && isError(data) ? (
+        <CardError message={(data as unknown as { error: string }).error} />
+      ) : data ? (
+        <Stack gap="md">
+          <Group gap="lg">
+            <Badge color="blue" variant="light" size="lg">
+              Today: {formatNumber(data.stats.totalToday)}
+            </Badge>
+            <Badge color={data.stats.errorsToday > 0 ? 'red' : 'green'} variant="light" size="lg">
+              Errors: {data.stats.errorsToday}
+            </Badge>
+            <Badge
+              color={formatLatencyBadge(data.stats.avgLatencyMs).color}
+              variant="light"
+              size="lg"
+            >
+              Avg: {formatLatencyBadge(data.stats.avgLatencyMs).label}
+            </Badge>
+          </Group>
+
+          {data.logs.length === 0 ? (
+            <Text size="sm" c="dimmed" ta="center" py="md">
+              No LLM calls recorded yet.
+            </Text>
+          ) : (
+            <ScrollArea>
+              <Table striped highlightOnHover withTableBorder fz="xs">
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Time</Table.Th>
+                    <Table.Th>Type</Table.Th>
+                    <Table.Th>Model</Table.Th>
+                    <Table.Th>Status</Table.Th>
+                    <Table.Th>Latency</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {data.logs.map((log) => (
+                    <Table.Tr
+                      key={log.id}
+                      bg={log.status === 'error' ? 'var(--mantine-color-red-light)' : undefined}
+                    >
+                      <Table.Td>
+                        <Text size="xs" ff="monospace">
+                          {formatTime(log.created_at)}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge size="xs" variant="light" color="gray">
+                          {log.call_type}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="xs" truncate maw={120}>
+                          {log.model}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        {log.status === 'success' ? (
+                          <CheckCircle size={14} color="var(--mantine-color-green-6)" />
+                        ) : (
+                          <XCircle size={14} color="var(--mantine-color-red-6)" />
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          size="xs"
+                          color={formatLatencyBadge(log.latency_ms).color}
+                          variant="light"
+                        >
+                          {formatLatencyBadge(log.latency_ms).label}
+                        </Badge>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+          )}
+        </Stack>
+      ) : null}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main dashboard client
 // ---------------------------------------------------------------------------
 
@@ -583,6 +723,9 @@ export function DashboardClient() {
               }
             </ServiceCard>
           </SimpleGrid>
+
+          {/* LLM Call Logs Preview */}
+          <LlmLogsPreviewSection />
         </AdminContent>
       </ScrollArea>
     </Box>

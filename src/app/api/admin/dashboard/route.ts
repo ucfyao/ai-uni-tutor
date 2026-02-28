@@ -4,7 +4,7 @@ import { getProfileRepository } from '@/lib/repositories';
 import { getAdminDashboardService } from '@/lib/services/AdminDashboardService';
 import { getCurrentUser } from '@/lib/supabase/server';
 
-const VALID_SERVICES = ['stripe', 'upstash', 'gemini', 'gemini-pool'] as const;
+const VALID_SERVICES = ['stripe', 'upstash', 'gemini', 'gemini-pool', 'llm-logs-preview'] as const;
 type ServiceName = (typeof VALID_SERVICES)[number];
 
 async function requireSuperAdmin() {
@@ -39,6 +39,17 @@ export async function GET(request: Request) {
         upstash: () => svc.fetchUpstashData(),
         gemini: () => svc.fetchGeminiData(),
         'gemini-pool': () => svc.fetchPoolStatus(),
+        'llm-logs-preview': async () => {
+          const { getLlmLogService } = await import('@/lib/services/LlmLogService');
+          const llmSvc = getLlmLogService();
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const [logs, stats] = await Promise.all([
+            llmSvc.getRecentLogs(20),
+            llmSvc.getStats(today.toISOString()),
+          ]);
+          return { logs, stats };
+        },
       };
 
       const data = await fetchers[service]();
