@@ -63,7 +63,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
                       borderRadius: '50%',
-                      background: `radial-gradient(circle, var(--mantine-color-${metadata.color}-1) 0%, transparent 70%)`,
+                      background: `radial-gradient(circle, var(--mantine-color-${metadata.color}-2) 0%, transparent 70%)`,
                       opacity: 0.6,
                       pointerEvents: 'none',
                       zIndex: 0,
@@ -73,9 +73,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     size={64}
                     radius="xl"
                     variant="gradient"
-                    gradient={{ from: `${metadata.color}.1`, to: `${metadata.color}.0`, deg: 45 }}
+                    gradient={{ from: `${metadata.color}.2`, to: `${metadata.color}.1`, deg: 45 }}
                     style={{
-                      border: `1px solid var(--mantine-color-${metadata.color}-2)`,
+                      border: `1px solid var(--mantine-color-${metadata.color}-3)`,
                       position: 'relative',
                       zIndex: 1,
                     }}
