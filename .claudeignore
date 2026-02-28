@@ -1,0 +1,58 @@
+# 测试文件
+**/*.test.ts
+**/*.spec.ts
+e2e/
+test-results/
+playwright-report/
+coverage/
+
+# 构建产物
+.next/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# 依赖
+node_modules/
+
+# 锁文件
+*.lock
+
+# 日志
+*.log
+logs/
+
+# 环境变量
+.env
+.env.*
+*.local
+
+# 编辑器
+.vscode/
+.idea/
+*.sw?
+.DS_Store
+
+# 类型声明（自动生成）
+next-env.d.ts
+
+# Git worktrees
+.worktrees/
+
+# 设计文档
+docs/plans/
+
+# 静态资源（图片、字体等）
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.svg
+**/*.ico
+**/*.woff
+**/*.woff2
+**/*.ttf
+**/*.eot
+
+# Husky hooks
+.husky/
