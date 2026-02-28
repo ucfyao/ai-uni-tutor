@@ -52,11 +52,19 @@ export interface CourseListItem {
   name: string;
 }
 
+export interface AdminUniversityListItem extends UniversityListItem {
+  isPublished: boolean;
+}
+
+export interface AdminCourseListItem extends CourseListItem {
+  isPublished: boolean;
+}
+
 export async function fetchUniversities(): Promise<ActionResult<UniversityListItem[]>> {
   try {
     await requireUser();
     const service = getCourseService();
-    const entities = await service.getAllUniversities();
+    const entities = await service.getPublishedUniversities();
     return {
       success: true,
       data: entities.map((u) => ({
@@ -75,9 +83,7 @@ export async function fetchCourses(universityId?: string): Promise<ActionResult<
   try {
     await requireUser();
     const service = getCourseService();
-    const entities = universityId
-      ? await service.getCoursesByUniversity(universityId)
-      : await service.getAllCourses();
+    const entities = universityId ? await service.getPublishedCourses(universityId) : [];
     return {
       success: true,
       data: entities.map((c) => ({
@@ -205,6 +211,98 @@ export async function deleteCourse(id: string): Promise<ActionResult<void>> {
     await service.deleteCourse(id);
     revalidatePath('/admin/courses');
     return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function fetchAllUniversities(): Promise<ActionResult<AdminUniversityListItem[]>> {
+  try {
+    await requireSuperAdmin();
+    const service = getCourseService();
+    const entities = await service.getAllUniversities();
+    return {
+      success: true,
+      data: entities.map((u) => ({
+        id: u.id,
+        name: u.name,
+        shortName: u.shortName,
+        logoUrl: u.logoUrl,
+        isPublished: u.isPublished,
+      })),
+    };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function fetchAllCourses(
+  universityId?: string,
+): Promise<ActionResult<AdminCourseListItem[]>> {
+  try {
+    await requireSuperAdmin();
+    const service = getCourseService();
+    const entities = universityId
+      ? await service.getCoursesByUniversity(universityId)
+      : await service.getAllCourses();
+    return {
+      success: true,
+      data: entities.map((c) => ({
+        id: c.id,
+        universityId: c.universityId,
+        code: c.code,
+        name: c.name,
+        isPublished: c.isPublished,
+      })),
+    };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function toggleUniversityPublished(
+  id: string,
+  isPublished: boolean,
+): Promise<ActionResult<AdminUniversityListItem>> {
+  try {
+    await requireSuperAdmin();
+    const service = getCourseService();
+    const entity = await service.toggleUniversityPublished(id, isPublished);
+    revalidatePath('/admin/courses');
+    return {
+      success: true,
+      data: {
+        id: entity.id,
+        name: entity.name,
+        shortName: entity.shortName,
+        logoUrl: entity.logoUrl,
+        isPublished: entity.isPublished,
+      },
+    };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function toggleCoursePublished(
+  id: string,
+  isPublished: boolean,
+): Promise<ActionResult<AdminCourseListItem>> {
+  try {
+    await requireSuperAdmin();
+    const service = getCourseService();
+    const entity = await service.toggleCoursePublished(id, isPublished);
+    revalidatePath('/admin/courses');
+    return {
+      success: true,
+      data: {
+        id: entity.id,
+        universityId: entity.universityId,
+        code: entity.code,
+        name: entity.name,
+        isPublished: entity.isPublished,
+      },
+    };
   } catch (error) {
     return mapError(error);
   }

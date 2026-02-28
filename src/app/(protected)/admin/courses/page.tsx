@@ -28,6 +28,7 @@ export default async function CoursesPage() {
     name: u.name,
     shortName: u.shortName,
     logoUrl: u.logoUrl,
+    isPublished: u.isPublished,
   }));
 
   const initialCourses = courses.map((c) => ({
@@ -35,6 +36,7 @@ export default async function CoursesPage() {
     universityId: c.universityId,
     code: c.code,
     name: c.name,
+    isPublished: c.isPublished,
   }));
 
   return (

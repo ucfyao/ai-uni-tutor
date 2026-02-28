@@ -17,6 +17,7 @@ import {
   ScrollArea,
   Select,
   Stack,
+  Switch,
   Table,
   Tabs,
   Text,
@@ -29,12 +30,14 @@ import {
   createUniversity,
   deleteCourse,
   deleteUniversity,
-  fetchCourses,
-  fetchUniversities,
+  fetchAllCourses,
+  fetchAllUniversities,
+  toggleCoursePublished,
+  toggleUniversityPublished,
   updateCourse,
   updateUniversity,
 } from '@/app/actions/courses';
-import type { CourseListItem, UniversityListItem } from '@/app/actions/courses';
+import type { AdminCourseListItem, AdminUniversityListItem } from '@/app/actions/courses';
 import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -47,17 +50,17 @@ import { queryKeys } from '@/lib/query-keys';
 // ============================================================================
 
 interface AdminCoursesClientProps {
-  initialUniversities: UniversityListItem[];
-  initialCourses: CourseListItem[];
+  initialUniversities: AdminUniversityListItem[];
+  initialCourses: AdminCourseListItem[];
 }
 
 type ModalType =
   | { kind: 'addUniversity' }
-  | { kind: 'editUniversity'; university: UniversityListItem }
-  | { kind: 'deleteUniversity'; university: UniversityListItem }
+  | { kind: 'editUniversity'; university: AdminUniversityListItem }
+  | { kind: 'deleteUniversity'; university: AdminUniversityListItem }
   | { kind: 'addCourse' }
-  | { kind: 'editCourse'; course: CourseListItem }
-  | { kind: 'deleteCourse'; course: CourseListItem }
+  | { kind: 'editCourse'; course: AdminCourseListItem }
+  | { kind: 'deleteCourse'; course: AdminCourseListItem }
   | null;
 
 // ============================================================================
@@ -94,20 +97,20 @@ export function AdminCoursesClient({
   const [courseName, setCourseName] = useState('');
 
   // ── Queries ──
-  const { data: universities = [] } = useQuery<UniversityListItem[]>({
-    queryKey: queryKeys.universities.all,
+  const { data: universities = [] } = useQuery<AdminUniversityListItem[]>({
+    queryKey: queryKeys.universities.admin,
     queryFn: async () => {
-      const result = await fetchUniversities();
+      const result = await fetchAllUniversities();
       if (result.success) return result.data;
       throw new Error(result.error);
     },
     initialData: initialUniversities,
   });
 
-  const { data: courses = [] } = useQuery<CourseListItem[]>({
-    queryKey: queryKeys.courses.all,
+  const { data: courses = [] } = useQuery<AdminCourseListItem[]>({
+    queryKey: queryKeys.courses.admin,
     queryFn: async () => {
-      const result = await fetchCourses();
+      const result = await fetchAllCourses();
       if (result.success) return result.data;
       throw new Error(result.error);
     },
@@ -157,8 +160,8 @@ export function AdminCoursesClient({
 
   // ── Helpers ──
   const invalidateAll = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.universities.all });
-    queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.universities.admin });
+    queryClient.invalidateQueries({ queryKey: queryKeys.courses.admin });
   }, [queryClient]);
 
   const closeModal = useCallback(() => {
@@ -173,7 +176,7 @@ export function AdminCoursesClient({
     setModal({ kind: 'addUniversity' });
   }, []);
 
-  const openEditUniversity = useCallback((uni: UniversityListItem) => {
+  const openEditUniversity = useCallback((uni: AdminUniversityListItem) => {
     setUniName(uni.name);
     setUniShortName(uni.shortName);
     setUniLogoUrl(uni.logoUrl ?? '');
@@ -187,7 +190,7 @@ export function AdminCoursesClient({
     setModal({ kind: 'addCourse' });
   }, []);
 
-  const openEditCourse = useCallback((course: CourseListItem) => {
+  const openEditCourse = useCallback((course: AdminCourseListItem) => {
     setCourseUniversityId(course.universityId);
     setCourseCode(course.code);
     setCourseName(course.name);
@@ -296,6 +299,50 @@ export function AdminCoursesClient({
       setSaving(false);
     }
   }, [modal, invalidateAll, closeModal, t]);
+
+  const handleToggleUniversityPublished = useCallback(
+    async (id: string, isPublished: boolean) => {
+      try {
+        const result = await toggleUniversityPublished(id, isPublished);
+        if (!result.success) throw new Error(result.error);
+        invalidateAll();
+        showNotification({
+          title: isPublished ? t.toast.published : t.toast.unpublished,
+          message: '',
+          color: 'green',
+        });
+      } catch (err) {
+        showNotification({
+          title: 'Error',
+          message: err instanceof Error ? err.message : 'Unknown error',
+          color: 'red',
+        });
+      }
+    },
+    [invalidateAll, t],
+  );
+
+  const handleToggleCoursePublished = useCallback(
+    async (id: string, isPublished: boolean) => {
+      try {
+        const result = await toggleCoursePublished(id, isPublished);
+        if (!result.success) throw new Error(result.error);
+        invalidateAll();
+        showNotification({
+          title: isPublished ? t.toast.published : t.toast.unpublished,
+          message: '',
+          color: 'green',
+        });
+      } catch (err) {
+        showNotification({
+          title: 'Error',
+          message: err instanceof Error ? err.message : 'Unknown error',
+          color: 'red',
+        });
+      }
+    },
+    [invalidateAll, t],
+  );
 
   // ── Header ──
   const headerNode = useMemo(
@@ -504,19 +551,22 @@ export function AdminCoursesClient({
                   >
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th w="12%" style={thStyle}>
+                        <Table.Th w="10%" style={thStyle}>
                           ID
                         </Table.Th>
-                        <Table.Th w="30%" style={thStyle}>
+                        <Table.Th w="28%" style={thStyle}>
                           {t.coursesAdmin.name}
                         </Table.Th>
-                        <Table.Th w="18%" style={thStyle}>
+                        <Table.Th w="15%" style={thStyle}>
                           {t.coursesAdmin.shortName}
                         </Table.Th>
-                        <Table.Th w="18%" style={thStyle}>
+                        <Table.Th w="15%" style={thStyle}>
                           {t.coursesAdmin.courseCount}
                         </Table.Th>
-                        <Table.Th w="12%" style={thStyle} />
+                        <Table.Th w="12%" style={thStyle}>
+                          {t.coursesAdmin.published}
+                        </Table.Th>
+                        <Table.Th w="10%" style={thStyle} />
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -565,6 +615,15 @@ export function AdminCoursesClient({
                             >
                               {courseCountByUniversity.get(uni.id) ?? 0}
                             </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Switch
+                              size="sm"
+                              checked={uni.isPublished}
+                              onChange={(e) =>
+                                handleToggleUniversityPublished(uni.id, e.currentTarget.checked)
+                              }
+                            />
                           </Table.Td>
                           <Table.Td>
                             <Group gap={4}>
@@ -619,19 +678,22 @@ export function AdminCoursesClient({
                   >
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th w="12%" style={thStyle}>
+                        <Table.Th w="10%" style={thStyle}>
                           ID
                         </Table.Th>
-                        <Table.Th w="18%" style={thStyle}>
+                        <Table.Th w="15%" style={thStyle}>
                           {t.coursesAdmin.code}
                         </Table.Th>
-                        <Table.Th w="28%" style={thStyle}>
+                        <Table.Th w="25%" style={thStyle}>
                           {t.coursesAdmin.courseName}
                         </Table.Th>
-                        <Table.Th w="28%" style={thStyle}>
+                        <Table.Th w="22%" style={thStyle}>
                           {t.coursesAdmin.university}
                         </Table.Th>
-                        <Table.Th w="14%" style={thStyle} />
+                        <Table.Th w="12%" style={thStyle}>
+                          {t.coursesAdmin.published}
+                        </Table.Th>
+                        <Table.Th w="10%" style={thStyle} />
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -672,6 +734,15 @@ export function AdminCoursesClient({
                             <Text size="sm">
                               {universityMap.get(course.universityId)?.name ?? '—'}
                             </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Switch
+                              size="sm"
+                              checked={course.isPublished}
+                              onChange={(e) =>
+                                handleToggleCoursePublished(course.id, e.currentTarget.checked)
+                              }
+                            />
                           </Table.Td>
                           <Table.Td>
                             <Group gap={4}>
