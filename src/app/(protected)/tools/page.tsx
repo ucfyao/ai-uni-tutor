@@ -1,106 +1,152 @@
 'use client';
 
-import { BookOpen, FileText, Lock, Sparkles } from 'lucide-react';
+import { FileSearch, FileText, NotebookPen, Sparkles, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Badge, Button, Card, Group, SimpleGrid, Stack, Text, ThemeIcon } from '@mantine/core';
-import { PageShell } from '@/components/PageShell';
+import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  Container,
+  Group,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
-interface ToolCard {
-  key: string;
-  icon: typeof FileText;
-  color: string;
-  titleKey: 'writingAssistant' | 'quickReference' | 'smartSummary';
-  descKey: 'writingAssistantDesc' | 'quickReferenceDesc' | 'smartSummaryDesc';
-  href?: string;
-  comingSoon?: boolean;
-}
-
-const tools: ToolCard[] = [
-  {
-    key: 'writing-assistant',
-    icon: FileText,
-    color: 'indigo',
-    titleKey: 'writingAssistant',
-    descKey: 'writingAssistantDesc',
-    href: '/tools/writing-assistant',
-  },
-  {
-    key: 'quick-reference',
-    icon: BookOpen,
-    color: 'teal',
-    titleKey: 'quickReference',
-    descKey: 'quickReferenceDesc',
-    comingSoon: true,
-  },
-  {
-    key: 'smart-summary',
-    icon: Sparkles,
-    color: 'orange',
-    titleKey: 'smartSummary',
-    descKey: 'smartSummaryDesc',
-    comingSoon: true,
-  },
-];
+const TOOLS_COLOR = 'violet';
 
 export default function ToolsHubPage() {
   const { t } = useLanguage();
   const router = useRouter();
 
+  const tools = [
+    {
+      key: 'writing',
+      label: t.tools.writingAssistant,
+      description: t.tools.writingAssistantDesc,
+      icon: NotebookPen,
+      href: '/tools/writing',
+      available: true,
+    },
+    {
+      key: 'reference',
+      label: t.tools.quickReference,
+      description: t.tools.quickReferenceDesc,
+      icon: FileSearch,
+      href: null,
+      available: false,
+    },
+    {
+      key: 'summary',
+      label: t.tools.smartSummary,
+      description: t.tools.smartSummaryDesc,
+      icon: FileText,
+      href: null,
+      available: false,
+    },
+  ];
+
   return (
-    <PageShell title={t.tools.toolsHub}>
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-        {tools.map((tool) => {
-          const Icon = tool.icon;
-          return (
-            <Card
-              key={tool.key}
-              withBorder
-              radius="lg"
-              padding="xl"
-              style={{
-                opacity: tool.comingSoon ? 0.6 : 1,
-                cursor: tool.comingSoon ? 'default' : 'pointer',
-              }}
-              onClick={tool.href ? () => router.push(tool.href!) : undefined}
-            >
-              <Stack gap="md">
-                <Group justify="space-between" align="flex-start">
-                  <ThemeIcon size={48} radius="md" variant="light" color={tool.color}>
-                    <Icon size={24} />
-                  </ThemeIcon>
-                  {tool.comingSoon && (
-                    <Badge variant="light" color="gray" leftSection={<Lock size={12} />}>
-                      {t.tools.comingSoon}
-                    </Badge>
-                  )}
-                </Group>
-                <Stack gap={4}>
-                  <Text fw={600} size="lg">
-                    {t.tools[tool.titleKey]}
-                  </Text>
-                  <Text size="sm" c="dimmed" lh={1.5}>
-                    {t.tools[tool.descKey]}
-                  </Text>
-                </Stack>
-                {!tool.comingSoon && (
-                  <Button
-                    variant="light"
-                    color={tool.color}
-                    fullWidth
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (tool.href) router.push(tool.href);
-                    }}
-                  >
-                    {t.tools.launch}
-                  </Button>
-                )}
-              </Stack>
-            </Card>
-          );
-        })}
-      </SimpleGrid>
-    </PageShell>
+    <>
+      <Box
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '100vw',
+          height: 240,
+          background: `radial-gradient(ellipse at center, var(--mantine-color-${TOOLS_COLOR}-0) 0%, transparent 70%)`,
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+      <Container size="lg" py="xl">
+        <Stack gap="xl" style={{ position: 'relative', zIndex: 1 }}>
+          <Box>
+            <Group gap="sm" mb={4}>
+              <Wrench size={28} color={`var(--mantine-color-${TOOLS_COLOR}-6)`} />
+              <Title order={2} fw={700} style={{ letterSpacing: '-0.02em' }}>
+                {t.tools.toolsHub}
+              </Title>
+            </Group>
+          </Box>
+
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+            {tools.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <Card
+                  key={tool.key}
+                  withBorder
+                  radius="md"
+                  p="lg"
+                  style={{
+                    cursor: tool.available ? 'pointer' : 'default',
+                    opacity: tool.available ? 1 : 0.6,
+                    transition: 'transform 150ms ease, box-shadow 150ms ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (tool.available) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = '';
+                    e.currentTarget.style.boxShadow = '';
+                  }}
+                  onClick={() => tool.href && router.push(tool.href)}
+                >
+                  <Stack gap="md">
+                    <Group justify="space-between">
+                      <Box
+                        p={8}
+                        style={{
+                          borderRadius: 8,
+                          background: `var(--mantine-color-${TOOLS_COLOR}-0)`,
+                        }}
+                      >
+                        <Icon
+                          size={24}
+                          color={`var(--mantine-color-${TOOLS_COLOR}-6)`}
+                          strokeWidth={1.5}
+                        />
+                      </Box>
+                      {!tool.available && (
+                        <Badge size="sm" variant="light" color="gray">
+                          {t.tools.comingSoon}
+                        </Badge>
+                      )}
+                    </Group>
+                    <Box>
+                      <Text fw={600} size="lg">
+                        {tool.label}
+                      </Text>
+                      <Text c="dimmed" size="sm" mt={4}>
+                        {tool.description}
+                      </Text>
+                    </Box>
+                    {tool.available && (
+                      <Button
+                        variant="light"
+                        color={TOOLS_COLOR}
+                        fullWidth
+                        leftSection={<Sparkles size={16} />}
+                      >
+                        {t.tools.launch}
+                      </Button>
+                    )}
+                  </Stack>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+        </Stack>
+      </Container>
+    </>
   );
 }
