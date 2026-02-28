@@ -1,7 +1,8 @@
 import 'server-only';
+import type { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getDefaultPool } from '@/lib/gemini';
 import type { Json } from '@/types/database';
 
 const rerankResponseSchema = z.array(
@@ -48,12 +49,15 @@ For each chunk, provide a relevance score from 1 (not relevant) to 10 (highly re
 Return ONLY a JSON array like: [{"index": 0, "score": 8}, {"index": 1, "score": 3}, ...]
 Every chunk index must appear exactly once. Return ONLY valid JSON, no markdown.`;
 
-    const genAI = getGenAI();
-    const response = await genAI.models.generateContent({
-      model: GEMINI_MODELS.parse,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0 },
-    });
+    const response = await getDefaultPool().withRetry(
+      (entry) =>
+        (entry.client as GoogleGenAI).models.generateContent({
+          model: GEMINI_MODELS.parse,
+          contents: prompt,
+          config: { responseMimeType: 'application/json', temperature: 0 },
+        }),
+      { callType: 'rerank' },
+    );
 
     const text = response.text ?? '';
     const raw = JSON.parse(text);

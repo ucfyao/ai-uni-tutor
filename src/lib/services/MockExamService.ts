@@ -5,9 +5,10 @@
  * and handling the interactive answer/judging flow via Gemini AI.
  */
 
+import type { GoogleGenAI } from '@google/genai';
 import { parseAIResponse } from '@/lib/ai-utils';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getGenAI } from '@/lib/gemini';
+import { GEMINI_MODELS, getDefaultPool } from '@/lib/gemini';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
@@ -241,8 +242,6 @@ export class MockExamService {
       throw new AppError('VALIDATION', 'Questions already generated');
     }
 
-    const ai = getGenAI();
-
     const typesInstruction =
       options.questionTypes.length > 0
         ? `Question types to include: ${options.questionTypes.join(', ')}`
@@ -262,14 +261,18 @@ ${typesInstruction}
 
     let responseText: string;
     try {
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODELS.chat,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-        },
-      });
+      const response = await getDefaultPool().withRetry(
+        (entry) =>
+          (entry.client as GoogleGenAI).models.generateContent({
+            model: GEMINI_MODELS.chat,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.7,
+            },
+          }),
+        { callType: 'exam' },
+      );
       responseText = response.text ?? '';
     } catch (error) {
       throw AppError.from(error);
@@ -490,7 +493,6 @@ ${typesInstruction}
     const title = paper.title;
 
     // Generate variant questions using Gemini in batches of 3
-    const ai = getGenAI();
     const generatedQuestions: MockExamQuestion[] = [];
 
     for (let i = 0; i < questions.length; i += 3) {
@@ -516,14 +518,18 @@ Return JSON with these exact fields:
   "explanation": "explanation of the correct answer"
 }`;
 
-            const response = await ai.models.generateContent({
-              model: GEMINI_MODELS.chat,
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              config: {
-                responseMimeType: 'application/json',
-                temperature: 0.7,
-              },
-            });
+            const response = await getDefaultPool().withRetry(
+              (entry) =>
+                (entry.client as GoogleGenAI).models.generateContent({
+                  model: GEMINI_MODELS.chat,
+                  contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                  config: {
+                    responseMimeType: 'application/json',
+                    temperature: 0.7,
+                  },
+                }),
+              { callType: 'exam' },
+            );
 
             const parsed = parseAIResponse<{
               content?: string;
@@ -591,8 +597,6 @@ Return JSON with these exact fields:
     userAnswer: string,
   ): Promise<MockExamResponse> {
     try {
-      const ai = getGenAI();
-
       const prompt = `You are an exam grader. Compare the student's answer to the correct answer and evaluate it.
 
 Question: ${question.content}
@@ -611,14 +615,18 @@ Return JSON with these exact fields:
   "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$."
 }`;
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODELS.chat,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      });
+      const response = await getDefaultPool().withRetry(
+        (entry) =>
+          (entry.client as GoogleGenAI).models.generateContent({
+            model: GEMINI_MODELS.chat,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+            },
+          }),
+        { callType: 'exam' },
+      );
 
       const parsed = parseAIResponse<{
         is_correct?: boolean;
@@ -746,8 +754,6 @@ Return JSON with these exact fields:
     if (entries.length === 0) return [];
 
     try {
-      const ai = getGenAI();
-
       const questionsBlock = entries
         .map(
           (e, i) =>
@@ -776,14 +782,18 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
   ...
 ]`;
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODELS.chat,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      });
+      const response = await getDefaultPool().withRetry(
+        (entry) =>
+          (entry.client as GoogleGenAI).models.generateContent({
+            model: GEMINI_MODELS.chat,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+            },
+          }),
+        { callType: 'exam' },
+      );
 
       const parsed = parseAIResponse<
         Array<{ is_correct?: boolean; score?: number; feedback?: string }>
