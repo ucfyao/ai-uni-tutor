@@ -23,9 +23,33 @@ import {
   UnderlineIcon,
   Undo,
 } from 'lucide-react';
-import { useCallback } from 'react';
 import { ActionIcon, Box, Divider, Group, Tooltip } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
+
+function ToolbarButton({
+  icon: Icon,
+  label,
+  action,
+  isActive,
+}: {
+  icon: typeof Bold;
+  label: string;
+  action: () => void;
+  isActive?: boolean;
+}) {
+  return (
+    <Tooltip label={label} position="bottom" withArrow>
+      <ActionIcon
+        variant={isActive ? 'light' : 'subtle'}
+        color={isActive ? 'violet' : 'gray'}
+        size="sm"
+        onClick={action}
+      >
+        <Icon size={16} strokeWidth={1.5} />
+      </ActionIcon>
+    </Tooltip>
+  );
+}
 
 interface WritingEditorProps {
   onUpdate?: (html: string, text: string) => void;
@@ -50,32 +74,6 @@ export function WritingEditor({ onUpdate, initialContent }: WritingEditorProps) 
       onUpdate?.(ed.getHTML(), ed.getText());
     },
   });
-
-  const ToolbarButton = useCallback(
-    ({
-      icon: Icon,
-      label,
-      action,
-      isActive,
-    }: {
-      icon: typeof Bold;
-      label: string;
-      action: () => void;
-      isActive?: boolean;
-    }) => (
-      <Tooltip label={label} position="bottom" withArrow>
-        <ActionIcon
-          variant={isActive ? 'light' : 'subtle'}
-          color={isActive ? 'violet' : 'gray'}
-          size="sm"
-          onClick={action}
-        >
-          <Icon size={16} strokeWidth={1.5} />
-        </ActionIcon>
-      </Tooltip>
-    ),
-    [],
-  );
 
   if (!editor) return null;
 
