@@ -359,8 +359,14 @@ export class SessionService {
 
     // Walk UP from parentMessageId to root to find the shared prefix
     const prefixReversed: MessageEntity[] = [];
+    const visitedUp = new Set<string>();
     let walkUp: string | null = parentMessageId;
     while (walkUp) {
+      if (visitedUp.has(walkUp)) {
+        console.warn('[SessionService] Cycle detected walking up parent chain at:', walkUp);
+        break;
+      }
+      visitedUp.add(walkUp);
       const msg = messageById.get(walkUp);
       if (!msg) break;
       prefixReversed.push(msg);
@@ -370,11 +376,17 @@ export class SessionService {
 
     // Build full path: prefix + target child + follow latest descendants to leaf
     const path: MessageEntity[] = [...prefix, target];
+    const visitedDown = new Set<string>();
     let walkDown = targetChildId;
     while (true) {
       const kids = childrenMap.get(walkDown);
       if (!kids || kids.length === 0) break;
       const latest = kids[kids.length - 1];
+      if (visitedDown.has(latest.id)) {
+        console.warn('[SessionService] Cycle detected walking down tree at:', latest.id);
+        break;
+      }
+      visitedDown.add(latest.id);
       path.push(latest);
       walkDown = latest.id;
     }
