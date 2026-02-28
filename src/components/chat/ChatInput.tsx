@@ -88,6 +88,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [input, mode]);
 
+  // Detect bare prefill command (e.g. "/explain" without a topic) → treat as empty input
+  const isBarePrefillCommand = useMemo(() => {
+    if (!mode || !input.trim().startsWith('/')) return false;
+    const parsed = parseCommand(input, mode);
+    return parsed !== null && parsed.command.action === 'prefill' && !parsed.args;
+  }, [input, mode]);
+
   // Detect active command for showing usage hint
   const activeCommandHint = useMemo(() => {
     if (!mode || !input.startsWith('/')) return null;
@@ -95,9 +102,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (!parsed) return null;
     // Hide hint once user has typed enough context after the command
     if (parsed.args.length > 20) return null;
-    const cmdT = (t.chat.commands as Record<string, { label: string; desc: string; example?: string }>)[
-      parsed.command.labelKey
-    ];
+    const cmdT = (
+      t.chat.commands as Record<string, { label: string; desc: string; example?: string }>
+    )[parsed.command.labelKey];
     return cmdT?.example ?? null;
   }, [input, mode, t.chat.commands]);
 
@@ -312,13 +319,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             />
           )}
           {activeCommandHint && !showPalette && (
-            <Text
-              size="xs"
-              c="dimmed"
-              px="md"
-              py={4}
-              style={{ fontStyle: 'italic' }}
-            >
+            <Text size="xs" c="dimmed" px="md" py={4} style={{ fontStyle: 'italic' }}>
               {activeCommandHint}
             </Text>
           )}
@@ -487,11 +488,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 radius="xl"
                 variant="filled"
                 color={
-                  input.trim() || attachedFiles.length > 0 || attachedDocument ? 'indigo' : 'gray.4'
+                  (input.trim() && !isBarePrefillCommand) ||
+                  attachedFiles.length > 0 ||
+                  attachedDocument
+                    ? 'indigo'
+                    : 'gray.4'
                 }
                 onClick={onSend}
                 disabled={
-                  (!input.trim() && attachedFiles.length === 0 && !attachedDocument) ||
+                  ((!input.trim() || isBarePrefillCommand) &&
+                    attachedFiles.length === 0 &&
+                    !attachedDocument) ||
                   !!isStreaming
                 }
                 mr={2}
@@ -499,7 +506,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 className="transition-all duration-200 active:scale-90"
                 style={{
                   opacity:
-                    !input.trim() && attachedFiles.length === 0 && !attachedDocument ? 0.4 : 1,
+                    (!input.trim() || isBarePrefillCommand) &&
+                    attachedFiles.length === 0 &&
+                    !attachedDocument
+                      ? 0.4
+                      : 1,
                 }}
                 aria-label="Send message"
               >

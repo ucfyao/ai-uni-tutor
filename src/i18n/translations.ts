@@ -182,20 +182,10 @@ export const translations = {
       suggestedActions: '快捷指令',
       typeSlash: '输入 / 使用快捷指令',
       commands: {
-        summary: {
-          label: '大纲总结',
+        outline: {
+          label: '课程大纲',
           desc: '获取讲座大纲和关键概念',
-          example: '按 ↵ 自动生成大纲摘要',
-        },
-        explain: {
-          label: '概念解释',
-          desc: '深入解释某个概念',
-          example: '输入概念名称，如：量子纠缠、微积分',
-        },
-        examples: {
-          label: '实际案例',
-          desc: '将主题与实际例子联系起来',
-          example: '按 ↵ 获取相关实例',
+          example: '按 ↵ 查看课程大纲',
         },
         check: {
           label: '答案检查',
@@ -260,6 +250,7 @@ export const translations = {
       voiceNotSupported: '你的浏览器不支持语音输入',
       noContextTitle: '还没有上下文',
       noContextMessage: '请先上传文档或发送消息，让我知道你需要什么帮助。',
+      commandNeedsInput: '请在命令后输入主题',
       edit: '编辑',
       saveAndResend: '发送',
       cancelEdit: '取消',
@@ -1157,20 +1148,10 @@ export const translations = {
       suggestedActions: 'Quick Commands',
       typeSlash: 'Type / to use commands',
       commands: {
-        summary: {
-          label: 'Summarize',
+        outline: {
+          label: 'Outline',
           desc: 'Get lecture outline and key concepts',
-          example: 'Press ↵ to generate outline',
-        },
-        explain: {
-          label: 'Explain',
-          desc: 'Deep-dive into a concept',
-          example: 'Type a concept, e.g., quantum entanglement',
-        },
-        examples: {
-          label: 'Examples',
-          desc: 'Connect topics to real-world examples',
-          example: 'Press ↵ to get real-world examples',
+          example: 'Press ↵ to view course outline',
         },
         check: {
           label: 'Check Answer',
@@ -1238,6 +1219,7 @@ export const translations = {
       noContextTitle: 'No context yet',
       noContextMessage:
         'Please upload a document or send a message first so I know what to help with.',
+      commandNeedsInput: 'Please type a topic after the command',
       edit: 'Edit',
       saveAndResend: 'Send',
       cancelEdit: 'Cancel',
