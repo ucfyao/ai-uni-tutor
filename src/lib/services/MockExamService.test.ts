@@ -12,7 +12,7 @@ vi.mock('@/lib/gemini', () => ({
     parse: 'gemini-2.0-flash',
     embedding: 'gemini-embedding-001',
   },
-  getGenAI: vi.fn(),
+  getDefaultPool: vi.fn(),
 }));
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -150,11 +150,21 @@ const MOCK_EXAM: MockExam = {
 
 // ---------- AI mock helper ----------
 
+function mockDefaultPool(generateContent: ReturnType<typeof vi.fn>) {
+  const mockPool = {
+    withRetry: vi
+      .fn()
+      .mockImplementation((fn: Function) => fn({ client: { models: { generateContent } } })),
+  };
+  vi.mocked(geminiModule.getDefaultPool).mockReturnValue(
+    mockPool as unknown as ReturnType<typeof geminiModule.getDefaultPool>,
+  );
+  return mockPool;
+}
+
 function mockAI(responseText: string) {
   const generateContent = vi.fn().mockResolvedValue({ text: responseText });
-  vi.mocked(geminiModule.getGenAI).mockReturnValue({
-    models: { generateContent },
-  } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+  mockDefaultPool(generateContent);
   return generateContent;
 }
 
@@ -163,9 +173,7 @@ function mockAISequence(responses: string[]) {
   for (const text of responses) {
     generateContent.mockResolvedValueOnce({ text });
   }
-  vi.mocked(geminiModule.getGenAI).mockReturnValue({
-    models: { generateContent },
-  } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+  mockDefaultPool(generateContent);
   return generateContent;
 }
 
@@ -445,9 +453,7 @@ describe('MockExamService', () => {
 
       // AI throws
       const generateContent = vi.fn().mockRejectedValue(new Error('AI down'));
-      vi.mocked(geminiModule.getGenAI).mockReturnValue({
-        models: { generateContent },
-      } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+      mockDefaultPool(generateContent);
 
       const result = await service.generateMock(USER_ID, PAPER_ID, 'practice');
 
@@ -501,9 +507,7 @@ describe('MockExamService', () => {
           }),
         });
       }
-      vi.mocked(geminiModule.getGenAI).mockReturnValue({
-        models: { generateContent },
-      } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+      mockDefaultPool(generateContent);
 
       await service.generateMock(USER_ID, PAPER_ID, 'practice');
 
@@ -648,9 +652,7 @@ describe('MockExamService', () => {
 
       // AI throws
       const generateContent = vi.fn().mockRejectedValue(new Error('AI unavailable'));
-      vi.mocked(geminiModule.getGenAI).mockReturnValue({
-        models: { generateContent },
-      } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+      mockDefaultPool(generateContent);
 
       // Exact match (case-insensitive)
       const result = await service.submitAnswer(USER_ID, MOCK_ID, 0, 'b');
@@ -670,9 +672,7 @@ describe('MockExamService', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const generateContent = vi.fn().mockRejectedValue(new Error('AI unavailable'));
-      vi.mocked(geminiModule.getGenAI).mockReturnValue({
-        models: { generateContent },
-      } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+      mockDefaultPool(generateContent);
 
       const result = await service.submitAnswer(USER_ID, MOCK_ID, 0, 'A');
 
@@ -831,9 +831,7 @@ describe('MockExamService', () => {
       mockRepo.update.mockResolvedValue(undefined);
 
       const generateContent = vi.fn();
-      vi.mocked(geminiModule.getGenAI).mockReturnValue({
-        models: { generateContent },
-      } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+      mockDefaultPool(generateContent);
 
       const answers = Array.from({ length: 5 }, (_, i) => ({
         questionIndex: i,
@@ -876,9 +874,7 @@ describe('MockExamService', () => {
           { is_correct: true, score: 4, feedback: 'Correct Q2' },
         ]),
       });
-      vi.mocked(geminiModule.getGenAI).mockReturnValue({
-        models: { generateContent },
-      } as unknown as ReturnType<typeof geminiModule.getGenAI>);
+      mockDefaultPool(generateContent);
 
       const answers = Array.from({ length: 3 }, (_, i) => ({
         questionIndex: i,
