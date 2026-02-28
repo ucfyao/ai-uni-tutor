@@ -347,6 +347,39 @@ export function getChatPool(): KeyPool {
   return _chatPool;
 }
 
+/**
+ * Collect all unique model names configured across both pools + GEMINI_MODELS.
+ * Used by admin UI to populate filter dropdowns dynamically.
+ */
+export function getAllConfiguredModels(): string[] {
+  const models = new Set(Object.values(GEMINI_MODELS));
+
+  // Initialize pools if not yet done
+  if (!_defaultPool && process.env.GEMINI_API_KEY) {
+    try {
+      getGenAI();
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!_chatPool) {
+    try {
+      getChatPool();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (_defaultPool) {
+    for (const e of _defaultPool.getEntries()) models.add(e.model);
+  }
+  if (_chatPool) {
+    for (const e of _chatPool.getEntries()) models.add(e.model);
+  }
+
+  return [...models];
+}
+
 export async function getPoolStatusInfo(): Promise<PoolStatusResponse> {
   const state = await loadPoolState();
   const now = Date.now();

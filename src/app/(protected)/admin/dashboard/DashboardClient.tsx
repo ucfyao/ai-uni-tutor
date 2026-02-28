@@ -17,8 +17,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActionIcon,
-  Anchor,
   Alert,
+  Anchor,
   Badge,
   Box,
   Button,
@@ -37,6 +37,7 @@ import {
 import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { LlmLogRow, LlmLogsPreview, LlmLogStats } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types matching AdminDashboardService response
@@ -90,34 +91,6 @@ interface PoolEntryStatus {
 interface PoolStatusData {
   entries: PoolEntryStatus[];
   serverTime: number;
-}
-
-interface LlmLogRow {
-  id: string;
-  user_id: string | null;
-  call_type: string;
-  provider: string;
-  model: string;
-  status: string;
-  error_message: string | null;
-  latency_ms: number;
-  input_tokens: number | null;
-  output_tokens: number | null;
-  cost_estimate: number | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
-
-interface LlmLogPreviewStats {
-  totalToday: number;
-  errorsToday: number;
-  avgLatencyMs: number;
-  estimatedCostToday: number;
-}
-
-interface LlmLogsPreview {
-  logs: LlmLogRow[];
-  stats: LlmLogPreviewStats;
 }
 
 // ---------------------------------------------------------------------------
@@ -549,9 +522,7 @@ function LlmLogsPreviewSection() {
                   {data.logs.map((log) => (
                     <Table.Tr
                       key={log.id}
-                      bg={
-                        log.status === 'error' ? 'var(--mantine-color-red-light)' : undefined
-                      }
+                      bg={log.status === 'error' ? 'var(--mantine-color-red-light)' : undefined}
                     >
                       <Table.Td>
                         <Text size="xs" ff="monospace">

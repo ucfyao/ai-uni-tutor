@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAllConfiguredModels } from '@/lib/gemini';
 import { getProfileRepository } from '@/lib/repositories';
 import { getLlmLogService } from '@/lib/services/LlmLogService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -57,12 +58,15 @@ export async function GET(request: Request) {
       service.getStats(startTime),
     ]);
 
+    const models = getAllConfiguredModels();
+
     return NextResponse.json({
       logs: result.logs,
       total: result.total,
       stats,
       page,
       pageSize,
+      models,
     });
   } catch (error) {
     console.error('[LlmLogs] Route error:', error);

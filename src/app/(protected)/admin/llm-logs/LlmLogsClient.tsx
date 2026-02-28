@@ -27,37 +27,7 @@ import {
   Text,
 } from '@mantine/core';
 import { AdminContent } from '@/components/admin/AdminContent';
-
-interface LlmLogRow {
-  id: string;
-  user_id: string | null;
-  call_type: string;
-  provider: string;
-  model: string;
-  status: string;
-  error_message: string | null;
-  latency_ms: number;
-  input_tokens: number | null;
-  output_tokens: number | null;
-  cost_estimate: number | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
-
-interface LlmLogStats {
-  totalToday: number;
-  errorsToday: number;
-  avgLatencyMs: number;
-  estimatedCostToday: number;
-}
-
-interface LlmLogsResponse {
-  logs: LlmLogRow[];
-  total: number;
-  stats: LlmLogStats;
-  page: number;
-  pageSize: number;
-}
+import type { LlmLogsResponse } from '../types';
 
 function formatLatency(ms: number) {
   if (ms < 1000) return `${ms}ms`;
@@ -234,11 +204,7 @@ export function LlmLogsClient() {
                 setModel(v);
                 setPage(1);
               }}
-              data={[
-                { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
-                { value: 'gemini-2.0-flash', label: 'gemini-2.0-flash' },
-                { value: 'gemini-embedding-001', label: 'gemini-embedding-001' },
-              ]}
+              data={data?.models?.map((m) => ({ value: m, label: m })) ?? []}
             />
             <Select
               size="xs"
@@ -291,9 +257,7 @@ export function LlmLogsClient() {
                     data.logs.map((log) => (
                       <Fragment key={log.id}>
                         <Table.Tr
-                          bg={
-                            log.status === 'error' ? 'var(--mantine-color-red-light)' : undefined
-                          }
+                          bg={log.status === 'error' ? 'var(--mantine-color-red-light)' : undefined}
                           onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
                           style={{ cursor: 'pointer' }}
                         >
