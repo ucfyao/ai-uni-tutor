@@ -353,11 +353,13 @@ export async function retakeMockExam(
 export async function createStandaloneMock(
   title: string,
   mode: 'practice' | 'exam',
-  courseInfo?: { courseCode?: string | null; courseName?: string | null; schoolName?: string | null },
+  courseInfo: { courseCode: string; courseName: string; schoolName: string },
 ): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+
+    if (!courseInfo?.courseCode?.trim()) return { success: false, error: 'Course is required' };
 
     const service = getMockExamService();
     const { mockId } = await service.createMinimalStub(

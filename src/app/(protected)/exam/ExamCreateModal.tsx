@@ -169,6 +169,7 @@ export function ExamCreateModal({ opened, onClose }: Props) {
       : undefined;
 
   const isStartDisabled =
+    !selectedCourseId ||
     (source === 'real' && !selectedPaper) ||
     (source === 'random' && papers.length === 0) ||
     (source === 'ai' && !topic.trim());
@@ -184,7 +185,7 @@ export function ExamCreateModal({ opened, onClose }: Props) {
         const stubResult = await createStandaloneMock(
           source === 'ai' ? `${topic} - Practice Exam` : 'Mock Exam',
           selectedMode,
-          { courseCode: courseCode ?? null, courseName: courseName ?? null, schoolName: schoolName ?? null },
+          { courseCode: courseCode ?? '', courseName: courseName ?? '', schoolName: schoolName ?? '' },
         );
         if (!stubResult.success) {
           setError(stubResult.error);
