@@ -177,6 +177,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     setExpandedModule((prev) => (prev === mode ? null : mode));
   };
 
+  const handleSidebarToggleClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onToggleSidebar();
+  };
+
   // === COLLAPSED STATE (icon-only) ===
   if (!opened) {
     return (
@@ -196,7 +202,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ActionIcon
               variant="subtle"
               color="gray"
-              onClick={onToggleSidebar}
+              onClick={handleSidebarToggleClick}
               size={36}
               radius="md"
             >
@@ -335,7 +341,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Logo size={22} alt="Logo" />
         </UnstyledButton>
         <Tooltip label={t.sidebar.closeSidebar} position="right">
-          <ActionIcon variant="subtle" color="gray" onClick={onToggleSidebar} size={36} radius="md">
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            onClick={handleSidebarToggleClick}
+            size={36}
+            radius="md"
+            style={{ position: 'relative', zIndex: 2 }}
+          >
             <PanelLeft size={20} strokeWidth={1.5} />
           </ActionIcon>
         </Tooltip>

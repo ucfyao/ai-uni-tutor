@@ -17,6 +17,7 @@ import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
 import { useSessions } from '@/context/SessionContext';
 import { chatCache } from '@/lib/chat-cache';
+import { handleKnowledgePanelToggle } from '@/lib/knowledge-panel-toggle';
 import { ChatSession } from '@/types';
 
 interface LectureClientProps {
@@ -291,13 +292,13 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
         onDelete={() => setDeleteModalOpen(true)}
         showKnowledgePanel={true}
         knowledgePanelCollapsed={desktopPanelCollapsed}
-        onKnowledgePanelToggle={() => {
-          if (window.matchMedia('(max-width: 75em)').matches) {
-            setKnowledgeDrawerTrigger((prev) => prev + 1);
-          } else {
-            setDesktopPanelCollapsed((prev) => !prev);
-          }
-        }}
+        onKnowledgePanelToggle={() =>
+          handleKnowledgePanelToggle({
+            isCompact: window.matchMedia('(max-width: 75em)').matches,
+            openDrawer: () => setKnowledgeDrawerTrigger((prev) => prev + 1),
+            toggleDesktopPanel: () => setDesktopPanelCollapsed((prev) => !prev),
+          })
+        }
       >
         <LectureHelper
           key={session.id}

@@ -18,6 +18,7 @@ import {
   dbError,
   type MockSupabaseResult,
 } from '@/__tests__/helpers/mockSupabase';
+import type { MessageEntity } from '@/lib/domain/models/Message';
 import { DatabaseError } from '@/lib/errors';
 
 // ── Mocks ──
@@ -32,7 +33,8 @@ vi.mock('@/lib/supabase/server', () => {
 });
 
 // Import after mocks
-const { MessageRepository } = await import('./MessageRepository');
+const { MessageRepository, buildAncestorSet, buildPathFromChildren } =
+  await import('./MessageRepository');
 
 describe('MessageRepository', () => {
   let repo: InstanceType<typeof MessageRepository>;
@@ -40,6 +42,68 @@ describe('MessageRepository', () => {
   beforeEach(() => {
     repo = new MessageRepository();
     mockSupabase.reset();
+  });
+
+  // ── cycle guards ──
+
+  describe('cycle guards', () => {
+    it('buildAncestorSet should stop on parent cycles', () => {
+      const a: MessageEntity = {
+        id: 'a',
+        sessionId: 's',
+        role: 'user' as const,
+        content: 'a',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+        parentMessageId: 'b',
+      };
+      const b: MessageEntity = {
+        id: 'b',
+        sessionId: 's',
+        role: 'assistant' as const,
+        content: 'b',
+        createdAt: new Date('2025-01-01T00:00:01Z'),
+        parentMessageId: 'a',
+      };
+      const messageById = new Map<string, MessageEntity>([
+        ['a', a],
+        ['b', b],
+      ]);
+
+      const set = buildAncestorSet(messageById, 'a');
+
+      expect(set.size).toBe(2);
+      expect(set.has('a')).toBe(true);
+      expect(set.has('b')).toBe(true);
+    });
+
+    it('buildPathFromChildren should stop when path loops', () => {
+      const a: MessageEntity = {
+        id: 'a',
+        sessionId: 's',
+        role: 'user' as const,
+        content: 'a',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+        parentMessageId: null,
+      };
+      const b: MessageEntity = {
+        id: 'b',
+        sessionId: 's',
+        role: 'assistant' as const,
+        content: 'b',
+        createdAt: new Date('2025-01-01T00:00:01Z'),
+        parentMessageId: 'a',
+      };
+
+      const childrenMap = new Map<string, MessageEntity[]>([
+        ['__root__', [a]],
+        ['a', [b]],
+        ['b', [a]], // cycle back to a
+      ]);
+
+      const path = buildPathFromChildren(childrenMap, new Set(), 10);
+
+      expect(path.map((m) => m.id)).toEqual(['a', 'b']);
+    });
   });
 
   afterEach(() => {
