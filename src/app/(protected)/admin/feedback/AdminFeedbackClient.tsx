@@ -19,6 +19,7 @@ import {
 import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface FeedbackItem {
   id: string;
@@ -44,17 +45,18 @@ interface FeedbackResponse {
 export function AdminFeedbackClient() {
   const isMobile = useIsMobile();
   const { setHeaderContent } = useHeader();
+  const { t } = useLanguage();
 
   const headerNode = useMemo(
     () => (
       <Group gap={8} align="center" wrap="nowrap" px={isMobile ? 6 : 8} py={isMobile ? 4 : 6}>
         <MessageSquare size={isMobile ? 18 : 20} color="var(--mantine-color-indigo-5)" />
         <Text fw={650} size={isMobile ? 'md' : 'lg'}>
-          Chat Feedback
+          {t.sidebar.feedbackAdmin}
         </Text>
       </Group>
     ),
-    [isMobile],
+    [isMobile, t],
   );
 
   useEffect(() => {
