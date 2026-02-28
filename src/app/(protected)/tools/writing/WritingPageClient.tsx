@@ -93,17 +93,23 @@ function htmlToMarkdown(html: string): string {
       .filter(Boolean);
     return lines.map((l: string) => `> ${l.trim()}`).join('\n') + '\n\n';
   });
-  // Lists — unordered
+  // Lists — unordered (strip <p> wrappers TipTap puts inside <li>)
   md = md.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_m, inner: string) => {
-    return inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n') + '\n';
+    return (
+      inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_lm, content: string) => {
+        const text = content.replace(/<\/?p[^>]*>/gi, '').trim();
+        return `- ${text}\n`;
+      }) + '\n'
+    );
   });
-  // Lists — ordered
+  // Lists — ordered (strip <p> wrappers TipTap puts inside <li>)
   md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner: string) => {
     let idx = 0;
     return (
       inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_lm, content: string) => {
         idx++;
-        return `${idx}. ${content.trim()}\n`;
+        const text = content.replace(/<\/?p[^>]*>/gi, '').trim();
+        return `${idx}. ${text}\n`;
       }) + '\n'
     );
   });
