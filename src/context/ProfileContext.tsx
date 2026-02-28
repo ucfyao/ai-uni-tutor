@@ -1,8 +1,12 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ProfileData } from '@/app/actions/user';
 import { getProfile, updateProfileFields } from '@/app/actions/user';
+import { shouldBootstrapProfileFetch } from '@/lib/profile-bootstrap';
+import { withTimeout } from '@/lib/with-timeout';
+
+const PROFILE_FETCH_TIMEOUT_MS = 8000;
 
 type Profile = {
   full_name?: string;
@@ -40,7 +44,11 @@ export function ProfileProvider({
 
     fetchInFlightRef.current = (async () => {
       try {
-        const data = await getProfile();
+        const data = await withTimeout(
+          getProfile(),
+          PROFILE_FETCH_TIMEOUT_MS,
+          'profile bootstrap fetch',
+        );
         if (!data) {
           setProfile(null);
           return;
@@ -57,6 +65,14 @@ export function ProfileProvider({
 
     return fetchInFlightRef.current;
   }, []);
+
+  useEffect(() => {
+    if (!shouldBootstrapProfileFetch(initialProfile)) {
+      setLoading(false);
+      return;
+    }
+    void fetchProfile();
+  }, [fetchProfile, initialProfile]);
 
   const updateProfile = useCallback(
     async (updates: Partial<Profile>) => {

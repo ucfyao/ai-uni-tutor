@@ -43,6 +43,53 @@ export function inferParentChain(messages: MessageEntity[]): MessageEntity[] {
   });
 }
 
+/** Build ancestor set from active leaf while guarding against parent cycles. */
+export function buildAncestorSet(
+  messageById: Map<string, MessageEntity>,
+  activeLeafId?: string | null,
+): Set<string> {
+  const ancestorSet = new Set<string>();
+  if (!activeLeafId || !messageById.has(activeLeafId)) return ancestorSet;
+
+  const visited = new Set<string>();
+  let current: string | null = activeLeafId;
+
+  while (current && messageById.has(current) && !visited.has(current)) {
+    visited.add(current);
+    ancestorSet.add(current);
+    current = messageById.get(current)?.parentMessageId ?? null;
+  }
+
+  return ancestorSet;
+}
+
+/** Build active path from root while guarding against path loops/cycles. */
+export function buildPathFromChildren(
+  childrenMap: Map<string, MessageEntity[]>,
+  ancestorSet: Set<string>,
+  maxNodes: number,
+): MessageEntity[] {
+  const path: MessageEntity[] = [];
+  const seenIds = new Set<string>();
+  let currentParent = '__root__';
+
+  while (path.length < maxNodes) {
+    const children = childrenMap.get(currentParent);
+    if (!children || children.length === 0) break;
+
+    const ancestorChild =
+      ancestorSet.size > 0 ? children.find((c) => ancestorSet.has(c.id)) : undefined;
+    const picked = ancestorChild ?? children[children.length - 1];
+
+    if (seenIds.has(picked.id)) break;
+    path.push(picked);
+    seenIds.add(picked.id);
+    currentParent = picked.id;
+  }
+
+  return path;
+}
+
 export class MessageRepository implements IMessageRepository {
   /**
    * Map database row to domain entity
@@ -112,32 +159,9 @@ export class MessageRepository implements IMessageRepository {
     messageById: Map<string, MessageEntity>,
     activeLeafId?: string | null,
   ): MessageEntity[] {
-    // Build ancestor set from activeLeafId
-    const ancestorSet = new Set<string>();
-    if (activeLeafId && messageById.has(activeLeafId)) {
-      let current: string | null = activeLeafId;
-      while (current) {
-        ancestorSet.add(current);
-        const msg = messageById.get(current);
-        current = msg?.parentMessageId ?? null;
-      }
-    }
-
-    const path: MessageEntity[] = [];
-    let currentParent = '__root__';
-    while (true) {
-      const children = childrenMap.get(currentParent);
-      if (!children || children.length === 0) break;
-
-      // Pick child in ancestor set if found, else latest
-      const ancestorChild = ancestorSet.size > 0
-        ? children.find((c) => ancestorSet.has(c.id))
-        : undefined;
-      const picked = ancestorChild ?? children[children.length - 1];
-      path.push(picked);
-      currentParent = picked.id;
-    }
-    return path;
+    const ancestorSet = buildAncestorSet(messageById, activeLeafId);
+    const maxNodes = Math.max(1, messageById.size);
+    return buildPathFromChildren(childrenMap, ancestorSet, maxNodes);
   }
 
   /**
@@ -145,10 +169,7 @@ export class MessageRepository implements IMessageRepository {
    * Returns a flat array representing the "active path" (current conversation view).
    * Uses inferParentChain for backward compatibility with legacy null-parent messages.
    */
-  async getActivePath(
-    sessionId: string,
-    activeLeafId?: string | null,
-  ): Promise<MessageEntity[]> {
+  async getActivePath(sessionId: string, activeLeafId?: string | null): Promise<MessageEntity[]> {
     const allMessages = await this.findBySessionId(sessionId);
     if (allMessages.length === 0) return [];
 

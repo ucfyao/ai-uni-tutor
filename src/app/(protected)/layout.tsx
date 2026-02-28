@@ -1,12 +1,14 @@
 import { redirect } from 'next/navigation';
 import React from 'react';
 import { getChatSessions } from '@/app/actions/chat';
-import type { ProfileData } from '@/app/actions/user';
 import { getProfile } from '@/app/actions/user';
 import ShellServer from '@/app/ShellServer';
 import { Providers } from '@/components/Providers';
+import { mergeProtectedInitialData } from '@/lib/protected-initial-data';
 import { getCurrentUser } from '@/lib/supabase/server';
-import type { ChatSession } from '@/types/index';
+import { withTimeout } from '@/lib/with-timeout';
+
+const INITIAL_DATA_TIMEOUT_MS = 8000;
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -14,13 +16,20 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect('/login');
   }
 
-  let initialSessions: ChatSession[] = [];
-  let initialProfile: ProfileData | null = null;
+  const [sessionsResult, profileResult] = await Promise.allSettled([
+    withTimeout(getChatSessions(), INITIAL_DATA_TIMEOUT_MS, 'initial chat sessions fetch'),
+    withTimeout(getProfile(), INITIAL_DATA_TIMEOUT_MS, 'initial profile fetch'),
+  ]);
+  const { initialSessions, initialProfile } = mergeProtectedInitialData(
+    sessionsResult,
+    profileResult,
+  );
 
-  try {
-    [initialSessions, initialProfile] = await Promise.all([getChatSessions(), getProfile()]);
-  } catch (e) {
-    console.error('Failed to fetch initial data', e);
+  if (sessionsResult.status === 'rejected') {
+    console.error('Failed to fetch initial sessions', sessionsResult.reason);
+  }
+  if (profileResult.status === 'rejected') {
+    console.error('Failed to fetch initial profile', profileResult.reason);
   }
 
   return (

@@ -17,6 +17,7 @@ import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
 import { useSessions } from '@/context/SessionContext';
 import { chatCache } from '@/lib/chat-cache';
+import { handleKnowledgePanelToggle } from '@/lib/knowledge-panel-toggle';
 import { ChatSession } from '@/types';
 
 interface AssignmentClientProps {
@@ -30,14 +31,15 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
   const [session, setSession] = useState<ChatSession | null>(initialSession);
   const [loading, setLoading] = useState(false);
 
-  // Track saved message IDs to prevent duplicate saves
-  const savedMsgIdsRef = useRef<Set<string>>(new Set());
+  // Track last saved message index to prevent duplicate saves (O(1) lookup)
+  const lastSavedIndexRef = useRef(0);
 
   // Modal state
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [knowledgeDrawerTrigger, setKnowledgeDrawerTrigger] = useState(0);
+  const [desktopPanelCollapsed, setDesktopPanelCollapsed] = useState(false);
 
   const { removeSession, updateSessionLocal, sessions } = useSessions();
   const sessionsRef = useRef(sessions);
@@ -54,15 +56,8 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
   useEffect(() => {
     if (!id) return;
 
-    // Server already determined session doesn't exist
-    if (!initialSession) {
-      setSession(null);
-      setLoading(false);
-      return;
-    }
-
-    if (initialSession.id === id) {
-      savedMsgIdsRef.current = new Set(initialSession.messages.map((m) => m.id));
+    if (initialSession && initialSession.id === id) {
+      lastSavedIndexRef.current = initialSession.messages.length;
       setSession(initialSession);
       setLoading(false);
       return;
@@ -70,7 +65,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
 
     setLoading(true);
     setSession(null);
-    savedMsgIdsRef.current = new Set();
+    lastSavedIndexRef.current = 0;
 
     let cancelled = false;
 
@@ -84,7 +79,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
 
           if (cached && cached.length > 0) {
             const cachedData: ChatSession = { ...fromList, messages: cached };
-            savedMsgIdsRef.current = new Set(cached.map((m) => m.id));
+            lastSavedIndexRef.current = cached.length;
             setSession(cachedData);
             setLoading(false);
           }
@@ -99,7 +94,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
           }
           setSession((prevSession) => {
             if (!prevSession) {
-              savedMsgIdsRef.current = new Set(freshSession.messages.map((m) => m.id));
+              lastSavedIndexRef.current = freshSession.messages.length;
               return freshSession;
             }
 
@@ -110,7 +105,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
             );
             const mergedMessages = [...freshSession.messages, ...clientOnlyMessages];
 
-            savedMsgIdsRef.current = new Set(mergedMessages.map((m) => m.id));
+            lastSavedIndexRef.current = mergedMessages.length;
             return { ...freshSession, messages: mergedMessages };
           });
           setLoading(false);
@@ -126,7 +121,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
           return;
         }
 
-        savedMsgIdsRef.current = new Set(data.messages.map((m) => m.id));
+        lastSavedIndexRef.current = data.messages.length;
         setSession(data);
         setLoading(false);
       } catch (error) {
@@ -144,11 +139,21 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
 
   // Handle session updates
   const handleUpdateSession = useCallback(
-    async (updated: ChatSession, options?: { streamingMessageId?: string | null }) => {
+    async (
+      updated: ChatSession,
+      options?: { streamingMessageId?: string | null; resetSavedIndex?: number },
+    ) => {
       setSession(updated);
 
-      for (const msg of updated.messages) {
-        if (savedMsgIdsRef.current.has(msg.id)) continue;
+      // Reset saved index when edit/branch-switch replaces the message array
+      if (options?.resetSavedIndex !== undefined) {
+        lastSavedIndexRef.current = options.resetSavedIndex;
+      }
+
+      // Save new messages that haven't been saved yet (slice from last saved index)
+      const unsavedMessages = updated.messages.slice(lastSavedIndexRef.current);
+
+      for (const msg of unsavedMessages) {
         if (!msg.content || msg.content.trim().length === 0) continue;
         if (options?.streamingMessageId != null && options.streamingMessageId === msg.id) continue;
 
@@ -157,13 +162,12 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
           if (streamIdx > 0 && updated.messages[streamIdx - 1].id === msg.id) continue;
         }
 
-        savedMsgIdsRef.current.add(msg.id);
-
         try {
           await saveChatMessage(updated.id, msg);
+          lastSavedIndexRef.current++;
         } catch (e) {
-          savedMsgIdsRef.current.delete(msg.id);
           console.error('Failed to save message:', e);
+          break; // Stop saving on error to maintain consistency
         }
       }
 
@@ -262,7 +266,14 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
         onPin={handleTogglePin}
         onDelete={() => setDeleteModalOpen(true)}
         showKnowledgePanel={true}
-        onKnowledgePanelToggle={() => setKnowledgeDrawerTrigger((prev) => prev + 1)}
+        knowledgePanelCollapsed={desktopPanelCollapsed}
+        onKnowledgePanelToggle={() =>
+          handleKnowledgePanelToggle({
+            isCompact: window.matchMedia('(max-width: 75em)').matches,
+            openDrawer: () => setKnowledgeDrawerTrigger((prev) => prev + 1),
+            toggleDesktopPanel: () => setDesktopPanelCollapsed((prev) => !prev),
+          })
+        }
       >
         <AssignmentCoach
           key={session.id}
@@ -270,6 +281,7 @@ export default function AssignmentClient({ id, initialSession }: AssignmentClien
           onUpdateSession={handleUpdateSession}
           openDrawerTrigger={knowledgeDrawerTrigger}
           isLoading={loading}
+          desktopPanelCollapsed={desktopPanelCollapsed}
         />
       </ChatPageLayout>
 
