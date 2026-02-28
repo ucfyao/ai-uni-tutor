@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useTransition } from 'react';
 import { Box, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { createMockExamStub } from '@/app/actions/mock-exams';
 import { Logo } from '@/components/Logo';
 import NewSessionModal from '@/components/NewSessionModal';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
@@ -57,17 +56,6 @@ export function StudyPageClient() {
     const newId = await addSession(courseId, mode, courseCode);
     if (!newId) return;
 
-    if (mode === 'Mock Exam') {
-      const result = await createMockExamStub(newId, courseCode);
-      if (result.success) {
-        startNavigating(() => {
-          router.push(`/exam/${result.mockId}?courseCode=${encodeURIComponent(courseCode)}`);
-          setTimeout(closeModal, 500);
-        });
-      }
-      return;
-    }
-
     startNavigating(() => {
       const modeRoute = MODES_METADATA[mode].id;
       router.push(`/${modeRoute}/${newId}`);
@@ -75,13 +63,13 @@ export function StudyPageClient() {
     });
   };
 
-  const handleModeClick = (mode: TutoringMode) => {
-    setSelectedMode(mode);
-    openModal();
-  };
-
   const handleCardClick = (card: (typeof FEATURE_CARDS)[number]) => {
-    handleModeClick(card.mode);
+    if (card.mode === 'Mock Exam') {
+      router.push('/exam');
+      return;
+    }
+    setSelectedMode(card.mode);
+    openModal();
   };
 
   return (

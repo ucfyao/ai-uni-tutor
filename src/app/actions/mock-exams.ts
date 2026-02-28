@@ -46,33 +46,6 @@ export async function generateMockFromTopic(
   }
 }
 
-export async function createMockExamStub(
-  sessionId: string,
-  title: string,
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-
-    if (!sessionId.trim()) return { success: false, error: 'Session ID is required' };
-
-    const service = getMockExamService();
-    const { mockId } = await service.createMinimalStub(
-      user.id,
-      sessionId.trim(),
-      title || 'Mock Exam',
-    );
-
-    return { success: true, mockId };
-  } catch (error) {
-    console.error('Mock exam stub creation error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create mock exam stub',
-    };
-  }
-}
-
 export async function populateMockFromPaper(
   mockId: string,
   paperId: string,
