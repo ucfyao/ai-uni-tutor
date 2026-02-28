@@ -2,12 +2,10 @@ import type { LucideIcon } from 'lucide-react';
 import {
   BookOpen,
   CheckCircle,
-  HelpCircle,
   Lightbulb,
   ListChecks,
   MessageCircleQuestion,
   Route,
-  Sparkles,
 } from 'lucide-react';
 import type { TutoringMode } from '@/types';
 
@@ -59,19 +57,6 @@ export const COMMANDS: ChatCommand[] = [
     modes: ['Lecture Helper'],
     action: 'send',
     promptTemplate: 'Summarize the key concepts of the last lecture',
-    requiresContext: true,
-  },
-  {
-    id: 'quiz',
-    command: '/quiz',
-    icon: Sparkles,
-    color: 'violet',
-    labelKey: 'quiz',
-    descKey: 'quiz',
-    modes: ['Lecture Helper'],
-    action: 'send',
-    promptTemplate:
-      'Generate 5 quiz questions based on the lecture content to test my understanding',
     requiresContext: true,
   },
   {
