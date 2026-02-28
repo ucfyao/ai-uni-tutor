@@ -115,8 +115,14 @@ export class MessageRepository implements IMessageRepository {
     // Build ancestor set from activeLeafId
     const ancestorSet = new Set<string>();
     if (activeLeafId && messageById.has(activeLeafId)) {
+      const visited = new Set<string>();
       let current: string | null = activeLeafId;
       while (current) {
+        if (visited.has(current)) {
+          console.warn('[MessageRepository] Cycle detected in parent chain at:', current);
+          break;
+        }
+        visited.add(current);
         ancestorSet.add(current);
         const msg = messageById.get(current);
         current = msg?.parentMessageId ?? null;
@@ -124,6 +130,7 @@ export class MessageRepository implements IMessageRepository {
     }
 
     const path: MessageEntity[] = [];
+    const visitedWalk = new Set<string>();
     let currentParent = '__root__';
     while (true) {
       const children = childrenMap.get(currentParent);
@@ -134,6 +141,11 @@ export class MessageRepository implements IMessageRepository {
         ? children.find((c) => ancestorSet.has(c.id))
         : undefined;
       const picked = ancestorChild ?? children[children.length - 1];
+      if (visitedWalk.has(picked.id)) {
+        console.warn('[MessageRepository] Cycle detected in tree walk at:', picked.id);
+        break;
+      }
+      visitedWalk.add(picked.id);
       path.push(picked);
       currentParent = picked.id;
     }
