@@ -145,29 +145,49 @@ export class MockExamRepository implements IMockExamRepository {
 
   async findByUserIdGrouped(
     userId: string,
-    filters?: { mode?: 'practice' | 'exam'; status?: 'in_progress' | 'completed' },
-    limit = 50,
-    offset = 0,
+    filters?: { mode?: 'practice' | 'exam' },
+    completedLimit = 50,
+    completedOffset = 0,
   ): Promise<{ inProgress: MockExam[]; completed: MockExam[] }> {
     const supabase = await createClient();
-    let query = supabase
+
+    // Always fetch ALL in-progress exams (no limit — users should see every active exam)
+    let inProgressQuery = supabase
       .from('mock_exams')
       .select('*')
       .eq('user_id', userId)
+      .eq('status', 'in_progress')
       .order('created_at', { ascending: false });
 
-    if (filters?.mode) query = query.eq('mode', filters.mode);
-    if (filters?.status) query = query.eq('status', filters.status);
+    if (filters?.mode) inProgressQuery = inProgressQuery.eq('mode', filters.mode);
 
-    query = query.range(offset, offset + limit - 1);
+    // Fetch paginated completed exams
+    let completedQuery = supabase
+      .from('mock_exams')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .range(completedOffset, completedOffset + completedLimit - 1);
 
-    const { data, error } = await query;
-    if (error) throw new DatabaseError(`Failed to fetch mock exams: ${error.message}`, error);
+    if (filters?.mode) completedQuery = completedQuery.eq('mode', filters.mode);
 
-    const all = (data ?? []).map((row) => this.mapToMockExam(row));
+    const [inProgressRes, completedRes] = await Promise.all([inProgressQuery, completedQuery]);
+
+    if (inProgressRes.error)
+      throw new DatabaseError(
+        `Failed to fetch in-progress exams: ${inProgressRes.error.message}`,
+        inProgressRes.error,
+      );
+    if (completedRes.error)
+      throw new DatabaseError(
+        `Failed to fetch completed exams: ${completedRes.error.message}`,
+        completedRes.error,
+      );
+
     return {
-      inProgress: all.filter((m) => m.status === 'in_progress'),
-      completed: all.filter((m) => m.status === 'completed'),
+      inProgress: (inProgressRes.data ?? []).map((row) => this.mapToMockExam(row)),
+      completed: (completedRes.data ?? []).map((row) => this.mapToMockExam(row)),
     };
   }
 
