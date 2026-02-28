@@ -1,13 +1,44 @@
-.writing-editor .tiptap {
+.writing-editor-content .tiptap {
   outline: none;
   min-height: 400px;
-  padding: 1rem;
-  font-size: 1rem;
-  line-height: 1.75;
-  color: var(--mantine-color-text);
 }
 
-.writing-editor .tiptap p.is-editor-empty:first-child::before {
+.writing-editor-content .tiptap p {
+  margin: 0.5em 0;
+  line-height: 1.7;
+}
+
+.writing-editor-content .tiptap h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+
+.writing-editor-content .tiptap h2 {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+}
+
+.writing-editor-content .tiptap h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+
+.writing-editor-content .tiptap blockquote {
+  border-left: 3px solid var(--mantine-color-violet-3);
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: var(--mantine-color-dimmed);
+}
+
+.writing-editor-content .tiptap ul,
+.writing-editor-content .tiptap ol {
+  padding-left: 1.5em;
+}
+
+.writing-editor-content .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
   color: var(--mantine-color-dimmed);
@@ -15,66 +46,26 @@
   height: 0;
 }
 
-.writing-editor .tiptap h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.writing-editor .tiptap h2 {
-  font-size: 1.375rem;
-  font-weight: 600;
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.writing-editor .tiptap h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.writing-editor .tiptap ul,
-.writing-editor .tiptap ol {
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
-}
-
-.writing-editor .tiptap li {
-  margin: 0.25rem 0;
-}
-
-.writing-editor .tiptap mark {
-  background-color: var(--mantine-color-yellow-2);
+/* AI Suggestion annotations */
+.writing-suggestion-polish {
+  background-color: rgba(255, 224, 102, 0.3);
+  cursor: pointer;
   border-radius: 2px;
-  padding: 0 2px;
 }
 
-.writing-editor .tiptap blockquote {
-  border-left: 3px solid var(--mantine-color-gray-4);
-  padding-left: 1rem;
-  margin: 0.75rem 0;
-  color: var(--mantine-color-dimmed);
+.writing-suggestion-format {
+  text-decoration: underline wavy;
+  text-decoration-color: var(--mantine-color-red-5);
+  cursor: pointer;
 }
 
-.writing-editor .tiptap hr {
-  border: none;
-  border-top: 1px solid var(--mantine-color-gray-3);
-  margin: 1.5rem 0;
+.writing-suggestion-originality {
+  background-color: rgba(255, 159, 67, 0.2);
+  cursor: pointer;
+  border-radius: 2px;
 }
 
-.writing-editor .tiptap code {
-  background-color: var(--mantine-color-gray-1);
-  border-radius: 4px;
-  padding: 2px 4px;
-  font-size: 0.875em;
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  background-color: var(--mantine-color-gray-3);
-  margin: 0 4px;
+.writing-suggestion-structure {
+  border-left: 3px solid var(--mantine-color-blue-5);
+  padding-left: 8px;
 }

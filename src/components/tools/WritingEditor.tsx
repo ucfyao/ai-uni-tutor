@@ -14,93 +14,80 @@ import {
   Heading1,
   Heading2,
   Heading3,
-  Highlighter,
   Italic,
   List,
   ListOrdered,
+  Quote,
   Redo,
-  Underline as UnderlineIcon,
+  Strikethrough,
+  UnderlineIcon,
   Undo,
 } from 'lucide-react';
-import { ActionIcon, Box, Group, Tooltip } from '@mantine/core';
-import './writing-editor.css';
+import { useCallback } from 'react';
+import { ActionIcon, Box, Divider, Group, Tooltip } from '@mantine/core';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface WritingEditorProps {
-  content?: string;
-  placeholder?: string;
-  onChange?: (html: string) => void;
-  onTextChange?: (text: string) => void;
+  onUpdate?: (html: string, text: string) => void;
+  initialContent?: string;
 }
 
-interface ToolbarButtonProps {
-  icon: React.ReactNode;
-  label: string;
-  isActive?: boolean;
-  onClick: () => void;
-}
+export function WritingEditor({ onUpdate, initialContent }: WritingEditorProps) {
+  const { t } = useLanguage();
 
-function ToolbarButton({ icon, label, isActive, onClick }: ToolbarButtonProps) {
-  return (
-    <Tooltip label={label} position="top" withArrow openDelay={400}>
-      <ActionIcon
-        variant={isActive ? 'filled' : 'subtle'}
-        color={isActive ? 'indigo' : 'gray'}
-        size={30}
-        radius="sm"
-        onClick={onClick}
-        aria-label={label}
-      >
-        {icon}
-      </ActionIcon>
-    </Tooltip>
-  );
-}
-
-function ToolbarDivider() {
-  return <div className="toolbar-divider" />;
-}
-
-export function WritingEditor({
-  content = '',
-  placeholder = 'Start writing...',
-  onChange,
-  onTextChange,
-}: WritingEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
       Underline,
-      Highlight,
+      Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({ placeholder: t.tools.editorPlaceholder }),
     ],
-    content,
+    content: initialContent || '',
     onUpdate: ({ editor: ed }) => {
-      onChange?.(ed.getHTML());
-      onTextChange?.(ed.getText());
-    },
-    editorProps: {
-      attributes: {
-        class: 'tiptap',
-      },
+      onUpdate?.(ed.getHTML(), ed.getText());
     },
   });
 
-  if (!editor) return null;
+  const ToolbarButton = useCallback(
+    ({
+      icon: Icon,
+      label,
+      action,
+      isActive,
+    }: {
+      icon: typeof Bold;
+      label: string;
+      action: () => void;
+      isActive?: boolean;
+    }) => (
+      <Tooltip label={label} position="bottom" withArrow>
+        <ActionIcon
+          variant={isActive ? 'light' : 'subtle'}
+          color={isActive ? 'violet' : 'gray'}
+          size="sm"
+          onClick={action}
+        >
+          <Icon size={16} strokeWidth={1.5} />
+        </ActionIcon>
+      </Tooltip>
+    ),
+    [],
+  );
 
-  const iconSize = 15;
-  const iconStroke = 2;
+  if (!editor) return null;
 
   return (
     <Box
-      className="writing-editor"
       style={{
         border: '1px solid var(--mantine-color-default-border)',
-        borderRadius: 'var(--mantine-radius-md)',
+        borderRadius: 8,
         overflow: 'hidden',
-        backgroundColor: 'var(--mantine-color-body)',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
       }}
     >
       {/* Toolbar */}
@@ -108,110 +95,118 @@ export function WritingEditor({
         gap={2}
         px="xs"
         py={6}
+        style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
         wrap="wrap"
-        style={{
-          borderBottom: '1px solid var(--mantine-color-default-border)',
-          backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
-        }}
       >
         <ToolbarButton
-          icon={<Bold size={iconSize} strokeWidth={iconStroke} />}
+          icon={Bold}
           label="Bold"
+          action={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive('bold')}
-          onClick={() => editor.chain().focus().toggleBold().run()}
         />
         <ToolbarButton
-          icon={<Italic size={iconSize} strokeWidth={iconStroke} />}
+          icon={Italic}
           label="Italic"
+          action={() => editor.chain().focus().toggleItalic().run()}
           isActive={editor.isActive('italic')}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
         />
         <ToolbarButton
-          icon={<UnderlineIcon size={iconSize} strokeWidth={iconStroke} />}
+          icon={UnderlineIcon}
           label="Underline"
+          action={() => editor.chain().focus().toggleUnderline().run()}
           isActive={editor.isActive('underline')}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
         />
         <ToolbarButton
-          icon={<Highlighter size={iconSize} strokeWidth={iconStroke} />}
-          label="Highlight"
-          isActive={editor.isActive('highlight')}
-          onClick={() => editor.chain().focus().toggleHighlight().run()}
+          icon={Strikethrough}
+          label="Strikethrough"
+          action={() => editor.chain().focus().toggleStrike().run()}
+          isActive={editor.isActive('strike')}
         />
 
-        <ToolbarDivider />
+        <Divider orientation="vertical" mx={4} />
 
         <ToolbarButton
-          icon={<Heading1 size={iconSize} strokeWidth={iconStroke} />}
+          icon={Heading1}
           label="Heading 1"
+          action={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           isActive={editor.isActive('heading', { level: 1 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         />
         <ToolbarButton
-          icon={<Heading2 size={iconSize} strokeWidth={iconStroke} />}
+          icon={Heading2}
           label="Heading 2"
+          action={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           isActive={editor.isActive('heading', { level: 2 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         />
         <ToolbarButton
-          icon={<Heading3 size={iconSize} strokeWidth={iconStroke} />}
+          icon={Heading3}
           label="Heading 3"
+          action={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           isActive={editor.isActive('heading', { level: 3 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
         />
 
-        <ToolbarDivider />
+        <Divider orientation="vertical" mx={4} />
 
         <ToolbarButton
-          icon={<List size={iconSize} strokeWidth={iconStroke} />}
+          icon={List}
           label="Bullet List"
+          action={() => editor.chain().focus().toggleBulletList().run()}
           isActive={editor.isActive('bulletList')}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
         />
         <ToolbarButton
-          icon={<ListOrdered size={iconSize} strokeWidth={iconStroke} />}
+          icon={ListOrdered}
           label="Ordered List"
+          action={() => editor.chain().focus().toggleOrderedList().run()}
           isActive={editor.isActive('orderedList')}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        />
+        <ToolbarButton
+          icon={Quote}
+          label="Blockquote"
+          action={() => editor.chain().focus().toggleBlockquote().run()}
+          isActive={editor.isActive('blockquote')}
         />
 
-        <ToolbarDivider />
+        <Divider orientation="vertical" mx={4} />
 
         <ToolbarButton
-          icon={<AlignLeft size={iconSize} strokeWidth={iconStroke} />}
+          icon={AlignLeft}
           label="Align Left"
+          action={() => editor.chain().focus().setTextAlign('left').run()}
           isActive={editor.isActive({ textAlign: 'left' })}
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
         />
         <ToolbarButton
-          icon={<AlignCenter size={iconSize} strokeWidth={iconStroke} />}
+          icon={AlignCenter}
           label="Align Center"
+          action={() => editor.chain().focus().setTextAlign('center').run()}
           isActive={editor.isActive({ textAlign: 'center' })}
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
         />
         <ToolbarButton
-          icon={<AlignRight size={iconSize} strokeWidth={iconStroke} />}
+          icon={AlignRight}
           label="Align Right"
+          action={() => editor.chain().focus().setTextAlign('right').run()}
           isActive={editor.isActive({ textAlign: 'right' })}
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
         />
 
-        <ToolbarDivider />
+        <Divider orientation="vertical" mx={4} />
 
         <ToolbarButton
-          icon={<Undo size={iconSize} strokeWidth={iconStroke} />}
+          icon={Undo}
           label="Undo"
-          onClick={() => editor.chain().focus().undo().run()}
+          action={() => editor.chain().focus().undo().run()}
         />
         <ToolbarButton
-          icon={<Redo size={iconSize} strokeWidth={iconStroke} />}
+          icon={Redo}
           label="Redo"
-          onClick={() => editor.chain().focus().redo().run()}
+          action={() => editor.chain().focus().redo().run()}
         />
       </Group>
 
-      {/* Editor */}
-      <EditorContent editor={editor} />
+      {/* Editor content */}
+      <Box
+        style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}
+        className="writing-editor-content"
+      >
+        <EditorContent editor={editor} />
+      </Box>
     </Box>
   );
 }
