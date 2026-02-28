@@ -304,7 +304,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       );
 
       if (!result.success) {
-        showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
+        if (result.error?.toLowerCase().includes('exceeded')) {
+          setLimitModalOpen(true);
+        } else {
+          showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
+        }
         return null;
       }
       return result.data;

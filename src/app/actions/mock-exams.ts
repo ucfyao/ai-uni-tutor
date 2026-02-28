@@ -180,11 +180,16 @@ export async function submitMockAnswer(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    await getQuotaService().enforce(user.id);
+
     const service = getMockExamService();
     const feedback = await service.submitAnswer(user.id, mockId, questionIndex, userAnswer);
 
     return { success: true, feedback };
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
     console.error('Submit answer error:', error);
     return {
       success: false,
@@ -201,11 +206,16 @@ export async function batchSubmitMockAnswers(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    await getQuotaService().enforce(user.id);
+
     const service = getMockExamService();
     const result = await service.batchSubmitAnswers(user.id, mockId, answers);
 
     return { success: true, result };
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return { success: false, error: error.message };
+    }
     console.error('Batch submit error:', error);
     return {
       success: false,

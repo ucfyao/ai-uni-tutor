@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getLlmLogService } from '@/lib/services/LlmLogService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
 
@@ -10,14 +11,22 @@ export async function GET() {
     }
 
     const quotaService = getQuotaService();
+    const llmLogService = getLlmLogService();
 
-    const [status, limits] = await Promise.all([
+    const [status, limits, breakdown] = await Promise.all([
       quotaService.checkStatus(user.id),
       Promise.resolve(quotaService.getSystemLimits()),
+      llmLogService.getUserTodayBreakdown(user.id).catch(() => null),
     ]);
 
+    // Reset time: next midnight UTC
+    const now = new Date();
+    const resetAt = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+    ).toISOString();
+
     return NextResponse.json(
-      { status, limits },
+      { status, limits, breakdown, resetAt },
       {
         headers: {
           'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
