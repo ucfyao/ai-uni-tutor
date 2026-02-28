@@ -2,6 +2,9 @@ import { ApiError, GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import { AppError } from '@/lib/errors';
 import { loadPoolState, savePoolState } from '@/lib/redis';
+import { getLlmLogService, LlmLogService } from '@/lib/services/LlmLogService';
+import type { LlmCallContext } from '@/lib/services/LlmLogService';
+import type { Json } from '@/types/database';
 
 export const GEMINI_MODELS = {
   chat: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash',
@@ -97,7 +100,7 @@ export class KeyPool {
    * Execute `fn` with automatic key rotation, failover, and stats tracking.
    * 1 GET + 1 SET = 2 Redis calls per request.
    */
-  async withRetry<T>(fn: (entry: PoolEntry) => Promise<T>): Promise<T> {
+  async withRetry<T>(fn: (entry: PoolEntry) => Promise<T>, context?: LlmCallContext): Promise<T> {
     const state = await loadPoolState();
     const now = Date.now();
     let lastError: unknown;
@@ -111,16 +114,43 @@ export class KeyPool {
 
         if (entry.disabled || (state.cd[cdKey] ?? 0) > now) continue;
 
+        const callStart = Date.now();
         try {
           const result = await fn(entry);
           this.pointer = (idx + 1) % this.entries.length;
           delete state.fails[cdKey];
           const statsKey = `${entry.model}:${new Date().toISOString().split('T')[0]}`;
           state.stats[statsKey] = (state.stats[statsKey] ?? 0) + 1;
+
+          // Fire-and-forget call logging
+          const latencyMs = Date.now() - callStart;
+          getLlmLogService().logCall({
+            user_id: context?.userId ?? null,
+            call_type: context?.callType ?? LlmLogService.inferCallType(entry.model),
+            provider: entry.provider,
+            model: entry.model,
+            status: 'success',
+            latency_ms: latencyMs,
+            metadata: (context?.metadata ?? {}) as Json,
+          });
+
           return result;
         } catch (err) {
           lastError = err;
           const status = getHttpStatus(err);
+          const latencyMs = Date.now() - callStart;
+
+          // Log the failed call
+          getLlmLogService().logCall({
+            user_id: context?.userId ?? null,
+            call_type: context?.callType ?? LlmLogService.inferCallType(entry.model),
+            provider: entry.provider,
+            model: entry.model,
+            status: 'error',
+            error_message: err instanceof Error ? err.message : String(err),
+            latency_ms: latencyMs,
+            metadata: (context?.metadata ?? {}) as Json,
+          });
 
           if (status === 401 || status === 403) {
             entry.disabled = true;
