@@ -1,5 +1,5 @@
-import { WritingPageClient } from './WritingPageClient';
+import WritingPageClient from './WritingPageClient';
 
-export default function WritingAssistantPage() {
+export default function WritingPage() {
   return <WritingPageClient />;
 }
