@@ -993,7 +993,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
     const mockId = await this.mockRepo.create({
       userId,
       sessionId: null,
-      title: original.title.replace(/\s*\(重考\)$/, ''),
+      title: original.title,
       mode: original.mode,
       questions: original.questions as unknown as Json,
       responses: [] as unknown as Json,
