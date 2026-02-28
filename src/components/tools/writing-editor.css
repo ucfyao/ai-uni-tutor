@@ -1,0 +1,71 @@
+.writing-editor-content .tiptap {
+  outline: none;
+  min-height: 400px;
+}
+
+.writing-editor-content .tiptap p {
+  margin: 0.5em 0;
+  line-height: 1.7;
+}
+
+.writing-editor-content .tiptap h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+
+.writing-editor-content .tiptap h2 {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+}
+
+.writing-editor-content .tiptap h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+
+.writing-editor-content .tiptap blockquote {
+  border-left: 3px solid var(--mantine-color-violet-3);
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: var(--mantine-color-dimmed);
+}
+
+.writing-editor-content .tiptap ul,
+.writing-editor-content .tiptap ol {
+  padding-left: 1.5em;
+}
+
+.writing-editor-content .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--mantine-color-dimmed);
+  pointer-events: none;
+  height: 0;
+}
+
+/* AI Suggestion annotations */
+.writing-suggestion-polish {
+  background-color: rgba(255, 224, 102, 0.3);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.writing-suggestion-format {
+  text-decoration: underline wavy;
+  text-decoration-color: var(--mantine-color-red-5);
+  cursor: pointer;
+}
+
+.writing-suggestion-originality {
+  background-color: rgba(255, 159, 67, 0.2);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.writing-suggestion-structure {
+  border-left: 3px solid var(--mantine-color-blue-5);
+  padding-left: 8px;
+}

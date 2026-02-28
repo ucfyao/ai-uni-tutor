@@ -57,12 +57,10 @@ export const CACHE_KEYS = {
   coursesPublished: 'cache:courses:published',
   universitiesList: 'cache:universities:list',
   universitiesPublished: 'cache:universities:published',
-  profile: (userId: string) => `cache:profile:${userId}`,
 } as const;
 
 /** Centralised TTLs (seconds) */
 export const CACHE_TTL = {
   courses: 10 * 60, // 10 min
   universities: 30 * 60, // 30 min
-  profile: 5 * 60, // 5 min
 } as const;

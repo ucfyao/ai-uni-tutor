@@ -9,13 +9,9 @@ export const queryKeys = {
   documents: {
     all: ['documents'] as const,
     byType: (docType: string) => ['documents', docType] as const,
-    stats: (docType: string, ids: string[]) => ['documents', 'stats', docType, ids] as const,
   },
   sessions: {
     all: ['sessions'] as const,
-  },
-  profile: {
-    all: ['profile'] as const,
   },
   universities: {
     all: ['universities'] as const,
@@ -24,12 +20,10 @@ export const queryKeys = {
   courses: {
     all: ['courses'] as const,
     admin: ['courses', 'admin'] as const,
-    byUniversity: (uniId: string) => ['courses', uniId] as const,
   },
   assignments: {
     all: ['assignments'] as const,
     items: (assignmentId: string) => ['assignments', assignmentId, 'items'] as const,
-    detail: (assignmentId: string) => ['assignments', assignmentId] as const,
   },
   exams: {
     questions: (paperId: string) => ['exams', paperId, 'questions'] as const,

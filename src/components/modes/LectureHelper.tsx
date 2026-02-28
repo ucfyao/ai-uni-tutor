@@ -779,7 +779,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onRetry={handleRetry}
             mode={session.mode}
             onAddCard={handleAddCard}
-            isKnowledgeMode={true}
             courseCode={session.course?.code ?? ''}
             onCommandSelect={(cmd) => handleCommandSelect(cmd)}
             onRegenerate={handleRegenerate}
@@ -808,7 +807,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
                 imagePreviews={imagePreviews}
                 onRemoveFile={handleRemoveFile}
                 onFileClick={() => fileInputRef.current?.click()}
-                isKnowledgeMode={true}
                 fileInputRef={fileInputRef}
                 inputRef={chatInputRef}
                 onFileSelect={handleFileSelect}

@@ -23,15 +23,18 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 }
 
 export async function generateEmbeddingWithRetry(text: string, maxRetries = 3): Promise<number[]> {
+  let lastError: unknown;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await generateEmbedding(text);
     } catch (error) {
-      if (attempt === maxRetries - 1) throw AppError.from(error);
-      await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      lastError = error;
+      if (attempt < maxRetries - 1) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      }
     }
   }
-  throw new Error('Unreachable');
+  throw AppError.from(lastError);
 }
 
 /**
@@ -62,8 +65,8 @@ export async function generateEmbeddingBatch(
         throw new AppError('VALIDATION', 'Batch embedding returned one or more empty vectors');
       }
       results.push(...embeddings);
-    } catch {
-      // Fallback: per-text calls with retry
+    } catch (batchErr) {
+      console.warn('[generateEmbeddingBatch] Batch call failed, falling back to per-text:', batchErr);
       const embeddings = await Promise.all(batch.map((text) => generateEmbeddingWithRetry(text)));
       results.push(...embeddings);
     }

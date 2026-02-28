@@ -88,7 +88,6 @@ export function useSpeechRecognition({
   }, []);
 
   const start = useCallback(async () => {
-    console.log('[SpeechRecognition] Starting...');
     const SpeechRecognition = getSpeechRecognitionConstructor();
     if (!SpeechRecognition) {
       console.error('[SpeechRecognition] Browser does not support SpeechRecognition');
@@ -109,7 +108,6 @@ export function useSpeechRecognition({
 
     // Stop any existing instance
     if (recognitionRef.current) {
-      console.log('[SpeechRecognition] Aborting existing instance');
       recognitionRef.current.abort();
     }
 
@@ -121,12 +119,10 @@ export function useSpeechRecognition({
     finalTranscriptRef.current = '';
 
     recognition.onstart = () => {
-      console.log('[SpeechRecognition] Started successfully. Microphone is active.');
       setIsListening(true);
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      console.log('[SpeechRecognition] Result received:', event);
       let finalTranscript = '';
       let interimTranscript = '';
 
@@ -166,7 +162,6 @@ export function useSpeechRecognition({
     };
 
     recognition.onend = () => {
-      console.log('[SpeechRecognition] Ended naturally');
       setIsListening(false);
       recognitionRef.current = null;
     };
@@ -174,7 +169,6 @@ export function useSpeechRecognition({
     recognitionRef.current = recognition;
     try {
       recognition.start();
-      console.log('[SpeechRecognition] start() called on instance');
     } catch (e) {
       console.error('[SpeechRecognition] Exception during start():', e);
     }

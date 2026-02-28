@@ -24,6 +24,7 @@ import {
   Target,
   Trash,
   Wand2,
+  Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -263,6 +264,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ActionIcon>
         </Tooltip>
 
+        {/* Tools Hub */}
+        <Tooltip label={t.sidebar.toolsHub} position="right">
+          <ActionIcon
+            component={Link}
+            href="/tools"
+            variant="subtle"
+            color={pathname.startsWith('/tools') ? 'violet' : 'gray'}
+            size={36}
+            radius="md"
+            mb={4}
+          >
+            <Wrench size={20} strokeWidth={1.5} />
+          </ActionIcon>
+        </Tooltip>
+
         <Box flex={1} />
 
         {/* User Avatar */}
@@ -476,6 +492,44 @@ const Sidebar: React.FC<SidebarProps> = ({
                 c={pathname.startsWith('/exam') ? `${getDocColor('exam')}.7` : undefined}
               >
                 {t.sidebar.mockExamHub}
+              </Text>
+            </Group>
+          </UnstyledButton>
+
+          {/* Tools Hub link */}
+          <UnstyledButton
+            component={Link}
+            href="/tools"
+            w="100%"
+            py={7}
+            px={10}
+            mx={6}
+            className="sidebar-hover"
+            style={{
+              borderRadius: 8,
+              cursor: 'pointer',
+              width: 'calc(100% - 12px)',
+              backgroundColor: pathname.startsWith('/tools')
+                ? 'var(--mantine-color-violet-0)'
+                : undefined,
+            }}
+          >
+            <Group gap={10} wrap="nowrap">
+              <Wrench
+                size={18}
+                strokeWidth={1.5}
+                color={
+                  pathname.startsWith('/tools')
+                    ? 'var(--mantine-color-violet-6)'
+                    : 'var(--mantine-color-gray-6)'
+                }
+              />
+              <Text
+                size="md"
+                fw={pathname.startsWith('/tools') ? 600 : 400}
+                c={pathname.startsWith('/tools') ? 'violet.7' : undefined}
+              >
+                {t.sidebar.toolsHub}
               </Text>
             </Group>
           </UnstyledButton>

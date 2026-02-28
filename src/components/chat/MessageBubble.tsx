@@ -122,7 +122,6 @@ const SourcesSection: React.FC<{ sources: ChatSource[] }> = ({ sources }) => {
 interface MessageBubbleProps {
   message: ChatMessage;
   isStreaming?: boolean;
-  onStreamingComplete?: () => void;
   mode?: TutoringMode | null;
   onAddCard?: (
     title: string,
@@ -141,7 +140,6 @@ const MessageActionBar: React.FC<{
   isUser: boolean;
   content: string;
   messageId: string;
-  parentMessageId?: string | null;
   timestamp: number;
   onRegenerate?: (messageId: string) => void;
   onEditClick?: () => void;
@@ -151,7 +149,6 @@ const MessageActionBar: React.FC<{
   isUser,
   content,
   messageId,
-  parentMessageId: _parentMessageId,
   timestamp,
   onRegenerate,
   onEditClick,
@@ -387,8 +384,6 @@ const MessageActionBar: React.FC<{
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isStreaming = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onStreamingComplete,
   mode,
   onAddCard,
   onRegenerate,
@@ -767,7 +762,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           isUser={isUser}
           content={message.content}
           messageId={message.id}
-          parentMessageId={message.parentMessageId}
           timestamp={message.timestamp}
           onRegenerate={onRegenerate}
           onSwitchBranch={onSwitchBranch}

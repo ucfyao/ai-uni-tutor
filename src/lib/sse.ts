@@ -53,6 +53,25 @@ interface SSEExamCompleteEvent {
   mockId: string;
 }
 
+interface SSEWritingResultEvent {
+  service: string;
+  suggestions: Array<{
+    id: string;
+    service: string;
+    severity: string;
+    paragraphIndex: number;
+    startOffset?: number;
+    endOffset?: number;
+    originalText?: string;
+    suggestedText?: string;
+    explanation: string;
+    riskScore?: number;
+    structureType?: string;
+  }>;
+  overallScore?: number;
+  error?: string;
+}
+
 export type SSEEventMap = {
   status: SSEStatusEvent;
   item: SSEItemEvent;
@@ -64,6 +83,7 @@ export type SSEEventMap = {
   log: SSELogEvent;
   exam_progress: SSEExamProgressEvent;
   exam_complete: SSEExamCompleteEvent;
+  writing_result: SSEWritingResultEvent;
 };
 
 // ─── SSE Formatting ───
