@@ -500,17 +500,6 @@ body {
   }
 }
 
-@keyframes pulse-subtle {
-  0%,
-  100% {
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-  }
-
-  50% {
-    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.6);
-  }
-}
-
 @keyframes pulse-border {
   0%,
   100% {
@@ -546,34 +535,6 @@ body {
   50% {
     transform: scale(1.05);
     box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
-  }
-}
-
-/* Thinking indicator bounce */
-@keyframes thinkingBounce {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-
-  50% {
-    transform: translateY(-6px);
-    opacity: 1;
-  }
-}
-
-/* Streaming cursor blink animation */
-@keyframes cursorBlink {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-
-  50% {
-    opacity: 0.5;
-    transform: scaleY(0.9);
   }
 }
 

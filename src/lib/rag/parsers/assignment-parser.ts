@@ -1,6 +1,6 @@
 import 'server-only';
 import { extractAssignmentQuestions } from './assignment-extractor';
-import { validateAssignmentItems } from './assignment-validator';
+import { validateQuestionItems as validateAssignmentItems } from './question-validator';
 import type {
   AssignmentOutline,
   AssignmentOutlineItem,

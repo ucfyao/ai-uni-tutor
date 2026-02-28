@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { validateAssignmentItems } from './assignment-validator';
+import { validateQuestionItems as validateAssignmentItems } from './question-validator';
 import type { EnrichedAssignmentItem } from './types';
 
 vi.mock('server-only', () => ({}));

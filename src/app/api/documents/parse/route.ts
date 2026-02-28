@@ -194,15 +194,6 @@ export async function POST(request: Request) {
       }
 
       // ── Prepare PDF buffer ──
-      console.log('[parse/route] ========== START document parse ==========');
-      console.log(
-        '[parse/route] documentId:',
-        documentId,
-        '| doc_type:',
-        doc_type,
-        '| file:',
-        documentName,
-      );
       send('log', {
         message: `Start parsing: ${documentName || documentId} (${doc_type})`,
         level: 'info',

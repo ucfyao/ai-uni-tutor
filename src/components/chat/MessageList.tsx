@@ -59,7 +59,6 @@ interface MessageListProps {
       source?: { messageId: string; role: 'user' | 'assistant' };
     },
   ) => Promise<void>;
-  isKnowledgeMode?: boolean;
   courseCode?: string;
   onCommandSelect?: (command: ChatCommand) => void;
   onRegenerate?: (messageId: string) => void;
@@ -128,7 +127,6 @@ export const MessageList: React.FC<MessageListProps> = ({
   onRetry,
   mode,
   onAddCard,
-  isKnowledgeMode: _isKnowledgeMode = false,
   courseCode,
   onCommandSelect,
   onRegenerate,
@@ -312,7 +310,6 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 <MemoizedMessageBubble
                                   message={item.message}
                                   isStreaming={item.message.id === streamingMsgId}
-                                  onStreamingComplete={() => {}}
                                   mode={mode}
                                   onAddCard={onAddCard}
                                   onRegenerate={onRegenerate}
@@ -372,7 +369,6 @@ export const MessageList: React.FC<MessageListProps> = ({
                           <MemoizedMessageBubble
                             message={msg}
                             isStreaming={msg.id === streamingMsgId}
-                            onStreamingComplete={() => {}}
                             mode={mode}
                             onAddCard={onAddCard}
                             onRegenerate={onRegenerate}
@@ -429,7 +425,6 @@ export const MessageList: React.FC<MessageListProps> = ({
                         <MemoizedMessageBubble
                           message={msg}
                           isStreaming={msg.id === streamingMsgId}
-                          onStreamingComplete={() => {}}
                           mode={mode}
                           onAddCard={onAddCard}
                           onRegenerate={onRegenerate}

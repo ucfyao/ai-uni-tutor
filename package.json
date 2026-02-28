@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@google/genai": "^1.39.0",
-    "@hookform/resolvers": "^5.2.2",
     "@langchain/textsplitters": "^1.0.1",
     "@mantine/core": "^8.3.13",
     "@mantine/dropzone": "^8.3.13",
@@ -45,9 +44,7 @@
     "openai": "^6.22.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-hook-form": "^7.71.1",
     "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^4.6.0",
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",

@@ -11,9 +11,5 @@ export const PLACEHOLDERS = {
 
   // Forms
   ENTER_NAME: 'Enter your name',
-  ENTER_EMAIL: 'Enter your email',
-  ENTER_PASSWORD: 'Enter a password',
-  CONFIRM_PASSWORD: 'Confirm your password',
-  SEARCH: 'Search...',
   SESSION_NAME: 'Enter session name',
 } as const;

@@ -34,7 +34,6 @@ interface ChatInputProps {
   imagePreviews: string[];
   onRemoveFile: (index: number) => void;
   onFileClick: () => void;
-  isKnowledgeMode: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -56,8 +55,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   imagePreviews,
   onRemoveFile,
   onFileClick,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isKnowledgeMode: _isKnowledgeMode,
   fileInputRef,
   inputRef,
   onFileSelect,
