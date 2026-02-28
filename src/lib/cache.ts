@@ -54,7 +54,9 @@ export async function invalidateCache(...keys: string[]): Promise<void> {
 /** Centralised cache key patterns */
 export const CACHE_KEYS = {
   coursesList: 'cache:courses:list',
+  coursesPublished: 'cache:courses:published',
   universitiesList: 'cache:universities:list',
+  universitiesPublished: 'cache:universities:published',
   profile: (userId: string) => `cache:profile:${userId}`,
 } as const;
 

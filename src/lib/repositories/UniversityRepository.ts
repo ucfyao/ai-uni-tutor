@@ -17,6 +17,7 @@ export class UniversityRepository implements IUniversityRepository {
       name: row.name,
       shortName: row.short_name,
       logoUrl: row.logo_url,
+      isPublished: row.is_published,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
@@ -51,6 +52,7 @@ export class UniversityRepository implements IUniversityRepository {
       name: dto.name,
       short_name: dto.shortName,
       logo_url: dto.logoUrl ?? null,
+      is_published: dto.isPublished ?? false,
     };
 
     const { data, error } = await supabase
@@ -72,6 +74,7 @@ export class UniversityRepository implements IUniversityRepository {
     if (dto.name !== undefined) updates.name = dto.name;
     if (dto.shortName !== undefined) updates.short_name = dto.shortName;
     if (dto.logoUrl !== undefined) updates.logo_url = dto.logoUrl;
+    if (dto.isPublished !== undefined) updates.is_published = dto.isPublished;
 
     const { data, error } = await supabase
       .from('universities')
@@ -83,6 +86,19 @@ export class UniversityRepository implements IUniversityRepository {
     if (error || !data)
       throw new DatabaseError(`Failed to update university: ${error?.message}`, error);
     return this.mapToEntity(data);
+  }
+
+  async findAllPublished(): Promise<UniversityEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('universities')
+      .select('*')
+      .eq('is_published', true)
+      .order('name', { ascending: true });
+
+    if (error)
+      throw new DatabaseError(`Failed to fetch published universities: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
   async delete(id: string): Promise<void> {

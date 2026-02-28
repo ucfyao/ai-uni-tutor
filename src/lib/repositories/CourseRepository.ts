@@ -14,6 +14,7 @@ export class CourseRepository implements ICourseRepository {
       code: row.code,
       name: row.name,
       knowledgeOutline: row.knowledge_outline ?? null,
+      isPublished: row.is_published,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
@@ -60,6 +61,7 @@ export class CourseRepository implements ICourseRepository {
       university_id: dto.universityId,
       code: dto.code,
       name: dto.name,
+      is_published: dto.isPublished ?? false,
     };
 
     const { data, error } = await supabase.from('courses').insert(insertData).select().single();
@@ -76,6 +78,7 @@ export class CourseRepository implements ICourseRepository {
     };
     if (dto.code !== undefined) updates.code = dto.code;
     if (dto.name !== undefined) updates.name = dto.name;
+    if (dto.isPublished !== undefined) updates.is_published = dto.isPublished;
 
     const { data, error } = await supabase
       .from('courses')
@@ -87,6 +90,20 @@ export class CourseRepository implements ICourseRepository {
     if (error || !data)
       throw new DatabaseError(`Failed to update course: ${error?.message}`, error);
     return this.mapToEntity(data);
+  }
+
+  async findPublishedByUniversityId(universityId: string): Promise<CourseEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('university_id', universityId)
+      .eq('is_published', true)
+      .order('code', { ascending: true });
+
+    if (error)
+      throw new DatabaseError(`Failed to fetch published courses: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row));
   }
 
   async delete(id: string): Promise<void> {

@@ -24,15 +24,40 @@ export class CourseService {
     );
   }
 
+  async getPublishedUniversities(): Promise<UniversityEntity[]> {
+    return cachedGet(CACHE_KEYS.universitiesPublished, CACHE_TTL.universities, () =>
+      this.uniRepo.findAllPublished(),
+    );
+  }
+
+  async getPublishedCourses(universityId: string): Promise<CourseEntity[]> {
+    // Verify university is published (cascade logic)
+    const uni = await this.uniRepo.findById(universityId);
+    if (!uni || !uni.isPublished) return [];
+    return this.courseRepo.findPublishedByUniversityId(universityId);
+  }
+
+  async toggleUniversityPublished(id: string, isPublished: boolean): Promise<UniversityEntity> {
+    const result = await this.uniRepo.update(id, { isPublished });
+    await invalidateCache(CACHE_KEYS.universitiesList, CACHE_KEYS.universitiesPublished);
+    return result;
+  }
+
+  async toggleCoursePublished(id: string, isPublished: boolean): Promise<CourseEntity> {
+    const result = await this.courseRepo.update(id, { isPublished });
+    await invalidateCache(CACHE_KEYS.coursesList, CACHE_KEYS.coursesPublished);
+    return result;
+  }
+
   async createUniversity(dto: CreateUniversityDTO): Promise<UniversityEntity> {
     const result = await this.uniRepo.create(dto);
-    await invalidateCache(CACHE_KEYS.universitiesList);
+    await invalidateCache(CACHE_KEYS.universitiesList, CACHE_KEYS.universitiesPublished);
     return result;
   }
 
   async updateUniversity(id: string, dto: UpdateUniversityDTO): Promise<UniversityEntity> {
     const result = await this.uniRepo.update(id, dto);
-    await invalidateCache(CACHE_KEYS.universitiesList);
+    await invalidateCache(CACHE_KEYS.universitiesList, CACHE_KEYS.universitiesPublished);
     return result;
   }
 
@@ -42,7 +67,7 @@ export class CourseService {
 
   async deleteUniversity(id: string): Promise<void> {
     await this.uniRepo.delete(id);
-    await invalidateCache(CACHE_KEYS.universitiesList);
+    await invalidateCache(CACHE_KEYS.universitiesList, CACHE_KEYS.universitiesPublished);
   }
 
   async getAllCourses(): Promise<CourseEntity[]> {
@@ -59,19 +84,19 @@ export class CourseService {
 
   async createCourse(dto: CreateCourseDTO): Promise<CourseEntity> {
     const result = await this.courseRepo.create(dto);
-    await invalidateCache(CACHE_KEYS.coursesList);
+    await invalidateCache(CACHE_KEYS.coursesList, CACHE_KEYS.coursesPublished);
     return result;
   }
 
   async updateCourse(id: string, dto: UpdateCourseDTO): Promise<CourseEntity> {
     const result = await this.courseRepo.update(id, dto);
-    await invalidateCache(CACHE_KEYS.coursesList);
+    await invalidateCache(CACHE_KEYS.coursesList, CACHE_KEYS.coursesPublished);
     return result;
   }
 
   async deleteCourse(id: string): Promise<void> {
     await this.courseRepo.delete(id);
-    await invalidateCache(CACHE_KEYS.coursesList);
+    await invalidateCache(CACHE_KEYS.coursesList, CACHE_KEYS.coursesPublished);
   }
 
   /**
