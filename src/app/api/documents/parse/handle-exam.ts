@@ -149,15 +149,9 @@ export async function handleExamPipeline(ctx: PipelineContext): Promise<void> {
   }
   send('log', { message: 'Embeddings generated', level: 'success' });
 
-  // Note: ExamPaperService doesn't expose embeddings in getQuestionsByPaperId unless we modify it or just skip embedding dedup
-  // Let's just do content dedup like the old exam pipeline to avoiding breaking things or needing massive repository changes.
-  const keepCandidateIndices: number[] = []; // indices into afterContentDedup
-  for (let i = 0; i < afterContentDedup.length; i++) keepCandidateIndices.push(i);
-
   // Final surviving items — track their original parsedItems index
-  const survivingOrigIndices = keepCandidateIndices.map((ci) => afterContentDedup[ci]);
-  const newEmbeddings = keepCandidateIndices.map((ci) => candidateEmbeddings[ci]);
-  const newItems = survivingOrigIndices.map((oi) => parsedItems[oi]);
+  const newEmbeddings = candidateEmbeddings;
+  const newItems = afterContentDedup.map((oi) => parsedItems[oi]);
 
   const totalSkipped = contentSkipped;
   send('log', {

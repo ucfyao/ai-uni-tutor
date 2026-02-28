@@ -108,12 +108,13 @@ export class MockExamService {
     sessionId: string | null,
     title: string,
     courseInfo?: { courseCode?: string | null; courseName?: string | null; schoolName?: string | null },
+    mode: 'practice' | 'exam' = 'practice',
   ): Promise<{ mockId: string }> {
     const mockId = await this.mockRepo.create({
       userId,
       sessionId,
       title,
-      mode: 'practice',
+      mode,
       questions: [] as unknown as Json,
       responses: [] as unknown as Json,
       totalPoints: 0,

@@ -141,7 +141,6 @@ const MessageActionBar: React.FC<{
   isUser: boolean;
   content: string;
   messageId: string;
-  parentMessageId?: string | null;
   timestamp: number;
   onRegenerate?: (messageId: string) => void;
   onEditClick?: () => void;
@@ -151,7 +150,6 @@ const MessageActionBar: React.FC<{
   isUser,
   content,
   messageId,
-  parentMessageId: _parentMessageId,
   timestamp,
   onRegenerate,
   onEditClick,
@@ -767,7 +765,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           isUser={isUser}
           content={message.content}
           messageId={message.id}
-          parentMessageId={message.parentMessageId}
           timestamp={message.timestamp}
           onRegenerate={onRegenerate}
           onSwitchBranch={onSwitchBranch}

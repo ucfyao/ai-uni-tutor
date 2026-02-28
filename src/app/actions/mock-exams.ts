@@ -392,9 +392,8 @@ export async function createStandaloneMock(
       null,
       title || 'Mock Exam',
       courseInfo,
+      mode,
     );
-
-    await service.updateMockMode(mockId, mode);
 
     revalidatePath('/exam');
     return { success: true, mockId };

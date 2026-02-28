@@ -729,7 +729,8 @@ export async function getLectureOutlines(
   | { success: false; error: string }
 > {
   try {
-    await getCurrentUser();
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
 
     const parsed = z.string().uuid().safeParse(courseId);
     if (!parsed.success) return { success: false, error: 'Invalid course ID' };
