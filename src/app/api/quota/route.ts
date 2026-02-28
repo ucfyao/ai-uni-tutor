@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getQuotaService } from '@/lib/services/QuotaService';
+import { getLlmLogService } from '@/lib/services/LlmLogService';
+import { getQuotaService, type QuotaResponse } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export async function GET() {
@@ -10,20 +11,27 @@ export async function GET() {
     }
 
     const quotaService = getQuotaService();
+    const llmLogService = getLlmLogService();
 
-    const [status, limits] = await Promise.all([
+    const [status, limits, breakdown] = await Promise.all([
       quotaService.checkStatus(user.id),
       Promise.resolve(quotaService.getSystemLimits()),
+      llmLogService.getUserTodayBreakdown(user.id).catch(() => null),
     ]);
 
-    return NextResponse.json(
-      { status, limits },
-      {
-        headers: {
-          'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
-        },
+    // Reset time: next midnight UTC
+    const now = new Date();
+    const resetAt = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+    ).toISOString();
+
+    const body: QuotaResponse = { status, limits, breakdown, resetAt };
+
+    return NextResponse.json(body, {
+      headers: {
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
       },
-    );
+    });
   } catch (error) {
     console.error('Failed to fetch quota status', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

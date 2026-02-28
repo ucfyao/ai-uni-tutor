@@ -28,7 +28,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Language } from '@/i18n/translations';
 import { showNotification } from '@/lib/notifications';
-import type { AccessLimits } from '@/lib/services/QuotaService';
+import type { AccessLimits, QuotaResponse } from '@/lib/services/QuotaService';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -42,6 +42,12 @@ export default function SettingsPage() {
   const [usage, setUsage] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [breakdown, setBreakdown] = useState<{
+    byType: Record<string, number>;
+    inputTokens: number;
+    outputTokens: number;
+  } | null>(null);
+  const [resetAt, setResetAt] = useState<string | null>(null);
 
   const headerNode = useMemo(
     () => (
@@ -66,9 +72,11 @@ export default function SettingsPage() {
       try {
         const res = await fetch('/api/quota');
         if (!res.ok) throw new Error('Failed to fetch quota information');
-        const data: { status: { usage: number }; limits: AccessLimits } = await res.json();
+        const data: QuotaResponse = await res.json();
         setLimits(data.limits);
         setUsage(data.status.usage);
+        setBreakdown(data.breakdown);
+        setResetAt(data.resetAt);
       } catch (e) {
         console.error('Failed to fetch access limits', e);
       } finally {
@@ -113,6 +121,19 @@ export default function SettingsPage() {
   const dailyLimit = isPro ? limits?.dailyLimitPro || 30 : limits?.dailyLimitFree || 3;
   const usagePercent = (usage / dailyLimit) * 100;
   const progressColor = usagePercent >= 100 ? 'red' : usagePercent >= 70 ? 'yellow' : 'indigo';
+
+  const getResetHours = () => {
+    if (!resetAt) return null;
+    const diff = new Date(resetAt).getTime() - Date.now();
+    return Math.max(1, Math.round(diff / (1000 * 60 * 60)));
+  };
+
+  const TYPE_LABELS: Record<string, string> = {
+    chat: t.settings.chatType,
+    exam: t.settings.examType,
+    parse: t.settings.parseType,
+    embedding: t.settings.embeddingType,
+  };
 
   return (
     <Container size={700} py={60}>
@@ -322,7 +343,35 @@ export default function SettingsPage() {
                 radius="xl"
                 animated
               />
+              {resetAt && (
+                <Text size="xs" c="dimmed" mt={4}>
+                  {t.settings.resetsIn} ~{getResetHours()} {t.settings.hours}
+                </Text>
+              )}
             </Box>
+
+            {breakdown && Object.keys(breakdown.byType).length > 0 && (
+              <>
+                <Divider />
+                <Box>
+                  <Text fw={500} mb={6}>
+                    {t.settings.todayBreakdown}
+                  </Text>
+                  <Group gap="xs" mb={6}>
+                    {Object.entries(breakdown.byType).map(([type, count]) => (
+                      <Badge key={type} variant="light" color="blue" size="sm">
+                        {TYPE_LABELS[type] || t.settings.otherType}: {count}
+                      </Badge>
+                    ))}
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    {t.settings.tokens}: {breakdown.inputTokens.toLocaleString()}{' '}
+                    {t.settings.inputTokens} / {breakdown.outputTokens.toLocaleString()}{' '}
+                    {t.settings.outputTokens}
+                  </Text>
+                </Box>
+              </>
+            )}
 
             <Divider />
 

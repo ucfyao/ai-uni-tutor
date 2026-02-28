@@ -12,6 +12,12 @@ export interface LlmLogFilters {
   endTime?: string;
 }
 
+export interface UserUsageBreakdown {
+  byType: Record<string, number>;
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface LlmLogStats {
   totalToday: number;
   errorsToday: number;
@@ -82,6 +88,32 @@ export class LlmLogRepository {
 
     if (error) throw error;
     return data ?? [];
+  }
+  async getUserTodayBreakdown(userId: string): Promise<UserUsageBreakdown> {
+    const supabase = await createClient();
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('llm_call_logs')
+      .select('call_type, input_tokens, output_tokens')
+      .eq('user_id', userId)
+      .gte('created_at', `${today}T00:00:00Z`)
+      .eq('status', 'success');
+
+    if (error) throw error;
+
+    const byType: Record<string, number> = {};
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for (const row of data ?? []) {
+      const ct = row.call_type || 'unknown';
+      byType[ct] = (byType[ct] || 0) + 1;
+      inputTokens += row.input_tokens || 0;
+      outputTokens += row.output_tokens || 0;
+    }
+
+    return { byType, inputTokens, outputTokens };
   }
 }
 

@@ -152,12 +152,20 @@ body {
     box-shadow 0.3s ease;
 }
 
+.cmd-card .cmd-card__icon {
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
 @keyframes cmd-fade-in {
   from {
     opacity: 0;
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -165,12 +173,36 @@ body {
   border-color: var(--cmd-color-border);
   background-color: var(--cmd-color-bg);
   transform: translateY(-3px) scale(1.03);
-  box-shadow: var(--cmd-color-shadow);
+  box-shadow: var(--cmd-color-shadow), var(--cmd-color-glow-ring);
+}
+
+.cmd-card:hover .cmd-card__icon {
+  transform: scale(1.15) rotate(8deg);
 }
 
 .cmd-card:active {
   transform: translateY(0) scale(0.97);
-  transition: transform 0.1s ease-out;
+  border-color: var(--cmd-color-border);
+  transition: transform 0.08s ease-out;
+}
+
+/* Dark mode: command cards */
+[data-mantine-color-scheme='dark'] .cmd-card {
+  background: var(--mantine-color-dark-6) !important;
+  border-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme='dark'] .cmd-card .cmd-card__icon {
+  box-shadow: none;
+}
+
+[data-mantine-color-scheme='dark'] .cmd-card .cmd-card__badge {
+  background: var(--mantine-color-dark-5) !important;
+}
+
+[data-mantine-color-scheme='dark'] .cmd-card:hover {
+  background: var(--mantine-color-dark-5) !important;
+  border-color: var(--cmd-color-border);
 }
 
 /* Knowledge cards (chat side panel) */

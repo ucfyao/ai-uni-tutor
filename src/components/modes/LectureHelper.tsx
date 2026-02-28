@@ -106,6 +106,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [scrollTrigger, setScrollTrigger] = useState(0);
 
   const isSendingRef = useRef(false);
+  const outlineCacheRef = useRef<{ courseId: string; markdown: string } | null>(null);
 
   // Session switch fade transition
   const [mounted, setMounted] = useState(true);
@@ -304,7 +305,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       );
 
       if (!result.success) {
-        showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
+        if (result.code === 'QUOTA_EXCEEDED') {
+          setLimitModalOpen(true);
+        } else {
+          showNotification({ title: 'Error', message: result.error || 'Failed', color: 'red' });
+        }
         return null;
       }
       return result.data;
@@ -350,31 +355,13 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   };
 
-  const handleSummaryAction = async () => {
-    if (!session?.course?.id) {
-      handleSend('Summarize the key concepts of the last lecture');
-      return;
-    }
-
-    const result = await getLectureOutlines(session.course.id);
-
-    if (!result.success || result.data.length === 0) {
-      // Fallback to regular RAG
-      handleSend('Summarize the key concepts of the last lecture');
-      return;
-    }
-
-    // Format outlines to markdown
-    const markdown = result.data
-      .map((doc) => formatOutlineToMarkdown(doc.outline))
-      .join('\n\n---\n\n');
-
-    // Display as user prompt + assistant response
+  const displaySummary = (markdown: string) => {
+    if (!session) return;
     const lastMsg = session.messages[session.messages.length - 1];
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: '/summary',
+      content: '/outline',
       timestamp: Date.now(),
       parentMessageId: lastMsg?.id ?? null,
     };
@@ -390,19 +377,70 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       messages: [...session.messages, userMsg, aiMsg],
       lastUpdated: Date.now(),
     });
-
-    // Defensive: ensure isSendingRef is reset (e.g., if called from a path that set it)
     isSendingRef.current = false;
   };
 
-  /** Button click → just fill the input with the command text, let user press send */
+  const handleSummaryAction = async () => {
+    if (!session?.course?.id) {
+      handleSend('Summarize the key concepts of the last lecture');
+      return;
+    }
+
+    const courseId = session.course.id;
+
+    // Use cached outline for this course
+    if (outlineCacheRef.current?.courseId === courseId) {
+      displaySummary(outlineCacheRef.current.markdown);
+      return;
+    }
+
+    const result = await getLectureOutlines(courseId);
+
+    if (!result.success || result.data.length === 0) {
+      handleSend('Summarize the key concepts of the last lecture');
+      return;
+    }
+
+    const markdown = result.data
+      .map((doc) => formatOutlineToMarkdown(doc.outline))
+      .join('\n\n---\n\n');
+
+    // Cache for subsequent calls
+    outlineCacheRef.current = { courseId, markdown };
+    displaySummary(markdown);
+  };
+
+  /** Button click → 'send' commands dispatch immediately, 'prefill' populates input */
   const handleCommandSelect = (command: ChatCommand, args: string = '') => {
-    setInput(command.command + ' ' + args);
-    requestAnimationFrame(() => chatInputRef.current?.focus());
+    if (command.action === 'send') {
+      handleCommandDispatch(command, args);
+    } else {
+      setInput(command.command + ' ');
+      requestAnimationFrame(() => chatInputRef.current?.focus());
+    }
   };
 
   /** Called from handleSend when a typed/sent command is detected */
   const handleCommandDispatch = (command: ChatCommand, args: string = '') => {
+    // Summary has its own fallback logic — dispatch immediately
+    if (command.id === 'outline') {
+      setInput('');
+      handleSummaryAction();
+      return;
+    }
+
+    // Prefill commands without args → prompt user to provide a topic
+    if (command.action === 'prefill' && !args) {
+      setInput(command.command + ' ');
+      showNotification({
+        title: command.command,
+        message: t.chat.commandNeedsInput,
+        color: 'orange',
+      });
+      requestAnimationFrame(() => chatInputRef.current?.focus());
+      return;
+    }
+
     // Guard: commands that require context need messages, documents, or images
     if (command.requiresContext && !args) {
       const hasContext =
@@ -421,12 +459,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const displayContent = command.command + (args ? ' ' + args : '');
     setInput('');
 
-    if (command.id === 'summary') {
-      handleSummaryAction();
-    } else {
-      const prompt = command.promptTemplate + (args ? ' ' + args : '');
-      handleSend(prompt, { displayContent });
-    }
+    const prompt = command.promptTemplate + (args ? ' ' + args : '');
+    handleSend(prompt, { displayContent });
   };
 
   const handleRegenerate = async (messageId: string) => {
@@ -767,7 +801,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
               <ChatInput
                 input={input}
                 setInput={setInput}
-                onSend={handleSend}
+                onSend={() => handleSend()}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 attachedFiles={attachedFiles}
