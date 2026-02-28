@@ -265,14 +265,11 @@ Guidelines:
   ): Promise<{ systemInstruction: string; sources: ChatSource[] }> {
     let sources: ChatSource[] = [];
 
-    // Strip internal mode markers for matching
-    const cleanQuery = query.replace(/\[INTERNAL:[^\]]+\]/g, '').trim();
-
     // Known generic command prompts — too vague for meaningful RAG retrieval
     const GENERIC_COMMAND_PATTERN =
       /^(?:Summarize the key concepts of the last lecture|Generate \d+ quiz questions based on the lecture content.*|Connect this topic to real-world examples|Check if my answer is correct:|How should I approach this problem\?|Give me a hint for this question|Explain the concept of:)\s*$/i;
 
-    const isGenericCommand = GENERIC_COMMAND_PATTERN.test(cleanQuery);
+    const isGenericCommand = GENERIC_COMMAND_PATTERN.test(query);
 
     try {
       // Lecture RAG — skip for generic command prompts (no useful semantic anchor)

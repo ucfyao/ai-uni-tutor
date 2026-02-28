@@ -40,7 +40,6 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [modeFilter, setModeFilter] = useState<string | null>(null);
 
-  const inProgress = initialInProgress;
   const completed = modeFilter
     ? initialCompleted.filter((m) => m.mode === modeFilter)
     : initialCompleted;
@@ -146,7 +145,7 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
         </Group>
 
         {/* In-progress section */}
-        {inProgress.length > 0 && (
+        {initialInProgress.length > 0 && (
           <Box>
             <Group gap="xs" mb="sm">
               <Clock size={16} color={`var(--mantine-color-${examColor}-6)`} />
@@ -154,11 +153,11 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                 {t.exam.inProgress}
               </Text>
               <Badge size="sm" variant="light" color={examColor}>
-                {inProgress.length}
+                {initialInProgress.length}
               </Badge>
             </Group>
             <Group gap="md" wrap="wrap">
-              {inProgress.map((mock) => (
+              {initialInProgress.map((mock) => (
                 <Card
                   key={mock.id}
                   withBorder
@@ -268,7 +267,9 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
             />
           </Group>
 
-          {completed.length === 0 && initialCompleted.length === 0 && inProgress.length === 0 ? (
+          {completed.length === 0 &&
+          initialCompleted.length === 0 &&
+          initialInProgress.length === 0 ? (
             <Card withBorder radius="md" p="xl" ta="center">
               <Stack align="center" gap="md" py="lg">
                 <Target size={48} color="var(--mantine-color-gray-4)" strokeWidth={1.2} />
@@ -325,7 +326,12 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                             </Text>
                             {mock.retakeOf && (
                               <Tooltip label={t.exam.retake}>
-                                <Badge size="xs" variant="light" color="gray" style={{ cursor: 'default' }}>
+                                <Badge
+                                  size="xs"
+                                  variant="light"
+                                  color="gray"
+                                  style={{ cursor: 'default' }}
+                                >
                                   <RotateCcw size={10} />
                                 </Badge>
                               </Tooltip>

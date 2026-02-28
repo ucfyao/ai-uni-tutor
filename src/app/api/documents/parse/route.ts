@@ -251,7 +251,7 @@ export async function POST(request: Request) {
       if (doc_type === 'lecture' && courseId) {
         import('@/lib/services/CourseService').then(({ getCourseService }) =>
           getCourseService()
-            .regenerateCourseOutline(courseId!)
+            .regenerateCourseOutline(courseId)
             .catch((e) => console.warn('Course outline regeneration failed (non-fatal):', e)),
         );
       }

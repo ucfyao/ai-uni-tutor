@@ -219,11 +219,6 @@ export class ExamPaperService {
         if (questions.length === 0) return;
 
         // Resolve hierarchical structure layer by layer (max 10 layers)
-        const origToLocalIdx = new Map<number, number>();
-        for (let i = 0; i < questions.length; i++) {
-            origToLocalIdx.set(i, i);
-        }
-
         const localIdxToDbId = new Map<number, string>();
         let remaining = questions.map((_, i) => i);
         let passNum = 0;
