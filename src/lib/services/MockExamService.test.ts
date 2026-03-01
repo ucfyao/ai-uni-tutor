@@ -149,8 +149,7 @@ const MOCK_EXAM: MockExam = {
   status: 'in_progress',
   retakeOf: null,
   courseCode: null,
-  courseName: null,
-  schoolName: null,
+  courseId: null,
   createdAt: '2025-01-01T00:00:00Z',
 };
 
@@ -255,8 +254,7 @@ describe('MockExamService', () => {
       status: 'in_progress',
       retakeOf: null,
       courseCode: null,
-      courseName: null,
-      schoolName: null,
+      courseId: null,
       createdAt: '2025-01-01T00:00:00Z',
     };
 

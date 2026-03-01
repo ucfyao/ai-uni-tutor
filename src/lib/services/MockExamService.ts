@@ -107,7 +107,8 @@ export class MockExamService {
     userId: string,
     sessionId: string | null,
     title: string,
-    courseInfo?: { courseCode?: string | null; courseName?: string | null; schoolName?: string | null },
+    courseId: string | null,
+    courseCode: string | null = null,
     mode: 'practice' | 'exam' = 'practice',
   ): Promise<{ mockId: string }> {
     const mockId = await this.mockRepo.create({
@@ -120,9 +121,8 @@ export class MockExamService {
       totalPoints: 0,
       currentIndex: 0,
       status: 'in_progress',
-      courseCode: courseInfo?.courseCode ?? null,
-      courseName: courseInfo?.courseName ?? null,
-      schoolName: courseInfo?.schoolName ?? null,
+      courseId,
+      courseCode,
     });
 
     return { mockId };
@@ -1003,8 +1003,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
       status: 'in_progress',
       retake_of: originalMockId,
       courseCode: original.courseCode ?? null,
-      courseName: original.courseName ?? null,
-      schoolName: original.schoolName ?? null,
+      courseId: original.courseId ?? null,
     });
 
     return { mockId };

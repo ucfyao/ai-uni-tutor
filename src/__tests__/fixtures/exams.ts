@@ -184,7 +184,6 @@ export const mockExamEntity: MockExam = {
   status: mockExamRow.status,
   retakeOf: null,
   courseCode: null,
-  courseName: null,
-  schoolName: null,
+  courseId: null,
   createdAt: mockExamRow.created_at,
 };
