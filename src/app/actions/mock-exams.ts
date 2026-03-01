@@ -319,7 +319,11 @@ export async function getMockExamList(filters?: {
 
     return { success: true, ...result };
   } catch (error) {
-    console.error('Fetch mock exam list error:', error);
+    const isDynamicServerUsage =
+      error instanceof Error && error.message.includes('Dynamic server usage');
+    if (!isDynamicServerUsage) {
+      console.error('Fetch mock exam list error:', error);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch mock exams',
