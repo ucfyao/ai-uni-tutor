@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Play, Plus, RotateCcw, Target, Trash2, Trophy } from 'lucide-react';
+import { Clock, Play, Plus, RotateCcw, Search, Target, Trash2, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import {
@@ -11,7 +11,6 @@ import {
   Card,
   Container,
   Group,
-  Select,
   Stack,
   Table,
   Text,
@@ -20,7 +19,9 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { deleteMockExam, retakeMockExam } from '@/app/actions/mock-exams';
+import { ExamFilterBar } from '@/components/exam/ExamFilterBar';
 import { getDocColor } from '@/constants/doc-types';
+import { useExamFilters } from '@/hooks/useExamFilters';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import type { MockExam } from '@/types/exam';
@@ -38,11 +39,19 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [modeFilter, setModeFilter] = useState<string | null>(null);
 
-  const completed = modeFilter
-    ? initialCompleted.filter((m) => m.mode === modeFilter)
-    : initialCompleted;
+  const {
+    searchInput,
+    setSearchInput,
+    status,
+    setStatus,
+    difficulty,
+    setDifficulty,
+    clearAll,
+    filteredInProgress,
+    filteredCompleted,
+    hasActiveFilters,
+  } = useExamFilters(initialInProgress, initialCompleted);
 
   const handleRetake = (mockId: string) => {
     modals.openConfirmModal({
@@ -144,8 +153,20 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
           </Button>
         </Group>
 
+        {/* Filter bar */}
+        <ExamFilterBar
+          searchInput={searchInput}
+          onSearchChange={setSearchInput}
+          status={status}
+          onStatusChange={setStatus}
+          difficulty={difficulty}
+          onDifficultyChange={setDifficulty}
+          hasActiveFilters={hasActiveFilters}
+          onClearAll={clearAll}
+        />
+
         {/* In-progress section */}
-        {initialInProgress.length > 0 && (
+        {filteredInProgress.length > 0 && (
           <Box>
             <Group gap="xs" mb="sm">
               <Clock size={16} color={`var(--mantine-color-${examColor}-6)`} />
@@ -153,11 +174,11 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                 {t.exam.inProgress}
               </Text>
               <Badge size="sm" variant="light" color={examColor}>
-                {initialInProgress.length}
+                {filteredInProgress.length}
               </Badge>
             </Group>
             <Group gap="md" wrap="wrap">
-              {initialInProgress.map((mock) => (
+              {filteredInProgress.map((mock) => (
                 <Card
                   key={mock.id}
                   withBorder
@@ -243,31 +264,19 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
 
         {/* Completed section */}
         <Box>
-          <Group justify="space-between" mb="sm">
-            <Group gap="xs">
-              <Trophy size={16} color={`var(--mantine-color-${examColor}-6)`} />
-              <Text fw={600} size="sm">
-                {t.exam.examHistory}
-              </Text>
-              <Badge size="sm" variant="light" color="gray">
-                {initialCompleted.length}
-              </Badge>
-            </Group>
-            <Select
-              size="xs"
-              w={160}
-              placeholder={t.exam.allModes}
-              clearable
-              data={[
-                { value: 'practice', label: t.exam.practiceMode },
-                { value: 'exam', label: t.exam.examMode },
-              ]}
-              value={modeFilter}
-              onChange={setModeFilter}
-            />
+          <Group gap="xs" mb="sm">
+            <Trophy size={16} color={`var(--mantine-color-${examColor}-6)`} />
+            <Text fw={600} size="sm">
+              {t.exam.examHistory}
+            </Text>
+            <Badge size="sm" variant="light" color="gray">
+              {filteredCompleted.length}
+            </Badge>
           </Group>
 
-          {completed.length === 0 &&
+          {filteredCompleted.length === 0 &&
+          filteredInProgress.length === 0 &&
+          !hasActiveFilters &&
           initialCompleted.length === 0 &&
           initialInProgress.length === 0 ? (
             <Card withBorder radius="md" p="xl" ta="center">
@@ -291,7 +300,30 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                 </Button>
               </Stack>
             </Card>
-          ) : completed.length > 0 ? (
+          ) : hasActiveFilters &&
+            filteredCompleted.length === 0 &&
+            filteredInProgress.length === 0 ? (
+            <Card withBorder radius="md" p="xl" ta="center">
+              <Stack align="center" gap="md" py="lg">
+                <Search size={48} color="var(--mantine-color-gray-4)" strokeWidth={1.2} />
+                <Box>
+                  <Text fw={600} size="lg">
+                    {t.exam.noFilterResults}
+                  </Text>
+                  <Text c="dimmed" size="sm" mt={4}>
+                    {t.exam.noFilterResultsDescription}
+                  </Text>
+                </Box>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  onClick={clearAll}
+                >
+                  {t.exam.clearFilters}
+                </Button>
+              </Stack>
+            </Card>
+          ) : filteredCompleted.length > 0 ? (
             <Card withBorder radius="md" p={0} style={{ overflow: 'hidden' }}>
               <Table highlightOnHover>
                 <Table.Thead>
@@ -306,7 +338,7 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {completed.map((mock) => {
+                  {filteredCompleted.map((mock) => {
                     const correctCount = mock.responses.filter((r) => r.isCorrect).length;
                     return (
                       <Table.Tr
