@@ -669,7 +669,7 @@ export const translations = {
       searchExams: '搜索考试...',
       allStatuses: '全部状态',
       allDifficulties: '全部难度',
-      clearFilters: '清除',
+      clearExamFilters: '清除',
       noFilterResults: '没有匹配的考试',
       noFilterResultsDescription: '尝试修改搜索条件或清除过滤器',
       // ExamPaperUploadModal
@@ -1772,7 +1772,7 @@ export const translations = {
       searchExams: 'Search exams...',
       allStatuses: 'All Statuses',
       allDifficulties: 'All Difficulties',
-      clearFilters: 'Clear',
+      clearExamFilters: 'Clear',
       noFilterResults: 'No matching exams',
       noFilterResultsDescription: 'Try adjusting your search or clearing filters',
       // ExamPaperUploadModal

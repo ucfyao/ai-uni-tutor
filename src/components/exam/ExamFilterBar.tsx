@@ -83,7 +83,7 @@ export function ExamFilterBar({
           leftSection={<X size={14} />}
           onClick={onClearAll}
         >
-          {t.exam.clearFilters}
+          {t.exam.clearExamFilters}
         </Button>
       )}
     </Group>

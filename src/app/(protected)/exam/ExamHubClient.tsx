@@ -319,7 +319,7 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                   color="gray"
                   onClick={clearAll}
                 >
-                  {t.exam.clearFilters}
+                  {t.exam.clearExamFilters}
                 </Button>
               </Stack>
             </Card>
