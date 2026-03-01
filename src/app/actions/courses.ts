@@ -83,7 +83,9 @@ export async function fetchCourses(universityId?: string): Promise<ActionResult<
   try {
     await requireUser();
     const service = getCourseService();
-    const entities = universityId ? await service.getPublishedCourses(universityId) : [];
+    const entities = universityId
+      ? await service.getPublishedCourses(universityId)
+      : await service.getAllPublishedCourses();
     return {
       success: true,
       data: entities.map((c) => ({
