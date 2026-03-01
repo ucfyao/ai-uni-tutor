@@ -87,7 +87,7 @@ const TestimonialsSection = () => {
           {t.testimonials.items.map((testimonial, index) => (
             <Box
               key={index}
-              className="glass-card p-6 md:p-8 relative group hover:scale-[1.02] transition-all duration-300"
+              className="glass-card p-6 md:p-8 relative group"
             >
               <Quote className="absolute top-6 right-6 w-10 h-10 text-primary/20" />
               <Group gap={4} className="mb-4">

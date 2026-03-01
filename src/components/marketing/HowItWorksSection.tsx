@@ -15,8 +15,6 @@ const HowItWorksSection = () => {
     >
       {/* Background */}
       <Box className="absolute inset-0 bg-gradient-to-b from-background via-secondary/20 to-background" />
-      <Box className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2 w-[900px] h-[420px] bg-primary/10 rounded-full blur-[120px]" />
-      <Box className="pointer-events-none absolute bottom-10 left-1/4 w-72 h-72 bg-accent/10 rounded-full blur-[100px]" />
 
       <Container size={1280} px={24} className="relative z-10">
         {/* Section Header */}
@@ -46,7 +44,7 @@ const HowItWorksSection = () => {
                 <Box key={index} className="relative group" style={{ height: '100%' }}>
                   {/* Step Card */}
                   <Box
-                    className="glass-card p-6 text-center hover:scale-105 transition-all duration-300"
+                    className="glass-card p-6 text-center"
                     style={{ height: '100%' }}
                   >
                     {/* Step Number */}
@@ -66,7 +64,7 @@ const HowItWorksSection = () => {
                         justifyContent: 'center',
                         margin: '1rem auto 1.5rem',
                       }}
-                      className="rounded-2xl bg-secondary group-hover:bg-primary/20 transition-colors duration-300"
+                      className="rounded-xl bg-primary/10"
                     >
                       <Icon className="w-8 h-8 text-primary" />
                     </div>

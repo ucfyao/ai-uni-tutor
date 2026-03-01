@@ -46,7 +46,7 @@ function CountUpStat({ target, suffix, label }: { target: number; suffix: string
 
   return (
     <Box ref={elementRef}>
-      <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} className="gradient-text">
+      <Text fz={{ base: '1.875rem', xs: '2.25rem' }} fw={700} c="var(--mantine-color-indigo-6)">
         {count.toLocaleString()}
         {suffix}
       </Text>
@@ -67,14 +67,6 @@ const HeroSection = () => {
     >
       {/* Background Effects */}
       <Box className="absolute inset-0 hero-radial" />
-      <Box className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pulse-glow" />
-      <Box
-        className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-accent/10 rounded-full blur-[100px] pulse-glow"
-        style={{ animationDelay: '1.5s' }}
-      />
-
-      {/* Grid Pattern */}
-      <Box className="absolute inset-0 hero-grid" />
 
       <Container size={1280} px={24} className="relative z-10">
         <Box className="max-w-4xl mx-auto text-center">
@@ -94,6 +86,7 @@ const HeroSection = () => {
             lh={1.2}
             mb={{ base: '1.5rem', sm: '2.5rem' }}
             className="animate-fade-in-up opacity-0 animate-delay-100 text-foreground"
+            style={{ letterSpacing: '-0.03em' }}
           >
             {t.hero.title}
             <br />
@@ -146,12 +139,6 @@ const HeroSection = () => {
         </Box>
       </Container>
 
-      {/* Scroll Indicator */}
-      <Box className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-        <Box className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2">
-          <Box className="w-1 h-2 bg-muted-foreground/50 rounded-full" />
-        </Box>
-      </Box>
     </Box>
   );
 };

@@ -10,7 +10,6 @@ const CTASection = () => {
     <Box component="section" className="py-16 md:py-24 relative overflow-hidden">
       {/* Background Effects */}
       <Box className="absolute inset-0 bg-gradient-to-b from-background to-secondary/20" />
-      <Box className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/10 rounded-full blur-[100px]" />
 
       <Container size={1280} px={24} className="relative z-10">
         <Box className="glass-card max-w-5xl mx-auto p-5 sm:p-8 md:p-14 text-center">

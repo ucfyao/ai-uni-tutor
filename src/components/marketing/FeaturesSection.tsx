@@ -30,7 +30,7 @@ const FeaturesSection = () => {
             return (
               <Box
                 key={index}
-                className="glass-card p-6 md:p-8 hover:scale-[1.02] transition-all duration-300 group"
+                className="glass-card p-6 md:p-8 group"
               >
                 <div
                   style={{
@@ -47,7 +47,7 @@ const FeaturesSection = () => {
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
-                    className="rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 group-hover:scale-110 transition-transform duration-300"
+                    className="rounded-xl bg-primary/10"
                   >
                     <Icon className="w-7 h-7 text-primary" />
                   </div>
