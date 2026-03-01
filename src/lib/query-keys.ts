@@ -15,9 +15,11 @@ export const queryKeys = {
   },
   universities: {
     all: ['universities'] as const,
+    admin: ['universities', 'admin'] as const,
   },
   courses: {
     all: ['courses'] as const,
+    admin: ['courses', 'admin'] as const,
   },
   assignments: {
     all: ['assignments'] as const,

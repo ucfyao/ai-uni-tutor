@@ -54,6 +54,7 @@ export interface Database {
           name: string;
           short_name: string;
           logo_url: string | null;
+          is_published: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -62,6 +63,7 @@ export interface Database {
           name: string;
           short_name: string;
           logo_url?: string | null;
+          is_published?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -70,6 +72,7 @@ export interface Database {
           name?: string;
           short_name?: string;
           logo_url?: string | null;
+          is_published?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -81,6 +84,7 @@ export interface Database {
           university_id: string;
           code: string;
           name: string;
+          is_published: boolean;
           created_at: string;
           updated_at: string;
           knowledge_outline: Json | null;
@@ -90,6 +94,7 @@ export interface Database {
           university_id: string;
           code: string;
           name: string;
+          is_published?: boolean;
           created_at?: string;
           updated_at?: string;
           knowledge_outline?: Json | null;
@@ -99,6 +104,7 @@ export interface Database {
           university_id?: string;
           code?: string;
           name?: string;
+          is_published?: boolean;
           created_at?: string;
           updated_at?: string;
           knowledge_outline?: Json | null;
