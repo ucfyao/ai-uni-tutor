@@ -92,6 +92,19 @@ export class CourseRepository implements ICourseRepository {
     return this.mapToEntity(data);
   }
 
+  async findAllPublished(): Promise<CourseEntity[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('is_published', true)
+      .order('code', { ascending: true });
+
+    if (error)
+      throw new DatabaseError(`Failed to fetch published courses: ${error.message}`, error);
+    return (data ?? []).map((row) => this.mapToEntity(row));
+  }
+
   async findPublishedByUniversityId(universityId: string): Promise<CourseEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase

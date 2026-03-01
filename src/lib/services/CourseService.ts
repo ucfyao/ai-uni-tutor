@@ -30,6 +30,12 @@ export class CourseService {
     );
   }
 
+  async getAllPublishedCourses(): Promise<CourseEntity[]> {
+    return cachedGet(CACHE_KEYS.coursesPublished, CACHE_TTL.courses, () =>
+      this.courseRepo.findAllPublished(),
+    );
+  }
+
   async getPublishedCourses(universityId: string): Promise<CourseEntity[]> {
     // Verify university is published (cascade logic)
     const uni = await this.uniRepo.findById(universityId);
