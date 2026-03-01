@@ -59,6 +59,9 @@ export interface MockExamQuestion {
   sourceQuestionId: string | null;
   groupIndex?: number;
   groupTitle?: string;
+  metadata?: {
+    difficulty?: string;
+  };
 }
 
 export interface MockExamResponse {
