@@ -73,8 +73,7 @@ function makeMockExam(overrides: Partial<MockExam> = {}): MockExam {
     status: 'in_progress',
     retakeOf: null,
     courseCode: null,
-    courseName: null,
-    schoolName: null,
+    courseId: null,
     createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
   };

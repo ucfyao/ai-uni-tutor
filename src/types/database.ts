@@ -452,8 +452,7 @@ export interface Database {
           mode: 'practice' | 'exam';
           retake_of: string | null;
           course_code: string | null;
-          course_name: string | null;
-          school_name: string | null;
+          course_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -470,8 +469,7 @@ export interface Database {
           status?: 'in_progress' | 'completed';
           retake_of?: string | null;
           course_code?: string | null;
-          course_name?: string | null;
-          school_name?: string | null;
+          course_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -488,8 +486,7 @@ export interface Database {
           status?: 'in_progress' | 'completed';
           retake_of?: string | null;
           course_code?: string | null;
-          course_name?: string | null;
-          school_name?: string | null;
+          course_id?: string | null;
           created_at?: string;
         };
         Relationships: [];

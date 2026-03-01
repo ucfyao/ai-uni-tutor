@@ -83,8 +83,7 @@ describe('MockExamRepository', () => {
         status: 'in_progress',
         retake_of: null,
         course_code: null,
-        course_name: null,
-        school_name: null,
+        course_id: null,
       });
       expect(mockSupabase.client._chain.select).toHaveBeenCalledWith('id');
       expect(mockSupabase.client._chain.single).toHaveBeenCalled();
@@ -117,8 +116,7 @@ describe('MockExamRepository', () => {
         status: 'in_progress',
         retake_of: null,
         course_code: null,
-        course_name: null,
-        school_name: null,
+        course_id: null,
       });
     });
 
@@ -128,7 +126,7 @@ describe('MockExamRepository', () => {
       await expect(
         repo.create({
           userId: 'user-free-001',
-  
+
           mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
@@ -139,7 +137,7 @@ describe('MockExamRepository', () => {
       await expect(
         repo.create({
           userId: 'user-free-001',
-  
+
           mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,
@@ -155,7 +153,7 @@ describe('MockExamRepository', () => {
       await expect(
         repo.create({
           userId: 'user-free-001',
-  
+
           mode: 'practice',
           title: 'Test',
           questions: [] as unknown as import('@/types/database').Json,

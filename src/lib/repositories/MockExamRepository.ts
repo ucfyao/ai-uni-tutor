@@ -30,8 +30,7 @@ export class MockExamRepository implements IMockExamRepository {
       status: row.status,
       retakeOf: row.retake_of ?? null,
       courseCode: row.course_code ?? null,
-      courseName: row.course_name ?? null,
-      schoolName: row.school_name ?? null,
+      courseId: row.course_id ?? null,
       createdAt: row.created_at,
     };
   }
@@ -48,8 +47,7 @@ export class MockExamRepository implements IMockExamRepository {
     status?: 'in_progress' | 'completed';
     retake_of?: string | null;
     courseCode?: string | null;
-    courseName?: string | null;
-    schoolName?: string | null;
+    courseId?: string | null;
   }): Promise<string> {
     const supabase = await createClient();
     const { data: mock, error } = await supabase
@@ -67,8 +65,7 @@ export class MockExamRepository implements IMockExamRepository {
         status: data.status ?? 'in_progress',
         retake_of: data.retake_of ?? null,
         course_code: data.courseCode ?? null,
-        course_name: data.courseName ?? null,
-        school_name: data.schoolName ?? null,
+        course_id: data.courseId ?? null,
       })
       .select('id')
       .single();

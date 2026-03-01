@@ -134,12 +134,14 @@ describe('pool state (loadPoolState / savePoolState / getModelStats)', () => {
     const today = new Date().toISOString().split('T')[0];
     const monthPrefix = today.slice(0, 7);
 
+    // Use a day that is guaranteed to differ from today to avoid key collision
+    const otherDay = today.endsWith('-01') ? `${monthPrefix}-02` : `${monthPrefix}-01`;
     await savePoolState({
       cd: {},
       fails: {},
       stats: {
         [`gemini-2.5-flash:${today}`]: 5,
-        [`gemini-2.5-flash:${monthPrefix}-01`]: 10,
+        [`gemini-2.5-flash:${otherDay}`]: 10,
         [`gemini-2.0-flash:${today}`]: 3,
       },
     });

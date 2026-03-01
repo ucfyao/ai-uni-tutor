@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  Bookmark,
   Book,
+  Bookmark,
   BookOpen,
   Building2,
   Check,
@@ -42,6 +42,7 @@ import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { ExamMode, ExamPaper } from '@/types/exam';
+
 type Source = 'real' | 'random' | 'ai';
 
 const ExamIcon = getDocIcon('exam');
@@ -63,8 +64,6 @@ export function ExamCreateModal({ opened, onClose }: Props) {
   const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
   const selectedCourse = allCourses.find((c) => c.id === selectedCourseId);
   const courseCode = selectedCourse?.code;
-  const courseName = selectedCourse?.name;
-  const schoolName = universities.find((u) => u.id === selectedUniId)?.name;
 
   // Restore last selections from localStorage
   useEffect(() => {
@@ -114,18 +113,17 @@ export function ExamCreateModal({ opened, onClose }: Props) {
     setLoadingPapers(true);
     setSelectedPaper(null);
 
-    Promise.all([
-      getExamPapersForCourse(courseCode),
-      getBookmarkedPaperIds(),
-    ]).then(([papersResult, bookmarks]) => {
-      if (papersResult.success) {
-        setPapers(papersResult.papers);
-      } else {
-        setPapers([]);
-      }
-      setBookmarkedIds(new Set(bookmarks));
-      setLoadingPapers(false);
-    });
+    Promise.all([getExamPapersForCourse(courseCode), getBookmarkedPaperIds()]).then(
+      ([papersResult, bookmarks]) => {
+        if (papersResult.success) {
+          setPapers(papersResult.papers);
+        } else {
+          setPapers([]);
+        }
+        setBookmarkedIds(new Set(bookmarks));
+        setLoadingPapers(false);
+      },
+    );
   }, [courseCode, opened]);
 
   const handleToggleBookmark = async (paperId: string) => {
@@ -184,7 +182,8 @@ export function ExamCreateModal({ opened, onClose }: Props) {
         const stubResult = await createStandaloneMock(
           source === 'ai' ? `${topic} - Practice Exam` : 'Mock Exam',
           selectedMode,
-          { courseCode: courseCode ?? null, courseName: courseName ?? null, schoolName: schoolName ?? null },
+          selectedCourseId!,
+          courseCode ?? '',
         );
         if (!stubResult.success) {
           setError(stubResult.error);
@@ -239,12 +238,7 @@ export function ExamCreateModal({ opened, onClose }: Props) {
   const examColor = getDocColor('exam');
 
   return (
-    <FullScreenModal
-      opened={opened}
-      onClose={onClose}
-      title={t.exam.createMockTitle}
-      size="xl"
-    >
+    <FullScreenModal opened={opened} onClose={onClose} title={t.exam.createMockTitle} size="xl">
       {isPending ? (
         <Stack align="center" gap="lg" py="xl">
           <Loader
@@ -279,7 +273,6 @@ export function ExamCreateModal({ opened, onClose }: Props) {
               searchable
               size="md"
               leftSection={<Building2 size={16} />}
-
             />
             <Select
               label={t.exam.course}
@@ -291,7 +284,6 @@ export function ExamCreateModal({ opened, onClose }: Props) {
               size="md"
               disabled={!selectedUniId}
               leftSection={<Book size={16} />}
-
             />
           </Group>
 
@@ -365,7 +357,6 @@ export function ExamCreateModal({ opened, onClose }: Props) {
                   value={selectedPaper}
                   onChange={setSelectedPaper}
                   size="md"
-    
                   rightSection={
                     selectedPaper ? (
                       <ActionIcon
@@ -395,7 +386,6 @@ export function ExamCreateModal({ opened, onClose }: Props) {
                 value={numQuestions}
                 onChange={setNumQuestions}
                 size="md"
-  
               />
             )}
 
@@ -415,7 +405,6 @@ export function ExamCreateModal({ opened, onClose }: Props) {
                     value={numQuestions}
                     onChange={setNumQuestions}
                     size="md"
-      
                   />
                   <Select
                     label={t.exam.difficulty}
@@ -428,7 +417,6 @@ export function ExamCreateModal({ opened, onClose }: Props) {
                     value={difficulty}
                     onChange={setDifficulty}
                     size="md"
-      
                   />
                 </Group>
               </Stack>
@@ -532,9 +520,7 @@ function SourceCard({
         style={{
           position: 'relative',
           flex: 1,
-          borderColor: active
-            ? `var(--mantine-color-${color}-5)`
-            : 'var(--mantine-color-gray-3)',
+          borderColor: active ? `var(--mantine-color-${color}-5)` : 'var(--mantine-color-gray-3)',
           backgroundColor: active ? `var(--mantine-color-${color}-0)` : undefined,
           opacity: disabled ? 0.5 : 1,
           cursor: disabled ? 'not-allowed' : 'pointer',
@@ -599,9 +585,7 @@ function ModeCard({
         style={{
           position: 'relative',
           flex: 1,
-          borderColor: active
-            ? `var(--mantine-color-${color}-5)`
-            : 'var(--mantine-color-gray-3)',
+          borderColor: active ? `var(--mantine-color-${color}-5)` : 'var(--mantine-color-gray-3)',
           backgroundColor: active ? `var(--mantine-color-${color}-0)` : undefined,
           cursor: 'pointer',
           transition: 'all 150ms ease',

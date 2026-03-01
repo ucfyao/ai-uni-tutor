@@ -83,8 +83,7 @@ export interface MockExam {
   status: 'in_progress' | 'completed';
   retakeOf: string | null;
   courseCode: string | null;
-  courseName: string | null;
-  schoolName: string | null;
+  courseId: string | null;
   createdAt: string;
 }
 
