@@ -279,7 +279,7 @@ export async function extractFromPDF<T>(
           const warnings: string[] = [];
           try {
             parsed = JSON.parse(text) as T;
-          } catch {
+          } catch (e1) {
             const cleaned = cleanJsonText(text);
             try {
               parsed = JSON.parse(cleaned) as T;
@@ -292,23 +292,26 @@ export async function extractFromPDF<T>(
                   `JSON was repaired (finishReason=${finishReason ?? 'unknown'}, ${textLen} chars)`,
                 );
               } catch (e3) {
+                // Include the FIRST parse error (most informative — has exact position)
+                const parseErr = e1 instanceof Error ? e1.message : String(e1);
                 const preview = text.slice(0, 300);
                 const tail = text.slice(-300);
-                const diagMsg =
-                  `JSON parse failed (${textLen} chars, finishReason=${finishReason ?? 'unknown'}). ` +
-                  `Start: ${preview.slice(0, 120)}… End: …${tail.slice(-120)}`;
                 console.error(
-                  `[pdf-extractor] ${diagMsg}\n` +
-                    `  Full start: ${JSON.stringify(preview)}\n` +
-                    `  Full end: ${JSON.stringify(tail)}`,
+                  `[pdf-extractor] JSON parse failed (${textLen} chars, finishReason=${finishReason}).\n` +
+                    `  Error: ${parseErr}\n` +
+                    `  Start: ${JSON.stringify(preview)}\n` +
+                    `  End: ${JSON.stringify(tail)}`,
                 );
-                console.error(`[pdf-extractor] Parse error:`, e3);
-                // Surface diagnostic to SSE so user can see it without server logs
-                onProgress?.(`ERROR: ${diagMsg}`);
+                console.error(`[pdf-extractor] Repair error:`, e3);
+                // Surface key diagnostics via SSE progress
+                onProgress?.(
+                  `ERROR: ${parseErr} | ${textLen} chars, finishReason=${finishReason ?? '?'} | ` +
+                    `start: ${text.slice(0, 80)}...`,
+                );
                 return {
                   result: [] as unknown as T,
                   warnings: [
-                    `Gemini returned invalid JSON (${textLen} chars, finishReason=${finishReason ?? 'unknown'})`,
+                    `Gemini returned invalid JSON (${textLen} chars, finishReason=${finishReason ?? 'unknown'}): ${parseErr}`,
                   ],
                 } as { result: T; warnings: string[] };
               }
