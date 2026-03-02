@@ -8,45 +8,6 @@ import { AppError } from '@/lib/errors';
 import { GEMINI_MODELS, getDefaultPool } from '@/lib/gemini';
 
 /**
- * Attempt to extract valid JSON from a Gemini response that may contain
- * markdown code fences, BOM characters, or other wrapper text.
- */
-export function cleanJsonText(raw: string): string {
-  let text = raw.trim();
-
-  // Strip UTF-8 BOM
-  if (text.charCodeAt(0) === 0xfeff) {
-    text = text.slice(1);
-  }
-
-  // Strip markdown code fences: ```json ... ``` or ``` ... ```
-  const fenceMatch = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```\s*$/);
-  if (fenceMatch) {
-    text = fenceMatch[1].trim();
-  }
-
-  // If text doesn't start with { or [, try to find the JSON boundaries
-  if (!text.startsWith('{') && !text.startsWith('[')) {
-    const jsonStart = text.search(/[{[]/);
-    if (jsonStart > 0) {
-      text = text.slice(jsonStart);
-    }
-  }
-
-  // If text doesn't end with } or ], try to find the last closing bracket
-  if (!text.endsWith('}') && !text.endsWith(']')) {
-    const lastBrace = text.lastIndexOf('}');
-    const lastBracket = text.lastIndexOf(']');
-    const lastClose = Math.max(lastBrace, lastBracket);
-    if (lastClose > 0) {
-      text = text.slice(0, lastClose + 1);
-    }
-  }
-
-  return text;
-}
-
-/**
  * Fix invalid JSON escape sequences produced by LLMs.
  *
  * JSON only allows: \" \\ \/ \b \f \n \r \t \uXXXX
@@ -55,104 +16,7 @@ export function cleanJsonText(raw: string): string {
  * is not a valid JSON escape character.
  */
 export function fixJsonEscapes(text: string): string {
-  // Fix non-JSON escape sequences: \alpha, \gamma, \(, \), \[, \], \pi, etc.
-  // Valid JSON escapes (" \ / b f n r t u) are left untouched.
-  // Note: \frac (\f), \beta (\b), \theta (\t) contain valid JSON escapes
-  // so JSON.parse won't reject them — they'll just produce wrong chars
-  // (form-feed, backspace, tab) which is cosmetic, not a parse failure.
   return text.replace(/\\([^"\\/bfnrtu])/g, '\\\\$1');
-}
-
-/**
- * Attempt to repair truncated JSON by closing unclosed strings, arrays,
- * and objects. Works for the common case where Gemini hits MAX_TOKENS
- * mid-output.
- */
-export function repairTruncatedJson(raw: string): string {
-  let text = raw.trim();
-
-  // Strip BOM
-  if (text.charCodeAt(0) === 0xfeff) {
-    text = text.slice(1);
-  }
-
-  // Strip markdown code fences
-  const fenceMatch = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```\s*$/);
-  if (fenceMatch) {
-    text = fenceMatch[1].trim();
-  }
-
-  // Find the JSON start (skip leading non-JSON text)
-  if (!text.startsWith('{') && !text.startsWith('[')) {
-    const jsonStart = text.search(/[{[]/);
-    if (jsonStart > 0) {
-      text = text.slice(jsonStart);
-    }
-  }
-
-  // Fast path: already valid
-  try {
-    JSON.parse(text);
-    return text;
-  } catch {
-    // continue to repair
-  }
-
-  // Remove trailing non-JSON fragments: find the last meaningful JSON token.
-  // Walk backwards past whitespace, commas, and colons that leave the JSON
-  // in a syntactically broken trailing state (e.g. `"key":` with no value).
-  let end = text.length;
-  while (end > 0) {
-    const ch = text[end - 1];
-    if (ch === ',' || ch === ':' || ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t') {
-      end--;
-    } else {
-      break;
-    }
-  }
-  text = text.slice(0, end);
-
-  // If we're inside an unclosed string, close it
-  let inString = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '\\' && inString) {
-      i++; // skip escaped char
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-    }
-  }
-  if (inString) {
-    text += '"';
-  }
-
-  // Collect unclosed brackets/braces in order
-  const stack: string[] = [];
-  inString = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '\\' && inString) {
-      i++;
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (ch === '{') stack.push('}');
-    else if (ch === '[') stack.push(']');
-    else if (ch === '}' || ch === ']') stack.pop();
-  }
-
-  // Close in reverse order
-  while (stack.length > 0) {
-    text += stack.pop();
-  }
-
-  return text;
 }
 
 export interface ExtractFromPDFOptions {
@@ -163,9 +27,6 @@ export interface ExtractFromPDFOptions {
 
 /**
  * Upload a PDF to Gemini File API and extract structured data in a single call.
- *
- * Combines the old two-step flow (parsePDF → text → JSON) into one model call:
- *   PDF file → Gemini File API → fileData + prompt → JSON response
  *
  * @param buffer   Raw PDF bytes
  * @param prompt   Extraction prompt (must instruct the model to return JSON)
@@ -268,50 +129,31 @@ export async function extractFromPDF<T>(
             } as { result: T; warnings: string[] };
           }
 
-          // 5. Parse JSON (try raw → fix escapes → clean → repair)
+          // 5. Parse JSON — try raw first, then fix LaTeX escapes
           let parsed: T;
           const warnings: string[] = [];
           try {
             parsed = JSON.parse(text) as T;
           } catch (e1) {
-            // Most common failure: LLM emits LaTeX \alpha etc. inside JSON strings
             try {
               parsed = JSON.parse(fixJsonEscapes(text)) as T;
-            } catch {
-              const cleaned = cleanJsonText(text);
-              try {
-                parsed = JSON.parse(fixJsonEscapes(cleaned)) as T;
-              } catch {
-                // Last resort: structural repair (truncated responses)
-                try {
-                  const repaired = repairTruncatedJson(text);
-                  parsed = JSON.parse(fixJsonEscapes(repaired)) as T;
-                  warnings.push(
-                    `JSON was repaired (finishReason=${finishReason ?? 'unknown'}, ${textLen} chars)`,
-                  );
-                } catch (e3) {
-                  const parseErr = e1 instanceof Error ? e1.message : String(e1);
-                  const preview = text.slice(0, 300);
-                  const tail = text.slice(-300);
-                  console.error(
-                    `[pdf-extractor] JSON parse failed (${textLen} chars, finishReason=${finishReason}).\n` +
-                      `  Error: ${parseErr}\n` +
-                      `  Start: ${JSON.stringify(preview)}\n` +
-                      `  End: ${JSON.stringify(tail)}`,
-                  );
-                  console.error(`[pdf-extractor] Repair error:`, e3);
-                  onProgress?.(
-                    `ERROR: ${parseErr} | ${textLen} chars, finishReason=${finishReason ?? '?'} | ` +
-                      `start: ${text.slice(0, 80)}...`,
-                  );
-                  return {
-                    result: [] as unknown as T,
-                    warnings: [
-                      `Gemini returned invalid JSON (${textLen} chars, finishReason=${finishReason ?? 'unknown'}): ${parseErr}`,
-                    ],
-                  } as { result: T; warnings: string[] };
-                }
-              }
+            } catch (e2) {
+              const parseErr = e1 instanceof Error ? e1.message : String(e1);
+              console.error(
+                `[pdf-extractor] JSON parse failed (${textLen} chars, finishReason=${finishReason}).\n` +
+                  `  Error: ${parseErr}\n` +
+                  `  Start: ${JSON.stringify(text.slice(0, 300))}\n` +
+                  `  End: ${JSON.stringify(text.slice(-300))}`,
+              );
+              onProgress?.(
+                `ERROR: ${parseErr} | ${textLen} chars, finishReason=${finishReason ?? '?'}`,
+              );
+              return {
+                result: [] as unknown as T,
+                warnings: [
+                  `Gemini returned invalid JSON (${textLen} chars, finishReason=${finishReason ?? 'unknown'}): ${parseErr}`,
+                ],
+              } as { result: T; warnings: string[] };
             }
           }
           if (truncated) {
