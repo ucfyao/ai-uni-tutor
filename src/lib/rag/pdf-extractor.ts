@@ -46,6 +46,98 @@ export function cleanJsonText(raw: string): string {
   return text;
 }
 
+/**
+ * Attempt to repair truncated JSON by closing unclosed strings, arrays,
+ * and objects. Works for the common case where Gemini hits MAX_TOKENS
+ * mid-output.
+ */
+export function repairTruncatedJson(raw: string): string {
+  let text = raw.trim();
+
+  // Strip BOM
+  if (text.charCodeAt(0) === 0xfeff) {
+    text = text.slice(1);
+  }
+
+  // Strip markdown code fences
+  const fenceMatch = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```\s*$/);
+  if (fenceMatch) {
+    text = fenceMatch[1].trim();
+  }
+
+  // Find the JSON start (skip leading non-JSON text)
+  if (!text.startsWith('{') && !text.startsWith('[')) {
+    const jsonStart = text.search(/[{[]/);
+    if (jsonStart > 0) {
+      text = text.slice(jsonStart);
+    }
+  }
+
+  // Fast path: already valid
+  try {
+    JSON.parse(text);
+    return text;
+  } catch {
+    // continue to repair
+  }
+
+  // Remove trailing non-JSON fragments: find the last meaningful JSON token.
+  // Walk backwards past whitespace, commas, and colons that leave the JSON
+  // in a syntactically broken trailing state (e.g. `"key":` with no value).
+  let end = text.length;
+  while (end > 0) {
+    const ch = text[end - 1];
+    if (ch === ',' || ch === ':' || ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t') {
+      end--;
+    } else {
+      break;
+    }
+  }
+  text = text.slice(0, end);
+
+  // If we're inside an unclosed string, close it
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '\\' && inString) {
+      i++; // skip escaped char
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+    }
+  }
+  if (inString) {
+    text += '"';
+  }
+
+  // Collect unclosed brackets/braces in order
+  const stack: string[] = [];
+  inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '\\' && inString) {
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') stack.push('}');
+    else if (ch === '[') stack.push(']');
+    else if (ch === '}' || ch === ']') stack.pop();
+  }
+
+  // Close in reverse order
+  while (stack.length > 0) {
+    text += stack.pop();
+  }
+
+  return text;
+}
+
 export interface ExtractFromPDFOptions {
   signal?: AbortSignal;
   /** Called at each sub-step so callers can relay progress to users. */
@@ -139,11 +231,13 @@ export async function extractFromPDF<T>(
             config: {
               responseMimeType: 'application/json',
               temperature: 0,
+              maxOutputTokens: 65536,
             },
           });
 
           let text = '';
           let lastReportTime = Date.now();
+          let finishReason: string | undefined;
           for await (const chunk of responseStream) {
             if (signal?.aborted) throw new Error('Aborted');
             const chunkText =
@@ -152,6 +246,11 @@ export async function extractFromPDF<T>(
                 : (chunk as any).text;
             if (chunkText) {
               text += chunkText;
+            }
+            // Capture finishReason from the last chunk
+            const candidates = (chunk as any).candidates;
+            if (candidates?.[0]?.finishReason) {
+              finishReason = candidates[0].finishReason;
             }
             const now = Date.now();
             if (now - lastReportTime > 2000) {
@@ -163,7 +262,10 @@ export async function extractFromPDF<T>(
 
           const genSec = ((Date.now() - tGen) / 1000).toFixed(1);
           const textLen = text?.length ?? 0;
-          onProgress?.(`AI response received (${genSec}s, ${textLen} chars), parsing...`);
+          const truncated = finishReason === 'MAX_TOKENS';
+          onProgress?.(
+            `AI response received (${genSec}s, ${textLen} chars${truncated ? ', TRUNCATED' : ''}, finishReason=${finishReason ?? 'unknown'}), parsing...`,
+          );
 
           if (!text || !text.trim()) {
             return {
@@ -172,31 +274,46 @@ export async function extractFromPDF<T>(
             } as { result: T; warnings: string[] };
           }
 
-          // 5. Parse JSON (try raw first, then cleaned)
+          // 5. Parse JSON (try raw → cleaned → repaired)
           let parsed: T;
+          const warnings: string[] = [];
           try {
             parsed = JSON.parse(text) as T;
           } catch {
             const cleaned = cleanJsonText(text);
             try {
               parsed = JSON.parse(cleaned) as T;
-            } catch (e2) {
-              const preview = text.slice(0, 200);
-              const tail = text.slice(-200);
-              console.error(
-                `[pdf-extractor] JSON parse failed (${textLen} chars). ` +
-                  `Start: ${JSON.stringify(preview)} ... End: ${JSON.stringify(tail)}`,
-              );
-              console.error(`[pdf-extractor] Parse error:`, e2);
-              return {
-                result: [] as unknown as T,
-                warnings: [`Gemini returned invalid JSON (${textLen} chars)`],
-              } as { result: T; warnings: string[] };
+            } catch {
+              // Last resort: attempt structural repair (useful for truncated responses)
+              try {
+                const repaired = repairTruncatedJson(text);
+                parsed = JSON.parse(repaired) as T;
+                warnings.push(
+                  `JSON was repaired (finishReason=${finishReason ?? 'unknown'}, ${textLen} chars)`,
+                );
+              } catch (e3) {
+                const preview = text.slice(0, 200);
+                const tail = text.slice(-200);
+                console.error(
+                  `[pdf-extractor] JSON parse failed (${textLen} chars, finishReason=${finishReason}). ` +
+                    `Start: ${JSON.stringify(preview)} ... End: ${JSON.stringify(tail)}`,
+                );
+                console.error(`[pdf-extractor] Parse error:`, e3);
+                return {
+                  result: [] as unknown as T,
+                  warnings: [
+                    `Gemini returned invalid JSON (${textLen} chars, finishReason=${finishReason ?? 'unknown'})`,
+                  ],
+                } as { result: T; warnings: string[] };
+              }
             }
+          }
+          if (truncated) {
+            warnings.push(`Response was truncated (MAX_TOKENS, ${textLen} chars)`);
           }
 
           onProgress?.(`Extraction complete (total ${elapsed()})`);
-          return { result: parsed, warnings: [] };
+          return { result: parsed, warnings };
         } finally {
           // 6. Cleanup: delete file from Gemini
           try {

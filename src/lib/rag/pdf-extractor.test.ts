@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { cleanJsonText } from './pdf-extractor';
+import { cleanJsonText, repairTruncatedJson } from './pdf-extractor';
 
 vi.mock('server-only', () => ({}));
 
@@ -45,5 +45,57 @@ describe('cleanJsonText', () => {
   it('handles combined BOM + code fence + whitespace', () => {
     const input = '\uFEFF  ```json\n{"ok": true}\n```  ';
     expect(cleanJsonText(input)).toBe('{"ok": true}');
+  });
+});
+
+describe('repairTruncatedJson', () => {
+  it('returns valid JSON unchanged', () => {
+    const json = '{"sections": [{"title": "Intro"}]}';
+    expect(repairTruncatedJson(json)).toBe(json);
+  });
+
+  it('closes unclosed object', () => {
+    const input = '{"sections": [{"title": "Intro"}]';
+    const result = repairTruncatedJson(input);
+    expect(() => JSON.parse(result)).not.toThrow();
+    expect(JSON.parse(result)).toEqual({ sections: [{ title: 'Intro' }] });
+  });
+
+  it('closes unclosed array', () => {
+    const input = '{"items": [1, 2, 3';
+    const result = repairTruncatedJson(input);
+    expect(() => JSON.parse(result)).not.toThrow();
+    expect(JSON.parse(result)).toEqual({ items: [1, 2, 3] });
+  });
+
+  it('closes unclosed string then brackets', () => {
+    const input = '{"sections": [{"title": "Intro", "content": "Some text about';
+    const result = repairTruncatedJson(input);
+    expect(() => JSON.parse(result)).not.toThrow();
+    const parsed = JSON.parse(result);
+    expect(parsed.sections[0].title).toBe('Intro');
+    expect(parsed.sections[0].content).toContain('Some text about');
+  });
+
+  it('repairs deeply nested truncation', () => {
+    const input =
+      '{"sections": [{"title": "A", "kp": [{"title": "B", "content": "C"}]}, {"title": "D", "kp": [{"title": "E"';
+    const result = repairTruncatedJson(input);
+    expect(() => JSON.parse(result)).not.toThrow();
+    const parsed = JSON.parse(result);
+    expect(parsed.sections).toHaveLength(2);
+  });
+
+  it('handles truncation after a complete item in array', () => {
+    const input = '{"sections": [{"title": "A"}, {"title": "B"}';
+    const result = repairTruncatedJson(input);
+    expect(() => JSON.parse(result)).not.toThrow();
+    expect(JSON.parse(result).sections).toHaveLength(2);
+  });
+
+  it('handles string with escaped quotes', () => {
+    const input = '{"text": "He said \\"hello\\"", "more": "val';
+    const result = repairTruncatedJson(input);
+    expect(() => JSON.parse(result)).not.toThrow();
   });
 });
