@@ -1,5 +1,62 @@
 import { describe, expect, it } from 'vitest';
-import { fixIncompleteMarkdown } from './markdown-utils';
+import { fixIncompleteMarkdown, normalizeMathDelimiters } from './markdown-utils';
+
+describe('normalizeMathDelimiters', () => {
+  it('should convert \\(...\\) to $...$', () => {
+    expect(normalizeMathDelimiters('The value is \\(x^2\\).')).toBe('The value is $x^2$.');
+  });
+
+  it('should convert \\[...\\] to $$...$$', () => {
+    expect(normalizeMathDelimiters('Block: \\[x + 1\\]')).toBe('Block: $$x + 1$$');
+  });
+
+  it('should wrap bare subscripts in $...$', () => {
+    expect(normalizeMathDelimiters('binary 1101_2')).toBe('binary $1101_2$');
+  });
+
+  it('should wrap bare backslash commands in $...$', () => {
+    expect(normalizeMathDelimiters('value \\frac{1}{2} end')).toBe('value $\\frac{1}{2}$ end');
+  });
+
+  it('should not double-wrap already delimited math', () => {
+    expect(normalizeMathDelimiters('$x^2$ and $\\frac{1}{2}$')).toBe('$x^2$ and $\\frac{1}{2}$');
+  });
+
+  it('should wrap \\begin{array}...\\end{array} in $$ block math', () => {
+    const input = 'Result:\n\\begin{array}{c} 1 \\\\ 2 \\end{array}\nDone.';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toContain('$$\\begin{array}{c} 1 \\\\ 2 \\end{array}$$');
+  });
+
+  it('should wrap \\begin{cases}...\\end{cases} in $$ block math', () => {
+    const input = '\\begin{cases} x & y \\\\ a & b \\end{cases}';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('$$\\begin{cases} x & y \\\\ a & b \\end{cases}$$');
+  });
+
+  it('should not wrap environments already inside $...$', () => {
+    const input = '$\\begin{array}{c} 1 \\end{array}$';
+    expect(normalizeMathDelimiters(input)).toBe(input);
+  });
+
+  it('should not wrap environments already inside $$...$$', () => {
+    const input = '$$\\begin{array}{c} 1 \\end{array}$$';
+    expect(normalizeMathDelimiters(input)).toBe(input);
+  });
+
+  it('should handle binary addition array from Gemini', () => {
+    const input =
+      '\\begin{array}{c} 1111 & \\text{(carries)} \\\\ 1101 & \\\\ + 1011 & \\\\ \\hline 11000 & \\\\ \\end{array}';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toMatch(/^\$\$\\begin\{array\}/);
+    expect(result).toMatch(/\\end\{array\}\$\$$/);
+  });
+
+  it('should not touch math inside code blocks', () => {
+    const input = '```\n\\frac{1}{2}\n```';
+    expect(normalizeMathDelimiters(input)).toBe(input);
+  });
+});
 
 describe('fixIncompleteMarkdown', () => {
   it('should not modify complete markdown', () => {

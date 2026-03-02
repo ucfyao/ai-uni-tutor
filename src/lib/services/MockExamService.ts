@@ -637,7 +637,7 @@ Return JSON with these exact fields:
 {
   "is_correct": true/false,
   "score": (number from 0 to ${question.points}),
-  "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$."
+  "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$. Use $$...$$ for environments like \\begin{array}...\\end{array}. Never leave bare LaTeX outside delimiters."
 }`;
 
       const response = await getDefaultPool().withRetry(
@@ -802,7 +802,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
   {
     "is_correct": true/false,
     "score": (number from 0 to the question's maximum points),
-    "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$."
+    "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$. Use $$...$$ for environments like \\begin{array}...\\end{array}. Never leave bare LaTeX outside delimiters."
   },
   ...
 ]`;

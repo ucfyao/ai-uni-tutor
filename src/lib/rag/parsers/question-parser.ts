@@ -44,7 +44,7 @@ For each question, extract:
 - parentIndex: If this is a sub-question (like (a), (b), (i), (ii)), the 0-based index of its parent in the results array. null for top-level questions.
 - options: Array of answer options if it's a multiple choice question (omit if not MC)
 - referenceAnswer: The reference answer or solution if provided in the document (omit if not found). For "choice" or "true_false" questions, use comma-separated option keys (e.g. "A" for single, "A,C" for multiple correct answers)
-- explanation: Step-by-step solution explanation if provided in the document (omit if not found)
+- explanation: Step-by-step solution explanation if provided in the document (omit if not found). Use KaTeX for math: $...$ inline, $$...$$ block. Use $$...$$ for environments like \\begin{array}...\\end{array}
 - score: Points/marks allocated if shown (omit if not shown)
 - sourcePage: The page number where the question appears
 
