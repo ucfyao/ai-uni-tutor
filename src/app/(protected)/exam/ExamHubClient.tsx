@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Play, Plus, RotateCcw, Search, Target, Trash2, Trophy } from 'lucide-react';
+import { Clock, Play, Plus, RotateCcw, Search, Target, Trash2, Trophy, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import {
@@ -14,12 +14,12 @@ import {
   Stack,
   Table,
   Text,
+  TextInput,
   Title,
   Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { deleteMockExam, retakeMockExam } from '@/app/actions/mock-exams';
-import { ExamFilterBar } from '@/components/exam/ExamFilterBar';
 import { getDocColor } from '@/constants/doc-types';
 import { useExamFilters } from '@/hooks/useExamFilters';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -43,10 +43,6 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
   const {
     searchInput,
     setSearchInput,
-    status,
-    setStatus,
-    difficulty,
-    setDifficulty,
     clearAll,
     filteredInProgress,
     filteredCompleted,
@@ -141,29 +137,39 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
               {t.exam.startExamSubtitle}
             </Text>
           </Box>
-          <Button
-            leftSection={<Plus size={18} />}
-            variant="gradient"
-            gradient={{ from: `${examColor}.7`, to: `${examColor}.4` }}
-            radius="md"
-            size="md"
-            onClick={() => setCreateModalOpen(true)}
-          >
-            {t.exam.newMock}
-          </Button>
+          <Group gap="sm">
+            <TextInput
+              placeholder={t.exam.searchExams}
+              leftSection={<Search size={16} />}
+              size="sm"
+              w={220}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.currentTarget.value)}
+              rightSection={
+                searchInput ? (
+                  <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    color="gray"
+                    onClick={() => setSearchInput('')}
+                  >
+                    <X size={14} />
+                  </ActionIcon>
+                ) : null
+              }
+            />
+            <Button
+              leftSection={<Plus size={18} />}
+              variant="gradient"
+              gradient={{ from: `${examColor}.7`, to: `${examColor}.4` }}
+              radius="md"
+              size="md"
+              onClick={() => setCreateModalOpen(true)}
+            >
+              {t.exam.newMock}
+            </Button>
+          </Group>
         </Group>
-
-        {/* Filter bar */}
-        <ExamFilterBar
-          searchInput={searchInput}
-          onSearchChange={setSearchInput}
-          status={status}
-          onStatusChange={setStatus}
-          difficulty={difficulty}
-          onDifficultyChange={setDifficulty}
-          hasActiveFilters={hasActiveFilters}
-          onClearAll={clearAll}
-        />
 
         {/* In-progress section */}
         {filteredInProgress.length > 0 && (
