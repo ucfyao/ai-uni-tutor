@@ -19,11 +19,34 @@ export function normalizeMathDelimiters(content: string): string {
       parts[i] = parts[i].replace(/\\\[([\s\S]*?)\\\]/g, '$$$$$1$$$$');
       // Inline math: \(...\) → $...$
       parts[i] = parts[i].replace(/\\\((.*?)\\\)/g, '$$$1$$');
+      // Environment pairs: \begin{env}...\end{env} → $$...$$ (block math)
+      // Must run BEFORE wrapBareLaTeX so the $$...$$ is recognized as math
+      parts[i] = wrapBareEnvironments(parts[i]);
       // Bare LaTeX outside $...$: wrap in $...$
       parts[i] = wrapBareLaTeX(parts[i]);
     }
   }
   return parts.join('');
+}
+
+/**
+ * Wrap bare \begin{env}...\end{env} pairs (outside existing $/$$ delimiters)
+ * in $$...$$ block math. Must run before wrapBareLaTeX so the resulting $$
+ * delimiters are correctly recognized as math regions.
+ */
+function wrapBareEnvironments(text: string): string {
+  // Split into math ($...$, $$...$$) and non-math segments
+  const segments = text.split(/(\$\$[\s\S]*?\$\$|\$[^$]*?\$)/g);
+
+  for (let i = 0; i < segments.length; i++) {
+    if (i % 2 === 0 && segments[i]) {
+      segments[i] = segments[i].replace(
+        /\\begin\{([^}]+)\}[\s\S]*?\\end\{\1\}/g,
+        (match) => `$$${match}$$`,
+      );
+    }
+  }
+  return segments.join('');
 }
 
 /**
