@@ -1,7 +1,8 @@
 'use client';
 
 import {
-  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Play,
   Plus,
@@ -271,38 +272,26 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                 {filteredCompleted.length}
               </Badge>
             </Group>
-            <Group gap="xs">
-              <Tooltip label={sortOrder === 'newest' ? t.exam.newestFirst : t.exam.oldestFirst}>
-                <ActionIcon
-                  variant={sortOrder === 'oldest' ? 'light' : 'subtle'}
-                  color="gray"
-                  size="md"
-                  onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
-                >
-                  <ArrowUpDown size={16} />
-                </ActionIcon>
-              </Tooltip>
-              <TextInput
-                placeholder={t.exam.searchExams}
-                leftSection={<Search size={16} />}
-                size="xs"
-                w={200}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.currentTarget.value)}
-                rightSection={
-                  searchInput ? (
-                    <ActionIcon
-                      size="xs"
-                      variant="subtle"
-                      color="gray"
-                      onClick={() => setSearchInput('')}
-                    >
-                      <X size={12} />
-                    </ActionIcon>
-                  ) : null
-                }
-              />
-            </Group>
+            <TextInput
+              placeholder={t.exam.searchExams}
+              leftSection={<Search size={16} />}
+              size="xs"
+              w={200}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.currentTarget.value)}
+              rightSection={
+                searchInput ? (
+                  <ActionIcon
+                    size="xs"
+                    variant="subtle"
+                    color="gray"
+                    onClick={() => setSearchInput('')}
+                  >
+                    <X size={12} />
+                  </ActionIcon>
+                ) : null
+              }
+            />
           </Group>
 
           {filteredCompleted.length === 0 &&
@@ -360,7 +349,19 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                     <Table.Th>{t.exam.answerMode}</Table.Th>
                     <Table.Th ta="center">{t.exam.questions}</Table.Th>
                     <Table.Th ta="center">{t.exam.score}</Table.Th>
-                    <Table.Th>{t.knowledge.date}</Table.Th>
+                    <Table.Th
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+                    >
+                      <Group gap={4} wrap="nowrap">
+                        {t.knowledge.date}
+                        {sortOrder === 'newest' ? (
+                          <ChevronDown size={14} />
+                        ) : (
+                          <ChevronUp size={14} />
+                        )}
+                      </Group>
+                    </Table.Th>
                     <Table.Th ta="center" />
                   </Table.Tr>
                 </Table.Thead>
