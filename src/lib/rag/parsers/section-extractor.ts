@@ -56,7 +56,8 @@ Rules:
 Return ONLY a valid JSON object with a "sections" array. No markdown, no explanation.
 - IMPORTANT: All mathematical formulas MUST be wrapped in LaTeX delimiters:
   - Inline formulas: $ formula $
-  - Block formulas: $$ formula $$`;
+  - Block formulas: $$ formula $$
+- IMPORTANT: Inside JSON strings, backslashes MUST be escaped as \\\\. For example, LaTeX "\\alpha" must be written as "\\\\alpha" in JSON.`;
 }
 
 /**
