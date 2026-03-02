@@ -5,12 +5,6 @@
  * Orchestrates repositories and embedding generation.
  */
 
-import type {
-  CardConversationEntity,
-  CreateCardConversationDTO,
-} from '@/lib/domain/models/CardConversation';
-import type { KnowledgeCardEntity, KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
-import type { CreateUserCardDTO, UserCardEntity } from '@/lib/domain/models/UserCard';
 import { generateEmbeddingBatch } from '@/lib/rag/embedding';
 import type { KnowledgePoint } from '@/lib/rag/parsers/types';
 import {
@@ -21,6 +15,9 @@ import {
 import type { CardConversationRepository } from '@/lib/repositories/CardConversationRepository';
 import type { KnowledgeCardRepository } from '@/lib/repositories/KnowledgeCardRepository';
 import type { UserCardRepository } from '@/lib/repositories/UserCardRepository';
+import type { CardConversationEntity, CreateCardConversationDTO } from '@/types/card-conversation';
+import type { KnowledgeCardEntity, KnowledgeCardSummary } from '@/types/knowledge-card';
+import type { CreateUserCardDTO, UserCardEntity } from '@/types/user-card';
 
 export class KnowledgeCardService {
   private readonly knowledgeCardRepo: KnowledgeCardRepository;

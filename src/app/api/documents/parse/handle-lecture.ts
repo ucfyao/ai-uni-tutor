@@ -1,7 +1,7 @@
-import type { CreateLectureChunkDTO } from '@/lib/domain/models/Document';
 import { RAG_CONFIG } from '@/lib/rag/config';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
 import type { Json } from '@/types/database';
+import type { CreateLectureChunkDTO } from '@/types/document';
 import { sendGeminiError, type PipelineContext } from './types';
 
 export async function handleLecturePipeline(ctx: PipelineContext): Promise<void> {

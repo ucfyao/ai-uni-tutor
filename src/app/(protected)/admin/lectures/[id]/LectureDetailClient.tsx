@@ -36,10 +36,10 @@ import { DOC_TYPES, getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { DocumentStatus } from '@/lib/domain/models/Document';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import type { Json } from '@/types/database';
+import type { DocumentStatus } from '@/types/document';
 
 interface Chunk {
   id: string;

@@ -1,7 +1,7 @@
 import type { ICourseRepository } from '@/lib/domain/interfaces/ICourseRepository';
-import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/lib/domain/models/Course';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
+import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/types/course-entity';
 import type { Database, Json } from '@/types/database';
 
 type CourseRow = Database['public']['Tables']['courses']['Row'];

@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MessageEntity } from '@/lib/domain/models/Message';
+import type { MessageEntity } from '@/types/message';
 
 // ── Mocks ──
 

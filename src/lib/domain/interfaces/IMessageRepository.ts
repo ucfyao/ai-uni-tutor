@@ -2,7 +2,7 @@
  * Repository Interface - Message Repository
  */
 
-import type { CreateMessageDTO, MessageEntity } from '../models/Message';
+import type { CreateMessageDTO, MessageEntity } from '@/types/message';
 
 export interface IMessageRepository {
   findBySessionId(sessionId: string): Promise<MessageEntity[]>;

@@ -5,7 +5,7 @@
  */
 
 import type { Json } from '@/types/database';
-import type { CreateLectureChunkDTO, LectureChunkEntity } from '../models/Document';
+import type { CreateLectureChunkDTO, LectureChunkEntity } from '@/types/document';
 
 export interface ILectureChunkRepository {
   createBatch(chunks: CreateLectureChunkDTO[]): Promise<void>;

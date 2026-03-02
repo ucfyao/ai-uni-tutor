@@ -6,15 +6,10 @@
  */
 
 import type { IProfileRepository } from '@/lib/domain/interfaces/IProfileRepository';
-import type {
-  ProfileEntity,
-  SubscriptionInfo,
-  UpdateProfileDTO,
-  UserRole,
-} from '@/lib/domain/models/Profile';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
+import type { ProfileEntity, SubscriptionInfo, UpdateProfileDTO, UserRole } from '@/types/profile';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 

@@ -4,13 +4,13 @@
  * Business logic for admin role management and course permission assignment.
  */
 
-import type { CourseEntity } from '@/lib/domain/models/Course';
-import type { ProfileEntity, UserRole } from '@/lib/domain/models/Profile';
 import { ForbiddenError } from '@/lib/errors';
 import { getProfileRepository } from '@/lib/repositories';
 import { getAdminRepository } from '@/lib/repositories/AdminRepository';
 import type { AdminRepository } from '@/lib/repositories/AdminRepository';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
+import type { CourseEntity } from '@/types/course-entity';
+import type { ProfileEntity, UserRole } from '@/types/profile';
 
 export class AdminService {
   private readonly adminRepo: AdminRepository;

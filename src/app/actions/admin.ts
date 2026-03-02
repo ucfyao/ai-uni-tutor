@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { ProfileEntity } from '@/lib/domain/models/Profile';
 import { mapError } from '@/lib/errors';
 import { getAdminService } from '@/lib/services/AdminService';
 import { requireSuperAdmin } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
+import type { ProfileEntity } from '@/types/profile';
 
 // ============================================================================
 // Types

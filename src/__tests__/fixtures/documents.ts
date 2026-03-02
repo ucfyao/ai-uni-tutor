@@ -5,7 +5,7 @@
  * and the lecture_documents / lecture_chunks table Rows from src/types/database.ts.
  */
 
-import type { LectureChunkEntity, LectureDocumentEntity } from '@/lib/domain/models/Document';
+import type { LectureChunkEntity, LectureDocumentEntity } from '@/types/document';
 
 /* ---------- Database rows (snake_case) ---------- */
 

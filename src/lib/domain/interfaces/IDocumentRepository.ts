@@ -5,8 +5,8 @@
  */
 
 import type { Json } from '@/types/database';
-import type { CreateLectureDocumentDTO, LectureDocumentEntity } from '../models/Document';
-import type { PaginatedResult, PaginationOptions } from '../models/Pagination';
+import type { CreateLectureDocumentDTO, LectureDocumentEntity } from '@/types/document';
+import type { PaginatedResult, PaginationOptions } from '@/types/pagination';
 
 export interface ILectureDocumentRepository {
   findByUserId(userId: string): Promise<LectureDocumentEntity[]>;

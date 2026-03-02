@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ForbiddenError } from '@/lib/errors';
+import type { LectureChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
+import type { LectureDocumentRepository } from '@/lib/repositories/DocumentRepository';
 import type {
   CreateLectureChunkDTO,
   LectureChunkEntity,
   LectureDocumentEntity,
-} from '@/lib/domain/models/Document';
-import { ForbiddenError } from '@/lib/errors';
-import type { LectureChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
-import type { LectureDocumentRepository } from '@/lib/repositories/DocumentRepository';
+} from '@/types/document';
 import { LectureDocumentService } from './DocumentService';
 
 // ---------------------------------------------------------------------------

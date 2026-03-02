@@ -5,13 +5,9 @@
  * Uses ProfileRepository for data access.
  */
 
-import type {
-  ProfileEntity,
-  SubscriptionInfo,
-  UpdateProfileDTO,
-} from '@/lib/domain/models/Profile';
 import { getProfileRepository } from '@/lib/repositories';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
+import type { ProfileEntity, SubscriptionInfo, UpdateProfileDTO } from '@/types/profile';
 
 export class ProfileService {
   private readonly profileRepo: ProfileRepository;

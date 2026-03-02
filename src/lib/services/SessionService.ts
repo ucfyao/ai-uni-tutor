@@ -5,7 +5,6 @@
  * Uses Repositories for data access and encapsulates all session-related logic.
  */
 
-import type { MessageEntity } from '@/lib/domain/models/Message';
 import { ForbiddenError } from '@/lib/errors';
 import { getMessageRepository, getSessionRepository } from '@/lib/repositories';
 import { inferParentChain, type MessageRepository } from '@/lib/repositories/MessageRepository';
@@ -13,6 +12,7 @@ import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
 import { getCourseService } from '@/lib/services/CourseService';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types';
+import type { MessageEntity } from '@/types/message';
 
 /** Helper: convert MessageEntity to ChatMessage */
 function toChat(m: MessageEntity): ChatMessage {

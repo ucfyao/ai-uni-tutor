@@ -6,10 +6,10 @@
  */
 
 import type { ILectureChunkRepository } from '@/lib/domain/interfaces/IDocumentChunkRepository';
-import type { CreateLectureChunkDTO, LectureChunkEntity } from '@/lib/domain/models/Document';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
+import type { CreateLectureChunkDTO, LectureChunkEntity } from '@/types/document';
 
 export class LectureChunkRepository implements ILectureChunkRepository {
   private sortBySourcePages(chunks: LectureChunkEntity[]): LectureChunkEntity[] {

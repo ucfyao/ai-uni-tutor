@@ -33,8 +33,12 @@ import { modals } from '@mantine/modals';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { AssignmentItemEntity, AssignmentItemTree } from '@/lib/domain/models/Assignment';
-import { buildItemTree, computeDisplayLabels } from '@/lib/domain/models/Assignment';
+import {
+  buildItemTree,
+  computeDisplayLabels,
+  type AssignmentItemTree,
+} from '@/lib/utils/assignment-tree';
+import type { AssignmentItemEntity } from '@/types/assignment';
 
 const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {
   ssr: false,

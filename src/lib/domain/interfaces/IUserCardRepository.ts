@@ -1,4 +1,4 @@
-import type { CreateUserCardDTO, UserCardEntity } from '../models/UserCard';
+import type { CreateUserCardDTO, UserCardEntity } from '@/types/user-card';
 
 export interface IUserCardRepository {
   findByUserId(userId: string): Promise<UserCardEntity[]>;
