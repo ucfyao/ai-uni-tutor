@@ -1,4 +1,4 @@
-import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/lib/domain/models/Course';
+import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/types/course-entity';
 
 export interface ICourseRepository {
   findAll(): Promise<CourseEntity[]>;

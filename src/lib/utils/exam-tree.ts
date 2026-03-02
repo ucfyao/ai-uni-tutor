@@ -1,7 +1,3 @@
-/**
- * Domain Models - Exam Entity
- */
-
 import type { ExamQuestion } from '@/types/exam';
 
 export interface ExamQuestionTree extends ExamQuestion {

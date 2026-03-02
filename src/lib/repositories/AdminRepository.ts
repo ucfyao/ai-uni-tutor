@@ -4,9 +4,9 @@
  * Handles admin course assignments and user role queries.
  */
 
-import type { CourseEntity } from '@/lib/domain/models/Course';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
+import type { CourseEntity } from '@/types/course-entity';
 
 export class AdminRepository {
   async assignCourse(adminId: string, courseId: string, assignedBy: string): Promise<void> {

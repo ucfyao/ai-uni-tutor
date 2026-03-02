@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CourseEntity } from '@/lib/domain/models/Course';
-import type { ProfileEntity } from '@/lib/domain/models/Profile';
 import { ForbiddenError } from '@/lib/errors';
 import type { AdminRepository } from '@/lib/repositories/AdminRepository';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
+import type { CourseEntity } from '@/types/course-entity';
+import type { ProfileEntity } from '@/types/profile';
 import { AdminService } from './AdminService';
 
 // ---------- Mock repositories ----------

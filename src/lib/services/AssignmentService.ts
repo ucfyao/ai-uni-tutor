@@ -5,13 +5,13 @@
  * Uses AssignmentRepository for data access.
  */
 
-import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
 import {
   getAssignmentRepository,
   type AssignmentRepository,
 } from '@/lib/repositories/AssignmentRepository';
+import type { AssignmentEntity, AssignmentItemEntity } from '@/types/assignment';
 
 export class AssignmentService {
   private readonly repo: AssignmentRepository;

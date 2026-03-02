@@ -17,7 +17,7 @@ import {
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { PLACEHOLDERS } from '@/constants/placeholders';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
+import type { CardConversationEntity } from '@/types/card-conversation';
 
 const MarkdownRenderer = dynamic(() => import('../MarkdownRenderer'), {
   ssr: false,

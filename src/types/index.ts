@@ -1,44 +1,15 @@
-export type Course = {
-  id: string;
-  universityId: string;
-  code: string;
-  name: string;
-};
-
-export type TutoringMode = 'Lecture Helper' | 'Assignment Coach' | 'Mock Exam';
-
-export interface ChatSource {
-  documentName: string;
-  pages: number[];
-  similarity: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: number;
-  images?: {
-    data: string; // base64
-    mimeType: string;
-  }[];
-  sources?: ChatSource[];
-  parentMessageId?: string | null;
-}
-
-export interface ChatSession {
-  id: string;
-  course: Course | null;
-  mode: TutoringMode | null;
-  title: string;
-  messages: ChatMessage[];
-  lastUpdated: number;
-  isPinned?: boolean;
-  isShared?: boolean;
-  /** Mock exam ID for Mock Exam sessions (used for sidebar active-state matching) */
-  mockId?: string;
-  /** Fork points: parentMessageId → ordered child IDs (only parents with >1 child) */
-  siblingsMap?: Record<string, string[]>;
-}
-
+export * from './base';
+export * from './session';
+export * from './message';
+export * from './document';
+export * from './profile';
+export * from './knowledge-card';
+export * from './user-card';
+export * from './card-conversation';
+export * from './assignment';
+export * from './pagination';
+export * from './university';
+export * from './course-entity';
+export * from './actions';
+export * from './writing';
 export type { ExamPaper, ExamQuestion, MockExam, MockExamQuestion, MockExamResponse } from './exam';

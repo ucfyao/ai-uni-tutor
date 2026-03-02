@@ -18,8 +18,8 @@ import {
   dbError,
   type MockSupabaseResult,
 } from '@/__tests__/helpers/mockSupabase';
-import type { MessageEntity } from '@/lib/domain/models/Message';
 import { DatabaseError } from '@/lib/errors';
+import type { MessageEntity } from '@/types/message';
 
 // ── Mocks ──
 

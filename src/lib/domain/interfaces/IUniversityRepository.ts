@@ -2,7 +2,7 @@ import type {
   CreateUniversityDTO,
   UniversityEntity,
   UpdateUniversityDTO,
-} from '@/lib/domain/models/University';
+} from '@/types/university';
 
 export interface IUniversityRepository {
   findAll(): Promise<UniversityEntity[]>;

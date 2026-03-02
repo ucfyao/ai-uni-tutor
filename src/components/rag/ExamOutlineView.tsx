@@ -34,8 +34,8 @@ import { modals } from '@mantine/modals';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { ExamQuestionTree } from '@/lib/domain/models/Exam';
-import { buildQuestionTree, computeDisplayLabels } from '@/lib/domain/models/Exam';
+import type { ExamQuestionTree } from '@/lib/utils/exam-tree';
+import { buildQuestionTree, computeDisplayLabels } from '@/lib/utils/exam-tree';
 import type { ExamQuestion } from '@/types/exam';
 
 const MarkdownRenderer = dynamic(() => import('@/components/MarkdownRenderer'), {

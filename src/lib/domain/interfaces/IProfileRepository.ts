@@ -4,7 +4,7 @@
  * Defines the contract for profile data access operations.
  */
 
-import type { ProfileEntity, SubscriptionInfo, UpdateProfileDTO } from '../models/Profile';
+import type { ProfileEntity, SubscriptionInfo, UpdateProfileDTO } from '@/types/profile';
 
 export interface IProfileRepository {
   findById(id: string): Promise<ProfileEntity | null>;

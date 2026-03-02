@@ -5,7 +5,7 @@
  * Implementations can use Supabase, Prisma, or any other data store.
  */
 
-import type { CreateSessionDTO, SessionEntity, UpdateSessionDTO } from '../models/Session';
+import type { CreateSessionDTO, SessionEntity, UpdateSessionDTO } from '@/types/session';
 
 export interface ISessionRepository {
   // Read operations

@@ -5,7 +5,7 @@
  * Independent of database implementation.
  */
 
-import { TutoringMode } from '@/types';
+import { TutoringMode } from './base';
 
 export interface SessionEntity {
   id: string;

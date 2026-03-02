@@ -3,14 +3,14 @@
  */
 
 import type { IAssignmentRepository } from '@/lib/domain/interfaces/IAssignmentRepository';
+import { DatabaseError } from '@/lib/errors';
+import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
+import { createClient } from '@/lib/supabase/server';
 import type {
   AssignmentEntity,
   AssignmentItemEntity,
   MatchedAssignmentItem,
-} from '@/lib/domain/models/Assignment';
-import { DatabaseError } from '@/lib/errors';
-import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
-import { createClient } from '@/lib/supabase/server';
+} from '@/types/assignment';
 import type { Database, Json } from '@/types/database';
 
 export type { MatchedAssignmentItem };
@@ -512,9 +512,7 @@ export class AssignmentRepository implements IAssignmentRepository {
     if (error) throw new DatabaseError(`Failed to move item: ${error.message}`, error);
   }
 
-  async getStats(
-    assignmentIds: string[],
-  ): Promise<
+  async getStats(assignmentIds: string[]): Promise<
     Map<
       string,
       {

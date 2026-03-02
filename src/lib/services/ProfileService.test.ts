@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  ProfileEntity,
-  SubscriptionInfo,
-  UpdateProfileDTO,
-} from '@/lib/domain/models/Profile';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
+import type { ProfileEntity, SubscriptionInfo, UpdateProfileDTO } from '@/types/profile';
 import { ProfileService } from './ProfileService';
 
 // ---------- Mock repository ----------

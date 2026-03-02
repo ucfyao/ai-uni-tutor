@@ -6,9 +6,9 @@
  */
 
 import type { IMessageRepository } from '@/lib/domain/interfaces/IMessageRepository';
-import type { CreateMessageDTO, MessageEntity } from '@/lib/domain/models/Message';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
+import type { CreateMessageDTO, MessageEntity } from '@/types/message';
 
 // Database row type
 interface MessageRow {

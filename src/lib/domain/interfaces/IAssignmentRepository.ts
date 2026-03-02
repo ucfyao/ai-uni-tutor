@@ -7,7 +7,7 @@ import type {
   AssignmentItemEntity,
   CreateAssignmentItemDTO,
   MatchedAssignmentItem,
-} from '@/lib/domain/models/Assignment';
+} from '@/types/assignment';
 
 export interface IAssignmentRepository {
   create(data: {

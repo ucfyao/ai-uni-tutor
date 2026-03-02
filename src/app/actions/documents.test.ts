@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LectureDocumentEntity } from '@/lib/domain/models/Document';
 import { ForbiddenError } from '@/lib/errors';
+import type { LectureDocumentEntity } from '@/types/document';
 
 // ---------------------------------------------------------------------------
 // Mocks

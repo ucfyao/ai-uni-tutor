@@ -1,11 +1,11 @@
 'use server';
 
 import { z } from 'zod';
-import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { ForbiddenError } from '@/lib/errors';
 import { getAssignmentService } from '@/lib/services/AssignmentService';
 import { requireAnyAdmin, requireAssignmentAccess } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
+import type { AssignmentItemEntity } from '@/types/assignment';
 
 // ── Schemas ──
 
@@ -345,7 +345,6 @@ export async function splitAssignmentItem(
 }
 
 // ── Assignment Stats ──
-
 
 // ── Batch Answer Matching ──
 

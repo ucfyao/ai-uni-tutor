@@ -1,13 +1,13 @@
 import { CACHE_KEYS, CACHE_TTL, cachedGet, invalidateCache } from '@/lib/cache';
-import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/lib/domain/models/Course';
+import { getCourseRepository, getUniversityRepository } from '@/lib/repositories';
+import type { CourseRepository } from '@/lib/repositories/CourseRepository';
+import type { UniversityRepository } from '@/lib/repositories/UniversityRepository';
+import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/types/course-entity';
 import type {
   CreateUniversityDTO,
   UniversityEntity,
   UpdateUniversityDTO,
-} from '@/lib/domain/models/University';
-import { getCourseRepository, getUniversityRepository } from '@/lib/repositories';
-import type { CourseRepository } from '@/lib/repositories/CourseRepository';
-import type { UniversityRepository } from '@/lib/repositories/UniversityRepository';
+} from '@/types/university';
 
 export class CourseService {
   private readonly uniRepo: UniversityRepository;
