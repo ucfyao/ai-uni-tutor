@@ -229,7 +229,7 @@ export async function extractFromPDF<T>(
           // 4. Single generateContent call: fileData + extraction prompt → JSON
           onProgress?.(`AI analyzing document content (model: ${GEMINI_MODELS.parse})...`);
           const tGen = Date.now();
-          const responseStream = await genAI.models.generateContentStream({
+          const response = await genAI.models.generateContent({
             model: GEMINI_MODELS.parse,
             contents: [
               {
@@ -252,39 +252,16 @@ export async function extractFromPDF<T>(
             },
           });
 
-          let text = '';
-          let lastReportTime = Date.now();
-          let finishReason: string | undefined;
-          for await (const chunk of responseStream) {
-            if (signal?.aborted) throw new Error('Aborted');
-            const chunkText =
-              typeof (chunk as any).text === 'function'
-                ? (chunk as any).text()
-                : (chunk as any).text;
-            if (chunkText) {
-              text += chunkText;
-            }
-            // Capture finishReason from the last chunk
-            const candidates = (chunk as any).candidates;
-            if (candidates?.[0]?.finishReason) {
-              finishReason = candidates[0].finishReason;
-            }
-            const now = Date.now();
-            if (now - lastReportTime > 2000) {
-              const genSec = ((now - tGen) / 1000).toFixed(1);
-              onProgress?.(`AI streaming response... (${genSec}s, ${text.length} chars)`);
-              lastReportTime = now;
-            }
-          }
-
+          const text = response.text ?? '';
+          const finishReason = response.candidates?.[0]?.finishReason;
           const genSec = ((Date.now() - tGen) / 1000).toFixed(1);
-          const textLen = text?.length ?? 0;
+          const textLen = text.length;
           const truncated = finishReason === 'MAX_TOKENS';
           onProgress?.(
             `AI response received (${genSec}s, ${textLen} chars${truncated ? ', TRUNCATED' : ''}, finishReason=${finishReason ?? 'unknown'}), parsing...`,
           );
 
-          if (!text || !text.trim()) {
+          if (!text.trim()) {
             return {
               result: [] as unknown as T,
               warnings: ['Gemini returned empty response'],
