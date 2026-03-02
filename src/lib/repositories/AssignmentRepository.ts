@@ -2,7 +2,6 @@
  * Assignment Repository Implementation
  */
 
-import type { IAssignmentRepository } from '@/lib/domain/interfaces/IAssignmentRepository';
 import { DatabaseError } from '@/lib/errors';
 import type { AssignmentMetadata } from '@/lib/rag/parsers/types';
 import { createClient } from '@/lib/supabase/server';
@@ -58,7 +57,7 @@ function sortBySourcePages(items: AssignmentItemEntity[]): AssignmentItemEntity[
   });
 }
 
-export class AssignmentRepository implements IAssignmentRepository {
+export class AssignmentRepository {
   async create(data: {
     userId: string;
     title: string;

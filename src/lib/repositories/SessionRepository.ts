@@ -5,7 +5,6 @@
  * Handles all session-related database operations.
  */
 
-import type { ISessionRepository } from '@/lib/domain/interfaces/ISessionRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
@@ -26,7 +25,7 @@ interface SessionRow {
   updated_at: string;
 }
 
-export class SessionRepository implements ISessionRepository {
+export class SessionRepository {
   /**
    * Map database row to domain entity
    */

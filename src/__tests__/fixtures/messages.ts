@@ -1,7 +1,7 @@
 /**
  * Test Fixtures - Messages
  *
- * Matches MessageEntity from src/lib/domain/models/Message.ts
+ * Matches MessageEntity from src/types/message.ts
  * and the chat_messages table Row from src/types/database.ts.
  */
 

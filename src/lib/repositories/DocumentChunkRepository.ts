@@ -5,13 +5,12 @@
  * Handles lecture_chunks table operations.
  */
 
-import type { ILectureChunkRepository } from '@/lib/domain/interfaces/IDocumentChunkRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 import type { CreateLectureChunkDTO, LectureChunkEntity } from '@/types/document';
 
-export class LectureChunkRepository implements ILectureChunkRepository {
+export class LectureChunkRepository {
   private sortBySourcePages(chunks: LectureChunkEntity[]): LectureChunkEntity[] {
     return chunks.sort((a, b) => {
       const metaA = a.metadata as Record<string, unknown>;

@@ -5,7 +5,6 @@
  * Handles all message-related database operations.
  */
 
-import type { IMessageRepository } from '@/lib/domain/interfaces/IMessageRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { CreateMessageDTO, MessageEntity } from '@/types/message';
@@ -90,7 +89,7 @@ export function buildPathFromChildren(
   return path;
 }
 
-export class MessageRepository implements IMessageRepository {
+export class MessageRepository {
   /**
    * Map database row to domain entity
    */

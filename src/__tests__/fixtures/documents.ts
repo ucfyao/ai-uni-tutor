@@ -1,7 +1,7 @@
 /**
  * Test Fixtures - Lecture Documents & Lecture Chunks
  *
- * Matches LectureDocumentEntity and LectureChunkEntity from src/lib/domain/models/Document.ts
+ * Matches LectureDocumentEntity and LectureChunkEntity from src/types/document.ts
  * and the lecture_documents / lecture_chunks table Rows from src/types/database.ts.
  */
 

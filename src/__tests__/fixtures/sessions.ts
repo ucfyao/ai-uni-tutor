@@ -1,7 +1,7 @@
 /**
  * Test Fixtures - Sessions
  *
- * Matches SessionEntity from src/lib/domain/models/Session.ts
+ * Matches SessionEntity from src/types/session.ts
  * and the chat_sessions table Row from src/types/database.ts.
  */
 
