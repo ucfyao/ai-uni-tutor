@@ -628,7 +628,6 @@ Question: ${question.content}
 Question type: ${question.type}
 ${question.options ? `Options: ${JSON.stringify(question.options)}` : ''}
 Correct answer: ${question.answer}
-Explanation: ${question.explanation}
 Maximum points: ${question.points}
 
 Student's answer: ${userAnswer}
@@ -637,7 +636,7 @@ Return JSON with these exact fields:
 {
   "is_correct": true/false,
   "score": (number from 0 to ${question.points}),
-  "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$. Use $$...$$ for environments like \\begin{array}...\\end{array}. Never leave bare LaTeX outside delimiters."
+  "feedback": "STRICTLY 2-3 short sentences ONLY. Say what the student got wrong (or that they didn't answer), name the key concept, and give one actionable study tip. Do NOT restate the solution steps — the full explanation is shown separately. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$. Use $$...$$ for \\begin{} environments."
 }`;
 
       const response = await getDefaultPool().withRetry(
@@ -787,7 +786,6 @@ Question: ${e.question.content}
 Question type: ${e.question.type}
 ${e.question.options ? `Options: ${JSON.stringify(e.question.options)}` : ''}
 Correct answer: ${e.question.answer}
-Explanation: ${e.question.explanation}
 Maximum points: ${e.question.points}
 Student's answer: ${e.userAnswer}`,
         )
@@ -802,7 +800,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
   {
     "is_correct": true/false,
     "score": (number from 0 to the question's maximum points),
-    "feedback": "2-3 sentences: what was right/wrong, the key concept being tested, and a tip for improvement. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$. Use $$...$$ for environments like \\begin{array}...\\end{array}. Never leave bare LaTeX outside delimiters."
+    "feedback": "STRICTLY 2-3 short sentences ONLY. Say what the student got wrong (or that they didn't answer), name the key concept, and give one actionable study tip. Do NOT restate the solution steps — the full explanation is shown separately. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$. Use $$...$$ for \\begin{} environments."
   },
   ...
 ]`;
