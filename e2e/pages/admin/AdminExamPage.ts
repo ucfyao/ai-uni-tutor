@@ -12,7 +12,7 @@ export class AdminExamPage {
   }
 
   async goto() {
-    await this.page.goto('/admin/exam');
+    await this.page.goto('/admin/exams');
   }
 
   getExamRow(title: string) {
