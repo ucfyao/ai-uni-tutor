@@ -42,7 +42,7 @@ export default async function ExamPage({
           top: -40,
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '120%',
+          width: '100%',
           height: 200,
           background: `radial-gradient(ellipse at center, var(--mantine-color-${getDocColor('exam')}-0) 0%, transparent 70%)`,
           pointerEvents: 'none',
