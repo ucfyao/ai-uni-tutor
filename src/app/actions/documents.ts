@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { ForbiddenError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
+import { getAssignmentService } from '@/lib/services/AssignmentService';
+import { getCourseService } from '@/lib/services/CourseService';
 import { getLectureDocumentService } from '@/lib/services/DocumentService';
+import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import {
   getCurrentUser,
   requireAnyAdmin,
@@ -55,9 +58,7 @@ async function requireLectureAccess(
  *  Admin users must go through course assignment — no owner fallback. */
 async function requireExamAccess(paperId: string, _userId: string, role: string): Promise<void> {
   if (role === 'super_admin') return;
-  const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-  const examRepo = getExamPaperRepository();
-  const courseId = await examRepo.findCourseId(paperId);
+  const courseId = await getExamPaperService().findCourseId(paperId);
   if (courseId) {
     await requireCourseAdmin(courseId);
   } else {
@@ -117,23 +118,22 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   }
 
   if (parsed.data === 'exam') {
-    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    const examRepo = getExamPaperRepository();
+    const examService = getExamPaperService();
     // super_admin sees all; admin sees only papers in assigned courses
     let papers;
     if (role === 'super_admin') {
-      const result = await examRepo.findAllForAdmin();
+      const result = await examService.findAllForAdmin();
       papers = result.data;
     } else {
       const { getAdminService } = await import('@/lib/services/AdminService');
       const courseIds = await getAdminService().getAssignedCourseIds(user.id);
-      const result = await examRepo.findByCourseIds(courseIds);
+      const result = await examService.findByCourseIds(courseIds);
       papers = result.data;
     }
 
     // Fetch real-time stats for all papers
     const paperIds = papers.map((p) => p.id);
-    const statsMap = await examRepo.getStats(paperIds);
+    const statsMap = await examService.getStats(paperIds);
 
     return papers.map((paper) => {
       const stats = statsMap.get(paper.id);
@@ -155,21 +155,20 @@ export async function fetchDocuments(docType: string): Promise<DocumentListItem[
   }
 
   // assignment
-  const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-  const assignmentRepo = getAssignmentRepository();
+  const assignmentService = getAssignmentService();
   // super_admin sees all; admin sees only assignments in assigned courses
   let assignments;
   if (role === 'super_admin') {
-    assignments = await assignmentRepo.findAllForAdmin();
+    assignments = await assignmentService.getAssignmentsForAdmin();
   } else {
     const { getAdminService } = await import('@/lib/services/AdminService');
     const courseIds = await getAdminService().getAssignedCourseIds(user.id);
-    assignments = await assignmentRepo.findByCourseIds(courseIds);
+    assignments = await assignmentService.getAssignmentsForAdmin(courseIds);
   }
 
   // Fetch real-time stats for all assignments
   const assignmentIds = assignments.map((a) => a.id);
-  const statsMap = await assignmentRepo.getStats(assignmentIds);
+  const statsMap = await assignmentService.getAssignmentStats(assignmentIds);
 
   return assignments.map((a) => {
     const stats = statsMap.get(a.id);
@@ -198,12 +197,10 @@ export async function deleteDocument(documentId: string, docType: string) {
 
   if (parsedType.data === 'assignment') {
     await requireAssignmentAccess(documentId, user.id, role);
-    const { getAssignmentService } = await import('@/lib/services/AssignmentService');
     await getAssignmentService().deleteAssignment(documentId);
   } else if (parsedType.data === 'exam') {
     await requireExamAccess(documentId, user.id, role);
-    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    await getExamPaperRepository().delete(documentId);
+    await getExamPaperService().deleteExam(documentId);
   } else {
     // Lecture (documents table) — enforce course-level or ownership permission
     const doc = await requireLectureAccess(documentId, user.id, role);
@@ -213,7 +210,6 @@ export async function deleteDocument(documentId: string, docType: string) {
 
     // Regenerate course outline after lecture deletion
     if (doc.courseId) {
-      const { getCourseService } = await import('@/lib/services/CourseService');
       await getCourseService()
         .regenerateCourseOutline(doc.courseId)
         .catch((e) => console.warn('Course outline regeneration failed (non-fatal):', e));
@@ -297,26 +293,24 @@ export async function retryDocument(
 
   if (parsedType.data === 'exam') {
     await requireExamAccess(documentId, user.id, role);
-    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    const examRepo = getExamPaperRepository();
+    const examService = getExamPaperService();
     // Delete all questions but keep the paper record
-    const questions = await examRepo.findQuestionsByPaperId(documentId);
+    const questions = await examService.getQuestionsByPaperId(documentId);
     for (const q of questions) {
-      await examRepo.deleteQuestion(q.id);
+      await examService.deleteQuestion(q.id);
     }
     // Reset to draft
-    await examRepo.unpublish(documentId);
+    await examService.unpublish(documentId);
   } else if (parsedType.data === 'assignment') {
     await requireAssignmentAccess(documentId, user.id, role);
-    const { getAssignmentRepository } = await import('@/lib/repositories/AssignmentRepository');
-    const assignmentRepo = getAssignmentRepository();
+    const assignmentService = getAssignmentService();
     // Delete all items but keep the assignment record
-    const items = await assignmentRepo.findItemsByAssignmentId(documentId);
+    const items = await assignmentService.getItems(documentId);
     for (const item of items) {
-      await assignmentRepo.deleteItem(item.id);
+      await assignmentService.deleteItem(item.id);
     }
     // Reset to draft
-    await assignmentRepo.updateStatus(documentId, 'draft');
+    await assignmentService.resetToDraft(documentId);
   } else {
     // Lecture — clear chunks and knowledge cards, keep document record as draft
     await requireLectureAccess(documentId, user.id, role);
@@ -379,13 +373,12 @@ export async function updateExamQuestions(
 
   await requireExamAccess(paperId, user.id, role);
 
-  const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-  const examRepo = getExamPaperRepository();
+  const examService = getExamPaperService();
 
   // Verify all question IDs belong to this paper (IDOR protection)
   const allIds = [...deletedIds, ...updates.map((u) => u.id)];
   if (allIds.length > 0) {
-    const paperQuestions = await examRepo.findQuestionsByPaperId(paperId);
+    const paperQuestions = await examService.getQuestionsByPaperId(paperId);
     const validIds = new Set(paperQuestions.map((q) => q.id));
     if (allIds.some((id) => !validIds.has(id))) {
       return { status: 'error', message: 'Invalid question IDs' };
@@ -393,12 +386,12 @@ export async function updateExamQuestions(
   }
 
   for (const id of deletedIds) {
-    await examRepo.deleteQuestion(id);
+    await examService.deleteQuestion(id);
   }
 
   for (const update of updates) {
     const meta = update.metadata;
-    await examRepo.updateQuestion(update.id, {
+    await examService.updateQuestion(update.id, {
       content: (meta.content as string) || update.content,
       options: meta.options
         ? Object.fromEntries(
@@ -437,10 +430,9 @@ export async function createLecture(
     const { user } = await requireAnyAdmin();
     await requireCourseAdmin(parsed.courseId);
 
-    const { getCourseRepository } = await import('@/lib/repositories/CourseRepository');
-    const course = await getCourseRepository().findById(parsed.courseId);
-    const { getUniversityRepository } = await import('@/lib/repositories/UniversityRepository');
-    const uni = await getUniversityRepository().findById(parsed.universityId);
+    const courseService = getCourseService();
+    const course = await courseService.getCourseById(parsed.courseId);
+    const uni = await courseService.getUniversityById(parsed.universityId);
 
     const service = getLectureDocumentService();
 
@@ -478,14 +470,11 @@ export async function createExam(
     const { user } = await requireAnyAdmin();
     await requireCourseAdmin(parsed.courseId);
 
-    const { getCourseRepository } = await import('@/lib/repositories/CourseRepository');
-    const course = await getCourseRepository().findById(parsed.courseId);
-    const { getUniversityRepository } = await import('@/lib/repositories/UniversityRepository');
-    const uni = await getUniversityRepository().findById(parsed.universityId);
+    const courseService = getCourseService();
+    const course = await courseService.getCourseById(parsed.courseId);
+    const uni = await courseService.getUniversityById(parsed.universityId);
 
-    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    const examRepo = getExamPaperRepository();
-    const paperId = await examRepo.create({
+    const paperId = await getExamPaperService().createPaper({
       userId: user.id,
       title: parsed.title,
       school: uni?.shortName ?? '',
@@ -519,8 +508,7 @@ export async function publishDocument(
       await getLectureDocumentService().publish(id);
     } else {
       await requireExamAccess(id, user.id, role);
-      const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-      await getExamPaperRepository().publish(id);
+      await getExamPaperService().publish(id);
     }
 
     revalidatePath('/admin/knowledge');
@@ -548,8 +536,7 @@ export async function unpublishDocument(
       await getLectureDocumentService().unpublish(id);
     } else {
       await requireExamAccess(id, user.id, role);
-      const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-      await getExamPaperRepository().unpublish(id);
+      await getExamPaperService().unpublish(id);
     }
 
     revalidatePath('/admin/knowledge');
@@ -676,14 +663,13 @@ export async function addExamQuestion(
 
     await requireExamAccess(parsed.paperId, user.id, role);
 
-    const { getExamPaperRepository } = await import('@/lib/repositories/ExamPaperRepository');
-    const examRepo = getExamPaperRepository();
+    const examService = getExamPaperService();
 
     // Determine next order number
-    const existing = await examRepo.findQuestionsByPaperId(parsed.paperId);
+    const existing = await examService.getQuestionsByPaperId(parsed.paperId);
     const nextOrder = existing.length > 0 ? Math.max(...existing.map((q) => q.orderNum)) + 1 : 1;
 
-    await examRepo.insertQuestions([
+    await examService.insertQuestions([
       {
         paperId: parsed.paperId,
         orderNum: nextOrder,
@@ -787,11 +773,7 @@ export async function updateDocumentOutline(
       }
     }
 
-    const { getLectureDocumentRepository } = await import('@/lib/repositories/DocumentRepository');
-    await getLectureDocumentRepository().saveOutline(
-      idParsed.data,
-      outlineParsed.data as unknown as Json,
-    );
+    await service.saveOutline(idParsed.data, outlineParsed.data as unknown as Json);
 
     return { success: true };
   } catch {

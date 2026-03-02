@@ -1,6 +1,6 @@
 'use server';
 
-import { getBookmarkRepository } from '@/lib/repositories/BookmarkRepository';
+import { getBookmarkService } from '@/lib/services/BookmarkService';
 import { getCurrentUser } from '@/lib/supabase/server';
 
 export async function toggleBookmark(
@@ -10,16 +10,8 @@ export async function toggleBookmark(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    const repo = getBookmarkRepository();
-    const isBookmarked = await repo.isBookmarked(user.id, paperId);
-
-    if (isBookmarked) {
-      await repo.delete(user.id, paperId);
-      return { success: true, bookmarked: false };
-    } else {
-      await repo.create(user.id, paperId);
-      return { success: true, bookmarked: true };
-    }
+    const { bookmarked } = await getBookmarkService().toggleBookmark(user.id, paperId);
+    return { success: true, bookmarked };
   } catch (error) {
     return {
       success: false,
@@ -33,8 +25,7 @@ export async function getBookmarkedPaperIds(): Promise<string[]> {
     const user = await getCurrentUser();
     if (!user) return [];
 
-    const repo = getBookmarkRepository();
-    return repo.findByUserId(user.id);
+    return getBookmarkService().getBookmarkedPaperIds(user.id);
   } catch {
     return [];
   }

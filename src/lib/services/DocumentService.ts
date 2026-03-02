@@ -139,6 +139,10 @@ export class LectureDocumentService {
   async deleteByAdmin(docId: string): Promise<void> {
     await this.docRepo.deleteById(docId);
   }
+
+  async saveOutline(documentId: string, outline: Json): Promise<void> {
+    await this.docRepo.saveOutline(documentId, outline);
+  }
 }
 
 let _lectureDocumentService: LectureDocumentService | null = null;

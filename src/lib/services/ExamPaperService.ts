@@ -10,7 +10,7 @@ import { AppError, ForbiddenError } from '@/lib/errors';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaper, ExamQuestion, PaperFilters } from '@/types/exam';
-import type { PaginatedResult } from '@/types/pagination';
+import type { PaginatedResult, PaginationOptions } from '@/types/pagination';
 
 // ---------- Service class ----------
 
@@ -196,6 +196,46 @@ export class ExamPaperService {
     data: { title?: string; questionTypes?: string[]; metadata?: Record<string, unknown> },
   ): Promise<void> {
     await this.repo.updatePaper(paperId, data);
+  }
+
+  async deleteQuestion(questionId: string): Promise<void> {
+    await this.repo.deleteQuestion(questionId);
+  }
+
+  async findAllForAdmin(pagination?: PaginationOptions): Promise<PaginatedResult<ExamPaper>> {
+    return this.repo.findAllForAdmin(pagination);
+  }
+
+  async findByCourseIds(
+    courseIds: string[],
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<ExamPaper>> {
+    return this.repo.findByCourseIds(courseIds, pagination);
+  }
+
+  async getStats(
+    paperIds: string[],
+  ): Promise<Awaited<ReturnType<ExamPaperRepository['getStats']>>> {
+    return this.repo.getStats(paperIds);
+  }
+
+  /** Admin-level delete — no ownership check. Use deletePaper() for user-facing deletion. */
+  async deleteExam(paperId: string): Promise<void> {
+    await this.repo.delete(paperId);
+  }
+
+  async createPaper(data: {
+    userId: string;
+    title: string;
+    school?: string | null;
+    course?: string | null;
+    courseId?: string;
+    year?: string | null;
+    visibility?: 'public' | 'private';
+    status?: 'draft' | 'ready';
+    questionTypes?: string[];
+  }): Promise<string> {
+    return this.repo.create(data);
   }
 
   /**

@@ -206,6 +206,10 @@ export class AssignmentService {
     return this.repo.findAllForAdmin();
   }
 
+  async resetToDraft(assignmentId: string): Promise<void> {
+    await this.repo.updateStatus(assignmentId, 'draft');
+  }
+
   async getAssignmentStats(assignmentIds: string[]) {
     return this.repo.getStats(assignmentIds);
   }
