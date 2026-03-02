@@ -40,6 +40,30 @@ export class AdminRepository {
       throw new DatabaseError(`Failed to remove course assignments: ${error.message}`, error);
   }
 
+  async bulkAssignCourses(adminId: string, courseIds: string[], assignedBy: string): Promise<void> {
+    if (courseIds.length === 0) return;
+    const supabase = await createClient();
+    const rows = courseIds.map((courseId) => ({
+      admin_id: adminId,
+      course_id: courseId,
+      assigned_by: assignedBy,
+    }));
+    const { error } = await supabase.from('admin_course_assignments').insert(rows);
+    if (error) throw new DatabaseError(`Failed to assign courses: ${error.message}`, error);
+  }
+
+  async bulkRemoveCourses(adminId: string, courseIds: string[]): Promise<void> {
+    if (courseIds.length === 0) return;
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('admin_course_assignments')
+      .delete()
+      .eq('admin_id', adminId)
+      .in('course_id', courseIds);
+    if (error)
+      throw new DatabaseError(`Failed to remove course assignments: ${error.message}`, error);
+  }
+
   async getAssignedCourses(adminId: string): Promise<CourseEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase

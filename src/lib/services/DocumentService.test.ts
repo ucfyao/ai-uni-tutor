@@ -68,6 +68,7 @@ function createMockChunkRepo(): Record<keyof LectureChunkRepository, ReturnType<
     findByLectureDocumentId: vi.fn(),
     updateChunk: vi.fn(),
     deleteChunk: vi.fn(),
+    deleteChunksByIds: vi.fn(),
     updateEmbedding: vi.fn(),
     verifyChunksBelongToLectureDocument: vi.fn(),
     findByLectureDocumentIdWithEmbeddings: vi.fn(),

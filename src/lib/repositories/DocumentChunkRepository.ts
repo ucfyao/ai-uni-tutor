@@ -105,6 +105,13 @@ export class LectureChunkRepository {
     if (error) throw new DatabaseError(`Failed to delete chunk: ${error.message}`, error);
   }
 
+  async deleteChunksByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const supabase = await createClient();
+    const { error } = await supabase.from('lecture_chunks').delete().in('id', ids);
+    if (error) throw new DatabaseError(`Failed to delete chunks: ${error.message}`, error);
+  }
+
   async updateEmbedding(id: string, embedding: number[]): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from('lecture_chunks').update({ embedding }).eq('id', id);

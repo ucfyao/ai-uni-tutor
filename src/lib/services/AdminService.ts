@@ -50,9 +50,7 @@ export class AdminService {
     if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
       throw new ForbiddenError('Target user is not an admin');
     }
-    for (const courseId of courseIds) {
-      await this.adminRepo.assignCourse(adminId, courseId, assignedBy);
-    }
+    await this.adminRepo.bulkAssignCourses(adminId, courseIds, assignedBy);
   }
 
   async removeCourses(adminId: string, courseIds: string[]): Promise<void> {
@@ -66,9 +64,7 @@ export class AdminService {
     if (unassigned.length > 0) {
       throw new ForbiddenError(`Courses not assigned to this admin: ${unassigned.join(', ')}`);
     }
-    for (const courseId of courseIds) {
-      await this.adminRepo.removeCourse(adminId, courseId);
-    }
+    await this.adminRepo.bulkRemoveCourses(adminId, courseIds);
   }
 
   /** Atomically replace admin's course assignments (all-or-nothing via DB RPC). */
