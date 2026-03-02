@@ -241,9 +241,7 @@ export async function updateDocumentChunks(
     }
   }
 
-  for (const id of deletedIds) {
-    await documentService.deleteChunk(id);
-  }
+  await documentService.deleteChunksByIds(deletedIds);
   for (const update of updates) {
     await documentService.updateChunk(update.id, update.content, update.metadata as Json);
     // Regenerate embedding when content changes
@@ -295,20 +293,14 @@ export async function retryDocument(
     await requireExamAccess(documentId, user.id, role);
     const examService = getExamPaperService();
     // Delete all questions but keep the paper record
-    const questions = await examService.getQuestionsByPaperId(documentId);
-    for (const q of questions) {
-      await examService.deleteQuestion(q.id);
-    }
+    await examService.deleteQuestionsByPaperId(documentId);
     // Reset to draft
     await examService.unpublish(documentId);
   } else if (parsedType.data === 'assignment') {
     await requireAssignmentAccess(documentId, user.id, role);
     const assignmentService = getAssignmentService();
     // Delete all items but keep the assignment record
-    const items = await assignmentService.getItems(documentId);
-    for (const item of items) {
-      await assignmentService.deleteItem(item.id);
-    }
+    await assignmentService.deleteItemsByAssignmentId(documentId);
     // Reset to draft
     await assignmentService.resetToDraft(documentId);
   } else {
@@ -385,9 +377,7 @@ export async function updateExamQuestions(
     }
   }
 
-  for (const id of deletedIds) {
-    await examService.deleteQuestion(id);
-  }
+  await examService.deleteQuestionsByIds(deletedIds);
 
   for (const update of updates) {
     const meta = update.metadata;

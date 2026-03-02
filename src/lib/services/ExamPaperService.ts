@@ -202,6 +202,10 @@ export class ExamPaperService {
     await this.repo.deleteQuestion(questionId);
   }
 
+  async deleteQuestionsByIds(ids: string[]): Promise<void> {
+    await this.repo.deleteQuestionsByIds(ids);
+  }
+
   async findAllForAdmin(pagination?: PaginationOptions): Promise<PaginatedResult<ExamPaper>> {
     return this.repo.findAllForAdmin(pagination);
   }

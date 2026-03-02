@@ -43,6 +43,7 @@ const mockDocumentService = {
   deleteChunksByLectureDocumentId: vi.fn(),
   findById: vi.fn(),
   deleteChunk: vi.fn(),
+  deleteChunksByIds: vi.fn(),
   updateChunk: vi.fn(),
   getChunks: vi.fn(),
   getChunksWithEmbeddings: vi.fn(),
@@ -97,6 +98,7 @@ const mockExamPaperRepo = {
   findByCourseIds: vi.fn(),
   findQuestionsByPaperId: vi.fn(),
   deleteQuestion: vi.fn(),
+  deleteQuestionsByIds: vi.fn(),
   updateQuestion: vi.fn(),
 };
 vi.mock('@/lib/repositories/ExamPaperRepository', () => ({
@@ -198,7 +200,7 @@ describe('Document Actions', () => {
     it('should update and delete chunks', async () => {
       mockDocumentService.findById.mockResolvedValue(makeDocEntity({ courseId: null }));
       mockDocumentService.verifyChunksBelongToLectureDocument.mockResolvedValue(true);
-      mockDocumentService.deleteChunk.mockResolvedValue(undefined);
+      mockDocumentService.deleteChunksByIds.mockResolvedValue(undefined);
       mockDocumentService.updateChunk.mockResolvedValue(undefined);
 
       const updates = [{ id: 'chunk-1', content: 'updated content', metadata: { type: 'test' } }];
@@ -207,7 +209,7 @@ describe('Document Actions', () => {
       const result = await updateDocumentChunks('doc-1', updates, deletedIds);
 
       expect(result).toEqual({ status: 'success', message: 'Changes saved' });
-      expect(mockDocumentService.deleteChunk).toHaveBeenCalledWith('chunk-2');
+      expect(mockDocumentService.deleteChunksByIds).toHaveBeenCalledWith(['chunk-2']);
       expect(mockDocumentService.updateChunk).toHaveBeenCalledWith('chunk-1', 'updated content', {
         type: 'test',
       });

@@ -114,6 +114,10 @@ export class LectureDocumentService {
     await this.chunkRepo.deleteChunk(chunkId);
   }
 
+  async deleteChunksByIds(ids: string[]): Promise<void> {
+    await this.chunkRepo.deleteChunksByIds(ids);
+  }
+
   async deleteChunksByLectureDocumentId(docId: string): Promise<void> {
     await this.chunkRepo.deleteByLectureDocumentId(docId);
   }

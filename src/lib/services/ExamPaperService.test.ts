@@ -47,6 +47,7 @@ function createMockExamPaperRepo(): {
     updateQuestion: vi.fn(),
     deleteQuestionsByPaperId: vi.fn(),
     deleteQuestion: vi.fn(),
+    deleteQuestionsByIds: vi.fn(),
     findByCourse: vi.fn(),
     findAllByCourse: vi.fn(),
     findAllForAdmin: vi.fn(),

@@ -15,6 +15,8 @@ function createMockAdminRepo(): {
     assignCourse: vi.fn(),
     removeCourse: vi.fn(),
     removeAllCourses: vi.fn(),
+    bulkAssignCourses: vi.fn(),
+    bulkRemoveCourses: vi.fn(),
     setCourses: vi.fn(),
     getAssignedCourses: vi.fn(),
     hasCourseAccess: vi.fn(),
@@ -201,23 +203,27 @@ describe('AdminService', () => {
   // ==================== assignCourses ====================
 
   describe('assignCourses', () => {
-    it('should assign each course', async () => {
+    it('should assign courses in bulk', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
-      adminRepo.assignCourse.mockResolvedValue(undefined);
+      adminRepo.bulkAssignCourses.mockResolvedValue(undefined);
 
       await service.assignCourses(ADMIN_ID, ['course-a', 'course-b'], SUPER_ADMIN_ID);
 
-      expect(adminRepo.assignCourse).toHaveBeenCalledTimes(2);
-      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a', SUPER_ADMIN_ID);
-      expect(adminRepo.assignCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-b', SUPER_ADMIN_ID);
+      expect(adminRepo.bulkAssignCourses).toHaveBeenCalledTimes(1);
+      expect(adminRepo.bulkAssignCourses).toHaveBeenCalledWith(
+        ADMIN_ID,
+        ['course-a', 'course-b'],
+        SUPER_ADMIN_ID,
+      );
     });
 
     it('should handle empty array', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
+      adminRepo.bulkAssignCourses.mockResolvedValue(undefined);
 
       await service.assignCourses(ADMIN_ID, [], SUPER_ADMIN_ID);
 
-      expect(adminRepo.assignCourse).not.toHaveBeenCalled();
+      expect(adminRepo.bulkAssignCourses).toHaveBeenCalledWith(ADMIN_ID, [], SUPER_ADMIN_ID);
     });
 
     it('should throw if target is not admin', async () => {
@@ -232,18 +238,17 @@ describe('AdminService', () => {
   // ==================== removeCourses ====================
 
   describe('removeCourses', () => {
-    it('should remove each course when all are assigned', async () => {
+    it('should remove courses in bulk when all are assigned', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a', 'course-b']);
-      adminRepo.removeCourse.mockResolvedValue(undefined);
+      adminRepo.bulkRemoveCourses.mockResolvedValue(undefined);
 
       await service.removeCourses(ADMIN_ID, ['course-a', 'course-b']);
 
       expect(profileRepo.findById).toHaveBeenCalledWith(ADMIN_ID);
       expect(adminRepo.getAssignedCourseIds).toHaveBeenCalledWith(ADMIN_ID);
-      expect(adminRepo.removeCourse).toHaveBeenCalledTimes(2);
-      expect(adminRepo.removeCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-a');
-      expect(adminRepo.removeCourse).toHaveBeenCalledWith(ADMIN_ID, 'course-b');
+      expect(adminRepo.bulkRemoveCourses).toHaveBeenCalledTimes(1);
+      expect(adminRepo.bulkRemoveCourses).toHaveBeenCalledWith(ADMIN_ID, ['course-a', 'course-b']);
     });
 
     it('should throw if target is not admin', async () => {
@@ -252,7 +257,7 @@ describe('AdminService', () => {
       await expect(service.removeCourses(USER_ID, ['course-a'])).rejects.toThrow(
         'Target user is not an admin',
       );
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
+      expect(adminRepo.bulkRemoveCourses).not.toHaveBeenCalled();
     });
 
     it('should throw if target user not found', async () => {
@@ -261,7 +266,7 @@ describe('AdminService', () => {
       await expect(service.removeCourses('nonexistent', ['course-a'])).rejects.toThrow(
         'Target user is not an admin',
       );
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
+      expect(adminRepo.bulkRemoveCourses).not.toHaveBeenCalled();
     });
 
     it('should throw if any course is not assigned to the admin', async () => {
@@ -271,16 +276,17 @@ describe('AdminService', () => {
       await expect(service.removeCourses(ADMIN_ID, ['course-a', 'course-x'])).rejects.toThrow(
         'Courses not assigned to this admin: course-x',
       );
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
+      expect(adminRepo.bulkRemoveCourses).not.toHaveBeenCalled();
     });
 
     it('should handle empty courseIds array', async () => {
       profileRepo.findById.mockResolvedValue(ADMIN_PROFILE);
       adminRepo.getAssignedCourseIds.mockResolvedValue(['course-a']);
+      adminRepo.bulkRemoveCourses.mockResolvedValue(undefined);
 
       await service.removeCourses(ADMIN_ID, []);
 
-      expect(adminRepo.removeCourse).not.toHaveBeenCalled();
+      expect(adminRepo.bulkRemoveCourses).toHaveBeenCalledWith(ADMIN_ID, []);
     });
   });
 

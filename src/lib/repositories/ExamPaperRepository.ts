@@ -429,6 +429,15 @@ export class ExamPaperRepository {
     }
   }
 
+  async deleteQuestionsByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const supabase = await createClient();
+    const { error } = await supabase.from('exam_questions').delete().in('id', ids);
+    if (error) {
+      throw new DatabaseError(`Failed to delete questions: ${error.message}`, error);
+    }
+  }
+
   async findByCourse(courseCode: string): Promise<string | null> {
     // Sanitize: allow only alphanumeric, spaces, hyphens, underscores
     const sanitized = courseCode.replace(/[^A-Za-z0-9 _-]/g, '');
