@@ -1,4 +1,3 @@
-import type { IUniversityRepository } from '@/lib/domain/interfaces/IUniversityRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
@@ -10,7 +9,7 @@ import type {
 
 type UniversityRow = Database['public']['Tables']['universities']['Row'];
 
-export class UniversityRepository implements IUniversityRepository {
+export class UniversityRepository {
   private mapToEntity(row: UniversityRow): UniversityEntity {
     return {
       id: row.id,

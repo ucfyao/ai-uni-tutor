@@ -5,7 +5,6 @@
  * Handles card follow-up Q&A messages for analytics.
  */
 
-import type { ICardConversationRepository } from '@/lib/domain/interfaces/ICardConversationRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { CardConversationEntity, CreateCardConversationDTO } from '@/types/card-conversation';
@@ -13,7 +12,7 @@ import type { Database } from '@/types/database';
 
 type CardConversationRow = Database['public']['Tables']['card_conversations']['Row'];
 
-export class CardConversationRepository implements ICardConversationRepository {
+export class CardConversationRepository {
   private mapToEntity(row: CardConversationRow): CardConversationEntity {
     return {
       id: row.id,

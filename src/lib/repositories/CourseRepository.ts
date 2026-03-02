@@ -1,4 +1,3 @@
-import type { ICourseRepository } from '@/lib/domain/interfaces/ICourseRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { CourseEntity, CreateCourseDTO, UpdateCourseDTO } from '@/types/course-entity';
@@ -6,7 +5,7 @@ import type { Database, Json } from '@/types/database';
 
 type CourseRow = Database['public']['Tables']['courses']['Row'];
 
-export class CourseRepository implements ICourseRepository {
+export class CourseRepository {
   private mapToEntity(row: CourseRow): CourseEntity {
     return {
       id: row.id,

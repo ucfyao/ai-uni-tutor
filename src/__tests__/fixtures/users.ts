@@ -1,7 +1,7 @@
 /**
  * Test Fixtures - User Profiles
  *
- * Matches ProfileEntity from src/lib/domain/models/Profile.ts
+ * Matches ProfileEntity from src/types/profile.ts
  * and the profiles table Row from src/types/database.ts.
  */
 

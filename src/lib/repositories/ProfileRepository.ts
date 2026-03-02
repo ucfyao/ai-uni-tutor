@@ -5,7 +5,6 @@
  * Handles all profile-related database operations.
  */
 
-import type { IProfileRepository } from '@/lib/domain/interfaces/IProfileRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
@@ -13,7 +12,7 @@ import type { ProfileEntity, SubscriptionInfo, UpdateProfileDTO, UserRole } from
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
-export class ProfileRepository implements IProfileRepository {
+export class ProfileRepository {
   private mapToEntity(row: ProfileRow): ProfileEntity {
     return {
       id: row.id,
