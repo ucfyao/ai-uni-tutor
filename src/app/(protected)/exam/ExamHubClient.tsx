@@ -1,6 +1,17 @@
 'use client';
 
-import { Clock, Play, Plus, RotateCcw, Search, Target, Trash2, Trophy, X } from 'lucide-react';
+import {
+  ArrowUpDown,
+  Clock,
+  Play,
+  Plus,
+  RotateCcw,
+  Search,
+  Target,
+  Trash2,
+  Trophy,
+  X,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import {
@@ -43,6 +54,8 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
   const {
     searchInput,
     setSearchInput,
+    sortOrder,
+    setSortOrder,
     clearAll,
     filteredInProgress,
     filteredCompleted,
@@ -137,38 +150,16 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
               {t.exam.startExamSubtitle}
             </Text>
           </Box>
-          <Group gap="sm">
-            <TextInput
-              placeholder={t.exam.searchExams}
-              leftSection={<Search size={16} />}
-              size="sm"
-              w={220}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.currentTarget.value)}
-              rightSection={
-                searchInput ? (
-                  <ActionIcon
-                    size="sm"
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => setSearchInput('')}
-                  >
-                    <X size={14} />
-                  </ActionIcon>
-                ) : null
-              }
-            />
-            <Button
-              leftSection={<Plus size={18} />}
-              variant="gradient"
-              gradient={{ from: `${examColor}.7`, to: `${examColor}.4` }}
-              radius="md"
-              size="md"
-              onClick={() => setCreateModalOpen(true)}
-            >
-              {t.exam.newMock}
-            </Button>
-          </Group>
+          <Button
+            leftSection={<Plus size={18} />}
+            variant="gradient"
+            gradient={{ from: `${examColor}.7`, to: `${examColor}.4` }}
+            radius="md"
+            size="md"
+            onClick={() => setCreateModalOpen(true)}
+          >
+            {t.exam.newMock}
+          </Button>
         </Group>
 
         {/* In-progress section */}
@@ -270,14 +261,48 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
 
         {/* Completed section */}
         <Box>
-          <Group gap="xs" mb="sm">
-            <Trophy size={16} color={`var(--mantine-color-${examColor}-6)`} />
-            <Text fw={600} size="sm">
-              {t.exam.examHistory}
-            </Text>
-            <Badge size="sm" variant="light" color="gray">
-              {filteredCompleted.length}
-            </Badge>
+          <Group justify="space-between" mb="sm">
+            <Group gap="xs">
+              <Trophy size={16} color={`var(--mantine-color-${examColor}-6)`} />
+              <Text fw={600} size="sm">
+                {t.exam.examHistory}
+              </Text>
+              <Badge size="sm" variant="light" color="gray">
+                {filteredCompleted.length}
+              </Badge>
+            </Group>
+            <Group gap="xs">
+              <Tooltip label={sortOrder === 'newest' ? t.exam.newestFirst : t.exam.oldestFirst}>
+                <ActionIcon
+                  variant={sortOrder === 'oldest' ? 'light' : 'subtle'}
+                  color="gray"
+                  size="md"
+                  onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+                >
+                  <ArrowUpDown size={16} />
+                </ActionIcon>
+              </Tooltip>
+              <TextInput
+                placeholder={t.exam.searchExams}
+                leftSection={<Search size={16} />}
+                size="xs"
+                w={200}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.currentTarget.value)}
+                rightSection={
+                  searchInput ? (
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      color="gray"
+                      onClick={() => setSearchInput('')}
+                    >
+                      <X size={12} />
+                    </ActionIcon>
+                  ) : null
+                }
+              />
+            </Group>
           </Group>
 
           {filteredCompleted.length === 0 &&
@@ -320,11 +345,7 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
                     {t.exam.noFilterResultsDescription}
                   </Text>
                 </Box>
-                <Button
-                  variant="subtle"
-                  color="gray"
-                  onClick={clearAll}
-                >
+                <Button variant="subtle" color="gray" onClick={clearAll}>
                   {t.exam.clearExamFilters}
                 </Button>
               </Stack>
