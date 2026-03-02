@@ -460,5 +460,33 @@ describe('MockExamRepository', () => {
 
       expect(result!.score).toBeNull();
     });
+
+    it('should normalize legacy snake_case response keys from JSON payloads', async () => {
+      mockSupabase.setSingleResponse({
+        ...mockExamRow,
+        responses: [
+          {
+            question_index: '0',
+            user_answer: '11000',
+            is_correct: true,
+            score: 5,
+            ai_feedback: 'Correct.',
+          },
+        ],
+      });
+
+      const result = await repo.findById('mock-exam-001');
+
+      expect(result).not.toBeNull();
+      expect(result!.responses).toEqual([
+        {
+          questionIndex: 0,
+          userAnswer: '11000',
+          isCorrect: true,
+          score: 5,
+          aiFeedback: 'Correct.',
+        },
+      ]);
+    });
   });
 });

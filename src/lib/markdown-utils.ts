@@ -62,6 +62,12 @@ function wrapBareLaTeX(text: string): string {
 
   for (let i = 0; i < segments.length; i++) {
     if (i % 2 === 0 && segments[i]) {
+      // 0. Parenthesized base with sub/superscripts, e.g. (1101)_2, (x+1)^{2}
+      segments[i] = segments[i].replace(
+        /(\([^()\n]+\)\s*(?:[_^](?:\{[^}\n]+\}|\w))+)/g,
+        (match) => `$${match}$`,
+      );
+
       // 1. Subscripts/superscripts: word_sub or word^sup (e.g. 101101_2, x_{n+1}, 2^{10})
       segments[i] = segments[i].replace(
         /\b(\w+(?:[_^](?:\{[^}]+\}|\w))+)/g,
