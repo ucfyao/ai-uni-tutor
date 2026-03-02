@@ -292,13 +292,19 @@ export async function extractFromPDF<T>(
                   `JSON was repaired (finishReason=${finishReason ?? 'unknown'}, ${textLen} chars)`,
                 );
               } catch (e3) {
-                const preview = text.slice(0, 200);
-                const tail = text.slice(-200);
+                const preview = text.slice(0, 300);
+                const tail = text.slice(-300);
+                const diagMsg =
+                  `JSON parse failed (${textLen} chars, finishReason=${finishReason ?? 'unknown'}). ` +
+                  `Start: ${preview.slice(0, 120)}… End: …${tail.slice(-120)}`;
                 console.error(
-                  `[pdf-extractor] JSON parse failed (${textLen} chars, finishReason=${finishReason}). ` +
-                    `Start: ${JSON.stringify(preview)} ... End: ${JSON.stringify(tail)}`,
+                  `[pdf-extractor] ${diagMsg}\n` +
+                    `  Full start: ${JSON.stringify(preview)}\n` +
+                    `  Full end: ${JSON.stringify(tail)}`,
                 );
                 console.error(`[pdf-extractor] Parse error:`, e3);
+                // Surface diagnostic to SSE so user can see it without server logs
+                onProgress?.(`ERROR: ${diagMsg}`);
                 return {
                   result: [] as unknown as T,
                   warnings: [
