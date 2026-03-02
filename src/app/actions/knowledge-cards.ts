@@ -9,15 +9,15 @@
  * Architecture: Actions → Services → Repositories → Database
  */
 import { z } from 'zod';
-import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
-import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
-import type { UserCardEntity } from '@/lib/domain/models/UserCard';
 import { QuotaExceededError } from '@/lib/errors';
 import { getChatService } from '@/lib/services/ChatService';
 import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
+import type { CardConversationEntity } from '@/types/card-conversation';
+import type { KnowledgeCardSummary } from '@/types/knowledge-card';
+import type { UserCardEntity } from '@/types/user-card';
 
 // ============================================================================
 // VALIDATION SCHEMAS

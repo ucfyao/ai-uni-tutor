@@ -1,11 +1,11 @@
 /**
  * Test Fixtures - Messages
  *
- * Matches MessageEntity from src/lib/domain/models/Message.ts
+ * Matches MessageEntity from src/types/message.ts
  * and the chat_messages table Row from src/types/database.ts.
  */
 
-import type { MessageEntity } from '@/lib/domain/models/Message';
+import type { MessageEntity } from '@/types/message';
 
 /* ---------- Database rows (snake_case) ---------- */
 

@@ -16,9 +16,9 @@ import {
 import { fetchCardConversations } from '@/app/actions/knowledge-cards';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { CardConversationEntity } from '@/lib/domain/models/CardConversation';
-import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
-import type { UserCardEntity } from '@/lib/domain/models/UserCard';
+import type { CardConversationEntity } from '@/types/card-conversation';
+import type { KnowledgeCardSummary } from '@/types/knowledge-card';
+import type { UserCardEntity } from '@/types/user-card';
 import KnowledgeCardItem from './KnowledgeCardItem';
 
 const LectureIcon = getDocIcon('lecture');

@@ -10,9 +10,9 @@ import {
   saveAssignmentChanges,
 } from '@/app/actions/assignments';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
+import type { AssignmentItemEntity } from '@/types/assignment';
 
 export function useAssignmentItems(assignmentId: string, initialData: AssignmentItemEntity[]) {
   const queryClient = useQueryClient();

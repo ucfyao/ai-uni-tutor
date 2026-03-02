@@ -5,8 +5,8 @@ import {
   fetchRelatedCards,
   fetchUserCards,
 } from '@/app/actions/knowledge-cards';
-import type { KnowledgeCardSummary } from '@/lib/domain/models/KnowledgeCard';
-import type { UserCardEntity } from '@/lib/domain/models/UserCard';
+import type { KnowledgeCardSummary } from '@/types/knowledge-card';
+import type { UserCardEntity } from '@/types/user-card';
 
 interface UseKnowledgeCardsOptions {
   sessionId: string;

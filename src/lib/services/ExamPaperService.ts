@@ -6,11 +6,11 @@
  * Uses ExamPaperRepository for data access.
  */
 
-import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { AppError, ForbiddenError } from '@/lib/errors';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaper, ExamQuestion, PaperFilters } from '@/types/exam';
+import type { PaginatedResult, PaginationOptions } from '@/types/pagination';
 
 // ---------- Service class ----------
 

@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { LectureDocumentEntity } from '@/lib/domain/models/Document';
 import { ForbiddenError } from '@/lib/errors';
 import { generateEmbeddingWithRetry } from '@/lib/rag/embedding';
 import { getAssignmentService } from '@/lib/services/AssignmentService';
@@ -16,6 +15,7 @@ import {
   requireCourseAdmin,
 } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
+import type { LectureDocumentEntity } from '@/types/document';
 
 interface DocumentListItem {
   id: string;

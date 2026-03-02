@@ -5,13 +5,13 @@
  * Uses LectureDocumentRepository and LectureChunkRepository for data access.
  */
 
-import type { CreateLectureChunkDTO, LectureDocumentEntity } from '@/lib/domain/models/Document';
-import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { ForbiddenError } from '@/lib/errors';
 import { getLectureChunkRepository, getLectureDocumentRepository } from '@/lib/repositories';
 import type { LectureChunkRepository } from '@/lib/repositories/DocumentChunkRepository';
 import type { LectureDocumentRepository } from '@/lib/repositories/DocumentRepository';
 import type { Json } from '@/types/database';
+import type { CreateLectureChunkDTO, LectureDocumentEntity } from '@/types/document';
+import type { PaginatedResult, PaginationOptions } from '@/types/pagination';
 
 export class LectureDocumentService {
   private readonly docRepo: LectureDocumentRepository;

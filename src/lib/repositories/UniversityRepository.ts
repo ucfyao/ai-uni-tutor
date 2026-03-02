@@ -1,16 +1,15 @@
-import type { IUniversityRepository } from '@/lib/domain/interfaces/IUniversityRepository';
+import { DatabaseError } from '@/lib/errors';
+import { createClient } from '@/lib/supabase/server';
+import type { Database } from '@/types/database';
 import type {
   CreateUniversityDTO,
   UniversityEntity,
   UpdateUniversityDTO,
-} from '@/lib/domain/models/University';
-import { DatabaseError } from '@/lib/errors';
-import { createClient } from '@/lib/supabase/server';
-import type { Database } from '@/types/database';
+} from '@/types/university';
 
 type UniversityRow = Database['public']['Tables']['universities']['Row'];
 
-export class UniversityRepository implements IUniversityRepository {
+export class UniversityRepository {
   private mapToEntity(row: UniversityRow): UniversityEntity {
     return {
       id: row.id,

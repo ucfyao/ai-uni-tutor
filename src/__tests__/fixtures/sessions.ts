@@ -1,12 +1,12 @@
 /**
  * Test Fixtures - Sessions
  *
- * Matches SessionEntity from src/lib/domain/models/Session.ts
+ * Matches SessionEntity from src/types/session.ts
  * and the chat_sessions table Row from src/types/database.ts.
  */
 
-import type { SessionEntity } from '@/lib/domain/models/Session';
 import type { Course, TutoringMode } from '@/types';
+import type { SessionEntity } from '@/types/session';
 
 /* ---------- Shared course fixture ---------- */
 

@@ -5,16 +5,15 @@
  * Handles all lecture document-related database operations.
  */
 
-import type { ILectureDocumentRepository } from '@/lib/domain/interfaces/IDocumentRepository';
-import type { CreateLectureDocumentDTO, LectureDocumentEntity } from '@/lib/domain/models/Document';
-import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database, Json } from '@/types/database';
+import type { CreateLectureDocumentDTO, LectureDocumentEntity } from '@/types/document';
+import type { PaginatedResult, PaginationOptions } from '@/types/pagination';
 
 type DocumentRow = Database['public']['Tables']['lecture_documents']['Row'];
 
-export class LectureDocumentRepository implements ILectureDocumentRepository {
+export class LectureDocumentRepository {
   private mapToEntity(row: DocumentRow): LectureDocumentEntity {
     return {
       id: row.id,

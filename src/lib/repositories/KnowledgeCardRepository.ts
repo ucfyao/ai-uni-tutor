@@ -5,19 +5,15 @@
  * Handles global, shared knowledge card operations.
  */
 
-import type { IKnowledgeCardRepository } from '@/lib/domain/interfaces/IKnowledgeCardRepository';
-import type {
-  CreateKnowledgeCardDTO,
-  KnowledgeCardEntity,
-} from '@/lib/domain/models/KnowledgeCard';
 import { DatabaseError } from '@/lib/errors';
 import { RAG_CONFIG } from '@/lib/rag/config';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
+import type { CreateKnowledgeCardDTO, KnowledgeCardEntity } from '@/types/knowledge-card';
 
 type KnowledgeCardRow = Database['public']['Tables']['knowledge_cards']['Row'];
 
-export class KnowledgeCardRepository implements IKnowledgeCardRepository {
+export class KnowledgeCardRepository {
   private mapToEntity(row: KnowledgeCardRow): KnowledgeCardEntity {
     return {
       id: row.id,

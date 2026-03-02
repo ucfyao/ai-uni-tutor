@@ -5,15 +5,10 @@
  * Handles all session-related database operations.
  */
 
-import type { ISessionRepository } from '@/lib/domain/interfaces/ISessionRepository';
-import type {
-  CreateSessionDTO,
-  SessionEntity,
-  UpdateSessionDTO,
-} from '@/lib/domain/models/Session';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
+import type { CreateSessionDTO, SessionEntity, UpdateSessionDTO } from '@/types/session';
 
 // Database row type (matches Supabase schema)
 interface SessionRow {
@@ -30,7 +25,7 @@ interface SessionRow {
   updated_at: string;
 }
 
-export class SessionRepository implements ISessionRepository {
+export class SessionRepository {
   /**
    * Map database row to domain entity
    */
@@ -71,7 +66,9 @@ export class SessionRepository implements ISessionRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('chat_sessions')
-      .select('id, user_id, course_id, mode, title, is_pinned, is_shared, active_leaf_id, created_at, updated_at')
+      .select(
+        'id, user_id, course_id, mode, title, is_pinned, is_shared, active_leaf_id, created_at, updated_at',
+      )
       .eq('user_id', userId)
       .order('is_pinned', { ascending: false })
       .order('updated_at', { ascending: false });

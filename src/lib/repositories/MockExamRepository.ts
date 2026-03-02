@@ -5,7 +5,6 @@
  * Handles all mock-exam-related database operations.
  */
 
-import type { IMockExamRepository } from '@/lib/domain/interfaces/IMockExamRepository';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database, Json } from '@/types/database';
@@ -13,7 +12,7 @@ import type { MockExam, MockExamQuestion, MockExamResponse } from '@/types/exam'
 
 type MockExamRow = Database['public']['Tables']['mock_exams']['Row'];
 
-export class MockExamRepository implements IMockExamRepository {
+export class MockExamRepository {
   /** Maps a raw Supabase mock_exams row to the domain MockExam type. */
   private mapToMockExam(row: MockExamRow): MockExam {
     return {

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MessageEntity } from '@/lib/domain/models/Message';
-import type { SessionEntity } from '@/lib/domain/models/Session';
 import { ForbiddenError } from '@/lib/errors';
 import type { MessageRepository } from '@/lib/repositories/MessageRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
 import type { Course, TutoringMode } from '@/types';
+import type { MessageEntity } from '@/types/message';
+import type { SessionEntity } from '@/types/session';
 
 // Mock CourseService used internally by SessionService
 const mockCourseService = {

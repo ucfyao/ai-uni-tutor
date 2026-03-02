@@ -46,9 +46,9 @@ import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAssignmentItems } from '@/hooks/useAssignmentItems';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { AssignmentEntity, AssignmentItemEntity } from '@/lib/domain/models/Assignment';
 import { showNotification } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
+import type { AssignmentEntity, AssignmentItemEntity } from '@/types/assignment';
 
 /* ── helpers ── */
 

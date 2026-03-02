@@ -5,15 +5,14 @@
  * Handles per-user card operations (cards created from text selection).
  */
 
-import type { IUserCardRepository } from '@/lib/domain/interfaces/IUserCardRepository';
-import type { CreateUserCardDTO, UserCardEntity } from '@/lib/domain/models/UserCard';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
+import type { CreateUserCardDTO, UserCardEntity } from '@/types/user-card';
 
 type UserCardRow = Database['public']['Tables']['user_cards']['Row'];
 
-export class UserCardRepository implements IUserCardRepository {
+export class UserCardRepository {
   private mapToEntity(row: UserCardRow): UserCardEntity {
     return {
       id: row.id,

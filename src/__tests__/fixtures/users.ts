@@ -1,11 +1,11 @@
 /**
  * Test Fixtures - User Profiles
  *
- * Matches ProfileEntity from src/lib/domain/models/Profile.ts
+ * Matches ProfileEntity from src/types/profile.ts
  * and the profiles table Row from src/types/database.ts.
  */
 
-import type { ProfileEntity } from '@/lib/domain/models/Profile';
+import type { ProfileEntity } from '@/types/profile';
 
 /* ---------- Domain entities (camelCase) ---------- */
 

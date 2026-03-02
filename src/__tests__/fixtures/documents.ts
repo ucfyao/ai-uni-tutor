@@ -1,11 +1,11 @@
 /**
  * Test Fixtures - Lecture Documents & Lecture Chunks
  *
- * Matches LectureDocumentEntity and LectureChunkEntity from src/lib/domain/models/Document.ts
+ * Matches LectureDocumentEntity and LectureChunkEntity from src/types/document.ts
  * and the lecture_documents / lecture_chunks table Rows from src/types/database.ts.
  */
 
-import type { LectureChunkEntity, LectureDocumentEntity } from '@/lib/domain/models/Document';
+import type { LectureChunkEntity, LectureDocumentEntity } from '@/types/document';
 
 /* ---------- Database rows (snake_case) ---------- */
 

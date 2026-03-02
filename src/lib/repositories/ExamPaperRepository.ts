@@ -5,12 +5,11 @@
  * Handles all exam paper and question database operations.
  */
 
-import type { IExamPaperRepository } from '@/lib/domain/interfaces/IExamPaperRepository';
-import type { PaginatedResult, PaginationOptions } from '@/lib/domain/models/Pagination';
 import { DatabaseError } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
 import type { ExamPaper, ExamQuestion, PaperFilters } from '@/types/exam';
+import type { PaginatedResult, PaginationOptions } from '@/types/pagination';
 
 // ---------- DB row → domain mappers ----------
 
@@ -50,7 +49,7 @@ function mapQuestionRow(row: Record<string, unknown>): ExamQuestion {
 
 // ---------- Repository class ----------
 
-export class ExamPaperRepository implements IExamPaperRepository {
+export class ExamPaperRepository {
   async create(data: {
     userId: string;
     title: string;
