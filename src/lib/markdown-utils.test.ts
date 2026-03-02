@@ -14,6 +14,12 @@ describe('normalizeMathDelimiters', () => {
     expect(normalizeMathDelimiters('binary 1101_2')).toBe('binary $1101_2$');
   });
 
+  it('should wrap parenthesized subscript notation in $...$', () => {
+    const input = 'Alternatively, (1101)_2=13 and (1011)_2=11.';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('Alternatively, $(1101)_2$=13 and $(1011)_2$=11.');
+  });
+
   it('should wrap bare backslash commands in $...$', () => {
     expect(normalizeMathDelimiters('value \\frac{1}{2} end')).toBe('value $\\frac{1}{2}$ end');
   });

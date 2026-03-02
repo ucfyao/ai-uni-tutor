@@ -13,8 +13,58 @@ import type { MockExam, MockExamQuestion, MockExamResponse } from '@/types/exam'
 type MockExamRow = Database['public']['Tables']['mock_exams']['Row'];
 
 export class MockExamRepository {
+  /** Normalize booleans from mixed JSON payloads (legacy rows may store strings/numbers). */
+  private toBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'true' || normalized === '1' || normalized === 'yes';
+    }
+    return false;
+  }
+
+  /** Normalize a response JSON object into the current MockExamResponse shape. */
+  private mapResponse(raw: unknown, fallbackIndex: number): MockExamResponse {
+    if (!raw || typeof raw !== 'object') {
+      return {
+        questionIndex: fallbackIndex,
+        userAnswer: '',
+        isCorrect: false,
+        score: 0,
+        aiFeedback: '',
+      };
+    }
+
+    const source = raw as Record<string, unknown>;
+    const rawIndex = source.questionIndex ?? source.question_index ?? fallbackIndex;
+    const parsedIndex = Number(rawIndex);
+    const questionIndex = Number.isFinite(parsedIndex) ? parsedIndex : fallbackIndex;
+
+    const rawUserAnswer = source.userAnswer ?? source.user_answer ?? '';
+    const userAnswer =
+      typeof rawUserAnswer === 'string' ? rawUserAnswer : String(rawUserAnswer ?? '');
+
+    const rawScore = source.score ?? 0;
+    const parsedScore = Number(rawScore);
+    const score = Number.isFinite(parsedScore) ? parsedScore : 0;
+
+    const rawFeedback = source.aiFeedback ?? source.ai_feedback ?? source.feedback ?? '';
+    const aiFeedback = typeof rawFeedback === 'string' ? rawFeedback : String(rawFeedback ?? '');
+
+    return {
+      questionIndex,
+      userAnswer,
+      isCorrect: this.toBoolean(source.isCorrect ?? source.is_correct),
+      score,
+      aiFeedback,
+    };
+  }
+
   /** Maps a raw Supabase mock_exams row to the domain MockExam type. */
   private mapToMockExam(row: MockExamRow): MockExam {
+    const rawResponses = Array.isArray(row.responses) ? row.responses : [];
+
     return {
       id: row.id,
       userId: row.user_id,
@@ -22,7 +72,7 @@ export class MockExamRepository {
       mode: (row.mode ?? 'practice') as 'practice' | 'exam',
       title: row.title,
       questions: (row.questions ?? []) as unknown as MockExamQuestion[],
-      responses: (row.responses ?? []) as unknown as MockExamResponse[],
+      responses: rawResponses.map((r, index) => this.mapResponse(r, index)),
       score: row.score,
       totalPoints: row.total_points,
       currentIndex: row.current_index,
