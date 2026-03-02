@@ -63,7 +63,7 @@ test.describe('Admin — Exam Papers', () => {
 
   test.describe('permission guard', () => {
     test('regular user is redirected away from admin exam', async ({ userPage }) => {
-      await userPage.goto('/admin/exam');
+      await userPage.goto('/admin/exams');
       await expect(userPage).not.toHaveURL(/\/admin\/exam/);
     });
   });
