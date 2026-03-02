@@ -47,6 +47,23 @@ export function cleanJsonText(raw: string): string {
 }
 
 /**
+ * Fix invalid JSON escape sequences produced by LLMs.
+ *
+ * JSON only allows: \" \\ \/ \b \f \n \r \t \uXXXX
+ * LLMs frequently emit LaTeX like \alpha, \frac, \int inside JSON strings
+ * without double-escaping. This function converts \X → \\X for any X that
+ * is not a valid JSON escape character.
+ */
+export function fixJsonEscapes(text: string): string {
+  // Fix non-JSON escape sequences: \alpha, \gamma, \(, \), \[, \], \pi, etc.
+  // Valid JSON escapes (" \ / b f n r t u) are left untouched.
+  // Note: \frac (\f), \beta (\b), \theta (\t) contain valid JSON escapes
+  // so JSON.parse won't reject them — they'll just produce wrong chars
+  // (form-feed, backspace, tab) which is cosmetic, not a parse failure.
+  return text.replace(/\\([^"\\/bfnrtu])/g, '\\\\$1');
+}
+
+/**
  * Attempt to repair truncated JSON by closing unclosed strings, arrays,
  * and objects. Works for the common case where Gemini hits MAX_TOKENS
  * mid-output.
@@ -274,46 +291,49 @@ export async function extractFromPDF<T>(
             } as { result: T; warnings: string[] };
           }
 
-          // 5. Parse JSON (try raw → cleaned → repaired)
+          // 5. Parse JSON (try raw → fix escapes → clean → repair)
           let parsed: T;
           const warnings: string[] = [];
           try {
             parsed = JSON.parse(text) as T;
           } catch (e1) {
-            const cleaned = cleanJsonText(text);
+            // Most common failure: LLM emits LaTeX \alpha etc. inside JSON strings
             try {
-              parsed = JSON.parse(cleaned) as T;
+              parsed = JSON.parse(fixJsonEscapes(text)) as T;
             } catch {
-              // Last resort: attempt structural repair (useful for truncated responses)
+              const cleaned = cleanJsonText(text);
               try {
-                const repaired = repairTruncatedJson(text);
-                parsed = JSON.parse(repaired) as T;
-                warnings.push(
-                  `JSON was repaired (finishReason=${finishReason ?? 'unknown'}, ${textLen} chars)`,
-                );
-              } catch (e3) {
-                // Include the FIRST parse error (most informative — has exact position)
-                const parseErr = e1 instanceof Error ? e1.message : String(e1);
-                const preview = text.slice(0, 300);
-                const tail = text.slice(-300);
-                console.error(
-                  `[pdf-extractor] JSON parse failed (${textLen} chars, finishReason=${finishReason}).\n` +
-                    `  Error: ${parseErr}\n` +
-                    `  Start: ${JSON.stringify(preview)}\n` +
-                    `  End: ${JSON.stringify(tail)}`,
-                );
-                console.error(`[pdf-extractor] Repair error:`, e3);
-                // Surface key diagnostics via SSE progress
-                onProgress?.(
-                  `ERROR: ${parseErr} | ${textLen} chars, finishReason=${finishReason ?? '?'} | ` +
-                    `start: ${text.slice(0, 80)}...`,
-                );
-                return {
-                  result: [] as unknown as T,
-                  warnings: [
-                    `Gemini returned invalid JSON (${textLen} chars, finishReason=${finishReason ?? 'unknown'}): ${parseErr}`,
-                  ],
-                } as { result: T; warnings: string[] };
+                parsed = JSON.parse(fixJsonEscapes(cleaned)) as T;
+              } catch {
+                // Last resort: structural repair (truncated responses)
+                try {
+                  const repaired = repairTruncatedJson(text);
+                  parsed = JSON.parse(fixJsonEscapes(repaired)) as T;
+                  warnings.push(
+                    `JSON was repaired (finishReason=${finishReason ?? 'unknown'}, ${textLen} chars)`,
+                  );
+                } catch (e3) {
+                  const parseErr = e1 instanceof Error ? e1.message : String(e1);
+                  const preview = text.slice(0, 300);
+                  const tail = text.slice(-300);
+                  console.error(
+                    `[pdf-extractor] JSON parse failed (${textLen} chars, finishReason=${finishReason}).\n` +
+                      `  Error: ${parseErr}\n` +
+                      `  Start: ${JSON.stringify(preview)}\n` +
+                      `  End: ${JSON.stringify(tail)}`,
+                  );
+                  console.error(`[pdf-extractor] Repair error:`, e3);
+                  onProgress?.(
+                    `ERROR: ${parseErr} | ${textLen} chars, finishReason=${finishReason ?? '?'} | ` +
+                      `start: ${text.slice(0, 80)}...`,
+                  );
+                  return {
+                    result: [] as unknown as T,
+                    warnings: [
+                      `Gemini returned invalid JSON (${textLen} chars, finishReason=${finishReason ?? 'unknown'}): ${parseErr}`,
+                    ],
+                  } as { result: T; warnings: string[] };
+                }
               }
             }
           }

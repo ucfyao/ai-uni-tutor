@@ -56,7 +56,8 @@ Parent-child structure rules:
 - If a question has NO sub-parts, it is a standalone top-level item (parentIndex: null)
 - Section headers like "Part A: Multiple Choice" should be extracted as parent items with their title as content, and all questions in that section as children
 
-Return ONLY a valid JSON array of questions. No markdown, no explanation.`;
+Return ONLY a valid JSON array of questions. No markdown, no explanation.
+- IMPORTANT: Inside JSON strings, backslashes MUST be escaped as \\\\. For example, LaTeX "\\alpha" must be written as "\\\\alpha" in JSON.`;
 
   const { result, warnings } = await extractFromPDF<unknown>(fileBuffer, prompt, {
     signal,

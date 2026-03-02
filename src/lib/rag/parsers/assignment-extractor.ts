@@ -112,7 +112,8 @@ Critical rules:
 - Each item's referenceAnswer must correspond to THAT specific question.
 - Do NOT include instructions or headers as questions unless they serve as a parent grouping.
 
-Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.`;
+Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.
+- IMPORTANT: Inside JSON strings, backslashes MUST be escaped as \\\\. For example, LaTeX "\\alpha" must be written as "\\\\alpha" in JSON.`;
 }
 
 export async function extractAssignmentQuestions(
