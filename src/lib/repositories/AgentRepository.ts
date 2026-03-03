@@ -127,6 +127,22 @@ export class AgentRepository {
     return (data ?? []).map((row) => this.mapApplicationToEntity(row));
   }
 
+  async findApplicationById(id: string): Promise<AgentApplicationEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('agent_applications')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch agent application by id: ${error.message}`, error);
+    }
+    if (!data) return null;
+    return this.mapApplicationToEntity(data);
+  }
+
   async updateApplication(
     id: string,
     updates: { status: ApplicationStatus; reviewedBy: string; reviewedAt: Date },
@@ -180,40 +196,13 @@ export class AgentRepository {
 
   async incrementWalletBalance(userId: string, amount: number): Promise<void> {
     const supabase = await createClient();
+    const { error } = await supabase.rpc('increment_wallet_balance', {
+      p_user_id: userId,
+      p_amount: amount,
+    });
 
-    // Read current wallet, then update with incremented values.
-    // A Supabase RPC would be ideal for atomicity, but select-then-update
-    // is acceptable for MVP given low contention on wallet rows.
-    const { data: wallet, error: fetchErr } = await supabase
-      .from('agent_wallets')
-      .select('balance, total_earned')
-      .eq('user_id', userId)
-      .single();
-
-    if (fetchErr) {
-      throw new DatabaseError(
-        `Failed to fetch wallet for increment: ${fetchErr.message}`,
-        fetchErr,
-      );
-    }
-    if (!wallet) {
-      throw new DatabaseError('Wallet not found for user');
-    }
-
-    const { error: updateErr } = await supabase
-      .from('agent_wallets')
-      .update({
-        balance: wallet.balance + amount,
-        total_earned: wallet.total_earned + amount,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId);
-
-    if (updateErr) {
-      throw new DatabaseError(
-        `Failed to increment wallet balance: ${updateErr.message}`,
-        updateErr,
-      );
+    if (error) {
+      throw new DatabaseError(`Failed to increment wallet balance: ${error.message}`, error);
     }
   }
 
@@ -282,6 +271,71 @@ export class AgentRepository {
     if (error) {
       throw new DatabaseError(`Failed to update withdrawal: ${error.message}`, error);
     }
+  }
+
+  async rejectWithdrawalWithRefund(id: string, adminId: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc('reject_withdrawal_with_refund', {
+      p_withdrawal_id: id,
+      p_admin_id: adminId,
+    });
+
+    if (error) {
+      throw new DatabaseError(`Failed to reject withdrawal with refund: ${error.message}`, error);
+    }
+  }
+
+  async requestWithdrawalAtomic(
+    userId: string,
+    amount: number,
+    paymentMethod: Record<string, unknown>,
+  ): Promise<string> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('request_withdrawal_atomic', {
+      p_user_id: userId,
+      p_amount: amount,
+      p_payment_method: paymentMethod as Json,
+    });
+
+    if (error) {
+      if (error.message.includes('Wallet not found')) throw new Error('Wallet not found');
+      if (error.message.includes('Minimum withdrawal')) throw new Error(error.message);
+      if (error.message.includes('Insufficient balance')) throw new Error('Insufficient balance');
+      throw new DatabaseError(`Failed to request withdrawal: ${error.message}`, error);
+    }
+    return data as string;
+  }
+
+  async approveApplicationAtomic(applicationId: string, adminId: string): Promise<string> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('approve_agent_application', {
+      p_application_id: applicationId,
+      p_admin_id: adminId,
+    });
+
+    if (error) {
+      throw new DatabaseError(`Failed to approve application: ${error.message}`, error);
+    }
+    return data as string;
+  }
+
+  async getDailyReferralTrend(
+    userId: string,
+    days: number,
+  ): Promise<{ date: string; count: number }[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('get_referral_daily_trend', {
+      p_user_id: userId,
+      p_days: days,
+    });
+
+    if (error) {
+      throw new DatabaseError(`Failed to get daily referral trend: ${error.message}`, error);
+    }
+    return (data ?? []).map((row: { date: string; count: number }) => ({
+      date: row.date,
+      count: Number(row.count),
+    }));
   }
 }
 
