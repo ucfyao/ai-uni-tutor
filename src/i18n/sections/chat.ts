@@ -216,6 +216,7 @@ export const chatTranslations = {
       targetSubject: '目标科目',
       initializing: '正在初始化...',
       startSession: '开始会话',
+      noCoursesAvailable: '该大学暂无可用课程',
     },
   },
   en: {
@@ -433,6 +434,7 @@ export const chatTranslations = {
       targetSubject: 'Target Subject',
       initializing: 'Initializing...',
       startSession: 'Start Session',
+      noCoursesAvailable: 'No courses available for this university',
     },
   },
 };
