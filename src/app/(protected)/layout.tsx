@@ -4,6 +4,7 @@ import { getChatSessions } from '@/app/actions/chat';
 import { getProfile } from '@/app/actions/user';
 import ShellServer from '@/app/ShellServer';
 import { Providers } from '@/components/Providers';
+import { ReferralCapture } from '@/components/referral/ReferralCapture';
 import { mergeProtectedInitialData } from '@/lib/protected-initial-data';
 import { getCurrentUser } from '@/lib/supabase/server';
 import { withTimeout } from '@/lib/with-timeout';
@@ -34,6 +35,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   return (
     <Providers initialSessions={initialSessions} initialProfile={initialProfile}>
+      <ReferralCapture />
       <ShellServer>{children}</ShellServer>
     </Providers>
   );

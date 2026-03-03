@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, Check, Crown, Gift, Pencil, Trash2, X } from 'lucide-react';
+import { Camera, Check, Crown, Pencil, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
@@ -18,6 +18,7 @@ import {
   Title,
 } from '@mantine/core';
 import { FullScreenModal } from '@/components/FullScreenModal';
+import { ReferralCard } from '@/components/referral/ReferralCard';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useHeader } from '@/context/HeaderContext';
 import { useProfile } from '@/context/ProfileContext';
@@ -294,45 +295,7 @@ export default function PersonalizationPage() {
         </FullScreenModal>
 
         {/* Refer & Earn */}
-        <Paper
-          p="xl"
-          radius="lg"
-          style={{
-            background:
-              'linear-gradient(135deg, var(--mantine-color-indigo-7), var(--mantine-color-indigo-4))',
-          }}
-        >
-          <Group gap="sm" align="flex-start">
-            <Box
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: 'rgba(255,255,255,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-              mt={2}
-            >
-              <Gift size={20} color="white" />
-            </Box>
-            <Box style={{ flex: 1 }}>
-              <Group gap="xs" align="center">
-                <Title order={3} fw={700} c="white">
-                  {t.personalization.partnerProgram}
-                </Title>
-                <Badge variant="white" color="dark" size="sm">
-                  {t.personalization.comingSoon}
-                </Badge>
-              </Group>
-              <Text size="sm" c="rgba(255,255,255,0.8)" mt={4}>
-                {t.personalization.partnerDesc}
-              </Text>
-            </Box>
-          </Group>
-        </Paper>
+        <ReferralCard />
       </Stack>
     </Container>
   );

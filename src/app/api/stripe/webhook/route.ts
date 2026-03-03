@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getProfileService } from '@/lib/services/ProfileService';
+import { getReferralService } from '@/lib/services/ReferralService';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 
@@ -87,6 +88,14 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     subscription_status: subscription.status,
     current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
   });
+
+  // Process referral reward if applicable
+  try {
+    await getReferralService().handlePayment(session.metadata.userId, subscription.id);
+  } catch (error) {
+    // Log but don't fail the webhook — referral is best-effort
+    console.error('Referral reward processing failed:', error);
+  }
 }
 
 async function handleInvoicePaymentSucceeded(event: Stripe.Event) {

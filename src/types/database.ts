@@ -13,7 +13,7 @@ export interface Database {
           stripe_price_id: string | null;
           subscription_status: string | null;
           current_period_end: string | null;
-          role: 'user' | 'admin' | 'super_admin';
+          role: 'user' | 'agent' | 'admin' | 'super_admin';
           created_at: string;
           updated_at: string;
           is_active: boolean;
@@ -27,7 +27,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
-          role?: 'user' | 'admin' | 'super_admin';
+          role?: 'user' | 'agent' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
           is_active?: boolean;
@@ -41,7 +41,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
-          role?: 'user' | 'admin' | 'super_admin';
+          role?: 'user' | 'agent' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
           is_active?: boolean;
@@ -674,6 +674,225 @@ export interface Database {
           cost_estimate?: number | null;
           metadata?: Json;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      referral_codes: {
+        Row: {
+          id: string;
+          user_id: string;
+          code: string;
+          type: string;
+          stripe_promotion_code_id: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          code: string;
+          type: string;
+          stripe_promotion_code_id?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          code?: string;
+          type?: string;
+          stripe_promotion_code_id?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      referrals: {
+        Row: {
+          id: string;
+          referrer_id: string;
+          referee_id: string;
+          referral_code_id: string;
+          status: string;
+          stripe_subscription_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          referrer_id: string;
+          referee_id: string;
+          referral_code_id: string;
+          status?: string;
+          stripe_subscription_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          referrer_id?: string;
+          referee_id?: string;
+          referral_code_id?: string;
+          status?: string;
+          stripe_subscription_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      commissions: {
+        Row: {
+          id: string;
+          referral_id: string;
+          beneficiary_id: string;
+          type: string;
+          amount: number;
+          currency: string;
+          status: string;
+          stripe_invoice_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          referral_id: string;
+          beneficiary_id: string;
+          type: string;
+          amount: number;
+          currency?: string;
+          status?: string;
+          stripe_invoice_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          referral_id?: string;
+          beneficiary_id?: string;
+          type?: string;
+          amount?: number;
+          currency?: string;
+          status?: string;
+          stripe_invoice_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      agent_applications: {
+        Row: {
+          id: string;
+          user_id: string;
+          full_name: string;
+          university: string;
+          contact_info: Json;
+          motivation: string;
+          status: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          full_name: string;
+          university: string;
+          contact_info?: Json;
+          motivation?: string;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          full_name?: string;
+          university?: string;
+          contact_info?: Json;
+          motivation?: string;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      agent_wallets: {
+        Row: {
+          id: string;
+          user_id: string;
+          balance: number;
+          total_earned: number;
+          total_withdrawn: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          balance?: number;
+          total_earned?: number;
+          total_withdrawn?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          balance?: number;
+          total_earned?: number;
+          total_withdrawn?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      withdrawal_requests: {
+        Row: {
+          id: string;
+          wallet_id: string;
+          user_id: string;
+          amount: number;
+          payment_method: Json;
+          status: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          wallet_id: string;
+          user_id: string;
+          amount: number;
+          payment_method?: Json;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          wallet_id?: string;
+          user_id?: string;
+          amount?: number;
+          payment_method?: Json;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      referral_config: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value: Json;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          updated_at?: string;
         };
         Relationships: [];
       };

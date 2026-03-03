@@ -24,3 +24,7 @@ export { CourseRepository, getCourseRepository } from './CourseRepository';
 export { AssignmentRepository, getAssignmentRepository } from './AssignmentRepository';
 export { AdminRepository, getAdminRepository } from './AdminRepository';
 export { LlmLogRepository, getLlmLogRepository } from './LlmLogRepository';
+export { ReferralRepository, getReferralRepository } from './ReferralRepository';
+export { AgentRepository, getAgentRepository } from './AgentRepository';
+export { CommissionRepository, getCommissionRepository } from './CommissionRepository';
+export { ReferralConfigRepository, getReferralConfigRepository } from './ReferralConfigRepository';
