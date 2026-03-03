@@ -1,8 +1,8 @@
 'use client';
 
 import { AlertCircle, Check, Lock, Mail } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
 import {
   Alert,
   Anchor,
@@ -38,7 +38,14 @@ function LoginForm() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
+
+  // Persist referral code from URL so it survives the auth flow
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) localStorage.setItem('referral_code', ref);
+  }, [searchParams]);
 
   const validateEmail = (value: string) => {
     if (!value) return '';
@@ -526,7 +533,9 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <LanguageProvider>
-      <LoginForm />
+      <Suspense>
+        <LoginForm />
+      </Suspense>
     </LanguageProvider>
   );
 }
