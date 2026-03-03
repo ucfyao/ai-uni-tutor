@@ -31,7 +31,8 @@ export default async function KnowledgePage({
   const docType = tabParam && VALID_TABS.has(tabParam) ? tabParam : DEFAULT_DOC_TYPE;
 
   // fetchDocuments already handles admin role filtering (super_admin sees all, admin sees assigned courses)
-  const initialDocuments = await fetchDocuments(docType);
+  const result = await fetchDocuments(docType);
+  const initialDocuments = result.success ? result.data : [];
 
   return <KnowledgeClient initialDocuments={initialDocuments} initialDocType={docType} />;
 }

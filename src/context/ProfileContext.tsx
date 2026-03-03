@@ -44,16 +44,21 @@ export function ProfileProvider({
 
     fetchInFlightRef.current = (async () => {
       try {
-        const data = await withTimeout(
+        const result = await withTimeout(
           getProfile(),
           PROFILE_FETCH_TIMEOUT_MS,
           'profile bootstrap fetch',
         );
-        if (!data) {
+        if (!result.success) {
+          console.error('Failed to fetch profile:', result.error);
           setProfile(null);
           return;
         }
-        setProfile(profileDataToContext(data));
+        if (!result.data) {
+          setProfile(null);
+          return;
+        }
+        setProfile(profileDataToContext(result.data));
       } catch (error) {
         console.error('Failed to fetch profile', error);
       } finally {

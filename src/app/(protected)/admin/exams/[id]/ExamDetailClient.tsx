@@ -154,8 +154,8 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
   }, [paper.id, router, t]);
 
   const handleDeleteDoc = useCallback(async () => {
-    try {
-      await deleteDocument(paper.id, 'exam');
+    const result = await deleteDocument(paper.id, 'exam');
+    if (result.success) {
       for (const dt of DOC_TYPES) {
         queryClient.setQueryData<KnowledgeDocument[]>(
           queryKeys.documents.byType(dt.value),
@@ -164,8 +164,8 @@ export function ExamDetailClient({ paper, questions: initialQuestions }: ExamDet
       }
       showNotification({ message: t.toast.deletedSuccessfully, color: 'green' });
       router.push('/admin/knowledge?tab=exam');
-    } catch {
-      showNotification({ title: t.common.error, message: 'Failed to delete', color: 'red' });
+    } else {
+      showNotification({ title: t.common.error, message: result.error, color: 'red' });
     }
   }, [paper.id, queryClient, router, t]);
 

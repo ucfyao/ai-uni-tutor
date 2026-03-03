@@ -218,7 +218,7 @@ describe('Exam Paper Actions', () => {
 
       const result = await getExamPaperList();
 
-      expect(result).toEqual(papers);
+      expect(result).toEqual({ success: true, data: papers });
       expect(mockExamPaperService.getPapers).toHaveBeenCalledWith(undefined);
     });
 
@@ -231,12 +231,12 @@ describe('Exam Paper Actions', () => {
       expect(mockExamPaperService.getPapers).toHaveBeenCalledWith(filters);
     });
 
-    it('should return empty array when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const result = await getExamPaperList();
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ success: false, error: 'Unauthorized' });
       expect(mockExamPaperService.getPapers).not.toHaveBeenCalled();
     });
   });
@@ -246,16 +246,19 @@ describe('Exam Paper Actions', () => {
     it('should delete paper for authenticated user', async () => {
       mockExamPaperService.deletePaper.mockResolvedValue(undefined);
 
-      await deleteExamPaper('paper-1');
+      const result = await deleteExamPaper('paper-1');
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockExamPaperService.deletePaper).toHaveBeenCalledWith('user-1', 'paper-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/exam');
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      await expect(deleteExamPaper('paper-1')).rejects.toThrow('Unauthorized');
+      const result = await deleteExamPaper('paper-1');
+
+      expect(result).toEqual({ success: false, error: 'Unauthorized' });
     });
   });
 });

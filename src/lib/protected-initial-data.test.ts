@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProfileData } from '@/app/actions/user';
 import type { ChatSession } from '@/types';
+import type { ActionResult } from '@/types/actions';
 import { mergeProtectedInitialData } from './protected-initial-data';
 
 describe('mergeProtectedInitialData', () => {
@@ -15,13 +16,13 @@ describe('mergeProtectedInitialData', () => {
   };
 
   it('keeps profile when sessions fail', () => {
-    const sessionsResult: PromiseSettledResult<ChatSession[]> = {
+    const sessionsResult: PromiseSettledResult<ActionResult<ChatSession[]>> = {
       status: 'rejected',
       reason: new Error('sessions failed'),
     };
-    const profileResult: PromiseSettledResult<ProfileData | null> = {
+    const profileResult: PromiseSettledResult<ActionResult<ProfileData | null>> = {
       status: 'fulfilled',
-      value: profile,
+      value: { success: true, data: profile },
     };
 
     const merged = mergeProtectedInitialData(sessionsResult, profileResult);
@@ -42,11 +43,11 @@ describe('mergeProtectedInitialData', () => {
         isPinned: false,
       },
     ];
-    const sessionsResult: PromiseSettledResult<ChatSession[]> = {
+    const sessionsResult: PromiseSettledResult<ActionResult<ChatSession[]>> = {
       status: 'fulfilled',
-      value: sessions,
+      value: { success: true, data: sessions },
     };
-    const profileResult: PromiseSettledResult<ProfileData | null> = {
+    const profileResult: PromiseSettledResult<ActionResult<ProfileData | null>> = {
       status: 'rejected',
       reason: new Error('profile failed'),
     };

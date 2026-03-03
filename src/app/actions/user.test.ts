@@ -196,25 +196,25 @@ describe('User Actions', () => {
 
       const result = await getProfile();
 
-      expect(result).toEqual(EXPECTED_PROFILE_DATA);
+      expect(result).toEqual({ success: true, data: EXPECTED_PROFILE_DATA });
       expect(mockProfileService.getProfile).toHaveBeenCalledWith('user-1');
     });
 
-    it('should return null when user is not authenticated', async () => {
+    it('should return success with null data when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const result = await getProfile();
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ success: true, data: null });
       expect(mockProfileService.getProfile).not.toHaveBeenCalled();
     });
 
-    it('should return null when profile is not found', async () => {
+    it('should return success with null data when profile is not found', async () => {
       mockProfileService.getProfile.mockResolvedValue(null);
 
       const result = await getProfile();
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ success: true, data: null });
     });
 
     it('should handle null currentPeriodEnd', async () => {
@@ -225,9 +225,9 @@ describe('User Actions', () => {
 
       const result = await getProfile();
 
-      expect(result).not.toBeNull();
-      if (result) {
-        expect(result.current_period_end).toBeNull();
+      expect(result.success).toBe(true);
+      if (result.success && result.data) {
+        expect(result.data.current_period_end).toBeNull();
       }
     });
 
@@ -239,9 +239,9 @@ describe('User Actions', () => {
 
       const result = await getProfile();
 
-      expect(result).not.toBeNull();
-      if (result) {
-        expect(result.subscription_status).toBeNull();
+      expect(result.success).toBe(true);
+      if (result.success && result.data) {
+        expect(result.data.subscription_status).toBeNull();
       }
     });
   });

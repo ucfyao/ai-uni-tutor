@@ -560,13 +560,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     try {
       const { editAndRegenerate } = await import('@/app/actions/chat');
       const result = await editAndRegenerate(session.id, messageId, newContent);
+      if (!result.success) throw new Error(result.error);
 
       // Update session with new active-path messages (includes the new user sibling)
-      const updatedMessages = result.messages;
+      const updatedMessages = result.data.messages;
       const updatedSession: ChatSession = {
         ...session,
         messages: updatedMessages,
-        siblingsMap: result.siblingsMap,
+        siblingsMap: result.data.siblingsMap,
         lastUpdated: Date.now(),
       };
 
@@ -577,7 +578,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
         role: 'assistant',
         content: '',
         timestamp: Date.now(),
-        parentMessageId: result.newMessageId,
+        parentMessageId: result.data.newMessageId,
       };
       setSession(
         { ...updatedSession, messages: [...updatedMessages, aiMsg], lastUpdated: Date.now() },
@@ -633,15 +634,15 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     try {
       const { switchBranch } = await import('@/app/actions/chat');
       const result = await switchBranch(session.id, parentMessageId, targetChildId);
-      if (result) {
+      if (result.success && result.data) {
         setSession(
           {
             ...session,
-            messages: result.messages,
-            siblingsMap: result.siblingsMap,
+            messages: result.data.messages,
+            siblingsMap: result.data.siblingsMap,
             lastUpdated: Date.now(),
           },
-          { resetSavedIndex: result.messages.length },
+          { resetSavedIndex: result.data.messages.length },
         );
       }
     } catch (error) {

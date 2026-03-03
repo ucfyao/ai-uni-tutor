@@ -36,7 +36,10 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
     if (!confirmed) return;
 
     startTransition(async () => {
-      await deleteExamPaper(paperId);
+      const result = await deleteExamPaper(paperId);
+      if (!result.success) {
+        console.error(result.error);
+      }
       router.refresh();
     });
   }

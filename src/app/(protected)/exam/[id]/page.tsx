@@ -15,12 +15,13 @@ export default async function ExamPage({
   const { id } = await params;
   const sp = await searchParams;
 
-  const mock = await getMockExamDetail(id);
+  const result = await getMockExamDetail(id);
 
-  if (!mock) {
+  if (!result.success || !result.data) {
     notFound();
   }
 
+  const mock = result.data;
   const hasQuestions = mock.questions.length > 0;
 
   return (
