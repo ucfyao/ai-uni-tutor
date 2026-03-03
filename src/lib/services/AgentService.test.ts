@@ -222,24 +222,18 @@ describe('AgentService', () => {
   // ==================== reviewApplication ====================
 
   describe('reviewApplication', () => {
-    it('should approve application, promote to agent, create wallet, and generate code', async () => {
-      agentRepo.updateApplication.mockResolvedValue(undefined);
-      agentRepo.findApplicationById.mockResolvedValue(APPLICATION);
-      profileRepo.updateRole.mockResolvedValue(undefined);
-      agentRepo.createWallet.mockResolvedValue(WALLET);
+    it('should approve application atomically and generate code', async () => {
+      agentRepo.approveApplicationAtomic.mockResolvedValue(USER_ID);
       referralService.generateCode.mockResolvedValue(AGENT_CODE);
 
       await service.reviewApplication(APP_ID, ADMIN_ID, 'approved');
 
-      expect(agentRepo.updateApplication).toHaveBeenCalledWith(APP_ID, {
-        status: 'approved',
-        reviewedBy: ADMIN_ID,
-        reviewedAt: expect.any(Date),
-      });
-      expect(agentRepo.findApplicationById).toHaveBeenCalledWith(APP_ID);
-      expect(profileRepo.updateRole).toHaveBeenCalledWith(USER_ID, 'agent');
-      expect(agentRepo.createWallet).toHaveBeenCalledWith(USER_ID);
+      expect(agentRepo.approveApplicationAtomic).toHaveBeenCalledWith(APP_ID, ADMIN_ID);
       expect(referralService.generateCode).toHaveBeenCalledWith(USER_ID, 'agent');
+      // Should NOT call the non-atomic methods
+      expect(agentRepo.updateApplication).not.toHaveBeenCalled();
+      expect(profileRepo.updateRole).not.toHaveBeenCalled();
+      expect(agentRepo.createWallet).not.toHaveBeenCalled();
     });
 
     it('should reject application without side effects', async () => {

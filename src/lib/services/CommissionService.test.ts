@@ -3,12 +3,7 @@ import type { AgentRepository } from '@/lib/repositories/AgentRepository';
 import type { CommissionRepository } from '@/lib/repositories/CommissionRepository';
 import type { ReferralConfigRepository } from '@/lib/repositories/ReferralConfigRepository';
 import type { ReferralRepository } from '@/lib/repositories/ReferralRepository';
-import type {
-  AgentWalletEntity,
-  ReferralCodeEntity,
-  ReferralEntity,
-  WithdrawalRequestEntity,
-} from '@/types/referral';
+import type { ReferralCodeEntity, ReferralEntity, WithdrawalRequestEntity } from '@/types/referral';
 import { CommissionService } from './CommissionService';
 import type { ProfileService } from './ProfileService';
 
@@ -127,15 +122,6 @@ const REFERRAL_ENTITY: ReferralEntity = {
   createdAt: new Date('2026-01-15'),
 };
 
-const WALLET: AgentWalletEntity = {
-  id: 'wallet-001',
-  userId: REFERRER_ID,
-  balance: 100,
-  totalEarned: 200,
-  totalWithdrawn: 100,
-  updatedAt: new Date('2026-02-01'),
-};
-
 const WITHDRAWAL: WithdrawalRequestEntity = {
   id: 'wd-001',
   walletId: 'wallet-001',
@@ -208,7 +194,21 @@ describe('CommissionService', () => {
       );
     });
 
-    it('should credit cash for agent-type referral code', async () => {
+    it('should return early for agent code without paymentAmount (fallback 0)', async () => {
+      const agentReferral = {
+        ...REFERRAL_ENTITY,
+        referralCodeId: 'code-agent-001',
+      };
+      referralRepo.findCodeById.mockResolvedValue(AGENT_REFERRAL_CODE);
+      configRepo.getConfig.mockResolvedValue(0.2);
+
+      await service.processReferralReward(agentReferral);
+
+      expect(commissionRepo.create).not.toHaveBeenCalled();
+      expect(agentRepo.incrementWalletBalance).not.toHaveBeenCalled();
+    });
+
+    it('should credit cash for agent-type referral code with paymentAmount', async () => {
       const agentReferral = {
         ...REFERRAL_ENTITY,
         referralCodeId: 'code-agent-001',
@@ -218,37 +218,18 @@ describe('CommissionService', () => {
       commissionRepo.create.mockResolvedValue({ id: 'comm-002' });
       agentRepo.incrementWalletBalance.mockResolvedValue(undefined);
 
-      await service.processReferralReward(agentReferral);
+      await service.processReferralReward(agentReferral, 25);
 
       expect(commissionRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           referralId: 'ref-001',
           beneficiaryId: REFERRER_ID,
           type: 'cash',
-          amount: 2, // 10 * 0.2
-          currency: 'usd',
-        }),
-      );
-      expect(agentRepo.incrementWalletBalance).toHaveBeenCalledWith(REFERRER_ID, 2);
-    });
-
-    it('should use paymentAmount when provided for agent commission', async () => {
-      const agentReferral = {
-        ...REFERRAL_ENTITY,
-        referralCodeId: 'code-agent-001',
-      };
-      referralRepo.findCodeById.mockResolvedValue(AGENT_REFERRAL_CODE);
-      configRepo.getConfig.mockResolvedValue(0.2);
-      commissionRepo.create.mockResolvedValue({ id: 'comm-003' });
-      agentRepo.incrementWalletBalance.mockResolvedValue(undefined);
-
-      await service.processReferralReward(agentReferral, 25);
-
-      expect(commissionRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
           amount: 5, // 25 * 0.2
+          currency: 'cny',
         }),
       );
+      expect(agentRepo.incrementWalletBalance).toHaveBeenCalledWith(REFERRER_ID, 5);
     });
 
     it('should do nothing if referral code not found', async () => {
@@ -336,51 +317,36 @@ describe('CommissionService', () => {
   // ==================== requestWithdrawal ====================
 
   describe('requestWithdrawal', () => {
-    it('should create withdrawal when balance is sufficient', async () => {
-      agentRepo.findWalletByUserId.mockResolvedValue(WALLET);
-      configRepo.getConfig.mockResolvedValue(50); // min_withdrawal_amount
-      agentRepo.incrementWalletBalance.mockResolvedValue(undefined);
-      agentRepo.createWithdrawal.mockResolvedValue(WITHDRAWAL);
+    it('should delegate to atomic RPC and return created withdrawal', async () => {
+      agentRepo.requestWithdrawalAtomic.mockResolvedValue('wd-001');
+      agentRepo.listWithdrawals.mockResolvedValue([WITHDRAWAL]);
 
       const result = await service.requestWithdrawal(REFERRER_ID, 50, {
         type: 'bank_transfer',
       });
 
-      expect(agentRepo.incrementWalletBalance).toHaveBeenCalledWith(REFERRER_ID, -50);
-      expect(agentRepo.createWithdrawal).toHaveBeenCalledWith(
-        expect.objectContaining({
-          walletId: 'wallet-001',
-          userId: REFERRER_ID,
-          amount: 50,
-        }),
-      );
+      expect(agentRepo.requestWithdrawalAtomic).toHaveBeenCalledWith(REFERRER_ID, 50, {
+        type: 'bank_transfer',
+      });
+      expect(agentRepo.listWithdrawals).toHaveBeenCalledWith(REFERRER_ID);
       expect(result).toEqual(WITHDRAWAL);
     });
 
-    it('should throw if wallet not found', async () => {
-      agentRepo.findWalletByUserId.mockResolvedValue(null);
-
-      await expect(
-        service.requestWithdrawal(REFERRER_ID, 50, { type: 'bank_transfer' }),
-      ).rejects.toThrow('Wallet not found');
-    });
-
-    it('should throw if amount below minimum', async () => {
-      agentRepo.findWalletByUserId.mockResolvedValue(WALLET);
-      configRepo.getConfig.mockResolvedValue(50); // min_withdrawal_amount
-
-      await expect(
-        service.requestWithdrawal(REFERRER_ID, 10, { type: 'bank_transfer' }),
-      ).rejects.toThrow('Minimum withdrawal amount is 50');
-    });
-
-    it('should throw if insufficient balance', async () => {
-      agentRepo.findWalletByUserId.mockResolvedValue({ ...WALLET, balance: 20 });
-      configRepo.getConfig.mockResolvedValue(10); // min_withdrawal_amount
+    it('should propagate RPC errors (e.g. insufficient balance)', async () => {
+      agentRepo.requestWithdrawalAtomic.mockRejectedValue(new Error('Insufficient balance'));
 
       await expect(
         service.requestWithdrawal(REFERRER_ID, 50, { type: 'bank_transfer' }),
       ).rejects.toThrow('Insufficient balance');
+    });
+
+    it('should throw if withdrawal not found after RPC', async () => {
+      agentRepo.requestWithdrawalAtomic.mockResolvedValue('wd-missing');
+      agentRepo.listWithdrawals.mockResolvedValue([]);
+
+      await expect(
+        service.requestWithdrawal(REFERRER_ID, 50, { type: 'bank_transfer' }),
+      ).rejects.toThrow('Withdrawal created but not found');
     });
   });
 
@@ -409,6 +375,22 @@ describe('CommissionService', () => {
       await service.rejectWithdrawal('wd-001', 'admin-123');
 
       expect(agentRepo.rejectWithdrawalWithRefund).toHaveBeenCalledWith('wd-001', 'admin-123');
+    });
+  });
+
+  // ==================== completeWithdrawal ====================
+
+  describe('completeWithdrawal', () => {
+    it('should delegate to agent repo updateWithdrawal with completed status', async () => {
+      agentRepo.updateWithdrawal.mockResolvedValue(undefined);
+
+      await service.completeWithdrawal('wd-001', 'admin-123');
+
+      expect(agentRepo.updateWithdrawal).toHaveBeenCalledWith('wd-001', {
+        status: 'completed',
+        reviewedBy: 'admin-123',
+        reviewedAt: expect.any(Date),
+      });
     });
   });
 
