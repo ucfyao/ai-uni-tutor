@@ -135,6 +135,20 @@ export async function rejectWithdrawal(input: unknown): Promise<ActionResult<voi
   }
 }
 
+export async function completeWithdrawal(input: unknown): Promise<ActionResult<void>> {
+  const parsed = withdrawalIdSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
+  try {
+    const { user } = await requireAnyAdmin();
+    const service = getCommissionService();
+    await service.completeWithdrawal(parsed.data.id, user.id);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
 export async function getReferralConfig(): Promise<ActionResult<ReferralConfigMap>> {
   try {
     await requireAnyAdmin();

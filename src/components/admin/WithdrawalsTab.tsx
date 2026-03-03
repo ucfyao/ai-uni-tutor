@@ -15,6 +15,7 @@ import {
 } from '@mantine/core';
 import {
   approveWithdrawal,
+  completeWithdrawal,
   listWithdrawalRequests,
   rejectWithdrawal,
 } from '@/app/actions/admin/referral-admin-actions';
@@ -72,6 +73,21 @@ export function WithdrawalsTab() {
         const result = await rejectWithdrawal({ id });
         if (result.success) {
           showNotification({ message: t.adminReferral.reject, color: 'green' });
+          invalidate();
+        } else {
+          showNotification({ message: result.error, color: 'red' });
+        }
+      });
+    },
+    [t, invalidate],
+  );
+
+  const handleComplete = useCallback(
+    (id: string) => {
+      startTransition(async () => {
+        const result = await completeWithdrawal({ id });
+        if (result.success) {
+          showNotification({ message: t.adminReferral.markComplete, color: 'green' });
           invalidate();
         } else {
           showNotification({ message: result.error, color: 'red' });
@@ -200,6 +216,17 @@ export function WithdrawalsTab() {
                           {t.adminReferral.reject}
                         </Button>
                       </Group>
+                    )}
+                    {w.status === 'approved' && (
+                      <Button
+                        size="xs"
+                        color="teal"
+                        variant="light"
+                        loading={isPending}
+                        onClick={() => handleComplete(w.id)}
+                      >
+                        {t.adminReferral.markComplete}
+                      </Button>
                     )}
                   </Table.Td>
                 </Table.Tr>
