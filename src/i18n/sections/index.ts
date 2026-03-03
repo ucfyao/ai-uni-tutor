@@ -5,6 +5,7 @@ import { examTranslations } from './exam';
 import { knowledgeTranslations } from './knowledge';
 import { landingTranslations } from './landing';
 import { navTranslations } from './nav';
+import { referralTranslations } from './referral';
 import { settingsTranslations } from './settings';
 import { studyTranslations } from './study';
 
@@ -18,6 +19,7 @@ export const translations = {
     ...studyTranslations.zh,
     ...settingsTranslations.zh,
     ...adminTranslations.zh,
+    ...referralTranslations.zh,
     ...commonTranslations.zh,
   },
   en: {
@@ -29,6 +31,7 @@ export const translations = {
     ...studyTranslations.en,
     ...settingsTranslations.en,
     ...adminTranslations.en,
+    ...referralTranslations.en,
     ...commonTranslations.en,
   },
 } as const;
