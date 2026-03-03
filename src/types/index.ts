@@ -12,4 +12,5 @@ export * from './university';
 export * from './course-entity';
 export * from './actions';
 export * from './writing';
+export * from './referral';
 export type { ExamPaper, ExamQuestion, MockExam, MockExamQuestion, MockExamResponse } from './exam';
