@@ -117,6 +117,13 @@ export function WithdrawalsTab() {
     letterSpacing: '0.5px',
   };
 
+  const statusLabels: Record<string, string> = {
+    pending: t.adminReferral.statusPending,
+    approved: t.adminReferral.statusApproved,
+    rejected: t.adminReferral.statusRejected,
+    completed: t.adminReferral.statusCompleted,
+  };
+
   if (isLoading) {
     return (
       <Group justify="center" py="xl">
@@ -131,11 +138,11 @@ export function WithdrawalsTab() {
         value={statusFilter}
         onChange={(v) => setStatusFilter(v as StatusFilter)}
         data={[
-          { label: 'All', value: 'all' },
-          { label: 'Pending', value: 'pending' },
-          { label: 'Approved', value: 'approved' },
-          { label: 'Rejected', value: 'rejected' },
-          { label: 'Completed', value: 'completed' },
+          { label: t.adminReferral.statusAll, value: 'all' },
+          { label: t.adminReferral.statusPending, value: 'pending' },
+          { label: t.adminReferral.statusApproved, value: 'approved' },
+          { label: t.adminReferral.statusRejected, value: 'rejected' },
+          { label: t.adminReferral.statusCompleted, value: 'completed' },
         ]}
         size="sm"
       />
@@ -158,10 +165,10 @@ export function WithdrawalsTab() {
           >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th style={thStyle}>User</Table.Th>
+                <Table.Th style={thStyle}>{t.adminReferral.user}</Table.Th>
                 <Table.Th style={thStyle}>{t.agentDashboard.amount}</Table.Th>
                 <Table.Th style={thStyle}>{t.agentDashboard.method}</Table.Th>
-                <Table.Th style={thStyle}>Status</Table.Th>
+                <Table.Th style={thStyle}>{t.adminReferral.status}</Table.Th>
                 <Table.Th style={thStyle}>{t.adminReferral.date}</Table.Th>
                 <Table.Th style={thStyle} />
               </Table.Tr>
@@ -186,7 +193,7 @@ export function WithdrawalsTab() {
                   </Table.Td>
                   <Table.Td>
                     <Badge color={STATUS_COLORS[w.status] || 'gray'} variant="light" size="sm">
-                      {w.status}
+                      {statusLabels[w.status] ?? w.status}
                     </Badge>
                   </Table.Td>
                   <Table.Td>

@@ -83,6 +83,12 @@ export function AgentApplicationsTab() {
     letterSpacing: '0.5px',
   };
 
+  const statusLabels: Record<string, string> = {
+    pending: t.adminReferral.statusPending,
+    approved: t.adminReferral.statusApproved,
+    rejected: t.adminReferral.statusRejected,
+  };
+
   if (isLoading) {
     return (
       <Group justify="center" py="xl">
@@ -97,10 +103,10 @@ export function AgentApplicationsTab() {
         value={statusFilter}
         onChange={(v) => setStatusFilter(v as StatusFilter)}
         data={[
-          { label: 'All', value: 'all' },
-          { label: 'Pending', value: 'pending' },
-          { label: 'Approved', value: 'approved' },
-          { label: 'Rejected', value: 'rejected' },
+          { label: t.adminReferral.statusAll, value: 'all' },
+          { label: t.adminReferral.statusPending, value: 'pending' },
+          { label: t.adminReferral.statusApproved, value: 'approved' },
+          { label: t.adminReferral.statusRejected, value: 'rejected' },
         ]}
         size="sm"
       />
@@ -126,7 +132,7 @@ export function AgentApplicationsTab() {
                 <Table.Th style={thStyle}>{t.adminReferral.applicant}</Table.Th>
                 <Table.Th style={thStyle}>{t.adminReferral.university}</Table.Th>
                 <Table.Th style={thStyle}>{t.adminReferral.contact}</Table.Th>
-                <Table.Th style={thStyle}>Status</Table.Th>
+                <Table.Th style={thStyle}>{t.adminReferral.status}</Table.Th>
                 <Table.Th style={thStyle}>{t.adminReferral.date}</Table.Th>
                 <Table.Th style={thStyle} />
               </Table.Tr>
@@ -151,7 +157,7 @@ export function AgentApplicationsTab() {
                   </Table.Td>
                   <Table.Td>
                     <Badge color={STATUS_COLORS[app.status] || 'gray'} variant="light" size="sm">
-                      {app.status}
+                      {statusLabels[app.status] ?? app.status}
                     </Badge>
                   </Table.Td>
                   <Table.Td>
