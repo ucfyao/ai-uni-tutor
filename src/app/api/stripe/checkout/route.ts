@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnv } from '@/lib/env';
+import { getReferralRepository } from '@/lib/repositories';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -29,11 +30,15 @@ export async function POST(req: NextRequest) {
 
     // Determine which price to use based on plan parameter
     let plan: string = 'monthly';
+    let referralCode: string | undefined;
     try {
       const body = await req.json();
       if (body.plan === 'semester') plan = 'semester';
+      if (typeof body.referralCode === 'string' && body.referralCode.trim()) {
+        referralCode = body.referralCode.trim();
+      }
     } catch {
-      // No body or invalid JSON — default to monthly
+      // No body or invalid JSON — defaults
     }
 
     const priceId =
@@ -43,6 +48,21 @@ export async function POST(req: NextRequest) {
 
     if (!priceId) {
       return new NextResponse(`Stripe Price ID for ${plan} plan is missing`, { status: 500 });
+    }
+
+    // Look up referral code for Stripe discount
+    let discounts: Array<{ promotion_code: string }> | undefined;
+    if (referralCode) {
+      try {
+        const referralRepo = getReferralRepository();
+        const codeEntity = await referralRepo.findCodeByCode(referralCode);
+        if (codeEntity?.stripePromotionCodeId && codeEntity.isActive) {
+          discounts = [{ promotion_code: codeEntity.stripePromotionCodeId }];
+        }
+      } catch (error) {
+        console.error('Failed to look up referral code:', error);
+        // Continue without discount — don't block checkout
+      }
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -55,10 +75,12 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
+      ...(discounts ? { discounts } : {}),
       success_url: `${getEnv().NEXT_PUBLIC_SITE_URL}/settings?success=true`,
       cancel_url: `${getEnv().NEXT_PUBLIC_SITE_URL}/settings?canceled=true`,
       metadata: {
         userId: user.id,
+        ...(referralCode ? { referral_code: referralCode } : {}),
       },
     });
 
