@@ -188,6 +188,7 @@ export const chatTranslations = {
       delete: '删除',
       mockExamHub: '模考',
       toolsHub: '工具',
+      referralAdmin: '推荐管理',
     },
     modals: {
       deleteChat: '删除对话？',
@@ -403,6 +404,7 @@ export const chatTranslations = {
       delete: 'Delete',
       mockExamHub: 'Mock Exams',
       toolsHub: 'Tools',
+      referralAdmin: 'Referral',
     },
     modals: {
       deleteChat: 'Delete Chat?',

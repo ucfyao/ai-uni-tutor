@@ -94,6 +94,12 @@ const JUMP_LINKS = [
     href: '/admin/feedback',
     superOnly: true,
   },
+  {
+    labelKey: 'referralAdmin' as const,
+    icon: Users,
+    href: '/admin/referral',
+    superOnly: false,
+  },
 ];
 
 // ============================================================================
