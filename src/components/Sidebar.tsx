@@ -23,6 +23,7 @@ import {
   Sparkles,
   Target,
   Trash,
+  Users,
   Wand2,
   Wrench,
 } from 'lucide-react';
@@ -279,6 +280,23 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ActionIcon>
         </Tooltip>
 
+        {/* Agent Dashboard */}
+        {profile?.role === 'agent' && (
+          <Tooltip label={t.agentDashboard.title} position="right">
+            <ActionIcon
+              component={Link}
+              href="/agent-dashboard"
+              variant="subtle"
+              color={pathname.startsWith('/agent-dashboard') ? 'indigo' : 'gray'}
+              size={36}
+              radius="md"
+              mb={4}
+            >
+              <Users size={20} strokeWidth={1.5} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+
         <Box flex={1} />
 
         {/* User Avatar */}
@@ -533,6 +551,46 @@ const Sidebar: React.FC<SidebarProps> = ({
               </Text>
             </Group>
           </UnstyledButton>
+
+          {/* Agent Dashboard link */}
+          {profile?.role === 'agent' && (
+            <UnstyledButton
+              component={Link}
+              href="/agent-dashboard"
+              w="100%"
+              py={7}
+              px={10}
+              mx={6}
+              className="sidebar-hover"
+              style={{
+                borderRadius: 8,
+                cursor: 'pointer',
+                width: 'calc(100% - 12px)',
+                backgroundColor: pathname.startsWith('/agent-dashboard')
+                  ? 'var(--mantine-color-indigo-0)'
+                  : undefined,
+              }}
+            >
+              <Group gap={10} wrap="nowrap">
+                <Users
+                  size={18}
+                  strokeWidth={1.5}
+                  color={
+                    pathname.startsWith('/agent-dashboard')
+                      ? 'var(--mantine-color-indigo-6)'
+                      : 'var(--mantine-color-gray-6)'
+                  }
+                />
+                <Text
+                  size="md"
+                  fw={pathname.startsWith('/agent-dashboard') ? 600 : 400}
+                  c={pathname.startsWith('/agent-dashboard') ? 'indigo.7' : undefined}
+                >
+                  {t.agentDashboard.title}
+                </Text>
+              </Group>
+            </UnstyledButton>
+          )}
         </Stack>
       </ScrollArea>
 
