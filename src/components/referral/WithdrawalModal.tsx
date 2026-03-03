@@ -11,14 +11,19 @@ interface WithdrawalModalProps {
   opened: boolean;
   onClose: () => void;
   balance: number; // cents
+  minWithdrawal: number; // in cents
   onSuccess: () => void;
 }
 
-const MIN_WITHDRAWAL_CENTS = 5000; // 50 CNY
-const MIN_WITHDRAWAL_CNY = MIN_WITHDRAWAL_CENTS / 100;
-
-export function WithdrawalModal({ opened, onClose, balance, onSuccess }: WithdrawalModalProps) {
+export function WithdrawalModal({
+  opened,
+  onClose,
+  balance,
+  minWithdrawal,
+  onSuccess,
+}: WithdrawalModalProps) {
   const { t } = useLanguage();
+  const minWithdrawalCNY = minWithdrawal / 100;
   const [amount, setAmount] = useState<number | string>('');
   const [method, setMethod] = useState<string | null>(null);
   const [account, setAccount] = useState('');
@@ -42,8 +47,8 @@ export function WithdrawalModal({ opened, onClose, balance, onSuccess }: Withdra
 
     const amountInCents = Math.round(amountNum * 100);
 
-    if (amountInCents < MIN_WITHDRAWAL_CENTS) {
-      setError(t.agentDashboard.minWithdrawal.replace('{amount}', String(MIN_WITHDRAWAL_CNY)));
+    if (amountInCents < minWithdrawal) {
+      setError(t.agentDashboard.minWithdrawal.replace('{amount}', String(minWithdrawalCNY)));
       return;
     }
 
@@ -89,7 +94,7 @@ export function WithdrawalModal({ opened, onClose, balance, onSuccess }: Withdra
           {(balance / 100).toFixed(2)}
         </Text>
         <Text size="xs" c="dimmed">
-          {t.agentDashboard.minWithdrawal.replace('{amount}', String(MIN_WITHDRAWAL_CNY))}
+          {t.agentDashboard.minWithdrawal.replace('{amount}', String(minWithdrawalCNY))}
         </Text>
 
         <NumberInput
