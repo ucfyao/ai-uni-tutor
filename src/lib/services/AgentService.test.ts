@@ -26,6 +26,7 @@ function createMockAgentRepo(): {
   return {
     createApplication: vi.fn(),
     findApplicationByUserId: vi.fn(),
+    findApplicationById: vi.fn(),
     listApplications: vi.fn(),
     updateApplication: vi.fn(),
     findWalletByUserId: vi.fn(),
@@ -34,6 +35,10 @@ function createMockAgentRepo(): {
     listWithdrawals: vi.fn(),
     createWithdrawal: vi.fn(),
     updateWithdrawal: vi.fn(),
+    rejectWithdrawalWithRefund: vi.fn(),
+    requestWithdrawalAtomic: vi.fn(),
+    approveApplicationAtomic: vi.fn(),
+    getDailyReferralTrend: vi.fn(),
   };
 }
 
@@ -219,7 +224,7 @@ describe('AgentService', () => {
   describe('reviewApplication', () => {
     it('should approve application, promote to agent, create wallet, and generate code', async () => {
       agentRepo.updateApplication.mockResolvedValue(undefined);
-      agentRepo.listApplications.mockResolvedValue([APPLICATION]);
+      agentRepo.findApplicationById.mockResolvedValue(APPLICATION);
       profileRepo.updateRole.mockResolvedValue(undefined);
       agentRepo.createWallet.mockResolvedValue(WALLET);
       referralService.generateCode.mockResolvedValue(AGENT_CODE);
@@ -231,6 +236,7 @@ describe('AgentService', () => {
         reviewedBy: ADMIN_ID,
         reviewedAt: expect.any(Date),
       });
+      expect(agentRepo.findApplicationById).toHaveBeenCalledWith(APP_ID);
       expect(profileRepo.updateRole).toHaveBeenCalledWith(USER_ID, 'agent');
       expect(agentRepo.createWallet).toHaveBeenCalledWith(USER_ID);
       expect(referralService.generateCode).toHaveBeenCalledWith(USER_ID, 'agent');
@@ -325,10 +331,43 @@ describe('AgentService', () => {
   // ==================== getDailyTrend ====================
 
   describe('getDailyTrend', () => {
-    it('should return empty array (future enhancement)', async () => {
+    it('should delegate to agent repo getDailyReferralTrend', async () => {
+      const trendData = [
+        { date: '2026-03-01', count: 3 },
+        { date: '2026-03-02', count: 1 },
+      ];
+      agentRepo.getDailyReferralTrend.mockResolvedValue(trendData);
+
       const result = await service.getDailyTrend(USER_ID, 30);
 
-      expect(result).toEqual([]);
+      expect(agentRepo.getDailyReferralTrend).toHaveBeenCalledWith(USER_ID, 30);
+      expect(result).toEqual(trendData);
+    });
+  });
+
+  // ==================== listApplications ====================
+
+  describe('listApplications', () => {
+    it('should delegate to agent repo', async () => {
+      agentRepo.listApplications.mockResolvedValue([APPLICATION]);
+
+      const result = await service.listApplications('pending');
+
+      expect(agentRepo.listApplications).toHaveBeenCalledWith('pending');
+      expect(result).toEqual([APPLICATION]);
+    });
+  });
+
+  // ==================== listWithdrawals ====================
+
+  describe('listWithdrawals', () => {
+    it('should delegate to agent repo', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([PENDING_WITHDRAWAL]);
+
+      const result = await service.listWithdrawals(USER_ID);
+
+      expect(agentRepo.listWithdrawals).toHaveBeenCalledWith(USER_ID);
+      expect(result).toEqual([PENDING_WITHDRAWAL]);
     });
   });
 });

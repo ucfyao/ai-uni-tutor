@@ -19,6 +19,7 @@ function createMockReferralRepo(): {
 } {
   return {
     findCodeByCode: vi.fn(),
+    findCodeById: vi.fn(),
     findCodesByUserId: vi.fn(),
     createCode: vi.fn(),
     toggleCodeActive: vi.fn(),
@@ -36,6 +37,7 @@ function createMockAgentRepo(): {
   return {
     createApplication: vi.fn(),
     findApplicationByUserId: vi.fn(),
+    findApplicationById: vi.fn(),
     listApplications: vi.fn(),
     updateApplication: vi.fn(),
     findWalletByUserId: vi.fn(),
@@ -44,6 +46,10 @@ function createMockAgentRepo(): {
     listWithdrawals: vi.fn(),
     createWithdrawal: vi.fn(),
     updateWithdrawal: vi.fn(),
+    rejectWithdrawalWithRefund: vi.fn(),
+    requestWithdrawalAtomic: vi.fn(),
+    approveApplicationAtomic: vi.fn(),
+    getDailyReferralTrend: vi.fn(),
   };
 }
 
@@ -172,8 +178,7 @@ describe('CommissionService', () => {
 
   describe('processReferralReward', () => {
     it('should credit Pro days for user-type referral code', async () => {
-      referralRepo.findCodeByCode.mockResolvedValue(null);
-      referralRepo.findCodesByUserId.mockResolvedValue([USER_REFERRAL_CODE]);
+      referralRepo.findCodeById.mockResolvedValue(USER_REFERRAL_CODE);
       configRepo.getConfig.mockResolvedValue(7);
       commissionRepo.create.mockResolvedValue({ id: 'comm-001' });
       profileService.getProfile.mockResolvedValue({
@@ -185,6 +190,7 @@ describe('CommissionService', () => {
 
       await service.processReferralReward(REFERRAL_ENTITY);
 
+      expect(referralRepo.findCodeById).toHaveBeenCalledWith(CODE_ID);
       expect(commissionRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           referralId: 'ref-001',
@@ -207,8 +213,7 @@ describe('CommissionService', () => {
         ...REFERRAL_ENTITY,
         referralCodeId: 'code-agent-001',
       };
-      referralRepo.findCodeByCode.mockResolvedValue(null);
-      referralRepo.findCodesByUserId.mockResolvedValue([AGENT_REFERRAL_CODE]);
+      referralRepo.findCodeById.mockResolvedValue(AGENT_REFERRAL_CODE);
       configRepo.getConfig.mockResolvedValue(0.2);
       commissionRepo.create.mockResolvedValue({ id: 'comm-002' });
       agentRepo.incrementWalletBalance.mockResolvedValue(undefined);
@@ -227,9 +232,27 @@ describe('CommissionService', () => {
       expect(agentRepo.incrementWalletBalance).toHaveBeenCalledWith(REFERRER_ID, 2);
     });
 
+    it('should use paymentAmount when provided for agent commission', async () => {
+      const agentReferral = {
+        ...REFERRAL_ENTITY,
+        referralCodeId: 'code-agent-001',
+      };
+      referralRepo.findCodeById.mockResolvedValue(AGENT_REFERRAL_CODE);
+      configRepo.getConfig.mockResolvedValue(0.2);
+      commissionRepo.create.mockResolvedValue({ id: 'comm-003' });
+      agentRepo.incrementWalletBalance.mockResolvedValue(undefined);
+
+      await service.processReferralReward(agentReferral, 25);
+
+      expect(commissionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 5, // 25 * 0.2
+        }),
+      );
+    });
+
     it('should do nothing if referral code not found', async () => {
-      referralRepo.findCodeByCode.mockResolvedValue(null);
-      referralRepo.findCodesByUserId.mockResolvedValue([]);
+      referralRepo.findCodeById.mockResolvedValue(null);
 
       await service.processReferralReward(REFERRAL_ENTITY);
 
@@ -374,6 +397,18 @@ describe('CommissionService', () => {
         reviewedBy: 'admin-123',
         reviewedAt: expect.any(Date),
       });
+    });
+  });
+
+  // ==================== rejectWithdrawal ====================
+
+  describe('rejectWithdrawal', () => {
+    it('should delegate to agent repo rejectWithdrawalWithRefund', async () => {
+      agentRepo.rejectWithdrawalWithRefund.mockResolvedValue(undefined);
+
+      await service.rejectWithdrawal('wd-001', 'admin-123');
+
+      expect(agentRepo.rejectWithdrawalWithRefund).toHaveBeenCalledWith('wd-001', 'admin-123');
     });
   });
 

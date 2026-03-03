@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { CommissionRepository } from '@/lib/repositories/CommissionRepository';
 import type { ReferralConfigRepository } from '@/lib/repositories/ReferralConfigRepository';
 import type { ReferralRepository } from '@/lib/repositories/ReferralRepository';
 import type { ReferralCodeEntity, ReferralEntity, ReferralWithReferee } from '@/types/referral';
-
 import type { CommissionService } from './CommissionService';
 import { ReferralService } from './ReferralService';
 
@@ -25,6 +23,7 @@ function createMockReferralRepo(): {
 } {
   return {
     findCodeByCode: vi.fn(),
+    findCodeById: vi.fn(),
     findCodesByUserId: vi.fn(),
     createCode: vi.fn(),
     toggleCodeActive: vi.fn(),
@@ -67,6 +66,8 @@ function createMockCommissionService(): {
     creditCash: vi.fn(),
     requestWithdrawal: vi.fn(),
     approveWithdrawal: vi.fn(),
+    completeWithdrawal: vi.fn(),
+    rejectWithdrawal: vi.fn(),
     sumRewardDaysByBeneficiary: vi.fn(),
   };
 }
@@ -329,12 +330,22 @@ describe('ReferralService', () => {
   // ==================== toggleCode ====================
 
   describe('toggleCode', () => {
-    it('should delegate to repository', async () => {
+    it('should verify ownership and delegate to repository', async () => {
+      referralRepo.findCodesByUserId.mockResolvedValue([CODE_ENTITY]);
       referralRepo.toggleCodeActive.mockResolvedValue(undefined);
 
-      await service.toggleCode(CODE_ID, false);
+      await service.toggleCode(USER_ID, CODE_ID, false);
 
+      expect(referralRepo.findCodesByUserId).toHaveBeenCalledWith(USER_ID);
       expect(referralRepo.toggleCodeActive).toHaveBeenCalledWith(CODE_ID, false);
+    });
+
+    it('should throw if code not owned by user', async () => {
+      referralRepo.findCodesByUserId.mockResolvedValue([]);
+
+      await expect(service.toggleCode(USER_ID, CODE_ID, false)).rejects.toThrow(
+        'Referral code not found or not owned by user',
+      );
     });
   });
 });
