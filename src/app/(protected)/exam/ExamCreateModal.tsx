@@ -114,13 +114,13 @@ export function ExamCreateModal({ opened, onClose }: Props) {
     setSelectedPaper(null);
 
     Promise.all([getExamPapersForCourse(courseCode), getBookmarkedPaperIds()]).then(
-      ([papersResult, bookmarks]) => {
+      ([papersResult, bookmarksResult]) => {
         if (papersResult.success) {
-          setPapers(papersResult.papers);
+          setPapers(papersResult.data);
         } else {
           setPapers([]);
         }
-        setBookmarkedIds(new Set(bookmarks));
+        setBookmarkedIds(new Set(bookmarksResult.success ? bookmarksResult.data : []));
         setLoadingPapers(false);
       },
     );
@@ -131,7 +131,7 @@ export function ExamCreateModal({ opened, onClose }: Props) {
     if (result.success) {
       setBookmarkedIds((prev) => {
         const next = new Set(prev);
-        if (result.bookmarked) {
+        if (result.data.bookmarked) {
           next.add(paperId);
         } else {
           next.delete(paperId);
@@ -190,7 +190,7 @@ export function ExamCreateModal({ opened, onClose }: Props) {
           return;
         }
 
-        const mockId = stubResult.mockId;
+        const mockId = stubResult.data.mockId;
 
         if (source === 'real') {
           if (!selectedPaper) return;

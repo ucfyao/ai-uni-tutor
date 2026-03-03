@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { QuotaExceededError } from '@/lib/errors';
+import { mapError, QuotaExceededError } from '@/lib/errors';
 import { getExamPaperService } from '@/lib/services/ExamPaperService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
-import type { FormActionState } from '@/types/actions';
+import type { ActionResult, FormActionState } from '@/types/actions';
 import type { ExamPaper, PaperFilters } from '@/types/exam';
 
 export type ExamPaperUploadState = FormActionState & { paperId?: string };
@@ -68,20 +68,29 @@ export async function uploadAndParseExamPaper(
   }
 }
 
-export async function getExamPaperList(filters?: PaperFilters): Promise<ExamPaper[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
+export async function getExamPaperList(filters?: PaperFilters): Promise<ActionResult<ExamPaper[]>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
 
-  const service = getExamPaperService();
-  const { data } = await service.getPapers(filters);
-  return data;
+    const service = getExamPaperService();
+    const { data } = await service.getPapers(filters);
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
 }
 
-export async function deleteExamPaper(paperId: string) {
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
+export async function deleteExamPaper(paperId: string): Promise<ActionResult<void>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
 
-  const service = getExamPaperService();
-  await service.deletePaper(user.id, paperId);
-  revalidatePath('/exam');
+    const service = getExamPaperService();
+    await service.deletePaper(user.id, paperId);
+    revalidatePath('/exam');
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
 }

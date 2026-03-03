@@ -90,8 +90,8 @@ export function ExamSubmitModal({
     try {
       const res = await batchSubmitMockAnswers(mockId, answersToSubmit);
       if (res.success) {
-        setResult(res.result);
-        onSubmitSuccess(res.result);
+        setResult(res.data.result);
+        onSubmitSuccess(res.data.result);
         setPhase('results');
       } else {
         setError(res.error);

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
+import { mapError } from '@/lib/errors';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
@@ -85,23 +86,29 @@ export async function updateProfileFields(input: {
   };
 }
 
-export async function getProfile(): Promise<ProfileData | null> {
-  const user = await getCurrentUser();
+export async function getProfile(): Promise<ActionResult<ProfileData | null>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: true, data: null };
 
-  if (!user) return null;
+    const profileService = getProfileService();
+    const profile = await profileService.getProfile(user.id);
 
-  const profileService = getProfileService();
-  const profile = await profileService.getProfile(user.id);
+    if (!profile) return { success: true, data: null };
 
-  if (!profile) return null;
-
-  return {
-    id: profile.id,
-    full_name: profile.fullName,
-    email: profile.email,
-    subscription_status: profile.subscriptionStatus,
-    current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
-    created_at: profile.createdAt?.toISOString() ?? null,
-    role: profile.role ?? null,
-  };
+    return {
+      success: true,
+      data: {
+        id: profile.id,
+        full_name: profile.fullName,
+        email: profile.email,
+        subscription_status: profile.subscriptionStatus,
+        current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
+        created_at: profile.createdAt?.toISOString() ?? null,
+        role: profile.role ?? null,
+      },
+    };
+  } catch (error) {
+    return mapError(error);
+  }
 }

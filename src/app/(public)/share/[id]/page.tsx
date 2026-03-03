@@ -16,11 +16,12 @@ interface PageProps {
 
 export default async function SharedSessionPage({ params }: PageProps) {
   const { id } = await params;
-  const session = await getSharedSession(id);
+  const result = await getSharedSession(id);
 
-  if (!session) {
+  if (!result.success || !result.data) {
     return notFound();
   }
+  const session = result.data;
 
   return (
     <Box mih="100vh">

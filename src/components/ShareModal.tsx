@@ -34,16 +34,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ opened, onClose, session, onUpd
 
   const handleToggleShare = async (checked: boolean) => {
     setLoading(true);
-    try {
-      // Optimistic update
-      onUpdateSession(session.id, checked);
-      await toggleSessionShare(session.id, checked);
-    } catch (error) {
-      console.error('Failed to toggle share', error);
+    // Optimistic update
+    onUpdateSession(session.id, checked);
+    const result = await toggleSessionShare(session.id, checked);
+    if (!result.success) {
+      console.error('Failed to toggle share', result.error);
       onUpdateSession(session.id, !checked);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return (

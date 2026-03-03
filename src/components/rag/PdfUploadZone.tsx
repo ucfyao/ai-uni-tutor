@@ -433,12 +433,14 @@ export function PdfUploadZone({
         setCheckingDuplicate(true);
         try {
           const fileHash = await computeFileHash(file);
-          const { duplicates } = await checkDuplicateDocuments({
+          const result = await checkDuplicateDocuments({
             courseId,
             fileName: file.name,
             fileHash,
             excludeDocumentId: documentId,
           });
+          if (!result.success) throw new Error(result.error);
+          const { duplicates } = result.data;
 
           if (duplicates.length > 0) {
             modals.open({

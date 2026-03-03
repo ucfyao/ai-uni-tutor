@@ -81,8 +81,9 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
   const { data: documents = [], isLoading } = useQuery<KnowledgeDocument[]>({
     queryKey: queryKeys.documents.byType(activeTab),
     queryFn: async () => {
-      const results = await fetchDocuments(activeTab);
-      return results as KnowledgeDocument[];
+      const result = await fetchDocuments(activeTab);
+      if (!result.success) return [];
+      return result.data as KnowledgeDocument[];
     },
     initialData: activeTab === initialDocType ? initialDocuments : undefined,
   });
@@ -642,7 +643,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                   ...(selectedCourse && { course: selectedCourse.code }),
                 });
 
-                if (result.status === 'success') {
+                if (result.success) {
                   showNotification({
                     message: t.knowledge.updateSuccess,
                     color: 'green',
@@ -656,7 +657,7 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 } else {
                   showNotification({
                     title: t.knowledge.error,
-                    message: result.message,
+                    message: result.error,
                     color: 'red',
                   });
                 }

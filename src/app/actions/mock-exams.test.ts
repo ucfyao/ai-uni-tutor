@@ -119,7 +119,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
 
-      expect(result).toEqual({ success: true, mockId: 'mock-2' });
+      expect(result).toEqual({ success: true, data: { mockId: 'mock-2' } });
       expect(mockMockExamService.createMockStub).toHaveBeenCalledWith('user-1', {
         topic: 'Recursion',
         numQuestions: 10,
@@ -200,16 +200,16 @@ describe('Mock Exam Actions', () => {
       );
     });
 
-    it('should handle service errors with Error message', async () => {
+    it('should handle service errors via mapError', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockMockExamService.createMockStub.mockRejectedValue(new Error('Creation failed'));
 
       const result = await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
 
-      expect(result).toEqual({ success: false, error: 'Creation failed' });
+      expect(result).toEqual({ success: false, error: 'Internal server error', code: 'INTERNAL' });
     });
 
-    it('should handle non-Error thrown objects', async () => {
+    it('should handle non-Error thrown objects via mapError', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockMockExamService.createMockStub.mockRejectedValue('string error');
 
@@ -217,7 +217,8 @@ describe('Mock Exam Actions', () => {
 
       expect(result).toEqual({
         success: false,
-        error: 'Failed to create mock exam',
+        error: 'Internal server error',
+        code: 'INTERNAL',
       });
     });
   });
@@ -231,7 +232,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', ['choice']);
 
-      expect(result).toEqual({ success: true });
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockQuotaService.enforce).toHaveBeenCalledWith('user-1');
       expect(mockMockExamService.generateQuestionsFromTopic).toHaveBeenCalledWith(
         'user-1',
@@ -274,13 +275,13 @@ describe('Mock Exam Actions', () => {
       expect(mockMockExamService.generateQuestionsFromTopic).not.toHaveBeenCalled();
     });
 
-    it('should handle service errors', async () => {
+    it('should handle service errors via mapError', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockMockExamService.generateQuestionsFromTopic.mockRejectedValue(new Error('AI failed'));
 
       const result = await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', []);
 
-      expect(result).toEqual({ success: false, error: 'AI failed' });
+      expect(result).toEqual({ success: false, error: 'Internal server error', code: 'INTERNAL' });
     });
   });
 
@@ -294,7 +295,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await submitMockAnswer('mock-1', 0, 'A');
 
-      expect(result).toEqual({ success: true, feedback });
+      expect(result).toEqual({ success: true, data: { feedback } });
       expect(mockMockExamService.submitAnswer).toHaveBeenCalledWith('user-1', 'mock-1', 0, 'A');
     });
 
@@ -307,22 +308,22 @@ describe('Mock Exam Actions', () => {
       expect(mockMockExamService.submitAnswer).not.toHaveBeenCalled();
     });
 
-    it('should handle service errors with Error message', async () => {
+    it('should handle service errors via mapError', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockMockExamService.submitAnswer.mockRejectedValue(new Error('Invalid question index'));
 
       const result = await submitMockAnswer('mock-1', 99, 'A');
 
-      expect(result).toEqual({ success: false, error: 'Invalid question index' });
+      expect(result).toEqual({ success: false, error: 'Internal server error', code: 'INTERNAL' });
     });
 
-    it('should handle non-Error thrown objects', async () => {
+    it('should handle non-Error thrown objects via mapError', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockMockExamService.submitAnswer.mockRejectedValue('string error');
 
       const result = await submitMockAnswer('mock-1', 0, 'A');
 
-      expect(result).toEqual({ success: false, error: 'Failed to submit answer' });
+      expect(result).toEqual({ success: false, error: 'Internal server error', code: 'INTERNAL' });
     });
 
     it('should return error when quota is exceeded', async () => {
@@ -362,7 +363,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await batchSubmitMockAnswers('mock-1', ANSWERS);
 
-      expect(result).toEqual({ success: true, result: batchResult });
+      expect(result).toEqual({ success: true, data: { result: batchResult } });
       expect(mockMockExamService.batchSubmitAnswers).toHaveBeenCalledWith(
         'user-1',
         'mock-1',
@@ -379,22 +380,22 @@ describe('Mock Exam Actions', () => {
       expect(mockMockExamService.batchSubmitAnswers).not.toHaveBeenCalled();
     });
 
-    it('should handle service errors with Error message', async () => {
+    it('should handle service errors via mapError', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockMockExamService.batchSubmitAnswers.mockRejectedValue(new Error('Exam already completed'));
 
       const result = await batchSubmitMockAnswers('mock-1', ANSWERS);
 
-      expect(result).toEqual({ success: false, error: 'Exam already completed' });
+      expect(result).toEqual({ success: false, error: 'Internal server error', code: 'INTERNAL' });
     });
 
-    it('should handle non-Error thrown objects', async () => {
+    it('should handle non-Error thrown objects via mapError', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockMockExamService.batchSubmitAnswers.mockRejectedValue('string error');
 
       const result = await batchSubmitMockAnswers('mock-1', ANSWERS);
 
-      expect(result).toEqual({ success: false, error: 'Failed to batch submit answers' });
+      expect(result).toEqual({ success: false, error: 'Internal server error', code: 'INTERNAL' });
     });
 
     it('should return error when quota is exceeded', async () => {
@@ -428,25 +429,25 @@ describe('Mock Exam Actions', () => {
 
       const result = await getMockExamIdBySessionId('sess-1');
 
-      expect(result).toBe('mock-1');
+      expect(result).toEqual({ success: true, data: 'mock-1' });
       expect(mockMockExamService.getMockIdBySessionId).toHaveBeenCalledWith('sess-1', 'user-1');
     });
 
-    it('should return null when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const result = await getMockExamIdBySessionId('sess-1');
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ success: false, error: 'Unauthorized' });
       expect(mockMockExamService.getMockIdBySessionId).not.toHaveBeenCalled();
     });
 
-    it('should return null when no mock is linked to session', async () => {
+    it('should return null data when no mock is linked to session', async () => {
       mockMockExamService.getMockIdBySessionId.mockResolvedValue(null);
 
       const result = await getMockExamIdBySessionId('sess-nonexistent');
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ success: true, data: null });
     });
   });
 
@@ -460,25 +461,25 @@ describe('Mock Exam Actions', () => {
 
       const result = await getMockExamDetail('mock-1');
 
-      expect(result).toEqual(exam);
+      expect(result).toEqual({ success: true, data: exam });
       expect(mockMockExamService.getMock).toHaveBeenCalledWith('user-1', 'mock-1');
     });
 
-    it('should return null when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const result = await getMockExamDetail('mock-1');
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ success: false, error: 'Unauthorized' });
       expect(mockMockExamService.getMock).not.toHaveBeenCalled();
     });
 
-    it('should return null when mock exam is not found', async () => {
+    it('should return null data when mock exam is not found', async () => {
       mockMockExamService.getMock.mockResolvedValue(null);
 
       const result = await getMockExamDetail('nonexistent');
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ success: true, data: null });
     });
   });
 });

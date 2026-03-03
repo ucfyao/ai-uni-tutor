@@ -9,8 +9,8 @@ export default async function ExamHubPage() {
   try {
     const result = await getMockExamList();
     if (result.success) {
-      inProgress = result.inProgress;
-      completed = result.completed;
+      inProgress = result.data.inProgress;
+      completed = result.data.completed;
     }
   } catch {
     // Silently handle build-time DYNAMIC_SERVER_USAGE errors

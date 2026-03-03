@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { QuotaExceededError } from '@/lib/errors';
+import { mapError } from '@/lib/errors';
 import { getMockExamService } from '@/lib/services/MockExamService';
 import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { ActionResult } from '@/types/actions';
 import type { BatchSubmitResult, ExamPaper, MockExam, MockExamResponse } from '@/types/exam';
 
 export async function generateMockFromTopic(
@@ -13,7 +14,7 @@ export async function generateMockFromTopic(
   difficulty: 'easy' | 'medium' | 'hard' | 'mixed',
   questionTypes: string[],
   mode: 'practice' | 'exam' = 'practice',
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -36,13 +37,9 @@ export async function generateMockFromTopic(
     });
 
     revalidatePath('/exam');
-    return { success: true, mockId };
+    return { success: true, data: { mockId } };
   } catch (error) {
-    console.error('Mock exam stub creation error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create mock exam',
-    };
+    return mapError(error);
   }
 }
 
@@ -50,7 +47,7 @@ export async function populateMockFromPaper(
   mockId: string,
   paperId: string,
   mode: 'practice' | 'exam',
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -63,13 +60,9 @@ export async function populateMockFromPaper(
     await service.populateFromPaper(user.id, mockId.trim(), paperId.trim(), mode);
 
     revalidatePath(`/exam/${mockId}`);
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
-    console.error('Populate mock from paper error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to populate mock exam',
-    };
+    return mapError(error);
   }
 }
 
@@ -78,7 +71,7 @@ export async function populateMockRandomMix(
   courseCode: string,
   numQuestions: number,
   mode: 'practice' | 'exam',
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -94,16 +87,9 @@ export async function populateMockRandomMix(
     await service.populateRandomMix(user.id, mockId.trim(), courseCode.trim(), numQuestions, mode);
 
     revalidatePath(`/exam/${mockId}`);
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
-    }
-    console.error('Populate mock random mix error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to populate random mix exam',
-    };
+    return mapError(error);
   }
 }
 
@@ -114,7 +100,7 @@ export async function generateMockQuestions(
   difficulty: 'easy' | 'medium' | 'hard' | 'mixed',
   questionTypes: string[],
   mode?: 'practice' | 'exam',
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -131,16 +117,9 @@ export async function generateMockQuestions(
     });
 
     revalidatePath(`/exam/${mockId}`);
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
-    }
-    console.error('Mock exam question generation error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate questions',
-    };
+    return mapError(error);
   }
 }
 
@@ -148,9 +127,7 @@ export async function submitMockAnswer(
   mockId: string,
   questionIndex: number,
   userAnswer: string,
-): Promise<
-  { success: true; feedback: MockExamResponse } | { success: false; error: string; code?: string }
-> {
+): Promise<ActionResult<{ feedback: MockExamResponse }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -160,25 +137,16 @@ export async function submitMockAnswer(
     const service = getMockExamService();
     const feedback = await service.submitAnswer(user.id, mockId, questionIndex, userAnswer);
 
-    return { success: true, feedback };
+    return { success: true, data: { feedback } };
   } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message, code: 'QUOTA_EXCEEDED' };
-    }
-    console.error('Submit answer error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to submit answer',
-    };
+    return mapError(error);
   }
 }
 
 export async function batchSubmitMockAnswers(
   mockId: string,
   answers: Array<{ questionIndex: number; userAnswer: string }>,
-): Promise<
-  { success: true; result: BatchSubmitResult } | { success: false; error: string; code?: string }
-> {
+): Promise<ActionResult<{ result: BatchSubmitResult }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -188,38 +156,45 @@ export async function batchSubmitMockAnswers(
     const service = getMockExamService();
     const result = await service.batchSubmitAnswers(user.id, mockId, answers);
 
-    return { success: true, result };
+    return { success: true, data: { result } };
   } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message, code: 'QUOTA_EXCEEDED' };
-    }
-    console.error('Batch submit error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to batch submit answers',
-    };
+    return mapError(error);
   }
 }
 
-export async function getMockExamIdBySessionId(sessionId: string): Promise<string | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
+export async function getMockExamIdBySessionId(
+  sessionId: string,
+): Promise<ActionResult<string | null>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
 
-  const service = getMockExamService();
-  return service.getMockIdBySessionId(sessionId, user.id);
+    const service = getMockExamService();
+    const mockId = await service.getMockIdBySessionId(sessionId, user.id);
+    return { success: true, data: mockId };
+  } catch (error) {
+    return mapError(error);
+  }
 }
 
-export async function getMockExamDetail(mockId: string): Promise<MockExam | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
+export async function getMockExamDetail(
+  mockId: string,
+): Promise<ActionResult<MockExam | null>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
 
-  const service = getMockExamService();
-  return service.getMock(user.id, mockId);
+    const service = getMockExamService();
+    const mock = await service.getMock(user.id, mockId);
+    return { success: true, data: mock };
+  } catch (error) {
+    return mapError(error);
+  }
 }
 
 export async function getExamPapersForCourse(
   courseCode: string,
-): Promise<{ success: true; papers: ExamPaper[] } | { success: false; error: string }> {
+): Promise<ActionResult<ExamPaper[]>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -229,20 +204,16 @@ export async function getExamPapersForCourse(
     const service = getMockExamService();
     const papers = await service.getPapersForCourse(courseCode.trim());
 
-    return { success: true, papers };
+    return { success: true, data: papers };
   } catch (error) {
-    console.error('Fetch papers for course error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch papers',
-    };
+    return mapError(error);
   }
 }
 
 export async function createRealExamMock(
   paperId: string,
   mode: 'practice' | 'exam',
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -254,16 +225,9 @@ export async function createRealExamMock(
     const { mockId } = await service.createFromPaper(user.id, paperId.trim(), mode);
 
     revalidatePath('/exam');
-    return { success: true, mockId };
+    return { success: true, data: { mockId } };
   } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
-    }
-    console.error('Real exam mock creation error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create mock exam',
-    };
+    return mapError(error);
   }
 }
 
@@ -271,7 +235,7 @@ export async function createRandomMixMock(
   courseCode: string,
   numQuestions: number,
   mode: 'practice' | 'exam',
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -291,25 +255,15 @@ export async function createRandomMixMock(
     );
 
     revalidatePath('/exam');
-    return { success: true, mockId };
+    return { success: true, data: { mockId } };
   } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return { success: false, error: error.message };
-    }
-    console.error('Random mix mock creation error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create random mix exam',
-    };
+    return mapError(error);
   }
 }
 
 export async function getMockExamList(filters?: {
   mode?: 'practice' | 'exam';
-}): Promise<
-  | { success: true; inProgress: MockExam[]; completed: MockExam[] }
-  | { success: false; error: string }
-> {
+}): Promise<ActionResult<{ inProgress: MockExam[]; completed: MockExam[] }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -317,23 +271,20 @@ export async function getMockExamList(filters?: {
     const service = getMockExamService();
     const result = await service.getMockExamList(user.id, filters);
 
-    return { success: true, ...result };
+    return { success: true, data: result };
   } catch (error) {
     const isDynamicServerUsage =
       error instanceof Error && error.message.includes('Dynamic server usage');
     if (!isDynamicServerUsage) {
       console.error('Fetch mock exam list error:', error);
     }
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch mock exams',
-    };
+    return mapError(error);
   }
 }
 
 export async function retakeMockExam(
   originalMockId: string,
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -344,13 +295,9 @@ export async function retakeMockExam(
     const { mockId } = await service.retakeMock(user.id, originalMockId.trim());
 
     revalidatePath('/exam');
-    return { success: true, mockId };
+    return { success: true, data: { mockId } };
   } catch (error) {
-    console.error('Retake mock exam error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create retake',
-    };
+    return mapError(error);
   }
 }
 
@@ -359,7 +306,7 @@ export async function createStandaloneMock(
   mode: 'practice' | 'exam',
   courseId: string,
   courseCode: string,
-): Promise<{ success: true; mockId: string } | { success: false; error: string }> {
+): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -377,19 +324,15 @@ export async function createStandaloneMock(
     );
 
     revalidatePath('/exam');
-    return { success: true, mockId };
+    return { success: true, data: { mockId } };
   } catch (error) {
-    console.error('Create standalone mock error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create mock exam',
-    };
+    return mapError(error);
   }
 }
 
 export async function deleteMockExam(
   mockId: string,
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -400,12 +343,8 @@ export async function deleteMockExam(
     await service.deleteMock(user.id, mockId);
 
     revalidatePath('/exam');
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
-    console.error('Delete mock exam error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete mock exam',
-    };
+    return mapError(error);
   }
 }

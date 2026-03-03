@@ -118,7 +118,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
     const trimmed = nameValue.trim();
     if (trimmed && trimmed !== currentName) {
       const result = await updateDocumentMeta(doc.id, { name: trimmed });
-      if (result.status === 'success') setCurrentName(trimmed);
+      if (result.success) setCurrentName(trimmed);
     }
     setEditingName(false);
   }, [doc.id, nameValue, currentName]);
@@ -135,7 +135,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         onConfirm: async () => {
           try {
             const result = await updateDocumentChunks(doc.id, [], [chunkId]);
-            if (result.status === 'success') {
+            if (result.success) {
               showNotification({
                 message: t.toast.deletedSuccessfully,
                 color: 'green',
@@ -148,7 +148,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
               });
               router.refresh();
             } else {
-              showNotification({ title: t.common.error, message: result.message, color: 'red' });
+              showNotification({ title: t.common.error, message: result.error, color: 'red' });
             }
           } catch {
             showNotification({
@@ -178,7 +178,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         try {
           const ids = Array.from(selectedIds);
           const result = await updateDocumentChunks(doc.id, [], ids);
-          if (result.status === 'success') {
+          if (result.success) {
             showNotification({
               message: t.toast.deletedSuccessfully,
               color: 'green',
@@ -187,7 +187,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             setSelectedIds(new Set());
             router.refresh();
           } else {
-            showNotification({ title: t.common.error, message: result.message, color: 'red' });
+            showNotification({ title: t.common.error, message: result.error, color: 'red' });
           }
         } catch {
           showNotification({
@@ -241,7 +241,7 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         [{ id: chunkId, content: fullContent, metadata }],
         [],
       );
-      if (result.status === 'success') {
+      if (result.success) {
         showNotification({
           message: t.toast.changesSaved,
           color: 'green',
@@ -249,8 +249,8 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
         });
         router.refresh();
       } else {
-        showNotification({ title: t.common.error, message: result.message, color: 'red' });
-        throw new Error(result.message);
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
+        throw new Error(result.error);
       }
     },
     [chunks, getMeta, doc.id, router, t],
@@ -282,31 +282,33 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
   const handlePublish = useCallback(async () => {
     setIsPublishing(true);
     try {
-      await publishDocument(doc.id, 'lecture');
-      setCurrentStatus('ready');
-      showNotification({ message: t.toast.published, color: 'green', icon: <Check size={16} /> });
-    } catch (e) {
-      showNotification({
-        title: t.common.error,
-        message: e instanceof Error ? e.message : 'Failed',
-        color: 'red',
-      });
+      const result = await publishDocument(doc.id, 'lecture');
+      if (result.success) {
+        setCurrentStatus('ready');
+        showNotification({
+          message: t.toast.published,
+          color: 'green',
+          icon: <Check size={16} />,
+        });
+      } else {
+        showNotification({ title: t.common.error, message: result.error, color: 'red' });
+      }
     } finally {
       setIsPublishing(false);
     }
   }, [doc.id, t]);
 
   const handleUnpublish = useCallback(async () => {
-    try {
-      await unpublishDocument(doc.id, 'lecture');
+    const result = await unpublishDocument(doc.id, 'lecture');
+    if (result.success) {
       setCurrentStatus('draft');
-      showNotification({ message: t.toast.unpublished, color: 'blue', icon: <Check size={16} /> });
-    } catch (e) {
       showNotification({
-        title: t.common.error,
-        message: e instanceof Error ? e.message : 'Failed',
-        color: 'red',
+        message: t.toast.unpublished,
+        color: 'blue',
+        icon: <Check size={16} />,
       });
+    } else {
+      showNotification({ title: t.common.error, message: result.error, color: 'red' });
     }
   }, [doc.id, t]);
 
@@ -317,8 +319,8 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
       labels: { confirm: t.documentDetail.deleteChunk, cancel: t.documentDetail.cancel },
       confirmProps: { color: 'red' },
       onConfirm: async () => {
-        try {
-          await deleteDocument(doc.id, 'lecture');
+        const result = await deleteDocument(doc.id, 'lecture');
+        if (result.success) {
           for (const dt of DOC_TYPES) {
             queryClient.setQueryData<KnowledgeDocument[]>(
               queryKeys.documents.byType(dt.value),
@@ -326,10 +328,10 @@ export function LectureDetailClient({ document: doc, chunks }: LectureDetailClie
             );
           }
           router.push('/admin/knowledge?tab=lecture');
-        } catch (e) {
+        } else {
           showNotification({
             title: t.common.error,
-            message: e instanceof Error ? e.message : t.knowledge.failedToDelete,
+            message: result.error,
             color: 'red',
           });
         }

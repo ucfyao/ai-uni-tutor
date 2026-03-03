@@ -9,8 +9,10 @@
  * Architecture: Actions → Services → Repositories → Database
  */
 import { z } from 'zod';
+import { mapError } from '@/lib/errors';
 import { getSessionService } from '@/lib/services/SessionService';
 import { getCurrentUser } from '@/lib/supabase/server';
+import type { ActionResult } from '@/types/actions';
 import { ChatMessage, ChatSession, TutoringMode } from '@/types/index';
 
 // ============================================================================
@@ -71,51 +73,80 @@ const toggleShareSchema = z.object({
 /**
  * Get a single session with messages
  */
-export async function getChatSession(sessionId: string): Promise<ChatSession | null> {
-  const parsed = sessionIdSchema.safeParse(sessionId);
-  if (!parsed.success) return null;
+export async function getChatSession(
+  sessionId: string,
+): Promise<ActionResult<ChatSession | null>> {
+  try {
+    const parsed = sessionIdSchema.safeParse(sessionId);
+    if (!parsed.success)
+      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
 
-  const user = await getCurrentUser();
-  if (!user) return null;
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
 
-  const sessionService = getSessionService();
-  return sessionService.getFullSession(sessionId, user.id);
+    const sessionService = getSessionService();
+    const data = await sessionService.getFullSession(sessionId, user.id);
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
 }
 
 /**
  * Get only messages for a session
  */
-export async function getChatMessages(sessionId: string): Promise<ChatMessage[] | null> {
-  const parsed = sessionIdSchema.safeParse(sessionId);
-  if (!parsed.success) return null;
+export async function getChatMessages(
+  sessionId: string,
+): Promise<ActionResult<ChatMessage[] | null>> {
+  try {
+    const parsed = sessionIdSchema.safeParse(sessionId);
+    if (!parsed.success)
+      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
 
-  const user = await getCurrentUser();
-  if (!user) return null;
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
 
-  const sessionService = getSessionService();
-  return sessionService.getSessionMessages(sessionId, user.id);
+    const sessionService = getSessionService();
+    const data = await sessionService.getSessionMessages(sessionId, user.id);
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
 }
 
 /**
  * Get all sessions for sidebar (without messages)
  */
-export async function getChatSessions(): Promise<ChatSession[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
+export async function getChatSessions(): Promise<ActionResult<ChatSession[]>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
 
-  const sessionService = getSessionService();
-  return sessionService.getUserSessions(user.id);
+    const sessionService = getSessionService();
+    const data = await sessionService.getUserSessions(user.id);
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
 }
 
 /**
  * Get a shared session (public access)
  */
-export async function getSharedSession(sessionId: string): Promise<ChatSession | null> {
-  const parsed = sessionIdSchema.safeParse(sessionId);
-  if (!parsed.success) return null;
+export async function getSharedSession(
+  sessionId: string,
+): Promise<ActionResult<ChatSession | null>> {
+  try {
+    const parsed = sessionIdSchema.safeParse(sessionId);
+    if (!parsed.success)
+      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
 
-  const sessionService = getSessionService();
-  return sessionService.getSharedSession(sessionId);
+    const sessionService = getSessionService();
+    const data = await sessionService.getSharedSession(sessionId);
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
 }
 
 /**
@@ -125,118 +156,161 @@ export async function createChatSession(session: {
   courseId: string;
   mode: TutoringMode | null;
   title: string;
-}): Promise<ChatSession> {
-  const parsed = createSessionSchema.safeParse(session);
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid chat session payload.');
+}): Promise<ActionResult<ChatSession>> {
+  try {
+    const parsed = createSessionSchema.safeParse(session);
+    if (!parsed.success)
+      return { success: false, error: 'Invalid chat session payload', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    const data = await sessionService.createSession(
+      user.id,
+      parsed.data.courseId,
+      parsed.data.mode,
+      parsed.data.title,
+    );
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Not authenticated');
-
-  const sessionService = getSessionService();
-  return sessionService.createSession(
-    user.id,
-    parsed.data.courseId,
-    parsed.data.mode,
-    parsed.data.title,
-  );
 }
 
 /**
  * Save a message to a session
  */
-export async function saveChatMessage(sessionId: string, message: ChatMessage): Promise<void> {
-  const parsed = saveMessageSchema.safeParse({ sessionId, message });
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid chat message payload.');
+export async function saveChatMessage(
+  sessionId: string,
+  message: ChatMessage,
+): Promise<ActionResult<void>> {
+  try {
+    const parsed = saveMessageSchema.safeParse({ sessionId, message });
+    if (!parsed.success)
+      return { success: false, error: 'Invalid chat message payload', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    await sessionService.saveMessage(sessionId, user.id, message);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-
-  const sessionService = getSessionService();
-  await sessionService.saveMessage(sessionId, user.id, message);
 }
 
 /**
  * Update session title
  */
-export async function updateChatSessionTitle(sessionId: string, title: string): Promise<void> {
-  const parsed = updateTitleSchema.safeParse({ sessionId, title });
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid title payload.');
+export async function updateChatSessionTitle(
+  sessionId: string,
+  title: string,
+): Promise<ActionResult<void>> {
+  try {
+    const parsed = updateTitleSchema.safeParse({ sessionId, title });
+    if (!parsed.success)
+      return { success: false, error: 'Invalid title payload', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    await sessionService.updateTitle(sessionId, user.id, title);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-
-  const sessionService = getSessionService();
-  await sessionService.updateTitle(sessionId, user.id, title);
 }
 
 /**
  * Update session mode
  */
-export async function updateChatSessionMode(sessionId: string, mode: TutoringMode): Promise<void> {
-  const parsed = updateModeSchema.safeParse({ sessionId, mode });
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid mode payload.');
+export async function updateChatSessionMode(
+  sessionId: string,
+  mode: TutoringMode,
+): Promise<ActionResult<void>> {
+  try {
+    const parsed = updateModeSchema.safeParse({ sessionId, mode });
+    if (!parsed.success)
+      return { success: false, error: 'Invalid mode payload', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    await sessionService.updateMode(sessionId, user.id, mode);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-
-  const sessionService = getSessionService();
-  await sessionService.updateMode(sessionId, user.id, mode);
 }
 
 /**
  * Toggle session pin status
  */
-export async function toggleSessionPin(sessionId: string, isPinned: boolean): Promise<void> {
-  const parsed = togglePinSchema.safeParse({ sessionId, isPinned });
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid pin toggle payload.');
+export async function toggleSessionPin(
+  sessionId: string,
+  isPinned: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    const parsed = togglePinSchema.safeParse({ sessionId, isPinned });
+    if (!parsed.success)
+      return { success: false, error: 'Invalid pin toggle payload', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    await sessionService.togglePin(sessionId, user.id, isPinned);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-
-  const sessionService = getSessionService();
-  await sessionService.togglePin(sessionId, user.id, isPinned);
 }
 
 /**
  * Toggle session share status
  */
-export async function toggleSessionShare(sessionId: string, isShared: boolean): Promise<void> {
-  const parsed = toggleShareSchema.safeParse({ sessionId, isShared });
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid share toggle payload.');
+export async function toggleSessionShare(
+  sessionId: string,
+  isShared: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    const parsed = toggleShareSchema.safeParse({ sessionId, isShared });
+    if (!parsed.success)
+      return { success: false, error: 'Invalid share toggle payload', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    await sessionService.toggleShare(sessionId, user.id, isShared);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-
-  const sessionService = getSessionService();
-  await sessionService.toggleShare(sessionId, user.id, isShared);
 }
 
 /**
  * Delete a session
  */
-export async function deleteChatSession(sessionId: string): Promise<void> {
-  const parsed = sessionIdSchema.safeParse(sessionId);
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid session id.');
+export async function deleteChatSession(sessionId: string): Promise<ActionResult<void>> {
+  try {
+    const parsed = sessionIdSchema.safeParse(sessionId);
+    if (!parsed.success)
+      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    await sessionService.deleteSession(sessionId, user.id);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-
-  const sessionService = getSessionService();
-  await sessionService.deleteSession(sessionId, user.id);
 }
 
 // ============================================================================
@@ -257,21 +331,27 @@ export async function editAndRegenerate(
   sessionId: string,
   messageId: string,
   newContent: string,
-): Promise<{
-  newMessageId: string;
-  messages: ChatMessage[];
-  siblingsMap: Record<string, string[]>;
-}> {
-  const parsed = editAndRegenerateSchema.safeParse({ sessionId, messageId, newContent });
-  if (!parsed.success) {
-    throw new Error('Validation Failed: Invalid edit payload.');
+): Promise<
+  ActionResult<{
+    newMessageId: string;
+    messages: ChatMessage[];
+    siblingsMap: Record<string, string[]>;
+  }>
+> {
+  try {
+    const parsed = editAndRegenerateSchema.safeParse({ sessionId, messageId, newContent });
+    if (!parsed.success)
+      return { success: false, error: 'Invalid edit payload', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    const data = await sessionService.editAndRegenerate(sessionId, user.id, messageId, newContent);
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
   }
-
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-
-  const sessionService = getSessionService();
-  return sessionService.editAndRegenerate(sessionId, user.id, messageId, newContent);
 }
 
 const switchBranchSchema = z.object({
@@ -288,13 +368,24 @@ export async function switchBranch(
   sessionId: string,
   parentMessageId: string,
   targetChildId: string,
-): Promise<{ messages: ChatMessage[]; siblingsMap: Record<string, string[]> } | null> {
-  const parsed = switchBranchSchema.safeParse({ sessionId, parentMessageId, targetChildId });
-  if (!parsed.success) return null;
+): Promise<ActionResult<{ messages: ChatMessage[]; siblingsMap: Record<string, string[]> } | null>> {
+  try {
+    const parsed = switchBranchSchema.safeParse({ sessionId, parentMessageId, targetChildId });
+    if (!parsed.success)
+      return { success: false, error: 'Invalid branch switch payload', code: 'VALIDATION' };
 
-  const user = await getCurrentUser();
-  if (!user) return null;
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
 
-  const sessionService = getSessionService();
-  return sessionService.switchBranch(sessionId, user.id, parentMessageId, targetChildId);
+    const sessionService = getSessionService();
+    const data = await sessionService.switchBranch(
+      sessionId,
+      user.id,
+      parentMessageId,
+      targetChildId,
+    );
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
 }

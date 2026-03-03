@@ -214,7 +214,8 @@ export function KnowledgeTable({
 
   const deleteMutation = useMutation({
     mutationFn: async (doc: { id: string; type: string }) => {
-      await deleteDocument(doc.id, doc.type);
+      const result = await deleteDocument(doc.id, doc.type);
+      if (!result.success) throw new Error(result.error);
       return doc.id;
     },
     onSuccess: (id) => {

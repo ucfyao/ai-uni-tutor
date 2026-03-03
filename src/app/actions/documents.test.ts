@@ -179,17 +179,21 @@ describe('Document Actions', () => {
       mockDocumentService.deleteChunksByLectureDocumentId.mockResolvedValue(undefined);
       mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
-      await deleteDocument('doc-1', 'lecture');
+      const result = await deleteDocument('doc-1', 'lecture');
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockDocumentService.deleteChunksByLectureDocumentId).toHaveBeenCalledWith('doc-1');
       expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
-    it('should throw when user is not admin', async () => {
+    it('should return error when user is not admin', async () => {
       mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(deleteDocument('doc-1', 'lecture')).rejects.toThrow('Admin access required');
+      const result = await deleteDocument('doc-1', 'lecture');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Admin access required');
     });
   });
 
@@ -208,7 +212,7 @@ describe('Document Actions', () => {
 
       const result = await updateDocumentChunks('doc-1', updates, deletedIds);
 
-      expect(result).toEqual({ status: 'success', message: 'Changes saved' });
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockDocumentService.deleteChunksByIds).toHaveBeenCalledWith(['chunk-2']);
       expect(mockDocumentService.updateChunk).toHaveBeenCalledWith('chunk-1', 'updated content', {
         type: 'test',
@@ -217,16 +221,22 @@ describe('Document Actions', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
-    it('should throw when user is not admin', async () => {
+    it('should return error when user is not admin', async () => {
       mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(updateDocumentChunks('doc-1', [], [])).rejects.toThrow('Admin access required');
+      const result = await updateDocumentChunks('doc-1', [], []);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Admin access required');
     });
 
-    it('should throw when document is not found', async () => {
+    it('should return error when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      await expect(updateDocumentChunks('doc-1', [], [])).rejects.toThrow('Document not found');
+      const result = await updateDocumentChunks('doc-1', [], []);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Document not found');
     });
   });
 
@@ -249,22 +259,28 @@ describe('Document Actions', () => {
 
       const result = await regenerateEmbeddings('doc-1');
 
-      expect(result).toEqual({ status: 'success', message: 'Embeddings regenerated' });
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledTimes(2);
       expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith('chunk-1', [0.9, 0.8]);
       expect(mockDocumentService.updateChunkEmbedding).toHaveBeenCalledWith('chunk-2', [0.7, 0.6]);
     });
 
-    it('should throw when user is not admin', async () => {
+    it('should return error when user is not admin', async () => {
       mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(regenerateEmbeddings('doc-1')).rejects.toThrow('Admin access required');
+      const result = await regenerateEmbeddings('doc-1');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Admin access required');
     });
 
-    it('should throw when document is not found', async () => {
+    it('should return error when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      await expect(regenerateEmbeddings('doc-1')).rejects.toThrow('Document not found');
+      const result = await regenerateEmbeddings('doc-1');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Document not found');
     });
 
     it('should return error when embedding regeneration fails', async () => {
@@ -277,7 +293,8 @@ describe('Document Actions', () => {
 
       const result = await regenerateEmbeddings('doc-1');
 
-      expect(result).toEqual({ status: 'error', message: 'Failed to regenerate embeddings' });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Internal server error');
     });
   });
 
@@ -292,25 +309,28 @@ describe('Document Actions', () => {
 
       const result = await retryDocument('doc-1', 'lecture');
 
-      expect(result).toEqual({
-        status: 'success',
-        message: 'Items cleared. Upload a new PDF to re-parse.',
-      });
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockDocumentService.deleteChunksByLectureDocumentId).toHaveBeenCalledWith('doc-1');
       expect(mockDocumentService.unpublish).toHaveBeenCalledWith('doc-1');
       expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/knowledge');
     });
 
-    it('should throw when user is not admin', async () => {
+    it('should return error when user is not admin', async () => {
       mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(retryDocument('doc-1', 'lecture')).rejects.toThrow('Admin access required');
+      const result = await retryDocument('doc-1', 'lecture');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Admin access required');
     });
 
-    it('should throw when document is not found', async () => {
+    it('should return error when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      await expect(retryDocument('doc-1', 'lecture')).rejects.toThrow('Document not found');
+      const result = await retryDocument('doc-1', 'lecture');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Document not found');
     });
   });
 
@@ -324,7 +344,7 @@ describe('Document Actions', () => {
 
       const result = await updateDocumentMeta('doc-1', { name: 'new-name.pdf' });
 
-      expect(result).toEqual({ status: 'success', message: 'Document updated' });
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockDocumentService.updateDocumentMetadata).toHaveBeenCalledWith('doc-1', {
         name: 'new-name.pdf',
       });
@@ -339,40 +359,42 @@ describe('Document Actions', () => {
 
       const result = await updateDocumentMeta('doc-1', { school: 'MIT', course: 'CS101' });
 
-      expect(result).toEqual({ status: 'success', message: 'Document updated' });
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockDocumentService.updateDocumentMetadata).toHaveBeenCalledWith('doc-1', {
         metadata: expect.objectContaining({ school: 'MIT', course: 'CS101' }),
       });
     });
 
-    it('should throw when user is not admin', async () => {
+    it('should return error when user is not admin', async () => {
       mockRequireAnyAdmin.mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      await expect(updateDocumentMeta('doc-1', { name: 'new-name.pdf' })).rejects.toThrow(
-        'Admin access required',
-      );
+      const result = await updateDocumentMeta('doc-1', { name: 'new-name.pdf' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Admin access required');
     });
 
-    it('should throw when document is not found', async () => {
+    it('should return error when document is not found', async () => {
       mockDocumentService.findById.mockResolvedValue(null);
 
-      await expect(updateDocumentMeta('doc-1', { name: 'new-name.pdf' })).rejects.toThrow(
-        'Document not found',
-      );
+      const result = await updateDocumentMeta('doc-1', { name: 'new-name.pdf' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe('Document not found');
     });
 
     it('should return error for invalid input (name too long)', async () => {
       const longName = 'a'.repeat(256);
       const result = await updateDocumentMeta('doc-1', { name: longName });
 
-      expect(result).toEqual({ status: 'error', message: 'Invalid input' });
+      expect(result).toEqual({ success: false, error: 'Invalid input' });
       expect(mockDocumentService.findById).not.toHaveBeenCalled();
     });
 
     it('should return error for empty name', async () => {
       const result = await updateDocumentMeta('doc-1', { name: '' });
 
-      expect(result).toEqual({ status: 'error', message: 'Invalid input' });
+      expect(result).toEqual({ success: false, error: 'Invalid input' });
     });
 
     it('should merge with existing metadata when updating school only', async () => {
@@ -407,7 +429,10 @@ describe('Document Actions', () => {
           makeDocEntity({ userId: MOCK_USER.id, courseId: null }),
         );
 
-        await expect(deleteDocument('doc-1', 'lecture')).rejects.toThrow(ForbiddenError);
+        const result = await deleteDocument('doc-1', 'lecture');
+
+        expect(result.success).toBe(false);
+        if (!result.success) expect(result.code).toBe('FORBIDDEN');
       });
 
       it('should deny admin access to document with null courseId even if owner', async () => {
@@ -416,9 +441,10 @@ describe('Document Actions', () => {
           makeDocEntity({ userId: MOCK_USER.id, courseId: null }),
         );
 
-        await expect(retryDocument('doc-1', 'lecture')).rejects.toThrow(
-          'No access to this document',
-        );
+        const result = await retryDocument('doc-1', 'lecture');
+
+        expect(result.success).toBe(false);
+        if (!result.success) expect(result.error).toBe('No access to this document');
         expect(mockDocumentService.deleteByAdmin).not.toHaveBeenCalled();
       });
 
@@ -428,8 +454,9 @@ describe('Document Actions', () => {
         mockDocumentService.deleteChunksByLectureDocumentId.mockResolvedValue(undefined);
         mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
-        await deleteDocument('doc-1', 'lecture');
+        const result = await deleteDocument('doc-1', 'lecture');
 
+        expect(result.success).toBe(true);
         expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       });
 
@@ -440,8 +467,9 @@ describe('Document Actions', () => {
         mockDocumentService.deleteChunksByLectureDocumentId.mockResolvedValue(undefined);
         mockDocumentService.deleteByAdmin.mockResolvedValue(undefined);
 
-        await deleteDocument('doc-1', 'lecture');
+        const result = await deleteDocument('doc-1', 'lecture');
 
+        expect(result.success).toBe(true);
         expect(mockRequireCourseAdmin).toHaveBeenCalledWith('course-1');
         expect(mockDocumentService.deleteByAdmin).toHaveBeenCalledWith('doc-1');
       });
@@ -453,7 +481,10 @@ describe('Document Actions', () => {
           makeDocEntity({ courseId: 'unassigned-course' }),
         );
 
-        await expect(deleteDocument('doc-1', 'lecture')).rejects.toThrow(ForbiddenError);
+        const result = await deleteDocument('doc-1', 'lecture');
+
+        expect(result.success).toBe(false);
+        if (!result.success) expect(result.code).toBe('FORBIDDEN');
         expect(mockDocumentService.deleteByAdmin).not.toHaveBeenCalled();
       });
     });
@@ -463,9 +494,10 @@ describe('Document Actions', () => {
         mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'admin' });
         mockExamPaperRepo.findCourseId.mockResolvedValue(null);
 
-        await expect(deleteDocument('paper-1', 'exam')).rejects.toThrow(
-          'No access to this exam paper',
-        );
+        const result = await deleteDocument('paper-1', 'exam');
+
+        expect(result.success).toBe(false);
+        if (!result.success) expect(result.error).toBe('No access to this exam paper');
         expect(mockExamPaperRepo.delete).not.toHaveBeenCalled();
       });
 
@@ -474,7 +506,10 @@ describe('Document Actions', () => {
         mockExamPaperRepo.findCourseId.mockResolvedValue(null);
         mockExamPaperRepo.findOwner.mockResolvedValue(MOCK_USER.id);
 
-        await expect(deleteDocument('paper-1', 'exam')).rejects.toThrow(ForbiddenError);
+        const result = await deleteDocument('paper-1', 'exam');
+
+        expect(result.success).toBe(false);
+        if (!result.success) expect(result.code).toBe('FORBIDDEN');
         expect(mockExamPaperRepo.delete).not.toHaveBeenCalled();
       });
 
@@ -482,8 +517,9 @@ describe('Document Actions', () => {
         mockRequireAnyAdmin.mockResolvedValue({ user: MOCK_USER, role: 'super_admin' });
         mockExamPaperRepo.delete.mockResolvedValue(undefined);
 
-        await deleteDocument('paper-1', 'exam');
+        const result = await deleteDocument('paper-1', 'exam');
 
+        expect(result.success).toBe(true);
         expect(mockExamPaperRepo.findCourseId).not.toHaveBeenCalled();
         expect(mockExamPaperRepo.delete).toHaveBeenCalledWith('paper-1');
       });
@@ -494,8 +530,9 @@ describe('Document Actions', () => {
         mockRequireCourseAdmin.mockResolvedValue(MOCK_USER);
         mockExamPaperRepo.delete.mockResolvedValue(undefined);
 
-        await deleteDocument('paper-1', 'exam');
+        const result = await deleteDocument('paper-1', 'exam');
 
+        expect(result.success).toBe(true);
         expect(mockRequireCourseAdmin).toHaveBeenCalledWith('course-1');
         expect(mockExamPaperRepo.delete).toHaveBeenCalledWith('paper-1');
       });
@@ -505,7 +542,10 @@ describe('Document Actions', () => {
         mockExamPaperRepo.findCourseId.mockResolvedValue('unassigned-course');
         mockRequireCourseAdmin.mockRejectedValue(new ForbiddenError('No access'));
 
-        await expect(deleteDocument('paper-1', 'exam')).rejects.toThrow(ForbiddenError);
+        const result = await deleteDocument('paper-1', 'exam');
+
+        expect(result.success).toBe(false);
+        if (!result.success) expect(result.code).toBe('FORBIDDEN');
         expect(mockExamPaperRepo.delete).not.toHaveBeenCalled();
       });
     });
@@ -516,8 +556,9 @@ describe('Document Actions', () => {
         mockAssignmentRepo.findCourseId.mockResolvedValue(null);
         mockAssignmentService.deleteAssignment.mockResolvedValue(undefined);
 
-        await deleteDocument('assign-1', 'assignment');
+        const result = await deleteDocument('assign-1', 'assignment');
 
+        expect(result.success).toBe(true);
         expect(mockAssignmentService.deleteAssignment).toHaveBeenCalledWith('assign-1');
       });
     });

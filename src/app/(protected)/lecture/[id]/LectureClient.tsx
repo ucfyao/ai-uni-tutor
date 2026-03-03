@@ -97,14 +97,15 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           }
 
           // 2. Always fetch full session from server (includes siblingsMap + correct branch)
-          const freshSession = await getChatSession(id);
+          const freshResult = await getChatSession(id);
           if (cancelled) return;
 
-          if (!freshSession) {
+          if (!freshResult.success || !freshResult.data) {
             setLoading(false);
             routerRef.current.push('/study');
             return;
           }
+          const freshSession = freshResult.data;
 
           setSession((prevSession) => {
             if (!prevSession) {
@@ -126,9 +127,10 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           return;
         }
 
-        const data = await getChatSession(id);
+        const result = await getChatSession(id);
         if (cancelled) return;
 
+        const data = result.success ? result.data : null;
         if (!data || (data.mode && data.mode !== 'Lecture Helper')) {
           setLoading(false);
           routerRef.current.push('/study');
@@ -179,24 +181,25 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           if (streamIdx > 0 && updated.messages[streamIdx - 1].id === msg.id) continue;
         }
 
-        try {
-          await saveChatMessage(updated.id, msg);
-          lastSavedIndexRef.current++;
-        } catch (e) {
-          console.error('Failed to save message:', e);
+        const saveResult = await saveChatMessage(updated.id, msg);
+        if (!saveResult.success) {
+          console.error('Failed to save message:', saveResult.error);
           break; // Stop saving on error to maintain consistency
         }
+        lastSavedIndexRef.current++;
       }
 
       // Persist mode change
       if (session && updated.mode !== session.mode && updated.mode) {
-        await updateChatSessionMode(updated.id, updated.mode).catch((e) => console.error(e));
+        const modeResult = await updateChatSessionMode(updated.id, updated.mode);
+        if (!modeResult.success) console.error(modeResult.error);
 
         // Auto-rename if title still contains "New Session"
         if (session.title.includes('New Session')) {
           const newTitle = `${session.course?.code ?? 'Session'} - ${updated.mode}`;
 
-          await updateChatSessionTitle(updated.id, newTitle).catch((e) => console.error(e));
+          const titleResult = await updateChatSessionTitle(updated.id, newTitle);
+          if (!titleResult.success) console.error(titleResult.error);
 
           // Update local page state
           const updatedWithTitle = { ...updated, title: newTitle };
@@ -217,11 +220,11 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
     const newPin = !session.isPinned;
     setSession({ ...session, isPinned: newPin });
 
-    try {
-      await toggleSessionPin(session.id, newPin);
+    const result = await toggleSessionPin(session.id, newPin);
+    if (result.success) {
       updateSessionLocal({ ...session, isPinned: newPin });
-    } catch (e) {
-      console.error('Failed to toggle pin:', e);
+    } else {
+      console.error('Failed to toggle pin:', result.error);
       // Revert on error
       setSession({ ...session, isPinned: !newPin });
     }
@@ -233,11 +236,11 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
 
     setSession({ ...session, title: newTitle });
 
-    try {
-      await updateChatSessionTitle(id, newTitle);
+    const result = await updateChatSessionTitle(id, newTitle);
+    if (result.success) {
       updateSessionLocal({ ...session, title: newTitle });
-    } catch (e) {
-      console.error('Failed to rename:', e);
+    } else {
+      console.error('Failed to rename:', result.error);
     }
   };
 
