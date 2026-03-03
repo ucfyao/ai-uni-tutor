@@ -67,7 +67,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
     setLoadingPapers(true);
     getExamPapersForCourse(courseCode).then((result) => {
       if (result.success) {
-        setPapers(result.papers);
+        setPapers(result.data);
       } else {
         setPapers([]);
       }
@@ -94,7 +94,7 @@ export function ExamPendingClient({ mock, courseCode }: Props) {
     setError(null);
 
     startTransition(async () => {
-      let result: { success: true } | { success: false; error: string };
+      let result: { success: true; data: void } | { success: false; error: string; code?: string };
 
       if (source === 'real') {
         if (!selectedPaper) return;

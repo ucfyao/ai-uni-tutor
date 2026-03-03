@@ -85,11 +85,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     if (session) {
       updateSessionLocal({ ...session, isPinned });
     }
-    try {
-      await toggleSessionPin(id, isPinned);
-    } catch (e) {
-      console.error(e);
-    }
+    const result = await toggleSessionPin(id, isPinned);
+    if (!result.success) console.error(result.error);
   };
 
   const handleRenameSession = async (id: string, newTitle: string) => {
@@ -97,11 +94,8 @@ export default function ShellClient({ children }: { children: React.ReactNode })
     if (session) {
       updateSessionLocal({ ...session, title: newTitle });
     }
-    try {
-      await updateChatSessionTitle(id, newTitle);
-    } catch (e) {
-      console.error(e);
-    }
+    const result = await updateChatSessionTitle(id, newTitle);
+    if (!result.success) console.error(result.error);
   };
 
   const handleDeleteSession = async (id: string) => {

@@ -9,7 +9,11 @@ import { ChatSession, TutoringMode } from '@/types/index';
 
 interface SessionContextType {
   sessions: ChatSession[];
-  addSession: (courseId: string, mode: TutoringMode | null, courseCode: string) => Promise<string | null>;
+  addSession: (
+    courseId: string,
+    mode: TutoringMode | null,
+    courseCode: string,
+  ) => Promise<string | null>;
   removeSession: (id: string) => Promise<void>;
   updateSessionLocal: (session: ChatSession) => void;
   refreshSessions: () => Promise<void>;
@@ -37,19 +41,29 @@ export function SessionProvider({
   // useQuery replaces manual fetch + dedup logic
   const { data: sessions = initialSessions, isLoading } = useQuery({
     queryKey: queryKeys.sessions.all,
-    queryFn: getChatSessions,
+    queryFn: async () => {
+      const result = await getChatSessions();
+      return result.success ? result.data : [];
+    },
     initialData: initialSessions,
   });
 
   // Create session mutation with optimistic update
   const createMutation = useMutation({
-    mutationFn: (payload: {
+    mutationFn: async (payload: {
       courseId: string;
       mode: TutoringMode | null;
       title: string;
       tempId: string;
-    }) =>
-      createChatSession({ courseId: payload.courseId, mode: payload.mode, title: payload.title }),
+    }) => {
+      const result = await createChatSession({
+        courseId: payload.courseId,
+        mode: payload.mode,
+        title: payload.title,
+      });
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
     onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.sessions.all });
       const previous = queryClient.getQueryData<ChatSession[]>(queryKeys.sessions.all);
@@ -82,7 +96,10 @@ export function SessionProvider({
 
   // Delete session mutation with optimistic update
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteChatSession(id),
+    mutationFn: async (id: string) => {
+      const result = await deleteChatSession(id);
+      if (!result.success) throw new Error(result.error);
+    },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.sessions.all });
       const previous = queryClient.getQueryData<ChatSession[]>(queryKeys.sessions.all);
@@ -104,7 +121,11 @@ export function SessionProvider({
   });
 
   const addSession = useCallback(
-    async (courseId: string, mode: TutoringMode | null, courseCode: string): Promise<string | null> => {
+    async (
+      courseId: string,
+      mode: TutoringMode | null,
+      courseCode: string,
+    ): Promise<string | null> => {
       const tempId = `temp_${Date.now()}`;
       const title = courseCode;
 

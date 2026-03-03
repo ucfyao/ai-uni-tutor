@@ -29,6 +29,11 @@ vi.mock('@/lib/services/SessionService', () => ({
   getSessionService: () => mockSessionService,
 }));
 
+vi.mock('@/lib/errors', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/errors')>();
+  return { ...actual };
+});
+
 // ---------------------------------------------------------------------------
 // Import actions (after mocks are registered)
 // ---------------------------------------------------------------------------
@@ -100,23 +105,25 @@ describe('Chat Actions', () => {
 
       const result = await getChatSession(SESSION_ID);
 
-      expect(result).toEqual(session);
+      expect(result).toEqual({ success: true, data: session });
       expect(mockSessionService.getFullSession).toHaveBeenCalledWith(SESSION_ID, 'user-1');
     });
 
-    it('should return null when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const result = await getChatSession(SESSION_ID);
 
-      expect(result).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
       expect(mockSessionService.getFullSession).not.toHaveBeenCalled();
     });
 
-    it('should return null for empty sessionId (validation failure)', async () => {
+    it('should return error for empty sessionId (validation failure)', async () => {
       const result = await getChatSession('');
 
-      expect(result).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -132,22 +139,24 @@ describe('Chat Actions', () => {
 
       const result = await getChatMessages(SESSION_ID);
 
-      expect(result).toEqual(messages);
+      expect(result).toEqual({ success: true, data: messages });
       expect(mockSessionService.getSessionMessages).toHaveBeenCalledWith(SESSION_ID, 'user-1');
     });
 
-    it('should return null when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const result = await getChatMessages(SESSION_ID);
 
-      expect(result).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should return null for empty sessionId', async () => {
+    it('should return error for empty sessionId', async () => {
       const result = await getChatMessages('');
 
-      expect(result).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -161,16 +170,17 @@ describe('Chat Actions', () => {
 
       const result = await getChatSessions();
 
-      expect(result).toEqual(sessions);
+      expect(result).toEqual({ success: true, data: sessions });
       expect(mockSessionService.getUserSessions).toHaveBeenCalledWith('user-1');
     });
 
-    it('should return empty array when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const result = await getChatSessions();
 
-      expect(result).toEqual([]);
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
   });
 
@@ -187,22 +197,23 @@ describe('Chat Actions', () => {
 
       const result = await getSharedSession(SESSION_ID);
 
-      expect(result).toEqual(session);
+      expect(result).toEqual({ success: true, data: session });
       expect(mockSessionService.getSharedSession).toHaveBeenCalledWith(SESSION_ID);
     });
 
-    it('should return null for empty sessionId', async () => {
+    it('should return error for empty sessionId', async () => {
       const result = await getSharedSession('');
 
-      expect(result).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
 
-    it('should return null when session is not found', async () => {
+    it('should return null data when session is not found', async () => {
       mockSessionService.getSharedSession.mockResolvedValue(null);
 
       const result = await getSharedSession(NONEXISTENT_SESSION_ID);
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ success: true, data: null });
     });
   });
 
@@ -222,7 +233,7 @@ describe('Chat Actions', () => {
 
       const result = await createChatSession(input);
 
-      expect(result).toEqual(created);
+      expect(result).toEqual({ success: true, data: created });
       expect(mockSessionService.createSession).toHaveBeenCalledWith(
         'user-1',
         COURSE_ID,
@@ -231,7 +242,7 @@ describe('Chat Actions', () => {
       );
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
       const input = {
@@ -240,17 +251,23 @@ describe('Chat Actions', () => {
         title: 'New Session',
       };
 
-      await expect(createChatSession(input)).rejects.toThrow('Not authenticated');
+      const result = await createChatSession(input);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should throw for invalid payload (empty title)', async () => {
+    it('should return error for invalid payload (empty title)', async () => {
       const input = {
         courseId: COURSE_ID,
         mode: 'Lecture Helper' as TutoringMode,
         title: '',
       };
 
-      await expect(createChatSession(input)).rejects.toThrow('Validation Failed');
+      const result = await createChatSession(input);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
 
     it('should accept null mode', async () => {
@@ -265,7 +282,8 @@ describe('Chat Actions', () => {
 
       const result = await createChatSession(input);
 
-      expect(result.mode).toBeNull();
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.mode).toBeNull();
       expect(mockSessionService.createSession).toHaveBeenCalledWith(
         'user-1',
         COURSE_ID,
@@ -289,8 +307,9 @@ describe('Chat Actions', () => {
     it('should save message for authenticated user', async () => {
       mockSessionService.saveMessage.mockResolvedValue(undefined);
 
-      await saveChatMessage(SESSION_ID, validMessage);
+      const result = await saveChatMessage(SESSION_ID, validMessage);
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.saveMessage).toHaveBeenCalledWith(
         SESSION_ID,
         'user-1',
@@ -298,20 +317,29 @@ describe('Chat Actions', () => {
       );
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      await expect(saveChatMessage(SESSION_ID, validMessage)).rejects.toThrow('Unauthorized');
+      const result = await saveChatMessage(SESSION_ID, validMessage);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should throw for invalid payload (empty sessionId)', async () => {
-      await expect(saveChatMessage('', validMessage)).rejects.toThrow('Validation Failed');
+    it('should return error for invalid payload (empty sessionId)', async () => {
+      const result = await saveChatMessage('', validMessage);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
 
-    it('should throw for invalid message (empty content)', async () => {
+    it('should return error for invalid message (empty content)', async () => {
       const badMessage = { ...validMessage, content: '' };
 
-      await expect(saveChatMessage(SESSION_ID, badMessage)).rejects.toThrow('Validation Failed');
+      const result = await saveChatMessage(SESSION_ID, badMessage);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -322,8 +350,9 @@ describe('Chat Actions', () => {
     it('should update title for authenticated user', async () => {
       mockSessionService.updateTitle.mockResolvedValue(undefined);
 
-      await updateChatSessionTitle(SESSION_ID, 'New Title');
+      const result = await updateChatSessionTitle(SESSION_ID, 'New Title');
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.updateTitle).toHaveBeenCalledWith(
         SESSION_ID,
         'user-1',
@@ -331,18 +360,27 @@ describe('Chat Actions', () => {
       );
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      await expect(updateChatSessionTitle(SESSION_ID, 'Title')).rejects.toThrow('Unauthorized');
+      const result = await updateChatSessionTitle(SESSION_ID, 'Title');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should throw for empty title', async () => {
-      await expect(updateChatSessionTitle(SESSION_ID, '')).rejects.toThrow('Validation Failed');
+    it('should return error for empty title', async () => {
+      const result = await updateChatSessionTitle(SESSION_ID, '');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
 
-    it('should throw for empty sessionId', async () => {
-      await expect(updateChatSessionTitle('', 'Title')).rejects.toThrow('Validation Failed');
+    it('should return error for empty sessionId', async () => {
+      const result = await updateChatSessionTitle('', 'Title');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -353,8 +391,9 @@ describe('Chat Actions', () => {
     it('should update mode for authenticated user', async () => {
       mockSessionService.updateMode.mockResolvedValue(undefined);
 
-      await updateChatSessionMode(SESSION_ID, 'Assignment Coach');
+      const result = await updateChatSessionMode(SESSION_ID, 'Assignment Coach');
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.updateMode).toHaveBeenCalledWith(
         SESSION_ID,
         'user-1',
@@ -362,18 +401,20 @@ describe('Chat Actions', () => {
       );
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      await expect(updateChatSessionMode(SESSION_ID, 'Lecture Helper')).rejects.toThrow(
-        'Unauthorized',
-      );
+      const result = await updateChatSessionMode(SESSION_ID, 'Lecture Helper');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should throw for invalid mode', async () => {
-      await expect(updateChatSessionMode(SESSION_ID, 'Bad Mode' as TutoringMode)).rejects.toThrow(
-        'Validation Failed',
-      );
+    it('should return error for invalid mode', async () => {
+      const result = await updateChatSessionMode(SESSION_ID, 'Bad Mode' as TutoringMode);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -384,27 +425,35 @@ describe('Chat Actions', () => {
     it('should pin a session for authenticated user', async () => {
       mockSessionService.togglePin.mockResolvedValue(undefined);
 
-      await toggleSessionPin(SESSION_ID, true);
+      const result = await toggleSessionPin(SESSION_ID, true);
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.togglePin).toHaveBeenCalledWith(SESSION_ID, 'user-1', true);
     });
 
     it('should unpin a session for authenticated user', async () => {
       mockSessionService.togglePin.mockResolvedValue(undefined);
 
-      await toggleSessionPin(SESSION_ID, false);
+      const result = await toggleSessionPin(SESSION_ID, false);
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.togglePin).toHaveBeenCalledWith(SESSION_ID, 'user-1', false);
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      await expect(toggleSessionPin(SESSION_ID, true)).rejects.toThrow('Unauthorized');
+      const result = await toggleSessionPin(SESSION_ID, true);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should throw for empty sessionId', async () => {
-      await expect(toggleSessionPin('', true)).rejects.toThrow('Validation Failed');
+    it('should return error for empty sessionId', async () => {
+      const result = await toggleSessionPin('', true);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -415,27 +464,35 @@ describe('Chat Actions', () => {
     it('should share a session for authenticated user', async () => {
       mockSessionService.toggleShare.mockResolvedValue(undefined);
 
-      await toggleSessionShare(SESSION_ID, true);
+      const result = await toggleSessionShare(SESSION_ID, true);
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.toggleShare).toHaveBeenCalledWith(SESSION_ID, 'user-1', true);
     });
 
     it('should unshare a session for authenticated user', async () => {
       mockSessionService.toggleShare.mockResolvedValue(undefined);
 
-      await toggleSessionShare(SESSION_ID, false);
+      const result = await toggleSessionShare(SESSION_ID, false);
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.toggleShare).toHaveBeenCalledWith(SESSION_ID, 'user-1', false);
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      await expect(toggleSessionShare(SESSION_ID, true)).rejects.toThrow('Unauthorized');
+      const result = await toggleSessionShare(SESSION_ID, true);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should throw for empty sessionId', async () => {
-      await expect(toggleSessionShare('', true)).rejects.toThrow('Validation Failed');
+    it('should return error for empty sessionId', async () => {
+      const result = await toggleSessionShare('', true);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -446,19 +503,26 @@ describe('Chat Actions', () => {
     it('should delete session for authenticated user', async () => {
       mockSessionService.deleteSession.mockResolvedValue(undefined);
 
-      await deleteChatSession(SESSION_ID);
+      const result = await deleteChatSession(SESSION_ID);
 
+      expect(result).toEqual({ success: true, data: undefined });
       expect(mockSessionService.deleteSession).toHaveBeenCalledWith(SESSION_ID, 'user-1');
     });
 
-    it('should throw when user is not authenticated', async () => {
+    it('should return error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
 
-      await expect(deleteChatSession(SESSION_ID)).rejects.toThrow('Unauthorized');
+      const result = await deleteChatSession(SESSION_ID);
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should throw for empty sessionId', async () => {
-      await expect(deleteChatSession('')).rejects.toThrow('Validation Failed');
+    it('should return error for empty sessionId', async () => {
+      const result = await deleteChatSession('');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
   });
 
@@ -466,28 +530,36 @@ describe('Chat Actions', () => {
   // editAndRegenerate
   // =========================================================================
   describe('editAndRegenerate', () => {
-    it('should reject unauthenticated user', async () => {
+    it('should return error for unauthenticated user', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
-      await expect(editAndRegenerate(SESSION_ID, 'msg-1', 'new content')).rejects.toThrow(
-        'Unauthorized',
-      );
+
+      const result = await editAndRegenerate(SESSION_ID, 'msg-1', 'new content');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should reject invalid sessionId', async () => {
-      await expect(editAndRegenerate('', 'msg-1', 'new content')).rejects.toThrow('Validation');
+    it('should return error for invalid sessionId', async () => {
+      const result = await editAndRegenerate('', 'msg-1', 'new content');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
 
-    it('should reject empty newContent', async () => {
-      await expect(editAndRegenerate(SESSION_ID, 'msg-1', '')).rejects.toThrow('Validation');
+    it('should return error for empty newContent', async () => {
+      const result = await editAndRegenerate(SESSION_ID, 'msg-1', '');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
 
     it('should delegate to sessionService.editAndRegenerate', async () => {
-      const mockResult = { newMessageId: 'msg-new', messages: [] as ChatMessage[] };
+      const mockResult = { newMessageId: 'msg-new', messages: [] as ChatMessage[], siblingsMap: {} };
       mockSessionService.editAndRegenerate.mockResolvedValue(mockResult);
 
       const result = await editAndRegenerate(SESSION_ID, 'msg-1', 'new content');
 
-      expect(result).toEqual(mockResult);
+      expect(result).toEqual({ success: true, data: mockResult });
       expect(mockSessionService.editAndRegenerate).toHaveBeenCalledWith(
         SESSION_ID,
         'user-1',
@@ -501,15 +573,17 @@ describe('Chat Actions', () => {
   // switchBranch
   // =========================================================================
   describe('switchBranch', () => {
-    it('should return null for unauthenticated user', async () => {
+    it('should return error for unauthenticated user', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await switchBranch(SESSION_ID, 'parent-1', 'child-1');
-      expect(result).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('UNAUTHORIZED');
     });
 
-    it('should return null for invalid sessionId', async () => {
+    it('should return error for invalid sessionId', async () => {
       const result = await switchBranch('', 'parent-1', 'child-1');
-      expect(result).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.code).toBe('VALIDATION');
     });
 
     it('should delegate to sessionService.switchBranch', async () => {
@@ -518,7 +592,7 @@ describe('Chat Actions', () => {
 
       const result = await switchBranch(SESSION_ID, 'parent-1', 'child-1');
 
-      expect(result).toEqual(msgs);
+      expect(result).toEqual({ success: true, data: msgs });
       expect(mockSessionService.switchBranch).toHaveBeenCalledWith(
         SESSION_ID,
         'user-1',

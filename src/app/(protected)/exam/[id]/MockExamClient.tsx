@@ -22,10 +22,10 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
+import { getMockExamDetail } from '@/app/actions/mock-exams';
 import { ExamSubmitModal } from '@/components/exam/ExamSubmitModal';
 import { FeedbackCard } from '@/components/exam/FeedbackCard';
 import { QuestionCard } from '@/components/exam/QuestionCard';
-import { getMockExamDetail } from '@/app/actions/mock-exams';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -93,8 +93,8 @@ export function MockExamClient({ initialMock }: Props) {
 
   useEffect(() => {
     if (mock.retakeOf && isCompleted) {
-      getMockExamDetail(mock.retakeOf).then((original) => {
-        if (original) setOriginalMock(original);
+      getMockExamDetail(mock.retakeOf).then((result) => {
+        if (result.success && result.data) setOriginalMock(result.data);
       });
     }
   }, [mock.retakeOf, isCompleted]);
@@ -280,7 +280,14 @@ export function MockExamClient({ initialMock }: Props) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentQuestionIndex, totalQuestions, isCompleted, toggleMark, handleAnswerChange, mock.questions]);
+  }, [
+    currentQuestionIndex,
+    totalQuestions,
+    isCompleted,
+    toggleMark,
+    handleAnswerChange,
+    mock.questions,
+  ]);
 
   // Navigate to question
   const goToQuestion = (index: number) => {
@@ -367,11 +374,7 @@ export function MockExamClient({ initialMock }: Props) {
           )}
 
           <Tooltip label={t.exam.backToList}>
-            <ActionIcon
-              variant="subtle"
-              size="lg"
-              onClick={() => router.push('/exam')}
-            >
+            <ActionIcon variant="subtle" size="lg" onClick={() => router.push('/exam')}>
               <ArrowLeft size={20} />
             </ActionIcon>
           </Tooltip>
@@ -393,8 +396,7 @@ export function MockExamClient({ initialMock }: Props) {
         mock.score !== null &&
         (() => {
           const scorePercent = Math.round((mock.score / mock.totalPoints) * 100);
-          const ringColor =
-            scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
+          const ringColor = scorePercent >= 80 ? 'green' : scorePercent >= 50 ? 'yellow' : 'red';
           const correctCount = mock.responses.filter((r) => r.isCorrect).length;
           const incorrectCount = mock.responses.filter(
             (r) => !r.isCorrect && r.userAnswer.trim(),
@@ -468,36 +470,33 @@ export function MockExamClient({ initialMock }: Props) {
                     </Group>
                   )}
                 </SimpleGrid>
-                {originalMock && originalMock.score !== null && (() => {
-                  const originalPercent = Math.round(
-                    (originalMock.score / originalMock.totalPoints) * 100,
-                  );
-                  const improved = scorePercent > originalPercent;
-                  return (
-                    <Group gap={4}>
-                      <Text fz="sm" c="dimmed">
-                        {t.exam.previousScore}
-                      </Text>
-                      <Text fw={700} fz="sm">
-                        {originalPercent}%
-                      </Text>
-                      <Text fz="sm" c="dimmed">
-                        →
-                      </Text>
-                      <Text fw={700} fz="sm">
-                        {scorePercent}%
-                      </Text>
-                      <Text
-                        fz="sm"
-                        c={improved ? 'green' : 'red'}
-                      >
-                        {improved
-                          ? `↑ ${t.exam.improved}`
-                          : `↓ ${t.exam.regressed}`}
-                      </Text>
-                    </Group>
-                  );
-                })()}
+                {originalMock &&
+                  originalMock.score !== null &&
+                  (() => {
+                    const originalPercent = Math.round(
+                      (originalMock.score / originalMock.totalPoints) * 100,
+                    );
+                    const improved = scorePercent > originalPercent;
+                    return (
+                      <Group gap={4}>
+                        <Text fz="sm" c="dimmed">
+                          {t.exam.previousScore}
+                        </Text>
+                        <Text fw={700} fz="sm">
+                          {originalPercent}%
+                        </Text>
+                        <Text fz="sm" c="dimmed">
+                          →
+                        </Text>
+                        <Text fw={700} fz="sm">
+                          {scorePercent}%
+                        </Text>
+                        <Text fz="sm" c={improved ? 'green' : 'red'}>
+                          {improved ? `↑ ${t.exam.improved}` : `↓ ${t.exam.regressed}`}
+                        </Text>
+                      </Group>
+                    );
+                  })()}
               </Group>
             </Paper>
           );
@@ -590,10 +589,7 @@ export function MockExamClient({ initialMock }: Props) {
                   };
 
                   // Check for grouped questions
-                  const groups = new Map<
-                    number,
-                    { title: string; indices: number[] }
-                  >();
+                  const groups = new Map<number, { title: string; indices: number[] }>();
                   const ungrouped: number[] = [];
 
                   mock.questions.forEach((q, i) => {
@@ -617,14 +613,7 @@ export function MockExamClient({ initialMock }: Props) {
                         .sort(([a], [b]) => a - b)
                         .map(([groupIdx, group]) => (
                           <Box key={`group-${groupIdx}`}>
-                            <Text
-                              size="xs"
-                              fw={600}
-                              c="dimmed"
-                              px="xs"
-                              py={4}
-                              bg="gray.0"
-                            >
+                            <Text size="xs" fw={600} c="dimmed" px="xs" py={4} bg="gray.0">
                               {`${groupIdx + 1}. ${group.title.slice(0, 40)}${group.title.length > 40 ? '...' : ''}`}
                             </Text>
                             {group.indices.map((i) => renderQuestionItem(i))}
@@ -666,7 +655,6 @@ export function MockExamClient({ initialMock }: Props) {
                     correctAnswer={currentQuestion.answer}
                   />
                 )}
-
               </Stack>
             </ScrollArea>
 

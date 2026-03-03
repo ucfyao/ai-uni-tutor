@@ -76,7 +76,12 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLanguage();
-  const { universities, courses: filteredCourses, allCourses } = useCourseData(selectedUniId);
+  const {
+    universities,
+    courses: filteredCourses,
+    allCourses,
+    isLoading: isLoadingCourses,
+  } = useCourseData(selectedUniId);
 
   React.useEffect(() => {
     const lastUni = localStorage.getItem('lastUniId');
@@ -200,6 +205,7 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
     </Box>
   );
 
+  const noCourses = !!selectedUniId && !isLoadingCourses && filteredCourses.length === 0;
   const isFormValid = preSelectedMode && selectedCourseId;
 
   return (
@@ -276,6 +282,11 @@ const NewSessionModal: React.FC<NewSessionModalProps> = ({
               searchable
             />
           </FormRow>
+          {noCourses && (
+            <Text size="xs" c="dimmed" ta="center">
+              {t.modals.noCoursesAvailable}
+            </Text>
+          )}
         </Stack>
 
         <Button

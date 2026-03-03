@@ -14,6 +14,13 @@ paths:
 - Throw typed errors: `AppError`, `DatabaseError`, `QuotaExceededError` from `@/lib/errors`
 - Never access Supabase directly — always through repositories
 
+### Service Error Handling
+
+- **Simple passthrough services** (CourseService, ProfileService, KnowledgeCardService): Let `DatabaseError` propagate — repos already throw it, and the action layer's `mapError()` handles all `AppError` subclasses.
+- **Complex services** (MockExamService, ChatService — LLM/external API calls): Wrap with `AppError.from(error)` to classify Gemini/external errors.
+- **Validation in services**: Throw `AppError('VALIDATION', '...')` for business rule violations.
+- Services **never** catch and return error objects. They throw; the action layer catches.
+
 ## Repositories (`lib/repositories/`)
 
 - Implement domain interfaces from `lib/domain/interfaces/`

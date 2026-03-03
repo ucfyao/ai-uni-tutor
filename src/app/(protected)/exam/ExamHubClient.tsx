@@ -74,7 +74,7 @@ export function ExamHubClient({ initialInProgress, initialCompleted }: Props) {
           const result = await retakeMockExam(mockId);
           setPendingAction(null);
           if (result.success) {
-            router.push(`/exam/${result.mockId}`);
+            router.push(`/exam/${result.data.mockId}`);
           } else {
             showNotification({ message: result.error, color: 'red' });
           }
