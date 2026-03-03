@@ -988,6 +988,60 @@ export interface Database {
           total_cost: number;
         }[];
       };
+      process_referral_payment: {
+        Args: {
+          p_referee_id: string;
+          p_stripe_subscription_id: string;
+          p_payment_amount?: number | null;
+        };
+        Returns: undefined;
+      };
+      increment_wallet_balance: {
+        Args: {
+          p_user_id: string;
+          p_amount: number;
+        };
+        Returns: undefined;
+      };
+      reject_withdrawal_with_refund: {
+        Args: {
+          p_withdrawal_id: string;
+          p_admin_id: string;
+        };
+        Returns: undefined;
+      };
+      get_referral_daily_trend: {
+        Args: {
+          p_user_id: string;
+          p_days?: number;
+        };
+        Returns: {
+          date: string;
+          count: number;
+        }[];
+      };
+      request_withdrawal_atomic: {
+        Args: {
+          p_user_id: string;
+          p_amount: number;
+          p_payment_method: Json;
+        };
+        Returns: string;
+      };
+      approve_agent_application: {
+        Args: {
+          p_application_id: string;
+          p_admin_id: string;
+        };
+        Returns: string;
+      };
+      clawback_referral_commission: {
+        Args: {
+          p_referee_id: string;
+          p_stripe_subscription_id: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
