@@ -5,7 +5,7 @@
  * Independent of database implementation.
  */
 
-export type UserRole = 'user' | 'agent' | 'admin' | 'super_admin';
+export type UserRole = 'user' | 'agent' | 'institution_admin' | 'admin' | 'super_admin';
 
 export interface ProfileEntity {
   id: string;

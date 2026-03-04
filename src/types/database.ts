@@ -13,7 +13,7 @@ export interface Database {
           stripe_price_id: string | null;
           subscription_status: string | null;
           current_period_end: string | null;
-          role: 'user' | 'agent' | 'admin' | 'super_admin';
+          role: 'user' | 'agent' | 'institution_admin' | 'admin' | 'super_admin';
           created_at: string;
           updated_at: string;
           is_active: boolean;
@@ -27,7 +27,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
-          role?: 'user' | 'agent' | 'admin' | 'super_admin';
+          role?: 'user' | 'agent' | 'institution_admin' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
           is_active?: boolean;
@@ -41,7 +41,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
-          role?: 'user' | 'agent' | 'admin' | 'super_admin';
+          role?: 'user' | 'agent' | 'institution_admin' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
           is_active?: boolean;
