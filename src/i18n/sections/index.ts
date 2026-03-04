@@ -2,6 +2,7 @@ import { adminTranslations } from './admin';
 import { chatTranslations } from './chat';
 import { commonTranslations } from './common';
 import { examTranslations } from './exam';
+import { institutionTranslations } from './institution';
 import { knowledgeTranslations } from './knowledge';
 import { landingTranslations } from './landing';
 import { navTranslations } from './nav';
@@ -20,6 +21,7 @@ export const translations = {
     ...settingsTranslations.zh,
     ...adminTranslations.zh,
     ...referralTranslations.zh,
+    ...institutionTranslations.zh,
     ...commonTranslations.zh,
   },
   en: {
@@ -32,6 +34,7 @@ export const translations = {
     ...settingsTranslations.en,
     ...adminTranslations.en,
     ...referralTranslations.en,
+    ...institutionTranslations.en,
     ...commonTranslations.en,
   },
 } as const;
