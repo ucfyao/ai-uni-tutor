@@ -23,6 +23,7 @@ function createMockReferralRepo(): {
     createReferral: vi.fn(),
     updateReferralStatus: vi.fn(),
     countByReferrerId: vi.fn(),
+    countByReferrerIds: vi.fn(),
   };
 }
 
@@ -38,6 +39,7 @@ function createMockAgentRepo(): {
     findWalletByUserId: vi.fn(),
     createWallet: vi.fn(),
     incrementWalletBalance: vi.fn(),
+    findWithdrawalById: vi.fn(),
     listWithdrawals: vi.fn(),
     createWithdrawal: vi.fn(),
     updateWithdrawal: vi.fn(),
@@ -195,6 +197,7 @@ describe('CommissionService', () => {
           subscription_status: 'active',
         }),
       );
+      expect(referralRepo.updateReferralStatus).toHaveBeenCalledWith('ref-001', 'rewarded');
     });
 
     it('should return early for agent code without paymentAmount (fallback 0)', async () => {
@@ -209,6 +212,7 @@ describe('CommissionService', () => {
 
       expect(commissionRepo.create).not.toHaveBeenCalled();
       expect(agentRepo.incrementWalletBalance).not.toHaveBeenCalled();
+      expect(referralRepo.updateReferralStatus).not.toHaveBeenCalled();
     });
 
     it('should credit cash for agent-type referral code with paymentAmount', async () => {
@@ -233,6 +237,7 @@ describe('CommissionService', () => {
         }),
       );
       expect(agentRepo.incrementWalletBalance).toHaveBeenCalledWith(REFERRER_ID, 5);
+      expect(referralRepo.updateReferralStatus).toHaveBeenCalledWith('ref-001', 'rewarded');
     });
 
     it('should do nothing if referral code not found', async () => {
@@ -241,6 +246,7 @@ describe('CommissionService', () => {
       await service.processReferralReward(REFERRAL_ENTITY);
 
       expect(commissionRepo.create).not.toHaveBeenCalled();
+      expect(referralRepo.updateReferralStatus).not.toHaveBeenCalled();
     });
   });
 
@@ -357,12 +363,12 @@ describe('CommissionService', () => {
 
   describe('approveWithdrawal', () => {
     it('should approve a pending withdrawal', async () => {
-      agentRepo.listWithdrawals.mockResolvedValue([WITHDRAWAL]);
+      agentRepo.findWithdrawalById.mockResolvedValue(WITHDRAWAL);
       agentRepo.updateWithdrawal.mockResolvedValue(undefined);
 
       await service.approveWithdrawal('wd-001', 'admin-123');
 
-      expect(agentRepo.listWithdrawals).toHaveBeenCalled();
+      expect(agentRepo.findWithdrawalById).toHaveBeenCalledWith('wd-001');
       expect(agentRepo.updateWithdrawal).toHaveBeenCalledWith('wd-001', {
         status: 'approved',
         reviewedBy: 'admin-123',
@@ -371,7 +377,7 @@ describe('CommissionService', () => {
     });
 
     it('should throw if withdrawal not found', async () => {
-      agentRepo.listWithdrawals.mockResolvedValue([]);
+      agentRepo.findWithdrawalById.mockResolvedValue(null);
 
       await expect(service.approveWithdrawal('wd-missing', 'admin-123')).rejects.toThrow(
         'Withdrawal not found',
@@ -379,7 +385,7 @@ describe('CommissionService', () => {
     });
 
     it('should throw if withdrawal is not pending', async () => {
-      agentRepo.listWithdrawals.mockResolvedValue([{ ...WITHDRAWAL, status: 'approved' }]);
+      agentRepo.findWithdrawalById.mockResolvedValue({ ...WITHDRAWAL, status: 'approved' });
 
       await expect(service.approveWithdrawal('wd-001', 'admin-123')).rejects.toThrow(
         'Only pending withdrawals can be approved',

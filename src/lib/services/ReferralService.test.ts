@@ -31,6 +31,7 @@ function createMockReferralRepo(): {
     createReferral: vi.fn(),
     updateReferralStatus: vi.fn(),
     countByReferrerId: vi.fn(),
+    countByReferrerIds: vi.fn(),
   };
 }
 

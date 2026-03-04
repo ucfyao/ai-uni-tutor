@@ -40,6 +40,7 @@ function createMockAgentRepo(): {
     requestWithdrawalAtomic: vi.fn(),
     approveApplicationAtomic: vi.fn(),
     getDailyReferralTrend: vi.fn(),
+    findWithdrawalById: vi.fn(),
   };
 }
 

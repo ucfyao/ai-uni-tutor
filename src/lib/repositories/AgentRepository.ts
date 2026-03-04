@@ -208,6 +208,17 @@ export class AgentRepository {
 
   // ── Withdrawals ──────────────────────────────────────────────────────
 
+  async findWithdrawalById(id: string): Promise<WithdrawalRequestEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('withdrawal_requests')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw new DatabaseError(`Failed to fetch withdrawal: ${error.message}`, error);
+    return data ? this.mapWithdrawalToEntity(data) : null;
+  }
+
   async listWithdrawals(userId?: string): Promise<WithdrawalRequestEntity[]> {
     const supabase = await createClient();
     let query = supabase

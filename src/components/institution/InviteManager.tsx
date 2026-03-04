@@ -22,7 +22,7 @@ import type { InstitutionInviteEntity } from '@/types/institution';
 interface InviteManagerProps {
   invites: InstitutionInviteEntity[];
   onCreateInvite: (options?: { maxUses?: number; expiresAt?: string }) => Promise<void>;
-  onToggleInvite: (inviteId: string, isActive: boolean) => void;
+  onToggleInvite: (inviteId: string, isActive: boolean) => Promise<void>;
   loading?: boolean;
 }
 
@@ -45,10 +45,10 @@ export function InviteManager({
     }
   };
 
-  const handleToggle = (inviteId: string, isActive: boolean) => {
+  const handleToggle = async (inviteId: string, isActive: boolean) => {
     setTogglingIds((prev) => new Set(prev).add(inviteId));
     try {
-      onToggleInvite(inviteId, isActive);
+      await onToggleInvite(inviteId, isActive);
     } finally {
       setTogglingIds((prev) => {
         const next = new Set(prev);

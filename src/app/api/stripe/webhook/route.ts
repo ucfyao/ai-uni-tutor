@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -22,12 +22,11 @@ export async function POST(req: NextRequest) {
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
+  } catch {
+    return new NextResponse('Webhook signature verification failed', { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Idempotency: skip already-processed events
   const { data: existing } = await supabase
@@ -88,7 +87,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
 
   // Process referral reward if applicable (bypass RLS via SECURITY DEFINER RPC)
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const amountPaid = session.amount_total ? session.amount_total / 100 : undefined;
     await supabase.rpc('process_referral_payment', {
       p_referee_id: session.metadata.userId,
@@ -159,7 +158,7 @@ async function handleChargeRefunded(event: Stripe.Event) {
 
   if (!subscriptionId) return;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: profile } = await supabase
     .from('profiles')
     .select('id')

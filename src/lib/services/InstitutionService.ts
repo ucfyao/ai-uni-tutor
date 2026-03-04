@@ -115,6 +115,10 @@ export class InstitutionService {
   }
 
   async removeMember(institutionId: string, userId: string): Promise<void> {
+    const institution = await this.institutionRepo.findById(institutionId);
+    if (institution?.adminId === userId) {
+      throw new Error('Cannot remove institution admin');
+    }
     return this.institutionRepo.removeMemberAtomic(institutionId, userId);
   }
 
@@ -131,12 +135,13 @@ export class InstitutionService {
     const members = await this.institutionRepo.listMembers(institution.id);
     const activeMembers = members.filter((m) => m.status === 'active');
 
+    const memberIds = activeMembers.map((m) => m.userId);
+    const referralCounts = await this.referralRepo.countByReferrerIds(memberIds);
     let teamReferrals = 0;
     let paidConversions = 0;
-    for (const member of activeMembers) {
-      const counts = await this.referralRepo.countByReferrerId(member.userId);
-      teamReferrals += counts.total;
-      paidConversions += counts.paid;
+    for (const [, c] of referralCounts) {
+      teamReferrals += c.total;
+      paidConversions += c.paid;
     }
 
     const wallet = await this.agentRepo.findWalletByUserId(adminId);

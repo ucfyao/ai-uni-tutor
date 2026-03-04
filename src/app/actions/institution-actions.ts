@@ -29,7 +29,7 @@ const inviteCodeSchema = z.string().min(1).max(50);
 
 const createInviteSchema = z.object({
   maxUses: z.number().int().positive().optional(),
-  expiresAt: z.string().optional(),
+  expiresAt: z.string().datetime().optional(),
 });
 
 const toggleInviteSchema = z.object({

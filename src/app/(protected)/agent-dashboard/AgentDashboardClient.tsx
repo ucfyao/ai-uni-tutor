@@ -10,6 +10,7 @@ import { WalletSection } from '@/components/referral/WalletSection';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { showNotification } from '@/lib/notifications';
 import type { AgentDashboardStats } from '@/types/referral';
 
 export default function AgentDashboardClient() {
@@ -42,13 +43,16 @@ export default function AgentDashboardClient() {
       const result = await getAgentDashboard();
       if (result.success) {
         setStats(result.data);
+      } else {
+        showNotification({ message: result.error ?? t.common.error, color: 'red' });
       }
     } catch (error) {
       console.error('Failed to fetch dashboard', error);
+      showNotification({ message: t.common.error, color: 'red' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t.common.error]);
 
   useEffect(() => {
     void fetchDashboard();

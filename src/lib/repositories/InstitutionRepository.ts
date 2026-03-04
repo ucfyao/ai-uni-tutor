@@ -190,40 +190,52 @@ export class InstitutionRepository {
 
   async getAmbassadorStats(institutionId: string): Promise<AmbassadorStats[]> {
     const supabase = await createClient();
-    const { data: members, error } = await supabase
+
+    // 1 query for members+profiles (join via foreign key)
+    const { data: members, error: membersError } = await supabase
       .from('institution_members')
-      .select('user_id, status, joined_at')
+      .select('user_id, status, joined_at, profiles!inner(full_name, email)')
       .eq('institution_id', institutionId)
       .neq('status', 'removed');
-    if (error) throw new DatabaseError(`Failed to fetch ambassador stats: ${error.message}`, error);
+    if (membersError)
+      throw new DatabaseError(
+        `Failed to fetch ambassador stats: ${membersError.message}`,
+        membersError,
+      );
 
-    const stats: AmbassadorStats[] = [];
-    for (const m of members ?? []) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', m.user_id)
-        .single();
-      const { count: refCount } = await supabase
-        .from('referrals')
-        .select('*', { count: 'exact', head: true })
-        .eq('referrer_id', m.user_id);
-      const { count: paidCount } = await supabase
-        .from('referrals')
-        .select('*', { count: 'exact', head: true })
-        .eq('referrer_id', m.user_id)
-        .eq('status', 'paid');
-      stats.push({
+    const memberUserIds = (members ?? []).map((m) => m.user_id);
+    if (memberUserIds.length === 0) return [];
+
+    // 1 query for all referral counts grouped by referrer
+    const { data: referrals, error: refError } = await supabase
+      .from('referrals')
+      .select('referrer_id, status')
+      .in('referrer_id', memberUserIds);
+    if (refError)
+      throw new DatabaseError(`Failed to fetch referral counts: ${refError.message}`, refError);
+
+    // Aggregate client-side
+    const countMap = new Map<string, { total: number; paid: number }>();
+    for (const r of referrals ?? []) {
+      const entry = countMap.get(r.referrer_id) ?? { total: 0, paid: 0 };
+      entry.total++;
+      if (r.status === 'paid' || r.status === 'rewarded') entry.paid++;
+      countMap.set(r.referrer_id, entry);
+    }
+
+    return (members ?? []).map((m) => {
+      const profile = m.profiles as unknown as { full_name: string | null; email: string | null };
+      const counts = countMap.get(m.user_id) ?? { total: 0, paid: 0 };
+      return {
         userId: m.user_id,
         fullName: profile?.full_name ?? null,
         email: profile?.email ?? null,
-        referralCount: refCount ?? 0,
-        paidCount: paidCount ?? 0,
+        referralCount: counts.total,
+        paidCount: counts.paid,
         status: m.status as InstitutionMemberStatus,
         joinedAt: m.joined_at ? new Date(m.joined_at) : null,
-      });
-    }
-    return stats;
+      };
+    });
   }
 
   // ── Invites ──────────────────────────────────────────────────

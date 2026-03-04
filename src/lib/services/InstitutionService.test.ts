@@ -45,10 +45,11 @@ function createMockAgentRepo(): Pick<
 
 function createMockReferralRepo(): Pick<
   { [K in keyof ReferralRepository]: ReturnType<typeof vi.fn> },
-  'countByReferrerId'
+  'countByReferrerId' | 'countByReferrerIds'
 > {
   return {
     countByReferrerId: vi.fn(),
+    countByReferrerIds: vi.fn(),
   };
 }
 
@@ -218,11 +219,21 @@ describe('InstitutionService', () => {
 
   describe('removeMember', () => {
     it('should delegate to atomic RPC', async () => {
+      institutionRepo.findById.mockResolvedValue(INSTITUTION);
       institutionRepo.removeMemberAtomic.mockResolvedValue(undefined);
 
       await service.removeMember(INSTITUTION_ID, USER_ID);
 
       expect(institutionRepo.removeMemberAtomic).toHaveBeenCalledWith(INSTITUTION_ID, USER_ID);
+    });
+
+    it('should throw if trying to remove institution admin', async () => {
+      institutionRepo.findById.mockResolvedValue(INSTITUTION);
+
+      await expect(service.removeMember(INSTITUTION_ID, ADMIN_ID)).rejects.toThrow(
+        'Cannot remove institution admin',
+      );
+      expect(institutionRepo.removeMemberAtomic).not.toHaveBeenCalled();
     });
   });
 
@@ -235,9 +246,12 @@ describe('InstitutionService', () => {
         MEMBER,
         { ...MEMBER, id: 'member-002', userId: 'user-ghi-789' },
       ]);
-      referralRepo.countByReferrerId
-        .mockResolvedValueOnce({ total: 10, paid: 5 })
-        .mockResolvedValueOnce({ total: 8, paid: 3 });
+      referralRepo.countByReferrerIds.mockResolvedValue(
+        new Map([
+          [USER_ID, { total: 10, paid: 5 }],
+          ['user-ghi-789', { total: 8, paid: 3 }],
+        ]),
+      );
       agentRepo.findWalletByUserId.mockResolvedValue(WALLET);
       agentRepo.listWithdrawals.mockResolvedValue([PENDING_WITHDRAWAL]);
 
@@ -262,11 +276,13 @@ describe('InstitutionService', () => {
     it('should handle missing wallet and no members', async () => {
       institutionRepo.findByAdminId.mockResolvedValue(INSTITUTION);
       institutionRepo.listMembers.mockResolvedValue([]);
+      referralRepo.countByReferrerIds.mockResolvedValue(new Map());
       agentRepo.findWalletByUserId.mockResolvedValue(null);
       agentRepo.listWithdrawals.mockResolvedValue([]);
 
       const result = await service.getDashboard(ADMIN_ID);
 
+      expect(referralRepo.countByReferrerIds).toHaveBeenCalledWith([]);
       expect(result).toEqual({
         totalAmbassadors: 0,
         teamReferrals: 0,
@@ -283,7 +299,9 @@ describe('InstitutionService', () => {
         MEMBER,
         { ...MEMBER, id: 'member-002', userId: 'user-suspended', status: 'suspended' },
       ]);
-      referralRepo.countByReferrerId.mockResolvedValue({ total: 5, paid: 2 });
+      referralRepo.countByReferrerIds.mockResolvedValue(
+        new Map([[USER_ID, { total: 5, paid: 2 }]]),
+      );
       agentRepo.findWalletByUserId.mockResolvedValue(WALLET);
       agentRepo.listWithdrawals.mockResolvedValue([]);
 
@@ -291,8 +309,8 @@ describe('InstitutionService', () => {
 
       // Only 1 active member, suspended member excluded
       expect(result.totalAmbassadors).toBe(1);
-      expect(referralRepo.countByReferrerId).toHaveBeenCalledTimes(1);
-      expect(referralRepo.countByReferrerId).toHaveBeenCalledWith(USER_ID);
+      expect(referralRepo.countByReferrerIds).toHaveBeenCalledTimes(1);
+      expect(referralRepo.countByReferrerIds).toHaveBeenCalledWith([USER_ID]);
     });
   });
 

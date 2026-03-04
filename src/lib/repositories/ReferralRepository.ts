@@ -210,6 +210,27 @@ export class ReferralRepository {
     }
   }
 
+  async countByReferrerIds(
+    referrerIds: string[],
+  ): Promise<Map<string, { total: number; paid: number }>> {
+    if (referrerIds.length === 0) return new Map();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('referrals')
+      .select('referrer_id, status')
+      .in('referrer_id', referrerIds);
+    if (error) throw new DatabaseError(`Failed to count referrals batch: ${error.message}`, error);
+
+    const map = new Map<string, { total: number; paid: number }>();
+    for (const r of data ?? []) {
+      const entry = map.get(r.referrer_id) ?? { total: 0, paid: 0 };
+      entry.total++;
+      if (r.status === 'paid' || r.status === 'rewarded') entry.paid++;
+      map.set(r.referrer_id, entry);
+    }
+    return map;
+  }
+
   async countByReferrerId(referrerId: string): Promise<{ total: number; paid: number }> {
     const supabase = await createClient();
 

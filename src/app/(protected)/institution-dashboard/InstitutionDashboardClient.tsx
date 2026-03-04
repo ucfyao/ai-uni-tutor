@@ -60,14 +60,18 @@ export default function InstitutionDashboardClient() {
         listInstitutionInvites(),
       ]);
       if (dashResult.success) setStats(dashResult.data);
+      else showNotification({ message: dashResult.error ?? t.common.error, color: 'red' });
       if (ambassadorResult.success) setAmbassadors(ambassadorResult.data);
+      else showNotification({ message: ambassadorResult.error ?? t.common.error, color: 'red' });
       if (inviteResult.success) setInvites(inviteResult.data);
+      else showNotification({ message: inviteResult.error ?? t.common.error, color: 'red' });
     } catch (error) {
       console.error('Failed to fetch institution dashboard', error);
+      showNotification({ message: t.common.error, color: 'red' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t.common.error]);
 
   useEffect(() => {
     void fetchDashboard();

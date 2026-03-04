@@ -71,7 +71,11 @@ export class CommissionService {
         currency: 'cny',
       });
       await this.creditCash(referral.referrerId, cashAmount);
+    } else {
+      return;
     }
+
+    await this.referralRepo.updateReferralStatus(referral.id, 'rewarded');
   }
 
   async creditProDays(userId: string, days: number): Promise<void> {
@@ -111,8 +115,7 @@ export class CommissionService {
   }
 
   async approveWithdrawal(id: string, adminId: string): Promise<void> {
-    const withdrawals = await this.agentRepo.listWithdrawals();
-    const wd = withdrawals.find((w) => w.id === id);
+    const wd = await this.agentRepo.findWithdrawalById(id);
     if (!wd) throw new Error('Withdrawal not found');
     if (wd.status !== 'pending') throw new Error('Only pending withdrawals can be approved');
 

@@ -170,6 +170,11 @@ export async function toggleReferralCode(input: unknown): Promise<ActionResult<v
   const user = await getCurrentUser();
   if (!user) return { success: false, error: 'Unauthorized' };
 
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
+    return { success: false, error: 'Agent access required' };
+  }
+
   const parsed = toggleReferralCodeSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
 
