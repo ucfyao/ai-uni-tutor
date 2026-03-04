@@ -8,7 +8,7 @@ export default async function AgentDashboardPage() {
   if (!user) redirect('/login');
 
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'agent') redirect('/study');
+  if (profile?.role !== 'agent' && profile?.role !== 'super_admin') redirect('/study');
 
   return <AgentDashboardClient />;
 }

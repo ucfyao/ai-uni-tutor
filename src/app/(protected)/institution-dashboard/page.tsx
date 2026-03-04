@@ -8,7 +8,7 @@ export default async function InstitutionDashboardPage() {
   if (!user) redirect('/login');
 
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'institution_admin') redirect('/study');
+  if (profile?.role !== 'institution_admin' && profile?.role !== 'super_admin') redirect('/study');
 
   return <InstitutionDashboardClient />;
 }

@@ -288,7 +288,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </Tooltip>
 
         {/* Agent Dashboard */}
-        {profile?.role === 'agent' && (
+        {(profile?.role === 'agent' || isSuperAdmin) && (
           <Tooltip label={t.agentDashboard.title} position="right">
             <ActionIcon
               component={Link}
@@ -305,7 +305,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Institution Dashboard */}
-        {profile?.role === 'institution_admin' && (
+        {(profile?.role === 'institution_admin' || isSuperAdmin) && (
           <Tooltip label={t.institution.title} position="right">
             <ActionIcon
               component={Link}
@@ -594,7 +594,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </UnstyledButton>
 
           {/* Agent Dashboard link */}
-          {profile?.role === 'agent' && (
+          {(profile?.role === 'agent' || isSuperAdmin) && (
             <UnstyledButton
               component={Link}
               href="/agent-dashboard"
@@ -634,7 +634,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {/* Institution Dashboard link */}
-          {profile?.role === 'institution_admin' && (
+          {(profile?.role === 'institution_admin' || isSuperAdmin) && (
             <UnstyledButton
               component={Link}
               href="/institution-dashboard"
