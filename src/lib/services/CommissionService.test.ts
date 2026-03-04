@@ -42,6 +42,7 @@ function createMockAgentRepo(): {
     createWithdrawal: vi.fn(),
     updateWithdrawal: vi.fn(),
     rejectWithdrawalWithRefund: vi.fn(),
+    completeWithdrawalAtomic: vi.fn(),
     requestWithdrawalAtomic: vi.fn(),
     approveApplicationAtomic: vi.fn(),
     getDailyReferralTrend: vi.fn(),
@@ -399,33 +400,19 @@ describe('CommissionService', () => {
   // ==================== completeWithdrawal ====================
 
   describe('completeWithdrawal', () => {
-    it('should complete an approved withdrawal', async () => {
-      agentRepo.listWithdrawals.mockResolvedValue([{ ...WITHDRAWAL, status: 'approved' }]);
-      agentRepo.updateWithdrawal.mockResolvedValue(undefined);
+    it('should delegate to completeWithdrawalAtomic RPC', async () => {
+      agentRepo.completeWithdrawalAtomic.mockResolvedValue(undefined);
 
       await service.completeWithdrawal('wd-001', 'admin-123');
 
-      expect(agentRepo.listWithdrawals).toHaveBeenCalled();
-      expect(agentRepo.updateWithdrawal).toHaveBeenCalledWith('wd-001', {
-        status: 'completed',
-        reviewedBy: 'admin-123',
-        reviewedAt: expect.any(Date),
-      });
+      expect(agentRepo.completeWithdrawalAtomic).toHaveBeenCalledWith('wd-001', 'admin-123');
     });
 
-    it('should throw if withdrawal not found', async () => {
-      agentRepo.listWithdrawals.mockResolvedValue([]);
+    it('should propagate RPC errors', async () => {
+      agentRepo.completeWithdrawalAtomic.mockRejectedValue(new Error('Withdrawal not found'));
 
       await expect(service.completeWithdrawal('wd-missing', 'admin-123')).rejects.toThrow(
         'Withdrawal not found',
-      );
-    });
-
-    it('should throw if withdrawal is not approved', async () => {
-      agentRepo.listWithdrawals.mockResolvedValue([WITHDRAWAL]); // status: 'pending'
-
-      await expect(service.completeWithdrawal('wd-001', 'admin-123')).rejects.toThrow(
-        'Only approved withdrawals can be completed',
       );
     });
   });

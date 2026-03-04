@@ -36,6 +36,7 @@ function createMockAgentRepo(): {
     createWithdrawal: vi.fn(),
     updateWithdrawal: vi.fn(),
     rejectWithdrawalWithRefund: vi.fn(),
+    completeWithdrawalAtomic: vi.fn(),
     requestWithdrawalAtomic: vi.fn(),
     approveApplicationAtomic: vi.fn(),
     getDailyReferralTrend: vi.fn(),

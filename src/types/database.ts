@@ -1041,6 +1041,13 @@ export interface Database {
           count: number;
         }[];
       };
+      complete_withdrawal_atomic: {
+        Args: {
+          p_withdrawal_id: string;
+          p_admin_id: string;
+        };
+        Returns: undefined;
+      };
       request_withdrawal_atomic: {
         Args: {
           p_user_id: string;

@@ -334,7 +334,52 @@ BEGIN
 END;
 $$;
 
--- ===== L) Fix clawback_referral_commission — cap deductions to balance =====
+-- ===== L) Atomic complete_withdrawal — status + total_withdrawn in one tx =====
+
+CREATE OR REPLACE FUNCTION complete_withdrawal_atomic(
+  p_withdrawal_id uuid,
+  p_admin_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_wd RECORD;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = (SELECT auth.uid())
+      AND role IN ('admin', 'super_admin')
+  ) THEN
+    RAISE EXCEPTION 'Permission denied: admin role required';
+  END IF;
+
+  SELECT * INTO v_wd
+    FROM withdrawal_requests
+    WHERE id = p_withdrawal_id
+    FOR UPDATE;
+
+  IF v_wd IS NULL THEN
+    RAISE EXCEPTION 'Withdrawal not found';
+  END IF;
+
+  IF v_wd.status != 'approved' THEN
+    RAISE EXCEPTION 'Only approved withdrawals can be completed';
+  END IF;
+
+  UPDATE withdrawal_requests
+    SET status = 'completed', reviewed_by = p_admin_id, reviewed_at = now()
+    WHERE id = p_withdrawal_id;
+
+  UPDATE agent_wallets
+    SET total_withdrawn = total_withdrawn + v_wd.amount, updated_at = now()
+    WHERE id = v_wd.wallet_id;
+END;
+$$;
+
+-- ===== M) Fix clawback_referral_commission — cap deductions to balance =====
 
 CREATE OR REPLACE FUNCTION clawback_referral_commission(
   p_referee_id uuid,

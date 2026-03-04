@@ -64,6 +64,18 @@ export class ReferralRepository {
     return this.mapCodeToEntity(data);
   }
 
+  async findCodeById(id: string): Promise<ReferralCodeEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('referral_codes').select('*').eq('id', id).single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch referral code by id: ${error.message}`, error);
+    }
+    if (!data) return null;
+    return this.mapCodeToEntity(data);
+  }
+
   async findCodesByUserId(userId: string): Promise<ReferralCodeEntity[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -136,7 +148,9 @@ export class ReferralRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('referrals')
-      .select('id, referee_id, status, created_at, profiles!referrals_referee_id_fkey(full_name, email)')
+      .select(
+        'id, referee_id, status, created_at, profiles!referrals_referee_id_fkey(full_name, email)',
+      )
       .eq('referrer_id', referrerId)
       .order('created_at', { ascending: false });
 
@@ -145,7 +159,10 @@ export class ReferralRepository {
     }
 
     return (data ?? []).map((row) => {
-      const profile = row.profiles as unknown as { full_name: string | null; email: string | null } | null;
+      const profile = row.profiles as unknown as {
+        full_name: string | null;
+        email: string | null;
+      } | null;
       return {
         id: row.id,
         refereeId: row.referee_id,

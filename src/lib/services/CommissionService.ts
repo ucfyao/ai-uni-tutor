@@ -124,16 +124,7 @@ export class CommissionService {
   }
 
   async completeWithdrawal(id: string, adminId: string): Promise<void> {
-    const withdrawals = await this.agentRepo.listWithdrawals();
-    const wd = withdrawals.find((w) => w.id === id);
-    if (!wd) throw new Error('Withdrawal not found');
-    if (wd.status !== 'approved') throw new Error('Only approved withdrawals can be completed');
-
-    await this.agentRepo.updateWithdrawal(id, {
-      status: 'completed',
-      reviewedBy: adminId,
-      reviewedAt: new Date(),
-    });
+    await this.agentRepo.completeWithdrawalAtomic(id, adminId);
   }
 
   async rejectWithdrawal(id: string, adminId: string): Promise<void> {

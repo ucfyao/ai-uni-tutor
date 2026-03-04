@@ -273,6 +273,22 @@ export class AgentRepository {
     }
   }
 
+  async completeWithdrawalAtomic(id: string, adminId: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc('complete_withdrawal_atomic', {
+      p_withdrawal_id: id,
+      p_admin_id: adminId,
+    });
+
+    if (error) {
+      if (error.message.includes('not found')) throw new Error('Withdrawal not found');
+      if (error.message.includes('Only approved')) {
+        throw new Error('Only approved withdrawals can be completed');
+      }
+      throw new DatabaseError(`Failed to complete withdrawal: ${error.message}`, error);
+    }
+  }
+
   async rejectWithdrawalWithRefund(id: string, adminId: string): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.rpc('reject_withdrawal_with_refund', {
