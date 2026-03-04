@@ -13,7 +13,7 @@ export interface Database {
           stripe_price_id: string | null;
           subscription_status: string | null;
           current_period_end: string | null;
-          role: 'user' | 'agent' | 'admin' | 'super_admin';
+          role: 'user' | 'agent' | 'institution_admin' | 'admin' | 'super_admin';
           created_at: string;
           updated_at: string;
           is_active: boolean;
@@ -27,7 +27,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
-          role?: 'user' | 'agent' | 'admin' | 'super_admin';
+          role?: 'user' | 'agent' | 'institution_admin' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
           is_active?: boolean;
@@ -41,7 +41,7 @@ export interface Database {
           stripe_price_id?: string | null;
           subscription_status?: string | null;
           current_period_end?: string | null;
-          role?: 'user' | 'agent' | 'admin' | 'super_admin';
+          role?: 'user' | 'agent' | 'institution_admin' | 'admin' | 'super_admin';
           created_at?: string;
           updated_at?: string;
           is_active?: boolean;
@@ -677,6 +677,77 @@ export interface Database {
         };
         Relationships: [];
       };
+      institutions: {
+        Row: {
+          id: string;
+          name: string;
+          admin_id: string;
+          commission_rate: number;
+          contact_info: Json;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          name: string;
+          admin_id: string;
+          commission_rate?: number;
+          contact_info?: Json;
+          is_active?: boolean;
+        };
+        Update: {
+          name?: string;
+          commission_rate?: number;
+          contact_info?: Json;
+          is_active?: boolean;
+        };
+        Relationships: [];
+      };
+      institution_members: {
+        Row: {
+          id: string;
+          institution_id: string;
+          user_id: string;
+          status: string;
+          invited_at: string;
+          joined_at: string | null;
+        };
+        Insert: {
+          institution_id: string;
+          user_id: string;
+          status?: string;
+        };
+        Update: {
+          status?: string;
+          joined_at?: string;
+        };
+        Relationships: [];
+      };
+      institution_invites: {
+        Row: {
+          id: string;
+          institution_id: string;
+          invite_code: string;
+          created_by: string;
+          max_uses: number | null;
+          used_count: number;
+          expires_at: string | null;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          institution_id: string;
+          invite_code: string;
+          created_by: string;
+          max_uses?: number;
+          expires_at?: string;
+        };
+        Update: {
+          is_active?: boolean;
+          used_count?: number;
+        };
+        Relationships: [];
+      };
       referral_codes: {
         Row: {
           id: string;
@@ -684,6 +755,7 @@ export interface Database {
           code: string;
           type: string;
           stripe_promotion_code_id: string | null;
+          institution_id: string | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -694,6 +766,7 @@ export interface Database {
           code: string;
           type: string;
           stripe_promotion_code_id?: string | null;
+          institution_id?: string;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -704,6 +777,7 @@ export interface Database {
           code?: string;
           type?: string;
           stripe_promotion_code_id?: string | null;
+          institution_id?: string;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -896,6 +970,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      stripe_events: {
+        Row: {
+          id: string;
+          event_id: string;
+          event_type: string;
+          processed_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          event_type: string;
+          processed_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          event_type?: string;
+          processed_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -987,6 +1082,89 @@ export interface Database {
           avg_latency: number;
           total_cost: number;
         }[];
+      };
+      process_referral_payment: {
+        Args: {
+          p_referee_id: string;
+          p_stripe_subscription_id: string;
+          p_payment_amount?: number | null;
+        };
+        Returns: undefined;
+      };
+      increment_wallet_balance: {
+        Args: {
+          p_user_id: string;
+          p_amount: number;
+        };
+        Returns: undefined;
+      };
+      reject_withdrawal_with_refund: {
+        Args: {
+          p_withdrawal_id: string;
+          p_admin_id: string;
+        };
+        Returns: undefined;
+      };
+      get_referral_daily_trend: {
+        Args: {
+          p_user_id: string;
+          p_days?: number;
+        };
+        Returns: {
+          date: string;
+          count: number;
+        }[];
+      };
+      complete_withdrawal_atomic: {
+        Args: {
+          p_withdrawal_id: string;
+          p_admin_id: string;
+        };
+        Returns: undefined;
+      };
+      request_withdrawal_atomic: {
+        Args: {
+          p_user_id: string;
+          p_amount: number;
+          p_payment_method: Json;
+        };
+        Returns: string;
+      };
+      approve_agent_application: {
+        Args: {
+          p_application_id: string;
+          p_admin_id: string;
+        };
+        Returns: string;
+      };
+      clawback_referral_commission: {
+        Args: {
+          p_referee_id: string;
+          p_stripe_subscription_id: string;
+        };
+        Returns: undefined;
+      };
+      create_institution: {
+        Args: {
+          p_name: string;
+          p_admin_id: string;
+          p_commission_rate?: number;
+          p_contact_info?: Json;
+        };
+        Returns: string;
+      };
+      accept_institution_invite: {
+        Args: {
+          p_invite_code: string;
+        };
+        Returns: string;
+      };
+      remove_institution_member: {
+        Args: {
+          p_institution_id: string;
+          p_user_id: string;
+        };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

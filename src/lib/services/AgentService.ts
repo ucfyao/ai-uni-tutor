@@ -5,7 +5,11 @@
  * Coordinates with AgentRepository, ProfileRepository, and ReferralService.
  */
 
-import { getAgentRepository, getProfileRepository, getReferralRepository } from '@/lib/repositories';
+import {
+  getAgentRepository,
+  getProfileRepository,
+  getReferralRepository,
+} from '@/lib/repositories';
 import type { AgentRepository } from '@/lib/repositories/AgentRepository';
 import type { ProfileRepository } from '@/lib/repositories/ProfileRepository';
 import type { ReferralRepository } from '@/lib/repositories/ReferralRepository';
@@ -14,8 +18,8 @@ import type {
   AgentDashboardStats,
   AgentWalletEntity,
   ApplicationStatus,
+  WithdrawalRequestEntity,
 } from '@/types/referral';
-
 import type { ReferralService } from './ReferralService';
 import { getReferralService } from './ReferralService';
 
@@ -68,31 +72,21 @@ export class AgentService {
     return this.agentRepo.findApplicationByUserId(userId);
   }
 
-  async reviewApplication(
-    id: string,
-    adminId: string,
-    decision: ApplicationStatus,
-  ): Promise<void> {
-    await this.agentRepo.updateApplication(id, {
-      status: decision,
-      reviewedBy: adminId,
-      reviewedAt: new Date(),
-    });
-
+  async reviewApplication(id: string, adminId: string, decision: ApplicationStatus): Promise<void> {
     if (decision === 'approved') {
-      // We need the application to get the userId
-      const applications = await this.agentRepo.listApplications();
-      const application = applications.find((app) => app.id === id);
-      if (!application) return;
+      const agentUserId = await this.agentRepo.approveApplicationAtomic(id, adminId);
 
-      // Update profile role to agent
-      await this.profileRepo.updateRole(application.userId, 'agent');
-
-      // Create agent wallet
-      await this.agentRepo.createWallet(application.userId);
-
-      // Generate agent referral code
-      await this.getReferralService().generateCode(application.userId, 'agent');
+      try {
+        await this.getReferralService().generateCode(agentUserId, 'agent');
+      } catch (error) {
+        console.error('Failed to generate agent code after approval:', error);
+      }
+    } else {
+      await this.agentRepo.updateApplication(id, {
+        status: decision,
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      });
     }
   }
 
@@ -117,12 +111,16 @@ export class AgentService {
     };
   }
 
-  async getDailyTrend(
-    _userId: string,
-    _days: number,
-  ): Promise<{ date: string; count: number }[]> {
-    // Chart data will be a future enhancement via SQL query
-    return [];
+  async getDailyTrend(userId: string, days: number): Promise<{ date: string; count: number }[]> {
+    return this.agentRepo.getDailyReferralTrend(userId, days);
+  }
+
+  async listApplications(status?: ApplicationStatus): Promise<AgentApplicationEntity[]> {
+    return this.agentRepo.listApplications(status);
+  }
+
+  async listWithdrawals(userId?: string): Promise<WithdrawalRequestEntity[]> {
+    return this.agentRepo.listWithdrawals(userId);
   }
 }
 

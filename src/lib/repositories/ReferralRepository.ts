@@ -28,6 +28,7 @@ export class ReferralRepository {
       code: row.code,
       type: row.type as ReferralCodeType,
       stripePromotionCodeId: row.stripe_promotion_code_id,
+      institutionId: row.institution_id ?? null,
       isActive: row.is_active,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
@@ -59,6 +60,18 @@ export class ReferralRepository {
     if (error) {
       if (error.code === 'PGRST116') return null;
       throw new DatabaseError(`Failed to fetch referral code: ${error.message}`, error);
+    }
+    if (!data) return null;
+    return this.mapCodeToEntity(data);
+  }
+
+  async findCodeById(id: string): Promise<ReferralCodeEntity | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('referral_codes').select('*').eq('id', id).single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new DatabaseError(`Failed to fetch referral code by id: ${error.message}`, error);
     }
     if (!data) return null;
     return this.mapCodeToEntity(data);
@@ -136,7 +149,9 @@ export class ReferralRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('referrals')
-      .select('id, referee_id, status, created_at, profiles!referrals_referee_id_fkey(full_name, email)')
+      .select(
+        'id, referee_id, status, created_at, profiles!referrals_referee_id_fkey(full_name, email)',
+      )
       .eq('referrer_id', referrerId)
       .order('created_at', { ascending: false });
 
@@ -145,7 +160,10 @@ export class ReferralRepository {
     }
 
     return (data ?? []).map((row) => {
-      const profile = row.profiles as unknown as { full_name: string | null; email: string | null } | null;
+      const profile = row.profiles as unknown as {
+        full_name: string | null;
+        email: string | null;
+      } | null;
       return {
         id: row.id,
         refereeId: row.referee_id,
@@ -190,6 +208,27 @@ export class ReferralRepository {
     if (error) {
       throw new DatabaseError(`Failed to update referral status: ${error.message}`, error);
     }
+  }
+
+  async countByReferrerIds(
+    referrerIds: string[],
+  ): Promise<Map<string, { total: number; paid: number }>> {
+    if (referrerIds.length === 0) return new Map();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('referrals')
+      .select('referrer_id, status')
+      .in('referrer_id', referrerIds);
+    if (error) throw new DatabaseError(`Failed to count referrals batch: ${error.message}`, error);
+
+    const map = new Map<string, { total: number; paid: number }>();
+    for (const r of data ?? []) {
+      const entry = map.get(r.referrer_id) ?? { total: 0, paid: 0 };
+      entry.total++;
+      if (r.status === 'paid' || r.status === 'rewarded') entry.paid++;
+      map.set(r.referrer_id, entry);
+    }
+    return map;
   }
 
   async countByReferrerId(referrerId: string): Promise<{ total: number; paid: number }> {

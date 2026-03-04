@@ -2,10 +2,16 @@
 
 import { z } from 'zod';
 import { mapError } from '@/lib/errors';
+import { getReferralConfigRepository } from '@/lib/repositories/ReferralConfigRepository';
 import { getReferralService } from '@/lib/services/ReferralService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
-import type { ReferralCodeEntity, ReferralStats, ReferralWithReferee } from '@/types/referral';
+import type {
+  ReferralCodeEntity,
+  ReferralConfigMap,
+  ReferralStats,
+  ReferralWithReferee,
+} from '@/types/referral';
 
 export async function generateReferralCode(): Promise<ActionResult<ReferralCodeEntity>> {
   const user = await getCurrentUser();
@@ -57,6 +63,24 @@ export async function applyReferralAtSignup(code: string): Promise<ActionResult<
     const service = getReferralService();
     await service.applyReferralCode(user.id, parsed.data);
     return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function getReferralConfigPublic(): Promise<
+  ActionResult<Pick<ReferralConfigMap, 'user_reward_days' | 'referee_discount_percent'>>
+> {
+  try {
+    const configRepo = getReferralConfigRepository();
+    const config = await configRepo.getAllConfig();
+    return {
+      success: true,
+      data: {
+        user_reward_days: config.user_reward_days,
+        referee_discount_percent: config.referee_discount_percent,
+      },
+    };
   } catch (error) {
     return mapError(error);
   }

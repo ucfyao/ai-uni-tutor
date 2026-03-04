@@ -16,7 +16,6 @@ import type { CommissionRepository } from '@/lib/repositories/CommissionReposito
 import type { ReferralConfigRepository } from '@/lib/repositories/ReferralConfigRepository';
 import type { ReferralRepository } from '@/lib/repositories/ReferralRepository';
 import type { ReferralEntity, WithdrawalRequestEntity } from '@/types/referral';
-
 import type { ProfileService } from './ProfileService';
 import { getProfileService } from './ProfileService';
 
@@ -45,16 +44,8 @@ export class CommissionService {
     return this._profileService ?? getProfileService();
   }
 
-  async processReferralReward(referral: ReferralEntity): Promise<void> {
-    const codeEntity = await this.referralRepo.findCodeByCode(referral.referralCodeId);
-    // If not found by code string, try to infer type from context.
-    // The referral stores referralCodeId which is the UUID, not the code string.
-    // We need to look up the code by the referral's referralCodeId to determine type.
-    // Since findCodeByCode expects the code string, we need to get it differently.
-    // For now, load all codes for the referrer and match by ID.
-    const referrerCodes = await this.referralRepo.findCodesByUserId(referral.referrerId);
-    const code = codeEntity ?? referrerCodes.find((c) => c.id === referral.referralCodeId);
-
+  async processReferralReward(referral: ReferralEntity, paymentAmount?: number): Promise<void> {
+    const code = await this.referralRepo.findCodeById(referral.referralCodeId);
     if (!code) return;
 
     if (code.type === 'user') {
@@ -69,18 +60,22 @@ export class CommissionService {
       await this.creditProDays(referral.referrerId, rewardDays);
     } else if (code.type === 'agent') {
       const commissionRate = await this.configRepo.getConfig('agent_commission_rate');
-      // Use a fixed base amount for MVP (e.g. subscription price ~$10)
-      const baseAmount = 10;
+      const baseAmount = paymentAmount ?? 0;
       const cashAmount = baseAmount * commissionRate;
+      if (cashAmount <= 0) return;
       await this.commissionRepo.create({
         referralId: referral.id,
         beneficiaryId: referral.referrerId,
         type: 'cash',
         amount: cashAmount,
-        currency: 'usd',
+        currency: 'cny',
       });
       await this.creditCash(referral.referrerId, cashAmount);
+    } else {
+      return;
     }
+
+    await this.referralRepo.updateReferralStatus(referral.id, 'rewarded');
   }
 
   async creditProDays(userId: string, days: number): Promise<void> {
@@ -89,9 +84,8 @@ export class CommissionService {
     if (!profile) return;
 
     const now = new Date();
-    const currentEnd = profile.currentPeriodEnd && profile.currentPeriodEnd > now
-      ? profile.currentPeriodEnd
-      : now;
+    const currentEnd =
+      profile.currentPeriodEnd && profile.currentPeriodEnd > now ? profile.currentPeriodEnd : now;
     const newEnd = new Date(currentEnd.getTime() + days * 24 * 60 * 60 * 1000);
 
     await profileService.updateSubscription(userId, {
@@ -109,36 +103,35 @@ export class CommissionService {
     amount: number,
     paymentMethod: Record<string, unknown>,
   ): Promise<WithdrawalRequestEntity> {
-    const wallet = await this.agentRepo.findWalletByUserId(userId);
-    if (!wallet) {
-      throw new Error('Wallet not found');
-    }
-
-    const minWithdrawal = await this.configRepo.getConfig('min_withdrawal_amount');
-    if (amount < minWithdrawal) {
-      throw new Error(`Minimum withdrawal amount is ${minWithdrawal}`);
-    }
-    if (wallet.balance < amount) {
-      throw new Error('Insufficient balance');
-    }
-
-    // Deduct from wallet immediately (pending withdrawal)
-    await this.agentRepo.incrementWalletBalance(userId, -amount);
-
-    return this.agentRepo.createWithdrawal({
-      walletId: wallet.id,
+    const withdrawalId = await this.agentRepo.requestWithdrawalAtomic(
       userId,
       amount,
       paymentMethod,
-    });
+    );
+    const withdrawals = await this.agentRepo.listWithdrawals(userId);
+    const created = withdrawals.find((w) => w.id === withdrawalId);
+    if (!created) throw new Error('Withdrawal created but not found');
+    return created;
   }
 
   async approveWithdrawal(id: string, adminId: string): Promise<void> {
+    const wd = await this.agentRepo.findWithdrawalById(id);
+    if (!wd) throw new Error('Withdrawal not found');
+    if (wd.status !== 'pending') throw new Error('Only pending withdrawals can be approved');
+
     await this.agentRepo.updateWithdrawal(id, {
       status: 'approved',
       reviewedBy: adminId,
       reviewedAt: new Date(),
     });
+  }
+
+  async completeWithdrawal(id: string, adminId: string): Promise<void> {
+    await this.agentRepo.completeWithdrawalAtomic(id, adminId);
+  }
+
+  async rejectWithdrawal(id: string, adminId: string): Promise<void> {
+    await this.agentRepo.rejectWithdrawalWithRefund(id, adminId);
   }
 
   async sumRewardDaysByBeneficiary(userId: string): Promise<number> {

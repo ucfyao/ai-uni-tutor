@@ -1,11 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { CommissionRepository } from '@/lib/repositories/CommissionRepository';
 import type { ReferralConfigRepository } from '@/lib/repositories/ReferralConfigRepository';
 import type { ReferralRepository } from '@/lib/repositories/ReferralRepository';
 import type { ReferralCodeEntity, ReferralEntity, ReferralWithReferee } from '@/types/referral';
-
-import type { CommissionService } from './CommissionService';
 import { ReferralService } from './ReferralService';
 
 // ---------- Mock Stripe ----------
@@ -25,6 +22,7 @@ function createMockReferralRepo(): {
 } {
   return {
     findCodeByCode: vi.fn(),
+    findCodeById: vi.fn(),
     findCodesByUserId: vi.fn(),
     createCode: vi.fn(),
     toggleCodeActive: vi.fn(),
@@ -33,6 +31,7 @@ function createMockReferralRepo(): {
     createReferral: vi.fn(),
     updateReferralStatus: vi.fn(),
     countByReferrerId: vi.fn(),
+    countByReferrerIds: vi.fn(),
   };
 }
 
@@ -58,19 +57,6 @@ function createMockCommissionRepo(): {
   };
 }
 
-function createMockCommissionService(): {
-  [K in keyof CommissionService]: ReturnType<typeof vi.fn>;
-} {
-  return {
-    processReferralReward: vi.fn(),
-    creditProDays: vi.fn(),
-    creditCash: vi.fn(),
-    requestWithdrawal: vi.fn(),
-    approveWithdrawal: vi.fn(),
-    sumRewardDaysByBeneficiary: vi.fn(),
-  };
-}
-
 // ---------- Test data ----------
 
 const USER_ID = 'user-abc-123';
@@ -83,6 +69,7 @@ const CODE_ENTITY: ReferralCodeEntity = {
   code: 'UT-ABC123',
   type: 'user',
   stripePromotionCodeId: 'promo_123',
+  institutionId: null,
   isActive: true,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
@@ -114,19 +101,16 @@ describe('ReferralService', () => {
   let referralRepo: ReturnType<typeof createMockReferralRepo>;
   let configRepo: ReturnType<typeof createMockConfigRepo>;
   let commissionRepo: ReturnType<typeof createMockCommissionRepo>;
-  let commissionService: ReturnType<typeof createMockCommissionService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     referralRepo = createMockReferralRepo();
     configRepo = createMockConfigRepo();
     commissionRepo = createMockCommissionRepo();
-    commissionService = createMockCommissionService();
     service = new ReferralService(
       referralRepo as unknown as ReferralRepository,
       configRepo as unknown as ReferralConfigRepository,
       commissionRepo as unknown as CommissionRepository,
-      commissionService as unknown as CommissionService,
     );
   });
 
@@ -231,47 +215,6 @@ describe('ReferralService', () => {
     });
   });
 
-  // ==================== handlePayment ====================
-
-  describe('handlePayment', () => {
-    it('should process payment and reward referral', async () => {
-      referralRepo.findReferralByRefereeId.mockResolvedValue(REFERRAL_ENTITY);
-      referralRepo.updateReferralStatus.mockResolvedValue(undefined);
-      commissionService.processReferralReward.mockResolvedValue(undefined);
-
-      await service.handlePayment(REFEREE_ID, 'sub_stripe_123');
-
-      expect(referralRepo.updateReferralStatus).toHaveBeenCalledWith(
-        'ref-001',
-        'paid',
-        'sub_stripe_123',
-      );
-      expect(commissionService.processReferralReward).toHaveBeenCalledWith(REFERRAL_ENTITY);
-      expect(referralRepo.updateReferralStatus).toHaveBeenCalledWith('ref-001', 'rewarded');
-    });
-
-    it('should be idempotent for already-rewarded referrals', async () => {
-      referralRepo.findReferralByRefereeId.mockResolvedValue({
-        ...REFERRAL_ENTITY,
-        status: 'rewarded',
-      });
-
-      await service.handlePayment(REFEREE_ID, 'sub_stripe_123');
-
-      expect(referralRepo.updateReferralStatus).not.toHaveBeenCalled();
-      expect(commissionService.processReferralReward).not.toHaveBeenCalled();
-    });
-
-    it('should do nothing if no referral exists', async () => {
-      referralRepo.findReferralByRefereeId.mockResolvedValue(null);
-
-      await service.handlePayment(REFEREE_ID, 'sub_stripe_123');
-
-      expect(referralRepo.updateReferralStatus).not.toHaveBeenCalled();
-      expect(commissionService.processReferralReward).not.toHaveBeenCalled();
-    });
-  });
-
   // ==================== getReferralStats ====================
 
   describe('getReferralStats', () => {
@@ -329,12 +272,22 @@ describe('ReferralService', () => {
   // ==================== toggleCode ====================
 
   describe('toggleCode', () => {
-    it('should delegate to repository', async () => {
+    it('should verify ownership and delegate to repository', async () => {
+      referralRepo.findCodesByUserId.mockResolvedValue([CODE_ENTITY]);
       referralRepo.toggleCodeActive.mockResolvedValue(undefined);
 
-      await service.toggleCode(CODE_ID, false);
+      await service.toggleCode(USER_ID, CODE_ID, false);
 
+      expect(referralRepo.findCodesByUserId).toHaveBeenCalledWith(USER_ID);
       expect(referralRepo.toggleCodeActive).toHaveBeenCalledWith(CODE_ID, false);
+    });
+
+    it('should throw if code not owned by user', async () => {
+      referralRepo.findCodesByUserId.mockResolvedValue([]);
+
+      await expect(service.toggleCode(USER_ID, CODE_ID, false)).rejects.toThrow(
+        'Referral code not found or not owned by user',
+      );
     });
   });
 });

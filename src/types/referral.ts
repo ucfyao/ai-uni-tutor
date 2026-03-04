@@ -13,7 +13,7 @@ export type ReferralStatus = 'registered' | 'paid' | 'rewarded';
 
 export type CommissionType = 'pro_days' | 'cash';
 
-export type CommissionStatus = 'pending' | 'credited' | 'paid_out';
+export type CommissionStatus = 'pending' | 'credited' | 'paid_out' | 'clawed_back';
 
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 
@@ -27,6 +27,7 @@ export interface ReferralCodeEntity {
   code: string;
   type: ReferralCodeType;
   stripePromotionCodeId: string | null;
+  institutionId: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

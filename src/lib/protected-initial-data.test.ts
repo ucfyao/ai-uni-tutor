@@ -13,6 +13,8 @@ describe('mergeProtectedInitialData', () => {
     current_period_end: null,
     created_at: null,
     role: 'admin',
+    institution_id: null,
+    institution_name: null,
   };
 
   it('keeps profile when sessions fail', () => {

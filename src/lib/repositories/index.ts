@@ -28,3 +28,4 @@ export { ReferralRepository, getReferralRepository } from './ReferralRepository'
 export { AgentRepository, getAgentRepository } from './AgentRepository';
 export { CommissionRepository, getCommissionRepository } from './CommissionRepository';
 export { ReferralConfigRepository, getReferralConfigRepository } from './ReferralConfigRepository';
+export { InstitutionRepository, getInstitutionRepository } from './InstitutionRepository';

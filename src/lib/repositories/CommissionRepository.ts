@@ -82,7 +82,8 @@ export class CommissionRepository {
     let query = supabase
       .from('commissions')
       .select('amount')
-      .eq('beneficiary_id', userId);
+      .eq('beneficiary_id', userId)
+      .neq('status', 'clawed_back');
 
     if (type) {
       query = query.eq('type', type);
@@ -103,6 +104,7 @@ export class CommissionRepository {
       .from('commissions')
       .select('amount')
       .eq('beneficiary_id', userId)
+      .neq('status', 'clawed_back')
       .gte('created_at', since.toISOString());
 
     if (error) {

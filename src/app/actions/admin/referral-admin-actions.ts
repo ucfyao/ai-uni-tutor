@@ -2,7 +2,6 @@
 
 import { z } from 'zod';
 import { mapError } from '@/lib/errors';
-import { getAgentRepository } from '@/lib/repositories/AgentRepository';
 import { getReferralConfigRepository } from '@/lib/repositories/ReferralConfigRepository';
 import { getAgentService } from '@/lib/services/AgentService';
 import { getCommissionService } from '@/lib/services/CommissionService';
@@ -36,15 +35,24 @@ const withdrawalIdSchema = z.object({
   id: z.string().uuid(),
 });
 
-const updateConfigSchema = z.object({
-  key: z.enum([
-    'user_reward_days',
-    'agent_commission_rate',
-    'min_withdrawal_amount',
-    'referee_discount_percent',
-  ]),
-  value: z.number().nonnegative(),
-});
+const updateConfigSchema = z.discriminatedUnion('key', [
+  z.object({
+    key: z.literal('user_reward_days'),
+    value: z.number().int().min(0).max(365),
+  }),
+  z.object({
+    key: z.literal('agent_commission_rate'),
+    value: z.number().min(0).max(0.5),
+  }),
+  z.object({
+    key: z.literal('min_withdrawal_amount'),
+    value: z.number().min(0).max(100000),
+  }),
+  z.object({
+    key: z.literal('referee_discount_percent'),
+    value: z.number().int().min(0).max(50),
+  }),
+]);
 
 // ============================================================================
 // Actions
@@ -53,12 +61,13 @@ const updateConfigSchema = z.object({
 export async function listAgentApplications(
   input: unknown,
 ): Promise<ActionResult<AgentApplicationEntity[]>> {
+  const parsed = listApplicationsSchema.safeParse(input ?? {});
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
     await requireAnyAdmin();
-    const parsed = listApplicationsSchema.parse(input ?? {});
-    // AgentService doesn't expose a listApplications method, so we use the repo directly.
-    const repo = getAgentRepository();
-    const applications = await repo.listApplications(parsed.status as ApplicationStatus);
+    const service = getAgentService();
+    const applications = await service.listApplications(parsed.data.status as ApplicationStatus);
     return { success: true, data: applications };
   } catch (error) {
     return mapError(error);
@@ -66,11 +75,13 @@ export async function listAgentApplications(
 }
 
 export async function reviewAgentApplication(input: unknown): Promise<ActionResult<void>> {
+  const parsed = reviewApplicationSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
     const { user } = await requireAnyAdmin();
-    const parsed = reviewApplicationSchema.parse(input);
     const service = getAgentService();
-    await service.reviewApplication(parsed.id, user.id, parsed.decision);
+    await service.reviewApplication(parsed.data.id, user.id, parsed.data.decision);
     return { success: true, data: undefined };
   } catch (error) {
     return mapError(error);
@@ -80,13 +91,15 @@ export async function reviewAgentApplication(input: unknown): Promise<ActionResu
 export async function listWithdrawalRequests(
   input: unknown,
 ): Promise<ActionResult<WithdrawalRequestEntity[]>> {
+  const parsed = listWithdrawalsSchema.safeParse(input ?? {});
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
     await requireAnyAdmin();
-    const parsed = listWithdrawalsSchema.parse(input ?? {});
-    const repo = getAgentRepository();
-    let withdrawals = await repo.listWithdrawals();
-    if (parsed.status) {
-      withdrawals = withdrawals.filter((w) => w.status === parsed.status);
+    const service = getAgentService();
+    let withdrawals = await service.listWithdrawals();
+    if (parsed.data.status) {
+      withdrawals = withdrawals.filter((w) => w.status === parsed.data.status);
     }
     return { success: true, data: withdrawals };
   } catch (error) {
@@ -95,11 +108,13 @@ export async function listWithdrawalRequests(
 }
 
 export async function approveWithdrawal(input: unknown): Promise<ActionResult<void>> {
+  const parsed = withdrawalIdSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
     const { user } = await requireAnyAdmin();
-    const parsed = withdrawalIdSchema.parse(input);
     const service = getCommissionService();
-    await service.approveWithdrawal(parsed.id, user.id);
+    await service.approveWithdrawal(parsed.data.id, user.id);
     return { success: true, data: undefined };
   } catch (error) {
     return mapError(error);
@@ -107,15 +122,27 @@ export async function approveWithdrawal(input: unknown): Promise<ActionResult<vo
 }
 
 export async function rejectWithdrawal(input: unknown): Promise<ActionResult<void>> {
+  const parsed = withdrawalIdSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
     const { user } = await requireAnyAdmin();
-    const parsed = withdrawalIdSchema.parse(input);
-    const repo = getAgentRepository();
-    await repo.updateWithdrawal(parsed.id, {
-      status: 'rejected',
-      reviewedBy: user.id,
-      reviewedAt: new Date(),
-    });
+    const service = getCommissionService();
+    await service.rejectWithdrawal(parsed.data.id, user.id);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function completeWithdrawal(input: unknown): Promise<ActionResult<void>> {
+  const parsed = withdrawalIdSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
+  try {
+    const { user } = await requireAnyAdmin();
+    const service = getCommissionService();
+    await service.completeWithdrawal(parsed.data.id, user.id);
     return { success: true, data: undefined };
   } catch (error) {
     return mapError(error);
@@ -134,11 +161,13 @@ export async function getReferralConfig(): Promise<ActionResult<ReferralConfigMa
 }
 
 export async function updateReferralConfig(input: unknown): Promise<ActionResult<void>> {
+  const parsed = updateConfigSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
     await requireAnyAdmin();
-    const parsed = updateConfigSchema.parse(input);
     const configRepo = getReferralConfigRepository();
-    await configRepo.updateConfig(parsed.key, parsed.value);
+    await configRepo.updateConfig(parsed.data.key, parsed.data.value);
     return { success: true, data: undefined };
   } catch (error) {
     return mapError(error);

@@ -23,6 +23,14 @@ vi.mock('@/lib/services/ProfileService', () => ({
   getProfileService: () => mockProfileService,
 }));
 
+const mockInstitutionRepo = {
+  findMemberByUserId: vi.fn().mockResolvedValue(null),
+  findById: vi.fn().mockResolvedValue(null),
+};
+vi.mock('@/lib/repositories', () => ({
+  getInstitutionRepository: () => mockInstitutionRepo,
+}));
+
 // ---------------------------------------------------------------------------
 // Import actions (after mocks are registered)
 // ---------------------------------------------------------------------------
@@ -52,6 +60,8 @@ const EXPECTED_PROFILE_DATA = {
   current_period_end: '2025-12-31T00:00:00.000Z',
   created_at: '2025-01-15T00:00:00.000Z',
   role: null,
+  institution_id: null,
+  institution_name: null,
 };
 
 // ---------------------------------------------------------------------------

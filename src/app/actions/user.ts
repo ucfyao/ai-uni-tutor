@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { FULL_NAME_MAX_LENGTH, FULL_NAME_MIN_LENGTH } from '@/constants/profile';
 import { mapError } from '@/lib/errors';
+import { getInstitutionRepository } from '@/lib/repositories';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
@@ -16,6 +17,8 @@ export type ProfileData = {
   current_period_end: string | null;
   created_at: string | null;
   role: string | null;
+  institution_id: string | null;
+  institution_name: string | null;
 };
 
 const updateProfileSchema = z.object({
@@ -72,6 +75,19 @@ export async function updateProfileFields(input: {
   revalidatePath('/personalization');
   revalidatePath('/settings');
 
+  // Check institution membership for ambassadors
+  let institutionId: string | null = null;
+  let institutionName: string | null = null;
+  const institutionRepo = getInstitutionRepository();
+  const mem = await institutionRepo.findMemberByUserId(user.id);
+  if (mem) {
+    const inst = await institutionRepo.findById(mem.institutionId);
+    if (inst) {
+      institutionId = inst.id;
+      institutionName = inst.name;
+    }
+  }
+
   return {
     success: true,
     data: {
@@ -82,6 +98,8 @@ export async function updateProfileFields(input: {
       current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
       created_at: profile.createdAt?.toISOString() ?? null,
       role: profile.role ?? null,
+      institution_id: institutionId,
+      institution_name: institutionName,
     },
   };
 }
@@ -96,6 +114,19 @@ export async function getProfile(): Promise<ActionResult<ProfileData | null>> {
 
     if (!profile) return { success: true, data: null };
 
+    // Check institution membership for ambassadors
+    let institutionId: string | null = null;
+    let institutionName: string | null = null;
+    const institutionRepo = getInstitutionRepository();
+    const membership = await institutionRepo.findMemberByUserId(user.id);
+    if (membership) {
+      const institution = await institutionRepo.findById(membership.institutionId);
+      if (institution) {
+        institutionId = institution.id;
+        institutionName = institution.name;
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -106,6 +137,8 @@ export async function getProfile(): Promise<ActionResult<ProfileData | null>> {
         current_period_end: profile.currentPeriodEnd?.toISOString() ?? null,
         created_at: profile.createdAt?.toISOString() ?? null,
         role: profile.role ?? null,
+        institution_id: institutionId,
+        institution_name: institutionName,
       },
     };
   } catch (error) {

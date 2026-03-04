@@ -26,6 +26,7 @@ function createMockAgentRepo(): {
   return {
     createApplication: vi.fn(),
     findApplicationByUserId: vi.fn(),
+    findApplicationById: vi.fn(),
     listApplications: vi.fn(),
     updateApplication: vi.fn(),
     findWalletByUserId: vi.fn(),
@@ -34,6 +35,12 @@ function createMockAgentRepo(): {
     listWithdrawals: vi.fn(),
     createWithdrawal: vi.fn(),
     updateWithdrawal: vi.fn(),
+    rejectWithdrawalWithRefund: vi.fn(),
+    completeWithdrawalAtomic: vi.fn(),
+    requestWithdrawalAtomic: vi.fn(),
+    approveApplicationAtomic: vi.fn(),
+    getDailyReferralTrend: vi.fn(),
+    findWithdrawalById: vi.fn(),
   };
 }
 
@@ -98,6 +105,7 @@ const AGENT_CODE: ReferralCodeEntity = {
   code: 'UT-AGENT1',
   type: 'agent',
   stripePromotionCodeId: null,
+  institutionId: null,
   isActive: true,
   createdAt: new Date('2026-02-05'),
   updatedAt: new Date('2026-02-05'),
@@ -217,23 +225,18 @@ describe('AgentService', () => {
   // ==================== reviewApplication ====================
 
   describe('reviewApplication', () => {
-    it('should approve application, promote to agent, create wallet, and generate code', async () => {
-      agentRepo.updateApplication.mockResolvedValue(undefined);
-      agentRepo.listApplications.mockResolvedValue([APPLICATION]);
-      profileRepo.updateRole.mockResolvedValue(undefined);
-      agentRepo.createWallet.mockResolvedValue(WALLET);
+    it('should approve application atomically and generate code', async () => {
+      agentRepo.approveApplicationAtomic.mockResolvedValue(USER_ID);
       referralService.generateCode.mockResolvedValue(AGENT_CODE);
 
       await service.reviewApplication(APP_ID, ADMIN_ID, 'approved');
 
-      expect(agentRepo.updateApplication).toHaveBeenCalledWith(APP_ID, {
-        status: 'approved',
-        reviewedBy: ADMIN_ID,
-        reviewedAt: expect.any(Date),
-      });
-      expect(profileRepo.updateRole).toHaveBeenCalledWith(USER_ID, 'agent');
-      expect(agentRepo.createWallet).toHaveBeenCalledWith(USER_ID);
+      expect(agentRepo.approveApplicationAtomic).toHaveBeenCalledWith(APP_ID, ADMIN_ID);
       expect(referralService.generateCode).toHaveBeenCalledWith(USER_ID, 'agent');
+      // Should NOT call the non-atomic methods
+      expect(agentRepo.updateApplication).not.toHaveBeenCalled();
+      expect(profileRepo.updateRole).not.toHaveBeenCalled();
+      expect(agentRepo.createWallet).not.toHaveBeenCalled();
     });
 
     it('should reject application without side effects', async () => {
@@ -325,10 +328,43 @@ describe('AgentService', () => {
   // ==================== getDailyTrend ====================
 
   describe('getDailyTrend', () => {
-    it('should return empty array (future enhancement)', async () => {
+    it('should delegate to agent repo getDailyReferralTrend', async () => {
+      const trendData = [
+        { date: '2026-03-01', count: 3 },
+        { date: '2026-03-02', count: 1 },
+      ];
+      agentRepo.getDailyReferralTrend.mockResolvedValue(trendData);
+
       const result = await service.getDailyTrend(USER_ID, 30);
 
-      expect(result).toEqual([]);
+      expect(agentRepo.getDailyReferralTrend).toHaveBeenCalledWith(USER_ID, 30);
+      expect(result).toEqual(trendData);
+    });
+  });
+
+  // ==================== listApplications ====================
+
+  describe('listApplications', () => {
+    it('should delegate to agent repo', async () => {
+      agentRepo.listApplications.mockResolvedValue([APPLICATION]);
+
+      const result = await service.listApplications('pending');
+
+      expect(agentRepo.listApplications).toHaveBeenCalledWith('pending');
+      expect(result).toEqual([APPLICATION]);
+    });
+  });
+
+  // ==================== listWithdrawals ====================
+
+  describe('listWithdrawals', () => {
+    it('should delegate to agent repo', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([PENDING_WITHDRAWAL]);
+
+      const result = await service.listWithdrawals(USER_ID);
+
+      expect(agentRepo.listWithdrawals).toHaveBeenCalledWith(USER_ID);
+      expect(result).toEqual([PENDING_WITHDRAWAL]);
     });
   });
 });

@@ -2,9 +2,8 @@ import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getProfileService } from '@/lib/services/ProfileService';
-import { getReferralService } from '@/lib/services/ReferralService';
 import { stripe } from '@/lib/stripe';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -23,16 +22,14 @@ export async function POST(req: NextRequest) {
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
+  } catch {
+    return new NextResponse('Webhook signature verification failed', { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Idempotency: skip already-processed events
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stripe_events table not in Database type
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await supabase
     .from('stripe_events')
     .select('id')
     .eq('event_id', event.id)
@@ -51,13 +48,12 @@ export async function POST(req: NextRequest) {
       await handleSubscriptionUpdated(event);
     } else if (event.type === 'customer.subscription.deleted') {
       await handleSubscriptionDeleted(event);
+    } else if (event.type === 'charge.refunded') {
+      await handleChargeRefunded(event);
     }
 
     // Mark event as processed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stripe_events table not in Database type
-    await (supabase as any)
-      .from('stripe_events')
-      .insert({ event_id: event.id, event_type: event.type });
+    await supabase.from('stripe_events').insert({ event_id: event.id, event_type: event.type });
 
     return new NextResponse(null, { status: 200 });
   } catch (error) {
@@ -89,9 +85,15 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
   });
 
-  // Process referral reward if applicable
+  // Process referral reward if applicable (bypass RLS via SECURITY DEFINER RPC)
   try {
-    await getReferralService().handlePayment(session.metadata.userId, subscription.id);
+    const supabase = createAdminClient();
+    const amountPaid = session.amount_total ? session.amount_total / 100 : undefined;
+    await supabase.rpc('process_referral_payment', {
+      p_referee_id: session.metadata.userId,
+      p_stripe_subscription_id: subscription.id,
+      p_payment_amount: amountPaid ?? null,
+    });
   } catch (error) {
     // Log but don't fail the webhook — referral is best-effort
     console.error('Referral reward processing failed:', error);
@@ -134,4 +136,43 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
     subscription_status: 'canceled',
     current_period_end: new Date().toISOString(),
   });
+}
+
+async function handleChargeRefunded(event: Stripe.Event) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Stripe SDK types incomplete for charge.invoice
+  const charge = event.data.object as any;
+
+  if (!charge.customer) return;
+
+  const invoiceId = charge.invoice as string | null;
+  if (!invoiceId) return;
+
+  let subscriptionId: string | undefined;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Stripe SDK types incomplete for invoice.subscription
+    const invoice = (await stripe.invoices.retrieve(invoiceId)) as any;
+    subscriptionId = invoice.subscription as string | undefined;
+  } catch {
+    return;
+  }
+
+  if (!subscriptionId) return;
+
+  const supabase = createAdminClient();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('stripe_customer_id', charge.customer as string)
+    .single();
+
+  if (!profile) return;
+
+  try {
+    await supabase.rpc('clawback_referral_commission', {
+      p_referee_id: profile.id,
+      p_stripe_subscription_id: subscriptionId,
+    });
+  } catch (error) {
+    console.error('Commission clawback failed:', error);
+  }
 }

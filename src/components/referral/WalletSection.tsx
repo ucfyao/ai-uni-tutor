@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
-import { getWithdrawalHistory } from '@/app/actions/agent-actions';
+import { getAgentConfig, getWithdrawalHistory } from '@/app/actions/agent-actions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AgentDashboardStats, WithdrawalRequestEntity } from '@/types/referral';
 import { WithdrawalModal } from './WithdrawalModal';
@@ -24,6 +24,7 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequestEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpened, setModalOpened] = useState(false);
+  const [minWithdrawal, setMinWithdrawal] = useState(5000); // default 5000 cents = ¥50
 
   const statusLabels: Record<string, string> = {
     pending: t.agentDashboard.withdrawalPending,
@@ -34,9 +35,15 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
 
   const fetchWithdrawals = useCallback(async () => {
     try {
-      const result = await getWithdrawalHistory();
-      if (result.success) {
-        setWithdrawals(result.data);
+      const [withdrawalResult, configResult] = await Promise.all([
+        getWithdrawalHistory(),
+        getAgentConfig(),
+      ]);
+      if (withdrawalResult.success) {
+        setWithdrawals(withdrawalResult.data);
+      }
+      if (configResult.success) {
+        setMinWithdrawal(configResult.data.minWithdrawalAmount);
       }
     } catch (error) {
       console.error('Failed to fetch withdrawals', error);
@@ -167,6 +174,7 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
         balance={balance}
+        minWithdrawal={minWithdrawal}
         onSuccess={handleWithdrawalSuccess}
       />
     </>

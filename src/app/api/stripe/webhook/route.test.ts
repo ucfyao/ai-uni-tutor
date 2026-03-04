@@ -12,10 +12,15 @@ const mockSupabase = {
   insert: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   single: vi.fn(),
+  rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
 };
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue(mockSupabase),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn().mockReturnValue(mockSupabase),
 }));
 
 const mockProfileService = {
@@ -145,8 +150,7 @@ describe('POST /api/stripe/webhook', () => {
 
       expect(response.status).toBe(400);
       const text = await response.text();
-      expect(text).toContain('Webhook Error');
-      expect(text).toContain('Signature verification failed');
+      expect(text).toBe('Webhook signature verification failed');
     });
 
     it('calls constructEvent with raw body, signature, and secret', async () => {

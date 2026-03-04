@@ -19,11 +19,17 @@ import {
   generateReferralCode,
   getMyCodes,
   getMyReferrals,
+  getReferralConfigPublic,
   getReferralStats,
 } from '@/app/actions/referral-actions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
-import type { ReferralCodeEntity, ReferralStats, ReferralWithReferee } from '@/types/referral';
+import type {
+  ReferralCodeEntity,
+  ReferralConfigMap,
+  ReferralStats,
+  ReferralWithReferee,
+} from '@/types/referral';
 import { AgentApplicationModal } from './AgentApplicationModal';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
@@ -50,6 +56,10 @@ export function ReferralCard() {
   const [codes, setCodes] = useState<ReferralCodeEntity[]>([]);
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [referrals, setReferrals] = useState<ReferralWithReferee[]>([]);
+  const [config, setConfig] = useState<Pick<
+    ReferralConfigMap,
+    'user_reward_days' | 'referee_discount_percent'
+  > | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [agentModalOpen, setAgentModalOpen] = useState(false);
@@ -57,14 +67,16 @@ export function ReferralCard() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [codesRes, statsRes, referralsRes] = await Promise.all([
+      const [codesRes, statsRes, referralsRes, configRes] = await Promise.all([
         getMyCodes(),
         getReferralStats(),
         getMyReferrals(),
+        getReferralConfigPublic(),
       ]);
       if (codesRes.success) setCodes(codesRes.data);
       if (statsRes.success) setStats(statsRes.data);
       if (referralsRes.success) setReferrals(referralsRes.data);
+      if (configRes.success) setConfig(configRes.data);
     } finally {
       setLoading(false);
     }
@@ -176,10 +188,13 @@ export function ReferralCard() {
               {t.referral.rewardExplanation}
             </Text>
             <Text fz="sm" fw={500}>
-              {t.referral.youGet.replace('{days}', '7')}
+              {t.referral.youGet.replace('{days}', String(config?.user_reward_days ?? 7))}
             </Text>
             <Text fz="sm" fw={500}>
-              {t.referral.friendGets.replace('{percent}', '10')}
+              {t.referral.friendGets.replace(
+                '{percent}',
+                String(config?.referee_discount_percent ?? 10),
+              )}
             </Text>
           </Stack>
 
@@ -233,17 +248,17 @@ export function ReferralCard() {
                     <Table.Tr>
                       <Table.Th>
                         <Text fz="xs" fw={600}>
-                          User
+                          {t.referral.user}
                         </Text>
                       </Table.Th>
                       <Table.Th>
                         <Text fz="xs" fw={600}>
-                          Status
+                          {t.referral.status}
                         </Text>
                       </Table.Th>
                       <Table.Th>
                         <Text fz="xs" fw={600}>
-                          Date
+                          {t.referral.date}
                         </Text>
                       </Table.Th>
                     </Table.Tr>
