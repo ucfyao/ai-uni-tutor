@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  Building2,
   ChevronDown,
   ChevronRight,
   Ellipsis,
@@ -303,6 +304,23 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Tooltip>
         )}
 
+        {/* Institution Dashboard */}
+        {profile?.role === 'institution_admin' && (
+          <Tooltip label={t.institution.title} position="right">
+            <ActionIcon
+              component={Link}
+              href="/institution-dashboard"
+              variant="subtle"
+              color={pathname.startsWith('/institution-dashboard') ? 'teal' : 'gray'}
+              size={36}
+              radius="md"
+              mb={4}
+            >
+              <Building2 size={20} strokeWidth={1.5} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+
         <Box flex={1} />
 
         {/* User Avatar */}
@@ -593,6 +611,46 @@ const Sidebar: React.FC<SidebarProps> = ({
                   c={pathname.startsWith('/agent-dashboard') ? 'indigo.7' : undefined}
                 >
                   {t.agentDashboard.title}
+                </Text>
+              </Group>
+            </UnstyledButton>
+          )}
+
+          {/* Institution Dashboard link */}
+          {profile?.role === 'institution_admin' && (
+            <UnstyledButton
+              component={Link}
+              href="/institution-dashboard"
+              w="100%"
+              py={7}
+              px={10}
+              mx={6}
+              className="sidebar-hover"
+              style={{
+                borderRadius: 8,
+                cursor: 'pointer',
+                width: 'calc(100% - 12px)',
+                backgroundColor: pathname.startsWith('/institution-dashboard')
+                  ? 'var(--mantine-color-teal-0)'
+                  : undefined,
+              }}
+            >
+              <Group gap={10} wrap="nowrap">
+                <Building2
+                  size={18}
+                  strokeWidth={1.5}
+                  color={
+                    pathname.startsWith('/institution-dashboard')
+                      ? 'var(--mantine-color-teal-6)'
+                      : 'var(--mantine-color-gray-6)'
+                  }
+                />
+                <Text
+                  size="md"
+                  fw={pathname.startsWith('/institution-dashboard') ? 600 : 400}
+                  c={pathname.startsWith('/institution-dashboard') ? 'teal.7' : undefined}
+                >
+                  {t.institution.title}
                 </Text>
               </Group>
             </UnstyledButton>
