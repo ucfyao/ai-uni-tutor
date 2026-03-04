@@ -90,6 +90,7 @@ export async function acceptInstitutionInvite(input: unknown): Promise<ActionRes
   }
 }
 
+/** Public action — no auth required (invite lookup is read-only). */
 export async function getInviteInfo(code: string): Promise<
   ActionResult<{
     institutionName: string;
@@ -98,9 +99,6 @@ export async function getInviteInfo(code: string): Promise<
     isMaxed: boolean;
   } | null>
 > {
-  const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
-
   const parsed = inviteCodeSchema.safeParse(code);
   if (!parsed.success) return { success: false, error: 'Invalid code', code: 'VALIDATION' };
 
