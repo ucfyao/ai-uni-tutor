@@ -1,8 +1,8 @@
 /**
  * Referral Service
  *
- * Business logic for referral code generation, application, and payment handling.
- * Uses ReferralRepository for data access and CommissionService for reward processing.
+ * Business logic for referral code generation, application, and stats.
+ * Uses ReferralRepository for data access.
  */
 
 import {
@@ -20,29 +20,20 @@ import type {
   ReferralStats,
   ReferralWithReferee,
 } from '@/types/referral';
-import type { CommissionService } from './CommissionService';
-import { getCommissionService } from './CommissionService';
 
 export class ReferralService {
   private readonly referralRepo: ReferralRepository;
   private readonly configRepo: ReferralConfigRepository;
   private readonly commissionRepo: CommissionRepository;
-  private readonly _commissionService?: CommissionService;
 
   constructor(
     referralRepo?: ReferralRepository,
     configRepo?: ReferralConfigRepository,
     commissionRepo?: CommissionRepository,
-    commissionService?: CommissionService,
   ) {
     this.referralRepo = referralRepo ?? getReferralRepository();
     this.configRepo = configRepo ?? getReferralConfigRepository();
     this.commissionRepo = commissionRepo ?? getCommissionRepository();
-    this._commissionService = commissionService;
-  }
-
-  private getCommissionService(): CommissionService {
-    return this._commissionService ?? getCommissionService();
   }
 
   async generateCode(userId: string, type: ReferralCodeType): Promise<ReferralCodeEntity> {
@@ -82,15 +73,6 @@ export class ReferralService {
     });
   }
 
-  async handlePayment(refereeId: string, stripeSubscriptionId: string): Promise<void> {
-    const referral = await this.referralRepo.findReferralByRefereeId(refereeId);
-    if (!referral) return;
-    if (referral.status === 'rewarded') return; // idempotent
-    await this.referralRepo.updateReferralStatus(referral.id, 'paid', stripeSubscriptionId);
-    await this.getCommissionService().processReferralReward(referral);
-    await this.referralRepo.updateReferralStatus(referral.id, 'rewarded');
-  }
-
   async getMyReferrals(userId: string): Promise<ReferralWithReferee[]> {
     return this.referralRepo.findReferralsByReferrerId(userId);
   }
@@ -110,7 +92,13 @@ export class ReferralService {
     return this.referralRepo.findCodesByUserId(userId);
   }
 
-  async toggleCode(codeId: string, isActive: boolean): Promise<void> {
+  async toggleCode(userId: string, codeId: string, isActive: boolean): Promise<void> {
+    // Verify ownership before toggling
+    const codes = await this.referralRepo.findCodesByUserId(userId);
+    const owned = codes.find((c) => c.id === codeId);
+    if (!owned) {
+      throw new Error('Referral code not found or not owned by user');
+    }
     await this.referralRepo.toggleCodeActive(codeId, isActive);
   }
 }

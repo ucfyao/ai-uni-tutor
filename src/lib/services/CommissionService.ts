@@ -111,6 +111,11 @@ export class CommissionService {
   }
 
   async approveWithdrawal(id: string, adminId: string): Promise<void> {
+    const withdrawals = await this.agentRepo.listWithdrawals();
+    const wd = withdrawals.find((w) => w.id === id);
+    if (!wd) throw new Error('Withdrawal not found');
+    if (wd.status !== 'pending') throw new Error('Only pending withdrawals can be approved');
+
     await this.agentRepo.updateWithdrawal(id, {
       status: 'approved',
       reviewedBy: adminId,
@@ -119,6 +124,11 @@ export class CommissionService {
   }
 
   async completeWithdrawal(id: string, adminId: string): Promise<void> {
+    const withdrawals = await this.agentRepo.listWithdrawals();
+    const wd = withdrawals.find((w) => w.id === id);
+    if (!wd) throw new Error('Withdrawal not found');
+    if (wd.status !== 'approved') throw new Error('Only approved withdrawals can be completed');
+
     await this.agentRepo.updateWithdrawal(id, {
       status: 'completed',
       reviewedBy: adminId,
