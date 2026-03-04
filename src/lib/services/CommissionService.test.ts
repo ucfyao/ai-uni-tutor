@@ -353,16 +353,34 @@ describe('CommissionService', () => {
   // ==================== approveWithdrawal ====================
 
   describe('approveWithdrawal', () => {
-    it('should delegate to agent repo', async () => {
+    it('should approve a pending withdrawal', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([WITHDRAWAL]);
       agentRepo.updateWithdrawal.mockResolvedValue(undefined);
 
       await service.approveWithdrawal('wd-001', 'admin-123');
 
+      expect(agentRepo.listWithdrawals).toHaveBeenCalled();
       expect(agentRepo.updateWithdrawal).toHaveBeenCalledWith('wd-001', {
         status: 'approved',
         reviewedBy: 'admin-123',
         reviewedAt: expect.any(Date),
       });
+    });
+
+    it('should throw if withdrawal not found', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([]);
+
+      await expect(service.approveWithdrawal('wd-missing', 'admin-123')).rejects.toThrow(
+        'Withdrawal not found',
+      );
+    });
+
+    it('should throw if withdrawal is not pending', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([{ ...WITHDRAWAL, status: 'approved' }]);
+
+      await expect(service.approveWithdrawal('wd-001', 'admin-123')).rejects.toThrow(
+        'Only pending withdrawals can be approved',
+      );
     });
   });
 
@@ -381,16 +399,34 @@ describe('CommissionService', () => {
   // ==================== completeWithdrawal ====================
 
   describe('completeWithdrawal', () => {
-    it('should delegate to agent repo updateWithdrawal with completed status', async () => {
+    it('should complete an approved withdrawal', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([{ ...WITHDRAWAL, status: 'approved' }]);
       agentRepo.updateWithdrawal.mockResolvedValue(undefined);
 
       await service.completeWithdrawal('wd-001', 'admin-123');
 
+      expect(agentRepo.listWithdrawals).toHaveBeenCalled();
       expect(agentRepo.updateWithdrawal).toHaveBeenCalledWith('wd-001', {
         status: 'completed',
         reviewedBy: 'admin-123',
         reviewedAt: expect.any(Date),
       });
+    });
+
+    it('should throw if withdrawal not found', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([]);
+
+      await expect(service.completeWithdrawal('wd-missing', 'admin-123')).rejects.toThrow(
+        'Withdrawal not found',
+      );
+    });
+
+    it('should throw if withdrawal is not approved', async () => {
+      agentRepo.listWithdrawals.mockResolvedValue([WITHDRAWAL]); // status: 'pending'
+
+      await expect(service.completeWithdrawal('wd-001', 'admin-123')).rejects.toThrow(
+        'Only approved withdrawals can be completed',
+      );
     });
   });
 
