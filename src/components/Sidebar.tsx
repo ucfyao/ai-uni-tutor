@@ -321,6 +321,23 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Tooltip>
         )}
 
+        {/* Ambassador (institution member) */}
+        {profile?.institution_id && profile?.role !== 'institution_admin' && (
+          <Tooltip label={t.institution.myInstitution} position="right">
+            <ActionIcon
+              component={Link}
+              href="/personalization#referral"
+              variant="subtle"
+              color={pathname.startsWith('/personalization') ? 'teal' : 'gray'}
+              size={36}
+              radius="md"
+              mb={4}
+            >
+              <Building2 size={20} strokeWidth={1.5} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+
         <Box flex={1} />
 
         {/* User Avatar */}
@@ -652,6 +669,29 @@ const Sidebar: React.FC<SidebarProps> = ({
                 >
                   {t.institution.title}
                 </Text>
+              </Group>
+            </UnstyledButton>
+          )}
+
+          {/* Ambassador (institution member) link */}
+          {profile?.institution_id && profile?.role !== 'institution_admin' && (
+            <UnstyledButton
+              component={Link}
+              href="/personalization#referral"
+              w="100%"
+              py={7}
+              px={10}
+              mx={6}
+              className="sidebar-hover"
+              style={{
+                borderRadius: 8,
+                cursor: 'pointer',
+                width: 'calc(100% - 12px)',
+              }}
+            >
+              <Group gap={10} wrap="nowrap">
+                <Building2 size={18} strokeWidth={1.5} color="var(--mantine-color-gray-6)" />
+                <Text size="md">{t.institution.myInstitution}</Text>
               </Group>
             </UnstyledButton>
           )}

@@ -16,6 +16,8 @@ describe('shouldBootstrapProfileFetch', () => {
         current_period_end: null,
         created_at: null,
         role: 'admin',
+        institution_id: null,
+        institution_name: null,
       }),
     ).toBe(false);
   });

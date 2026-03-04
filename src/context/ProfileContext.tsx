@@ -15,6 +15,8 @@ type Profile = {
   current_period_end?: string;
   created_at?: string;
   role?: string;
+  institution_id?: string;
+  institution_name?: string;
 };
 
 interface ProfileContextType {
@@ -128,5 +130,7 @@ function profileDataToContext(data: ProfileData): Profile {
     current_period_end: data.current_period_end ?? undefined,
     created_at: data.created_at ?? undefined,
     role: data.role ?? undefined,
+    institution_id: data.institution_id ?? undefined,
+    institution_name: data.institution_name ?? undefined,
   };
 }
