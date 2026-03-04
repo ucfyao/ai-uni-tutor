@@ -89,7 +89,7 @@ export async function getAgentDashboard(): Promise<ActionResult<AgentDashboardSt
 
   try {
     const profile = await getProfileRepository().findById(user.id);
-    if (profile?.role !== 'agent') {
+    if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
       return { success: false, error: 'Agent access required' };
     }
 
@@ -108,7 +108,7 @@ export async function requestWithdrawal(
   if (!user) return { success: false, error: 'Unauthorized' };
 
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'agent') {
+  if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
     return { success: false, error: 'Agent access required' };
   }
 
@@ -133,7 +133,7 @@ export async function getWithdrawalHistory(): Promise<ActionResult<WithdrawalReq
   if (!user) return { success: false, error: 'Unauthorized' };
 
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'agent') {
+  if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
     return { success: false, error: 'Agent access required' };
   }
 
@@ -153,7 +153,7 @@ export async function getAgentDailyTrend(): Promise<
   if (!user) return { success: false, error: 'Unauthorized' };
 
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'agent') {
+  if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
     return { success: false, error: 'Agent access required' };
   }
 
@@ -188,7 +188,7 @@ export async function generateAgentCode(): Promise<ActionResult<ReferralCodeEnti
 
   try {
     const profile = await getProfileRepository().findById(user.id);
-    if (profile?.role !== 'agent') {
+    if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
       return { success: false, error: 'Agent access required' };
     }
 
@@ -205,7 +205,7 @@ export async function getAgentConfig(): Promise<ActionResult<{ minWithdrawalAmou
   if (!user) return { success: false, error: 'Unauthorized' };
 
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'agent') {
+  if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
     return { success: false, error: 'Agent access required' };
   }
 

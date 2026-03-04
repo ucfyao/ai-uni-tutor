@@ -60,11 +60,20 @@ async function requireInstitutionAdmin(): Promise<
   if (!user) return { success: false, error: 'Authentication required' };
 
   const profile = await getProfileRepository().findById(user.id);
-  if (profile?.role !== 'institution_admin') {
+  const isSuperAdmin = profile?.role === 'super_admin';
+  if (profile?.role !== 'institution_admin' && !isSuperAdmin) {
     return { success: false, error: 'Institution admin access required' };
   }
 
-  const institution = await getInstitutionService().getInstitutionByAdmin(user.id);
+  // super_admin can access any institution — get the first one for dashboard view
+  const service = getInstitutionService();
+  let institution;
+  if (isSuperAdmin) {
+    const all = await service.listInstitutions();
+    institution = all[0] ?? null;
+  } else {
+    institution = await service.getInstitutionByAdmin(user.id);
+  }
   if (!institution) return { success: false, error: 'Institution not found' };
 
   return { success: true, data: { userId: user.id, institutionId: institution.id } };
