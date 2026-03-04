@@ -915,6 +915,7 @@ export interface Database {
           event_type?: string;
           processed_at?: string;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
-import { getWithdrawalHistory } from '@/app/actions/agent-actions';
-import { getReferralConfigPublic } from '@/app/actions/referral-actions';
+import { getAgentConfig, getWithdrawalHistory } from '@/app/actions/agent-actions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AgentDashboardStats, WithdrawalRequestEntity } from '@/types/referral';
 import { WithdrawalModal } from './WithdrawalModal';
@@ -38,13 +37,13 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
     try {
       const [withdrawalResult, configResult] = await Promise.all([
         getWithdrawalHistory(),
-        getReferralConfigPublic(),
+        getAgentConfig(),
       ]);
       if (withdrawalResult.success) {
         setWithdrawals(withdrawalResult.data);
       }
       if (configResult.success) {
-        setMinWithdrawal(configResult.data.min_withdrawal_amount);
+        setMinWithdrawal(configResult.data.minWithdrawalAmount);
       }
     } catch (error) {
       console.error('Failed to fetch withdrawals', error);

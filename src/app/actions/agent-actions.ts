@@ -2,8 +2,7 @@
 
 import { z } from 'zod';
 import { mapError } from '@/lib/errors';
-import { getProfileRepository } from '@/lib/repositories';
-import { getAgentRepository } from '@/lib/repositories/AgentRepository';
+import { getProfileRepository, getReferralConfigRepository } from '@/lib/repositories';
 import { getAgentService } from '@/lib/services/AgentService';
 import { getCommissionService } from '@/lib/services/CommissionService';
 import { getReferralService } from '@/lib/services/ReferralService';
@@ -54,14 +53,16 @@ export async function submitAgentApplication(
   const user = await getCurrentUser();
   if (!user) return { success: false, error: 'Unauthorized' };
 
+  const parsed = submitApplicationSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
-    const parsed = submitApplicationSchema.parse(input);
     const service = getAgentService();
     const application = await service.submitApplication(user.id, {
-      fullName: parsed.fullName,
-      university: parsed.university,
-      contactInfo: parsed.contactInfo,
-      motivation: parsed.motivation,
+      fullName: parsed.data.fullName,
+      university: parsed.data.university,
+      contactInfo: parsed.data.contactInfo,
+      motivation: parsed.data.motivation,
     });
     return { success: true, data: application };
   } catch (error) {
@@ -106,13 +107,20 @@ export async function requestWithdrawal(
   const user = await getCurrentUser();
   if (!user) return { success: false, error: 'Unauthorized' };
 
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'agent') {
+    return { success: false, error: 'Agent access required' };
+  }
+
+  const parsed = requestWithdrawalSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
-    const parsed = requestWithdrawalSchema.parse(input);
     const service = getCommissionService();
     const withdrawal = await service.requestWithdrawal(
       user.id,
-      parsed.amount,
-      parsed.paymentMethod,
+      parsed.data.amount,
+      parsed.data.paymentMethod,
     );
     return { success: true, data: withdrawal };
   } catch (error) {
@@ -124,9 +132,14 @@ export async function getWithdrawalHistory(): Promise<ActionResult<WithdrawalReq
   const user = await getCurrentUser();
   if (!user) return { success: false, error: 'Unauthorized' };
 
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'agent') {
+    return { success: false, error: 'Agent access required' };
+  }
+
   try {
-    const repo = getAgentRepository();
-    const withdrawals = await repo.listWithdrawals(user.id);
+    const service = getAgentService();
+    const withdrawals = await service.listWithdrawals(user.id);
     return { success: true, data: withdrawals };
   } catch (error) {
     return mapError(error);
@@ -138,6 +151,11 @@ export async function getAgentDailyTrend(): Promise<
 > {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: 'Unauthorized' };
+
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'agent') {
+    return { success: false, error: 'Agent access required' };
+  }
 
   try {
     const service = getAgentService();
@@ -152,10 +170,12 @@ export async function toggleReferralCode(input: unknown): Promise<ActionResult<v
   const user = await getCurrentUser();
   if (!user) return { success: false, error: 'Unauthorized' };
 
+  const parsed = toggleReferralCodeSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+
   try {
-    const parsed = toggleReferralCodeSchema.parse(input);
     const service = getReferralService();
-    await service.toggleCode(parsed.codeId, parsed.isActive);
+    await service.toggleCode(user.id, parsed.data.codeId, parsed.data.isActive);
     return { success: true, data: undefined };
   } catch (error) {
     return mapError(error);
@@ -175,6 +195,24 @@ export async function generateAgentCode(): Promise<ActionResult<ReferralCodeEnti
     const service = getReferralService();
     const code = await service.generateCode(user.id, 'agent');
     return { success: true, data: code };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function getAgentConfig(): Promise<ActionResult<{ minWithdrawalAmount: number }>> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: 'Unauthorized' };
+
+  const profile = await getProfileRepository().findById(user.id);
+  if (profile?.role !== 'agent') {
+    return { success: false, error: 'Agent access required' };
+  }
+
+  try {
+    const configRepo = getReferralConfigRepository();
+    const minAmount = await configRepo.getConfig('min_withdrawal_amount');
+    return { success: true, data: { minWithdrawalAmount: minAmount } };
   } catch (error) {
     return mapError(error);
   }

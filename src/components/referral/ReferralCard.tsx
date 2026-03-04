@@ -56,7 +56,10 @@ export function ReferralCard() {
   const [codes, setCodes] = useState<ReferralCodeEntity[]>([]);
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [referrals, setReferrals] = useState<ReferralWithReferee[]>([]);
-  const [config, setConfig] = useState<ReferralConfigMap | null>(null);
+  const [config, setConfig] = useState<Pick<
+    ReferralConfigMap,
+    'user_reward_days' | 'referee_discount_percent'
+  > | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [agentModalOpen, setAgentModalOpen] = useState(false);
