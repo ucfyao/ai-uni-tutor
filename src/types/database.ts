@@ -896,6 +896,26 @@ export interface Database {
         };
         Relationships: [];
       };
+      stripe_events: {
+        Row: {
+          id: string;
+          event_id: string;
+          event_type: string;
+          processed_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          event_type: string;
+          processed_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          event_type?: string;
+          processed_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: {
