@@ -68,6 +68,7 @@ const CODE_ENTITY: ReferralCodeEntity = {
   code: 'UT-ABC123',
   type: 'user',
   stripePromotionCodeId: 'promo_123',
+  institutionId: null,
   isActive: true,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),

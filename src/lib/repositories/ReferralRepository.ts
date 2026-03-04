@@ -28,6 +28,7 @@ export class ReferralRepository {
       code: row.code,
       type: row.type as ReferralCodeType,
       stripePromotionCodeId: row.stripe_promotion_code_id,
+      institutionId: row.institution_id ?? null,
       isActive: row.is_active,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),

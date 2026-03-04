@@ -27,6 +27,7 @@ export interface ReferralCodeEntity {
   code: string;
   type: ReferralCodeType;
   stripePromotionCodeId: string | null;
+  institutionId: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

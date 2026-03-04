@@ -104,6 +104,7 @@ const AGENT_CODE: ReferralCodeEntity = {
   code: 'UT-AGENT1',
   type: 'agent',
   stripePromotionCodeId: null,
+  institutionId: null,
   isActive: true,
   createdAt: new Date('2026-02-05'),
   updatedAt: new Date('2026-02-05'),
