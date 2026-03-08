@@ -43,7 +43,7 @@ export function AgentKPICards({ stats, loading }: AgentKPICardsProps) {
       label: t.agentDashboard.monthlyIncome,
       value: `\u00a5${monthlyIncome}`,
       icon: Wallet,
-      color: 'indigo',
+      color: 'pink',
     },
   ];
 

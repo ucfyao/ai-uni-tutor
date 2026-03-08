@@ -27,7 +27,7 @@ const submitApplicationSchema = z.object({
     phone: z.string().optional(),
     email: z.string().email().optional(),
   }),
-  motivation: z.string().min(10).max(2000),
+  motivation: z.string().min(1).max(2000),
 });
 
 const requestWithdrawalSchema = z.object({

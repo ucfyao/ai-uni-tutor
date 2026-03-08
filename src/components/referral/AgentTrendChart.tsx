@@ -81,9 +81,9 @@ export function AgentTrendChart() {
               <Line
                 type="monotone"
                 dataKey="count"
-                stroke="var(--mantine-color-indigo-6)"
+                stroke="var(--mantine-color-pink-6)"
                 strokeWidth={2}
-                dot={{ r: 3, fill: 'var(--mantine-color-indigo-6)' }}
+                dot={{ r: 3, fill: 'var(--mantine-color-pink-6)' }}
                 activeDot={{ r: 5 }}
               />
             </LineChart>

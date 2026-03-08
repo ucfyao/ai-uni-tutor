@@ -1,8 +1,10 @@
 'use client';
 
-import { CreditCard, Gift, Users } from 'lucide-react';
+import { Check, CircleHelp, Copy, CreditCard, Gift, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActionIcon,
   Badge,
   Box,
   Button,
@@ -16,6 +18,7 @@ import {
   Table,
   Text,
   Title,
+  Tooltip,
 } from '@mantine/core';
 import {
   generateReferralCode,
@@ -57,6 +60,7 @@ function statusBadge(
 
 export default function ReferralPageClient() {
   const { t } = useLanguage();
+  const router = useRouter();
   const { setHeaderContent } = useHeader();
   const isMobile = useIsMobile();
 
@@ -149,9 +153,9 @@ export default function ReferralPageClient() {
             </Title>
           )}
 
-          {/* Hero area - indigo gradient */}
+          {/* Hero area */}
           <Paper withBorder p={0} radius="lg" style={{ overflow: 'hidden' }}>
-            <Box p="xl" className={styles.heroGradient}>
+            <Box p="xl" pb="lg" className={styles.heroGradient}>
               {/* Floating gift decoration */}
               <Box
                 className={styles.floatingGift}
@@ -160,85 +164,87 @@ export default function ReferralPageClient() {
                   right: 24,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  opacity: 0.15,
+                  opacity: 0.12,
                   pointerEvents: 'none',
                 }}
               >
-                <Gift size={80} color="white" />
+                <Gift size={100} color="white" />
               </Box>
 
-              <Group gap="sm" align="flex-start" style={{ position: 'relative', zIndex: 1 }}>
-                <Box
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: 'rgba(255,255,255,0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                  mt={2}
-                >
-                  <Gift size={20} color="white" />
-                </Box>
-                <Stack gap={4} style={{ flex: 1 }}>
-                  <Title order={3} fw={700} c="white">
-                    {t.referral.title}
-                  </Title>
-                  <Text fz="sm" c="white" style={{ opacity: 0.9 }}>
-                    {t.referral.rewardExplanation}
-                  </Text>
-                </Stack>
-              </Group>
+              <Stack gap="md" style={{ position: 'relative', zIndex: 1 }}>
+                <Title order={2} fw={800} c="white" fz={{ base: 24, sm: 30 }}>
+                  {t.referral.heroHeadline}
+                </Title>
+                <Text fz="sm" c="white" style={{ opacity: 0.85 }}>
+                  {t.referral.rewardExplanation}
+                </Text>
+
+                {/* Reward pills */}
+                <Group gap="sm">
+                  <Badge
+                    size="lg"
+                    radius="md"
+                    variant="filled"
+                    style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+                  >
+                    {t.referral.youGet.replace('{days}', String(config?.user_reward_days ?? 7))}
+                  </Badge>
+                  <Badge
+                    size="lg"
+                    radius="md"
+                    variant="filled"
+                    style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+                  >
+                    {t.referral.friendGets.replace(
+                      '{percent}',
+                      String(config?.referee_discount_percent ?? 10),
+                    )}
+                  </Badge>
+                </Group>
+              </Stack>
             </Box>
 
             {/* Referral link section */}
             <Stack p="xl" gap="md">
               {referralLink ? (
                 <Group gap="xs">
-                  <Paper withBorder p="xs" radius="md" style={{ flex: 1, overflow: 'hidden' }}>
-                    <Text fz="sm" c="dimmed" truncate>
+                  <Paper
+                    withBorder
+                    py="xs"
+                    px="md"
+                    radius="md"
+                    style={{ flex: 1, overflow: 'hidden' }}
+                  >
+                    <Text fz="sm" fw={500} truncate>
                       {referralLink}
                     </Text>
                   </Paper>
                   <CopyButton value={referralLink}>
                     {({ copied, copy }) => (
-                      <Button
-                        size="sm"
-                        variant={copied ? 'filled' : 'light'}
-                        color={copied ? 'teal' : 'indigo'}
-                        onClick={copy}
-                      >
-                        {copied ? t.referral.copied : t.referral.copy}
-                      </Button>
+                      <Tooltip label={copied ? t.referral.copied : t.referral.copy} position="top">
+                        <ActionIcon
+                          variant="subtle"
+                          color={copied ? 'green' : 'gray'}
+                          size="lg"
+                          onClick={copy}
+                        >
+                          {copied ? <Check size={18} /> : <Copy size={18} />}
+                        </ActionIcon>
+                      </Tooltip>
                     )}
                   </CopyButton>
                 </Group>
               ) : (
                 <Button
-                  variant="light"
-                  color="indigo"
+                  size="md"
+                  variant="filled"
+                  color="pink"
                   onClick={handleGenerate}
                   loading={generating}
                 >
                   {t.referral.generateCode}
                 </Button>
               )}
-
-              {/* Reward info */}
-              <Group gap="lg">
-                <Text fz="sm" fw={500}>
-                  {t.referral.youGet.replace('{days}', String(config?.user_reward_days ?? 7))}
-                </Text>
-                <Text fz="sm" fw={500}>
-                  {t.referral.friendGets.replace(
-                    '{percent}',
-                    String(config?.referee_discount_percent ?? 10),
-                  )}
-                </Text>
-              </Group>
             </Stack>
           </Paper>
 
@@ -306,14 +312,14 @@ export default function ReferralPageClient() {
                       width: 40,
                       height: 40,
                       borderRadius: 10,
-                      background: 'var(--mantine-color-indigo-0)',
+                      background: 'var(--mantine-color-orange-0)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
                     }}
                   >
-                    <Gift size={20} color="var(--mantine-color-indigo-6)" />
+                    <Gift size={20} color="var(--mantine-color-orange-6)" />
                   </Box>
                   <Stack gap={2}>
                     <Text size="xs" c="dimmed" fw={500}>
@@ -392,28 +398,37 @@ export default function ReferralPageClient() {
             </Stack>
           </Paper>
 
-          {/* CTA: Become campus agent */}
+          {/* CTA: Become course partner */}
           <Paper
             withBorder
-            p="xl"
+            p="lg"
             radius="lg"
             className={styles.ctaCard}
-            style={{
-              background:
-                'linear-gradient(135deg, var(--mantine-color-indigo-0), var(--mantine-color-violet-0))',
-            }}
+            style={{ borderLeft: '3px solid var(--mantine-color-pink-4)' }}
           >
-            <Group justify="space-between" align="center" wrap="wrap" gap="md">
-              <Stack gap={4} style={{ maxWidth: 400 }}>
-                <Text fw={600} fz="lg">
-                  {t.referral.becomeAgent}
-                </Text>
-                <Text fz="sm" c="dimmed">
-                  {t.referral.rewardExplanation}
+            <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+              <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+                <Group gap={6} wrap="nowrap">
+                  <Text fw={600} fz="sm">
+                    {t.referral.becomeAgent}
+                  </Text>
+                  <Tooltip label={t.referral.learnMore} position="top">
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="xs"
+                      onClick={() => router.push('/help?section=partner')}
+                    >
+                      <CircleHelp size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+                <Text fz="xs" c="dimmed">
+                  {t.referral.partnerDesc}
                 </Text>
               </Stack>
-              <Button color="indigo" onClick={() => setAgentModalOpen(true)}>
-                {t.referral.becomeAgent}
+              <Button size="sm" color="pink" onClick={() => setAgentModalOpen(true)}>
+                {t.referral.applyNow}
               </Button>
             </Group>
           </Paper>

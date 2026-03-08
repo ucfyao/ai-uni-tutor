@@ -1,21 +1,23 @@
 'use client';
 
-import { Check, Clock, CreditCard, Gauge, Star, Tag, Wallet, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Check, Clock, CreditCard, Gauge, Sparkles, Tag, Wallet, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import {
-  Badge,
   Box,
   Button,
+  Divider,
   Group,
   Loader,
-  Paper,
+  Select,
   SimpleGrid,
   Stack,
   Text,
   Textarea,
   TextInput,
+  ThemeIcon,
 } from '@mantine/core';
 import { getAgentApplication, submitAgentApplication } from '@/app/actions/agent-actions';
+import { fetchUniversities } from '@/app/actions/courses';
 import { FullScreenModal } from '@/components/FullScreenModal';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -36,18 +38,23 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
 
   // Form fields
   const [fullName, setFullName] = useState('');
-  const [university, setUniversity] = useState('');
+  const [universityId, setUniversityId] = useState<string | null>(null);
+  const [coursesText, setCoursesText] = useState('');
   const [wechat, setWechat] = useState('');
   const [phone, setPhone] = useState('');
   const [motivation, setMotivation] = useState('');
 
+  // Dropdown data
+  const [universities, setUniversities] = useState<{ value: string; label: string }[]>([]);
+
   useEffect(() => {
     if (!opened) return;
     setLoading(true);
-    getAgentApplication()
-      .then((res) => {
-        if (res.success) {
-          setApplication(res.data);
+    Promise.all([getAgentApplication(), fetchUniversities()])
+      .then(([appRes, uniRes]) => {
+        if (appRes.success) setApplication(appRes.data);
+        if (uniRes.success) {
+          setUniversities(uniRes.data.map((u) => ({ value: u.id, label: u.name })));
         }
       })
       .finally(() => setLoading(false));
@@ -55,7 +62,8 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
 
   const resetForm = () => {
     setFullName('');
-    setUniversity('');
+    setUniversityId(null);
+    setCoursesText('');
     setWechat('');
     setPhone('');
     setMotivation('');
@@ -63,18 +71,22 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
   };
 
   const handleSubmit = async () => {
-    if (!fullName.trim() || !university.trim() || !motivation.trim()) return;
+    if (!fullName.trim() || !universityId || !coursesText.trim()) return;
 
     setSubmitting(true);
     try {
+      const selectedUni = universities.find((u) => u.value === universityId);
+
       const result = await submitAgentApplication({
         fullName: fullName.trim(),
-        university: university.trim(),
+        university: selectedUni?.label ?? '',
         contactInfo: {
           ...(wechat.trim() ? { wechat: wechat.trim() } : {}),
           ...(phone.trim() ? { phone: phone.trim() } : {}),
         },
-        motivation: motivation.trim(),
+        motivation: [`[${t.agentApply.courses}: ${coursesText.trim()}]`, motivation.trim()]
+          .filter(Boolean)
+          .join('\n'),
       });
 
       if (result.success) {
@@ -93,176 +105,206 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
     resetForm();
   };
 
-  const isFormValid = fullName.trim() && university.trim() && motivation.trim();
+  const isFormValid = fullName.trim() && universityId && coursesText.trim();
 
   const renderContent = () => {
     if (loading) {
       return (
-        <Group justify="center" py="xl">
+        <Group justify="center" py={60}>
           <Loader size="sm" />
         </Group>
       );
     }
 
-    // Submitted just now
-    if (submitted) {
-      return (
-        <Stack align="center" py="xl" gap="md">
-          <Check size={48} color="var(--mantine-color-green-6)" />
-          <Text fw={600} fz="lg" ta="center">
-            {t.agentApply.pending}
+    // Status screen helper
+    const statusScreen = (
+      icon: React.ReactNode,
+      title: string,
+      desc: string,
+      extra?: string,
+      action?: { label: string; onClick: () => void; color?: string },
+    ) => (
+      <Stack align="center" py={60} gap="lg" px="md">
+        <ThemeIcon variant="light" size="xl" radius="xl" color="gray">
+          {icon}
+        </ThemeIcon>
+        <Stack gap={6} align="center">
+          <Text fw={700} fz="lg" ta="center">
+            {title}
           </Text>
-          <Text c="dimmed" fz="sm" ta="center">
-            {t.agentApply.pendingDesc}
+          <Text c="dimmed" fz="sm" ta="center" maw={300}>
+            {desc}
           </Text>
-          <Text c="dimmed" fz="xs" ta="center">
-            {t.agentApply.pendingTimeframe}
-          </Text>
-          <Button variant="light" onClick={onClose}>
-            {t.common.close}
-          </Button>
+          {extra && (
+            <Text c="dimmed" fz="xs" ta="center" mt={4}>
+              {extra}
+            </Text>
+          )}
         </Stack>
+        <Button variant="light" color={action?.color} onClick={action?.onClick ?? onClose} mt="xs">
+          {action?.label ?? t.common.close}
+        </Button>
+      </Stack>
+    );
+
+    if (submitted || application?.status === 'pending') {
+      return statusScreen(
+        <Clock size={28} />,
+        t.agentApply.pending,
+        t.agentApply.pendingDesc,
+        t.agentApply.pendingTimeframe,
       );
     }
 
-    // Existing application — pending
-    if (application?.status === 'pending') {
-      return (
-        <Stack align="center" py="xl" gap="md">
-          <Clock size={48} color="var(--mantine-color-yellow-6)" />
-          <Text fw={600} fz="lg" ta="center">
-            {t.agentApply.pending}
-          </Text>
-          <Text c="dimmed" fz="sm" ta="center">
-            {t.agentApply.pendingDesc}
-          </Text>
-          <Text c="dimmed" fz="xs" ta="center">
-            {t.agentApply.pendingTimeframe}
-          </Text>
-          <Button variant="light" onClick={onClose}>
-            {t.common.close}
-          </Button>
-        </Stack>
-      );
-    }
-
-    // Existing application — approved
     if (application?.status === 'approved') {
-      return (
-        <Stack align="center" py="xl" gap="md">
-          <Star size={48} color="var(--mantine-color-indigo-6)" />
-          <Badge variant="light" color="green" size="lg">
-            {t.agentApply.approved}
-          </Badge>
-          <Text c="dimmed" fz="sm" ta="center">
-            {t.agentApply.approvedDesc}
-          </Text>
-          <Button variant="light" onClick={onClose}>
-            {t.common.close}
-          </Button>
-        </Stack>
-      );
+      return statusScreen(<Check size={28} />, t.agentApply.approved, t.agentApply.approvedDesc);
     }
 
-    // Existing application — rejected
     if (application?.status === 'rejected') {
-      return (
-        <Stack align="center" py="xl" gap="md">
-          <X size={48} color="var(--mantine-color-red-6)" />
-          <Text fw={600} fz="lg" ta="center">
-            {t.agentApply.rejected}
-          </Text>
-          <Text c="dimmed" fz="sm" ta="center">
-            {t.agentApply.rejectedDesc}
-          </Text>
-          <Button variant="light" color="indigo" onClick={handleReapply}>
-            {t.agentApply.reapply}
-          </Button>
-        </Stack>
+      return statusScreen(
+        <X size={28} />,
+        t.agentApply.rejected,
+        t.agentApply.rejectedDesc,
+        undefined,
+        { label: t.agentApply.reapply, onClick: handleReapply, color: 'pink' },
       );
     }
 
     // No application — show form
     return (
-      <Stack gap="md">
-        {/* Benefits */}
-        <Stack gap="xs">
-          <Text fw={600} fz="sm">
-            {t.agentApply.benefits}
-          </Text>
-          <SimpleGrid cols={2} spacing="sm">
-            {[
-              { icon: Tag, label: t.agentApply.benefit1 },
-              { icon: CreditCard, label: t.agentApply.benefit2 },
-              { icon: Gauge, label: t.agentApply.benefit3 },
-              { icon: Wallet, label: t.agentApply.benefit4 },
-            ].map((b) => (
-              <Paper key={b.label} withBorder p="sm" radius="md">
-                <Group gap="xs" wrap="nowrap">
-                  <Box
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: 'var(--mantine-color-indigo-0)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <b.icon size={16} color="var(--mantine-color-indigo-6)" />
-                  </Box>
-                  <Text size="sm" fw={500}>
+      <Stack gap={0}>
+        {/* Hero — full-bleed warm gradient */}
+        <Box
+          px="xl"
+          py={28}
+          style={{
+            background: 'linear-gradient(135deg, #fdf2f8 0%, #fff7ed 60%, #fef3c7 100%)',
+            borderBottom: '1px solid var(--mantine-color-pink-1)',
+          }}
+        >
+          <Stack gap={8} align="center" ta="center">
+            <Sparkles size={28} color="#e11d48" strokeWidth={1.5} />
+            <Text fw={800} fz="xl" lh={1.2} c="dark">
+              {t.agentApply.heroTitle}
+            </Text>
+            <Text fz="sm" c="dimmed" maw={340} lh={1.5}>
+              {t.agentApply.heroDesc}
+            </Text>
+
+            {/* Benefits as compact chips */}
+            <Group gap={8} mt={4} justify="center" wrap="wrap">
+              {[
+                { icon: Tag, label: t.agentApply.benefit1 },
+                { icon: CreditCard, label: t.agentApply.benefit2 },
+                { icon: Gauge, label: t.agentApply.benefit3 },
+                { icon: Wallet, label: t.agentApply.benefit4 },
+              ].map((b) => (
+                <Group
+                  key={b.label}
+                  gap={5}
+                  wrap="nowrap"
+                  py={3}
+                  px={8}
+                  style={{
+                    background: 'rgba(255,255,255,0.7)',
+                    borderRadius: 6,
+                    border: '1px solid var(--mantine-color-pink-1)',
+                  }}
+                >
+                  <b.icon size={12} color="var(--mantine-color-pink-5)" />
+                  <Text fz={11} fw={500} c="dimmed">
                     {b.label}
                   </Text>
                 </Group>
-              </Paper>
-            ))}
+              ))}
+            </Group>
+          </Stack>
+        </Box>
+
+        {/* Form area with comfortable padding */}
+        <Stack gap="md" px="xl" py="xl">
+          <TextInput
+            label={t.agentApply.fullName}
+            value={fullName}
+            onChange={(e) => setFullName(e.currentTarget.value)}
+            required
+            radius="md"
+          />
+          <Select
+            label={t.agentApply.university}
+            data={universities}
+            value={universityId}
+            onChange={setUniversityId}
+            searchable
+            clearable
+            required
+            radius="md"
+          />
+          <TextInput
+            label={t.agentApply.courses}
+            value={coursesText}
+            onChange={(e) => setCoursesText(e.currentTarget.value)}
+            placeholder={t.agentApply.coursesPlaceholder}
+            required
+            radius="md"
+          />
+          <SimpleGrid cols={2} spacing="sm">
+            <TextInput
+              label={t.agentApply.wechat}
+              value={wechat}
+              onChange={(e) => setWechat(e.currentTarget.value)}
+              radius="md"
+            />
+            <TextInput
+              label={t.agentApply.phone}
+              value={phone}
+              onChange={(e) => setPhone(e.currentTarget.value)}
+              radius="md"
+            />
           </SimpleGrid>
+          <Textarea
+            label={t.agentApply.motivation}
+            placeholder={t.agentApply.motivationPlaceholder}
+            value={motivation}
+            onChange={(e) => setMotivation(e.currentTarget.value)}
+            minRows={2}
+            radius="md"
+          />
+
+          <Divider my={4} />
+
+          <Button
+            color="pink"
+            size="md"
+            onClick={handleSubmit}
+            loading={submitting}
+            disabled={!isFormValid}
+            fullWidth
+            radius="md"
+          >
+            {t.agentApply.submit}
+          </Button>
         </Stack>
-
-        {/* Form */}
-        <TextInput
-          label={t.agentApply.fullName}
-          value={fullName}
-          onChange={(e) => setFullName(e.currentTarget.value)}
-          required
-        />
-        <TextInput
-          label={t.agentApply.university}
-          value={university}
-          onChange={(e) => setUniversity(e.currentTarget.value)}
-          required
-        />
-        <TextInput
-          label={t.agentApply.wechat}
-          value={wechat}
-          onChange={(e) => setWechat(e.currentTarget.value)}
-        />
-        <TextInput
-          label={t.agentApply.phone}
-          value={phone}
-          onChange={(e) => setPhone(e.currentTarget.value)}
-        />
-        <Textarea
-          label={t.agentApply.motivation}
-          placeholder={t.agentApply.motivationPlaceholder}
-          value={motivation}
-          onChange={(e) => setMotivation(e.currentTarget.value)}
-          minRows={4}
-          required
-        />
-
-        <Button color="indigo" onClick={handleSubmit} loading={submitting} disabled={!isFormValid}>
-          {t.agentApply.submit}
-        </Button>
       </Stack>
     );
   };
 
   return (
-    <FullScreenModal opened={opened} onClose={onClose} title={t.agentApply.title}>
+    <FullScreenModal
+      opened={opened}
+      onClose={onClose}
+      title={t.agentApply.title}
+      size={540}
+      radius="lg"
+      styles={{
+        header: {
+          padding: 'var(--mantine-spacing-md) var(--mantine-spacing-xl)',
+          borderBottom: '1px solid var(--mantine-color-gray-2)',
+        },
+        body: { padding: 0 },
+        content: { overflow: 'hidden' },
+      }}
+    >
       {renderContent()}
     </FullScreenModal>
   );

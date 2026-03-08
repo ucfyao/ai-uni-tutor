@@ -78,7 +78,7 @@ export default function AgentDashboardClient() {
           {t.agentDashboard.title}
         </Title>
 
-        <Tabs defaultValue="overview" variant="outline">
+        <Tabs defaultValue="overview" variant="outline" color="pink">
           <Tabs.List>
             <Tabs.Tab value="overview">{t.agentDashboard.tabOverview}</Tabs.Tab>
             <Tabs.Tab value="promo">{t.agentDashboard.tabPromoCodes}</Tabs.Tab>

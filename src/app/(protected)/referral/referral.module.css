@@ -32,11 +32,11 @@
 .heroGradient {
   background: linear-gradient(
     135deg,
-    #4338ca 0%,
-    #6366f1 25%,
-    #818cf8 50%,
-    #6366f1 75%,
-    #4338ca 100%
+    #e11d48 0%,
+    #f43f5e 25%,
+    #fb923c 50%,
+    #f43f5e 75%,
+    #e11d48 100%
   );
   background-size: 200% 200%;
   animation: gradient-shift 8s ease-in-out infinite;
@@ -69,22 +69,15 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* CTA card shimmer effect */
+/* CTA card — subtle hover */
 .ctaCard {
-  position: relative;
-  overflow: hidden;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.ctaCard::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
-  animation: shimmer 4s ease-in-out infinite;
-  pointer-events: none;
+.ctaCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 /* History table row hover */

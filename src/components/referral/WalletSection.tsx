@@ -81,7 +81,7 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
             radius="md"
             style={{
               textAlign: 'center',
-              background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #818cf8 100%)',
+              background: 'linear-gradient(135deg, #e11d48 0%, #f43f5e 50%, #fb923c 100%)',
               color: 'white',
               position: 'relative',
               overflow: 'hidden',
@@ -121,7 +121,7 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
             <Button
               size="sm"
               variant="white"
-              color="indigo"
+              color="pink"
               mt="md"
               style={{ position: 'relative', zIndex: 1 }}
               onClick={() => setModalOpened(true)}
