@@ -151,14 +151,7 @@ export default function ReferralPageClient() {
 
           {/* Hero area - indigo gradient */}
           <Paper withBorder p={0} radius="lg" style={{ overflow: 'hidden' }}>
-            <Box
-              p="xl"
-              style={{
-                background:
-                  'linear-gradient(135deg, var(--mantine-color-indigo-7), var(--mantine-color-indigo-4))',
-                position: 'relative',
-              }}
-            >
+            <Box p="xl" className={styles.heroGradient}>
               {/* Floating gift decoration */}
               <Box
                 className={styles.floatingGift}
@@ -252,7 +245,7 @@ export default function ReferralPageClient() {
           {/* Stats cards - 3 columns */}
           {stats && (
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-              <Paper withBorder p="md" radius="md">
+              <Paper withBorder p="md" radius="md" className={styles.statsCard}>
                 <Group gap="md" wrap="nowrap">
                   <Box
                     style={{
@@ -279,7 +272,7 @@ export default function ReferralPageClient() {
                 </Group>
               </Paper>
 
-              <Paper withBorder p="md" radius="md">
+              <Paper withBorder p="md" radius="md" className={styles.statsCard}>
                 <Group gap="md" wrap="nowrap">
                   <Box
                     style={{
@@ -306,7 +299,7 @@ export default function ReferralPageClient() {
                 </Group>
               </Paper>
 
-              <Paper withBorder p="md" radius="md">
+              <Paper withBorder p="md" radius="md" className={styles.statsCard}>
                 <Group gap="md" wrap="nowrap">
                   <Box
                     style={{
@@ -336,7 +329,7 @@ export default function ReferralPageClient() {
           )}
 
           {/* Referral history */}
-          <Paper withBorder p="xl" radius="lg">
+          <Paper withBorder p="xl" radius="lg" className={styles.historyCard}>
             <Stack gap="md">
               <Group gap="xs">
                 <Users size={16} />
@@ -404,7 +397,11 @@ export default function ReferralPageClient() {
             withBorder
             p="xl"
             radius="lg"
-            style={{ background: 'var(--mantine-color-indigo-0)' }}
+            className={styles.ctaCard}
+            style={{
+              background:
+                'linear-gradient(135deg, var(--mantine-color-indigo-0), var(--mantine-color-violet-0))',
+            }}
           >
             <Group justify="space-between" align="center" wrap="wrap" gap="md">
               <Stack gap={4} style={{ maxWidth: 400 }}>

@@ -16,8 +16,9 @@ export function FloatingReferralButton() {
 
   return (
     <div className={styles.wrapper}>
-      {/* Pulse glow ring */}
+      {/* Double pulse glow rings */}
       <div className={styles.pulseRing} />
+      <div className={styles.pulseRing2} />
 
       {/* Sparkle dots */}
       <div className={`${styles.sparkle} ${styles.sparkle1}`} />
@@ -31,13 +32,13 @@ export function FloatingReferralButton() {
           onClick={() => router.push('/referral')}
           aria-label={t.sidebar.referral}
         >
-          <Gift size={22} strokeWidth={2} />
+          <Gift size={22} strokeWidth={2.2} />
         </button>
       </Tooltip>
 
       {/* Gold badge */}
       <div className={styles.ribbon}>
-        <Sparkles size={10} color="white" />
+        <Sparkles size={10} color="white" strokeWidth={2.5} />
       </div>
     </div>
   );

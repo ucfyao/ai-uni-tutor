@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
+import { Badge, Box, Button, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
 import { getAgentConfig, getWithdrawalHistory } from '@/app/actions/agent-actions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AgentDashboardStats, WithdrawalRequestEntity } from '@/types/referral';
@@ -76,18 +76,54 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
           </Text>
 
           {/* Balance hero */}
-          <Paper withBorder p="lg" radius="md" style={{ textAlign: 'center' }}>
-            <Text size="sm" c="dimmed" mb={4}>
+          <Paper
+            p="lg"
+            radius="md"
+            style={{
+              textAlign: 'center',
+              background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #818cf8 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Decorative circles */}
+            <Box
+              style={{
+                position: 'absolute',
+                top: -20,
+                right: -20,
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.08)',
+                pointerEvents: 'none',
+              }}
+            />
+            <Box
+              style={{
+                position: 'absolute',
+                bottom: -30,
+                left: -10,
+                width: 100,
+                height: 100,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.05)',
+                pointerEvents: 'none',
+              }}
+            />
+            <Text size="sm" c="white" style={{ opacity: 0.8 }} mb={4}>
               {t.agentDashboard.balance}
             </Text>
-            <Text size="2rem" fw={700} c="indigo">
+            <Text size="2rem" fw={700} c="white" style={{ position: 'relative', zIndex: 1 }}>
               {formatCNY(balance)}
             </Text>
             <Button
               size="sm"
-              variant="light"
+              variant="white"
               color="indigo"
               mt="md"
+              style={{ position: 'relative', zIndex: 1 }}
               onClick={() => setModalOpened(true)}
             >
               {t.agentDashboard.withdraw}

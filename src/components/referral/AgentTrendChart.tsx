@@ -42,9 +42,17 @@ export function AgentTrendChart() {
   }, [fetchTrend]);
 
   return (
-    <Paper withBorder p="md" radius="md">
+    <Paper
+      withBorder
+      p="md"
+      radius="md"
+      style={{
+        background:
+          'linear-gradient(180deg, var(--mantine-color-body) 0%, var(--mantine-color-default-hover) 100%)',
+      }}
+    >
       <Stack gap="md">
-        <Text fw={600} size="lg">
+        <Text fw={700} size="lg">
           {t.agentDashboard.trend}
         </Text>
         {loading ? (

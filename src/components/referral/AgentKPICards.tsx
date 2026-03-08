@@ -65,14 +65,32 @@ export function AgentKPICards({ stats, loading }: AgentKPICardsProps) {
   return (
     <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
       {cards.map((card) => (
-        <Paper key={card.label} withBorder p="md" radius="md">
+        <Paper
+          key={card.label}
+          withBorder
+          p="md"
+          radius="md"
+          style={{
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            cursor: 'default',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.08)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
           <Group gap="md" wrap="nowrap">
             <Box
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
+                width: 44,
+                height: 44,
+                borderRadius: 12,
                 background: `var(--mantine-color-${card.color}-0)`,
+                border: `1px solid var(--mantine-color-${card.color}-1)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
