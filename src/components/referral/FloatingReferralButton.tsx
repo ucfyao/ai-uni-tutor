@@ -1,8 +1,8 @@
 'use client';
 
-import { Gift } from 'lucide-react';
+import { Gift, Sparkles } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ActionIcon, Tooltip } from '@mantine/core';
+import { Tooltip } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import styles from './FloatingReferralButton.module.css';
 
@@ -15,18 +15,30 @@ export function FloatingReferralButton() {
   if (pathname.startsWith('/referral')) return null;
 
   return (
-    <Tooltip label={t.sidebar.referral} position="left">
-      <ActionIcon
-        className={styles.floatingButton}
-        size={48}
-        radius="xl"
-        variant="filled"
-        color="red"
-        onClick={() => router.push('/referral')}
-        aria-label={t.sidebar.referral}
-      >
-        <Gift size={22} />
-      </ActionIcon>
-    </Tooltip>
+    <div className={styles.wrapper}>
+      {/* Pulse glow ring */}
+      <div className={styles.pulseRing} />
+
+      {/* Sparkle dots */}
+      <div className={`${styles.sparkle} ${styles.sparkle1}`} />
+      <div className={`${styles.sparkle} ${styles.sparkle2}`} />
+      <div className={`${styles.sparkle} ${styles.sparkle3}`} />
+
+      {/* Main button */}
+      <Tooltip label={t.sidebar.referral} position="left">
+        <button
+          className={styles.button}
+          onClick={() => router.push('/referral')}
+          aria-label={t.sidebar.referral}
+        >
+          <Gift size={22} strokeWidth={2} />
+        </button>
+      </Tooltip>
+
+      {/* Gold badge */}
+      <div className={styles.ribbon}>
+        <Sparkles size={10} color="white" />
+      </div>
+    </div>
   );
 }
