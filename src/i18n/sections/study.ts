@@ -80,6 +80,24 @@ export const studyTranslations = {
         browsersA:
           '我们支持所有主流现代浏览器，包括 Chrome、Firefox、Safari 和 Edge。建议使用最新版本以获得最佳体验。',
       },
+      partnerProgram: '课程合伙人',
+      faqPartner: {
+        whatIsQ: '什么是课程合伙人？',
+        whatIsA:
+          '课程合伙人是我们的推广合作计划。每门课程仅限 1 个合伙人名额，你将获得专属推广码，该课程每笔学生订阅你都能获得现金佣金。作为合伙人，你需要维护该课程的学习资料、真实作业解析和期末真题，确保学生获得高质量的辅导内容。',
+        howToApplyQ: '如何申请成为课程合伙人？',
+        howToApplyA:
+          '在"推荐有礼"页面底部点击"立即申请"按钮，填写你的信息和想申请的课程。我们通常在 24 小时内完成审核。',
+        earningsQ: '佣金是如何计算的？',
+        earningsA:
+          '通过你专属推广码注册并订阅的每位学生，你都能获得该笔订阅的现金佣金。佣金比例由平台设定，可在合伙人中心查看。',
+        payoutQ: '如何提现？',
+        payoutA:
+          '在合伙人中心的"钱包"中可以申请提现，支持支付宝、微信和银行转账。达到最低提现金额后即可申请，我们按月结算。',
+        exclusiveQ: '为什么每门课只有 1 个名额？',
+        exclusiveA:
+          '独占名额意味着你不需要和其他合伙人竞争。一旦锁定某门课程，该课程所有通过推广码来的订阅佣金都归你。',
+      },
       contactTitle: '仍然需要帮助？',
       contactDesc: '找不到你需要的答案？联系我们的支持团队。',
       contactEmail: '发送邮件',
@@ -172,6 +190,24 @@ export const studyTranslations = {
         browsersQ: 'Which browsers are supported?',
         browsersA:
           'We support all major modern browsers including Chrome, Firefox, Safari, and Edge. We recommend using the latest version for the best experience.',
+      },
+      partnerProgram: 'Course Partner',
+      faqPartner: {
+        whatIsQ: 'What is a Course Partner?',
+        whatIsA:
+          'Course Partner is our affiliate program. Each course has only 1 partner slot — you get a custom promo code and earn cash commission on every student subscription for that course. As a partner, you are responsible for maintaining course materials, real assignment solutions, and past exam papers to ensure students receive high-quality tutoring content.',
+        howToApplyQ: 'How do I apply to become a Course Partner?',
+        howToApplyA:
+          'Click "Apply Now" at the bottom of the Refer & Earn page, fill in your details and the courses you want. We usually review applications within 24 hours.',
+        earningsQ: 'How are commissions calculated?',
+        earningsA:
+          'For every student who signs up and subscribes through your promo code, you earn a cash commission on that subscription. The commission rate is set by the platform and visible in your Partner Dashboard.',
+        payoutQ: 'How do I withdraw earnings?',
+        payoutA:
+          'In the Partner Dashboard under "Wallet", you can request a withdrawal via Alipay, WeChat Pay, or bank transfer. Withdrawals are processed monthly once you reach the minimum amount.',
+        exclusiveQ: 'Why is there only 1 slot per course?',
+        exclusiveA:
+          "Exclusive slots mean you don't compete with other partners. Once you lock a course, all subscription commissions from your promo code for that course are yours.",
       },
       contactTitle: 'Still need help?',
       contactDesc: "Can't find what you're looking for? Reach out to our support team.",
