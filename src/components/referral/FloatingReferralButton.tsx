@@ -10,18 +10,29 @@ export function FloatingReferralButton() {
   const pathname = usePathname();
   const { t } = useLanguage();
 
-  // Hide on the referral page itself
   if (pathname.startsWith('/referral')) return null;
 
   return (
-    <Tooltip label={t.sidebar.referral} position="left">
-      <button
-        className={styles.giftButton}
-        onClick={() => router.push('/referral')}
-        aria-label={t.sidebar.referral}
-      >
-        🎁
-      </button>
-    </Tooltip>
+    <div className={styles.wrapper}>
+      {/* Pulse glow rings */}
+      <div className={styles.pulseRing} />
+      <div className={styles.pulseRing2} />
+
+      {/* Sparkle dots */}
+      <div className={`${styles.sparkle} ${styles.sparkle1}`} />
+      <div className={`${styles.sparkle} ${styles.sparkle2}`} />
+      <div className={`${styles.sparkle} ${styles.sparkle3}`} />
+
+      {/* Emoji button */}
+      <Tooltip label={t.sidebar.referral} position="left">
+        <button
+          className={styles.giftButton}
+          onClick={() => router.push('/referral')}
+          aria-label={t.sidebar.referral}
+        >
+          🎁
+        </button>
+      </Tooltip>
+    </div>
   );
 }
