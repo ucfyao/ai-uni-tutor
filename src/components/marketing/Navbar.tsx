@@ -54,9 +54,6 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinkClassName =
-    'nav-link relative cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-full after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-primary after:to-accent after:transition-transform hover:after:scale-x-100';
-
   return (
     <Box
       component="nav"
@@ -74,37 +71,37 @@ const Navbar = () => {
         transition: 'all 0.3s ease',
       }}
     >
-      <Container size={1280} px={24}>
-        <Group justify="space-between" h={72} wrap="nowrap">
+      <Container size={960} px={24}>
+        <Group justify="space-between" h={64} wrap="nowrap">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2" style={{ flexShrink: 0 }}>
-            <Box className="w-10 h-10 flex items-center justify-center">
+            <Box className="w-9 h-9 flex items-center justify-center">
               <Image
                 src="/assets/logo.png"
                 alt="AI UniTutor"
-                width={40}
-                height={40}
-                className="w-10 h-10 object-contain"
+                width={36}
+                height={36}
+                className="w-9 h-9 object-contain"
                 priority
               />
             </Box>
-            <Text component="span" fw={700} fz="1.25rem">
+            <Text component="span" fw={700} fz="lg">
               AI UniTutor
             </Text>
           </Link>
 
           {/* Desktop Navigation */}
-          <Group gap={32} visibleFrom="md" wrap="nowrap">
-            <Anchor href="#features" className={navLinkClassName} underline="never" c="inherit">
+          <Group gap="xl" visibleFrom="md" wrap="nowrap">
+            <Anchor href="#features" underline="hover" c="dimmed" fz="sm" fw={500}>
               {t.nav.features}
             </Anchor>
-            <Anchor href="#how-it-works" className={navLinkClassName} underline="never" c="inherit">
+            <Anchor href="#how-it-works" underline="hover" c="dimmed" fz="sm" fw={500}>
               {t.nav.howItWorks}
             </Anchor>
-            <Anchor href="#testimonials" className={navLinkClassName} underline="never" c="inherit">
+            <Anchor href="#testimonials" underline="hover" c="dimmed" fz="sm" fw={500}>
               {t.nav.testimonials}
             </Anchor>
-            <Anchor href="#pricing" className={navLinkClassName} underline="never" c="inherit">
+            <Anchor href="#pricing" underline="hover" c="dimmed" fz="sm" fw={500}>
               {t.nav.pricing}
             </Anchor>
           </Group>
@@ -116,7 +113,7 @@ const Navbar = () => {
             <Button variant="subtle" color="gray" radius="md" component={Link} href="/login">
               {t.nav.login}
             </Button>
-            <Button className="btn-hero" component={Link} href="/login">
+            <Button color="indigo" radius="md" component={Link} href="/login">
               {t.nav.freeTrial}
             </Button>
           </Group>
@@ -127,45 +124,21 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         <Collapse in={opened} hiddenFrom="md">
-          <Box className="py-4 border-t border-border/50">
+          <Box py="md" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
             <Stack gap="md">
-              <Anchor
-                href="#features"
-                py="0.5rem"
-                className={navLinkClassName}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#features" underline="hover" c="dimmed" fz="sm" fw={500}>
                 {t.nav.features}
               </Anchor>
-              <Anchor
-                href="#how-it-works"
-                py="0.5rem"
-                className={navLinkClassName}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#how-it-works" underline="hover" c="dimmed" fz="sm" fw={500}>
                 {t.nav.howItWorks}
               </Anchor>
-              <Anchor
-                href="#testimonials"
-                py="0.5rem"
-                className={navLinkClassName}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#testimonials" underline="hover" c="dimmed" fz="sm" fw={500}>
                 {t.nav.testimonials}
               </Anchor>
-              <Anchor
-                href="#pricing"
-                py="0.5rem"
-                className={navLinkClassName}
-                underline="never"
-                c="inherit"
-              >
+              <Anchor href="#pricing" underline="hover" c="dimmed" fz="sm" fw={500}>
                 {t.nav.pricing}
               </Anchor>
-              <Stack gap="xs" className="pt-4">
+              <Stack gap="xs" pt="sm">
                 <Group gap="sm">
                   <LanguageSwitcher />
                   <ColorSchemeToggle />
@@ -180,7 +153,7 @@ const Navbar = () => {
                 >
                   {t.nav.login}
                 </Button>
-                <Button className="btn-hero" fullWidth component={Link} href="/login">
+                <Button color="indigo" radius="md" fullWidth component={Link} href="/login">
                   {t.nav.freeTrial}
                 </Button>
               </Stack>

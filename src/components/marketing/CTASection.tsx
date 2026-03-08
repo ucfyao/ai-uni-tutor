@@ -1,30 +1,39 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Box, Button, Container, Flex, Text, Title } from '@mantine/core';
+import { Badge, Box, Button, Container, Flex, Paper, Text, Title } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const CTASection = () => {
   const { t } = useLanguage();
 
   return (
-    <Box component="section" className="py-16 md:py-24 relative overflow-hidden">
-      {/* Background Effects */}
-      <Box className="absolute inset-0 bg-gradient-to-b from-background to-secondary/20" />
-      <Box className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/10 rounded-full blur-[100px]" />
-
-      <Container size={1280} px={24} className="relative z-10">
-        <Box className="glass-card max-w-5xl mx-auto p-5 sm:p-8 md:p-14 text-center">
+    <Box component="section" className="py-16 md:py-24 overflow-hidden">
+      <Container size={1280} px={24}>
+        <Paper
+          p={{ base: 'xl', sm: 32, md: 56 }}
+          withBorder
+          className="text-center"
+          maw={960}
+          mx="auto"
+        >
           {/* Badge */}
-          <Box className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <Text size="sm" c="var(--mantine-color-indigo-6)">
+          <Box mb="1.5rem">
+            <Badge
+              variant="light"
+              color="indigo"
+              size="lg"
+              radius="xl"
+              leftSection={<Sparkles size={14} />}
+            >
               {t.cta.badge}
-            </Text>
+            </Badge>
           </Box>
 
           <Title order={2} fz={{ base: '2.25rem', sm: '3rem' }} fw={700} mb="1.5rem">
             {t.cta.title}
-            <span className="gradient-text">{t.cta.titleHighlight}</span>
+            <Text component="span" c="indigo.6" inherit>
+              {t.cta.titleHighlight}
+            </Text>
             {t.cta.titleEnd}
           </Title>
 
@@ -40,17 +49,18 @@ const CTASection = () => {
             wrap="wrap"
           >
             <Button
-              className="btn-hero"
               size="xl"
+              color="indigo"
               component={Link}
               href="/login"
-              rightSection={<ArrowRight className="w-5 h-5" />}
+              rightSection={<ArrowRight size={20} />}
             >
               {t.cta.startTrial}
             </Button>
             <Button
-              className="btn-hero-outline"
               size="xl"
+              variant="light"
+              color="indigo"
               component="a"
               href="mailto:ucfyao@gmail.com"
             >
@@ -61,7 +71,7 @@ const CTASection = () => {
           <Text size="sm" c="dimmed" mt="1.5rem">
             {t.cta.note}
           </Text>
-        </Box>
+        </Paper>
       </Container>
     </Box>
   );
