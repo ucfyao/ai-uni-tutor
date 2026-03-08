@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Anchor, Button, Center, Loader, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Button, Center, Stack, Text, Title } from '@mantine/core';
 import {
   getChatSession,
   saveChatMessage,
@@ -22,14 +22,13 @@ import { ChatSession } from '@/types';
 
 interface LectureClientProps {
   id: string;
-  initialSession: ChatSession | null;
 }
 
-export default function LectureClient({ id, initialSession }: LectureClientProps) {
+export default function LectureClient({ id }: LectureClientProps) {
   const router = useRouter();
   const routerRef = useRef(router);
-  const [session, setSession] = useState<ChatSession | null>(initialSession);
-  const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<ChatSession | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Track last saved message index to prevent duplicate saves (O(1) lookup)
   const lastSavedIndexRef = useRef(0);
@@ -52,40 +51,23 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
     routerRef.current = router;
   }, [router]);
 
-  // Load session: use initialSession if matches id, otherwise use logic
+  // Load session client-side: IndexedDB cache → SessionContext fast path → server fetch
   useEffect(() => {
     if (!id) return;
-
-    // Server already determined session doesn't exist
-    if (!initialSession) {
-      setSession(null);
-      setLoading(false);
-      return;
-    }
-
-    // If initialSession matches the current id, we don't need to fetch
-    if (initialSession.id === id) {
-      // Check if we need to update messages from sidebar list?
-      // For now, assume initialSession is fresh from server.
-      // But we still want to respect savedMsgIdsRef initialization
-      lastSavedIndexRef.current = initialSession.messages.length;
-      setSession(initialSession);
-      setLoading(false);
-      return;
-    }
 
     setLoading(true);
     setSession(null);
     lastSavedIndexRef.current = 0;
 
-    // ... existing fetch logic for client-side navigation fallback ...
     let cancelled = false;
 
     (async () => {
       try {
+        // 1. Check SessionContext for metadata (covers new session + sidebar list)
         const fromList = sessionsRef.current.find((s) => s.id === id);
-        if (fromList && fromList.mode === 'Lecture Helper') {
-          // 1. Try IndexedDB cache first for instant display
+
+        // 2. Try IndexedDB cache for instant display
+        if (fromList) {
           const cached = await chatCache.getMessages(id);
           if (cancelled) return;
 
@@ -94,51 +76,49 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
             lastSavedIndexRef.current = cached.length;
             setSession(cachedData);
             setLoading(false);
-          }
-
-          // 2. Always fetch full session from server (includes siblingsMap + correct branch)
-          const freshResult = await getChatSession(id);
-          if (cancelled) return;
-
-          if (!freshResult.success || !freshResult.data) {
+          } else {
+            // New session or no cache — show empty session immediately
+            setSession({ ...fromList, messages: [] });
             setLoading(false);
-            routerRef.current.push('/study');
-            return;
           }
-          const freshSession = freshResult.data;
+        }
 
-          setSession((prevSession) => {
-            if (!prevSession) {
-              lastSavedIndexRef.current = freshSession.messages.length;
-              return freshSession;
-            }
+        // 3. Always fetch full session from server (authoritative: siblingsMap + correct branch)
+        const freshResult = await getChatSession(id);
+        if (cancelled) return;
 
-            // Merge: keep client-only messages (sent while server fetch was in-flight)
-            const serverMessageIds = new Set(freshSession.messages.map((m) => m.id));
-            const clientOnlyMessages = prevSession.messages.filter(
-              (m) => !serverMessageIds.has(m.id),
-            );
-            const mergedMessages = [...freshSession.messages, ...clientOnlyMessages];
-
-            lastSavedIndexRef.current = mergedMessages.length;
-            return { ...freshSession, messages: mergedMessages };
-          });
+        if (!freshResult.success || !freshResult.data) {
           setLoading(false);
+          // Only redirect if we never had a session to show
+          if (!fromList) routerRef.current.push('/study');
           return;
         }
 
-        const result = await getChatSession(id);
-        if (cancelled) return;
+        const freshSession = freshResult.data;
 
-        const data = result.success ? result.data : null;
-        if (!data || (data.mode && data.mode !== 'Lecture Helper')) {
+        // Mode guard
+        if (freshSession.mode && freshSession.mode !== 'Lecture Helper') {
           setLoading(false);
           routerRef.current.push('/study');
           return;
         }
 
-        lastSavedIndexRef.current = data.messages.length;
-        setSession(data);
+        setSession((prevSession) => {
+          if (!prevSession) {
+            lastSavedIndexRef.current = freshSession.messages.length;
+            return freshSession;
+          }
+
+          // Merge: keep client-only messages sent while fetch was in-flight
+          const serverMessageIds = new Set(freshSession.messages.map((m) => m.id));
+          const clientOnlyMessages = prevSession.messages.filter(
+            (m) => !serverMessageIds.has(m.id),
+          );
+          const mergedMessages = [...freshSession.messages, ...clientOnlyMessages];
+
+          lastSavedIndexRef.current = mergedMessages.length;
+          return { ...freshSession, messages: mergedMessages };
+        });
         setLoading(false);
       } catch (error) {
         console.error('Failed to load lecture session', error);
@@ -151,7 +131,7 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
     return () => {
       cancelled = true;
     };
-  }, [id, initialSession]);
+  }, [id]);
 
   // Handle session updates (messages, mode changes, etc.)
   const handleUpdateSession = useCallback(
@@ -254,17 +234,8 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
     }
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <Center h="100vh">
-        <Loader size="lg" color="indigo" />
-      </Center>
-    );
-  }
-
-  // Not found state
-  if (!session) {
+  // Not found state (loading finished, session is null)
+  if (!loading && !session) {
     return (
       <Center h="100%">
         <Stack align="center" gap="md" ta="center">
@@ -282,6 +253,39 @@ export default function LectureClient({ id, initialSession }: LectureClientProps
           </Anchor>
         </Stack>
       </Center>
+    );
+  }
+
+  // Loading: show skeleton in real layout
+  if (!session) {
+    const fromList = sessions.find((s) => s.id === id);
+    const skeletonSession: ChatSession = fromList ?? {
+      id,
+      course: null,
+      mode: 'Lecture Helper',
+      title: '',
+      messages: [],
+      lastUpdated: Date.now(),
+      isPinned: false,
+    };
+
+    const noop = () => {};
+    return (
+      <ChatPageLayout
+        session={skeletonSession}
+        onShare={noop}
+        onRename={noop}
+        onPin={noop}
+        onDelete={noop}
+        showKnowledgePanel={false}
+      >
+        <LectureHelper
+          key={`skeleton-${id}`}
+          session={skeletonSession}
+          onUpdateSession={() => {}}
+          isLoading={true}
+        />
+      </ChatPageLayout>
     );
   }
 
