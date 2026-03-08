@@ -52,18 +52,11 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     cancelStream,
   } = useChatStream();
 
-  // Delay knowledge cards loading to avoid competing with initial render
-  const [cardsEnabled, setCardsEnabled] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setCardsEnabled(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Knowledge cards management
   const { officialCards, userCards, loadRelatedCards, addManualCard, deleteCard } =
     useKnowledgeCards({
       sessionId: session?.id || '',
-      enabled: cardsEnabled,
+      enabled: true,
     });
 
   // Card interaction state
