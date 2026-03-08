@@ -19,17 +19,6 @@ export function FloatingReferralButton() {
       <div className={styles.pulseRing2} />
       <div className={styles.pulseRing3} />
 
-      {/* Sparkle dots */}
-      <div className={`${styles.sparkle} ${styles.sparkle1}`} />
-      <div className={`${styles.sparkle} ${styles.sparkle2}`} />
-      <div className={`${styles.sparkle} ${styles.sparkle3}`} />
-      <div className={`${styles.sparkle} ${styles.sparkle4}`} />
-      <div className={`${styles.sparkle} ${styles.sparkle5}`} />
-
-      {/* Orbiting particles */}
-      <div className={`${styles.orbit} ${styles.orbit1}`} />
-      <div className={`${styles.orbit} ${styles.orbit2}`} />
-
       {/* Emoji button */}
       <Tooltip label={t.sidebar.referral} position="left">
         <button
