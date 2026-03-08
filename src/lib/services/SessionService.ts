@@ -78,11 +78,10 @@ export class SessionService {
     const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
     if (!session) return null;
 
-    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(
-      sessionId,
-      session.activeLeafId,
-    );
-    const course = await this.resolveCourse(session.courseId);
+    const [{ path, siblingsMap }, course] = await Promise.all([
+      this.messageRepo.getActivePathWithForks(sessionId, session.activeLeafId),
+      this.resolveCourse(session.courseId),
+    ]);
 
     return {
       id: session.id,
@@ -156,11 +155,10 @@ export class SessionService {
     const session = await this.sessionRepo.findSharedById(sessionId);
     if (!session) return null;
 
-    const { path, siblingsMap } = await this.messageRepo.getActivePathWithForks(
-      sessionId,
-      session.activeLeafId,
-    );
-    const course = await this.resolveCourse(session.courseId);
+    const [{ path, siblingsMap }, course] = await Promise.all([
+      this.messageRepo.getActivePathWithForks(sessionId, session.activeLeafId),
+      this.resolveCourse(session.courseId),
+    ]);
 
     return {
       id: session.id,

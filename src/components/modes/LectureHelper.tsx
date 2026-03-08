@@ -1,10 +1,10 @@
-import dynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Drawer, Loader, Stack, Text } from '@mantine/core';
+import { Box, Drawer, Stack, Text } from '@mantine/core';
 import { getLectureOutlines } from '@/app/actions/documents';
 import { askCardQuestion } from '@/app/actions/knowledge-cards';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { KnowledgePanel } from '@/components/chat/KnowledgePanel';
+import { MessageList } from '@/components/chat/MessageList';
 import { UsageLimitModal } from '@/components/UsageLimitModal';
 import { parseCommand, type ChatCommand } from '@/constants/commands';
 import { useChatSession } from '@/hooks/useChatSession';
@@ -15,26 +15,6 @@ import { isDocumentFile, isImageFile, MAX_FILE_SIZE_BYTES } from '@/lib/file-uti
 import { formatOutlineToMarkdown } from '@/lib/format-outline';
 import { showNotification } from '@/lib/notifications';
 import type { ChatMessage, ChatSession } from '@/types';
-
-const MessageList = dynamic(
-  () => import('@/components/chat/MessageList').then((mod) => mod.MessageList),
-  {
-    loading: () => (
-      <Box
-        bg="var(--mantine-color-body)"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Loader size="sm" />
-      </Box>
-    ),
-  },
-);
 
 interface LectureHelperProps {
   session: ChatSession;
@@ -72,11 +52,18 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     cancelStream,
   } = useChatStream();
 
+  // Delay knowledge cards loading to avoid competing with initial render
+  const [cardsEnabled, setCardsEnabled] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setCardsEnabled(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Knowledge cards management
   const { officialCards, userCards, loadRelatedCards, addManualCard, deleteCard } =
     useKnowledgeCards({
       sessionId: session?.id || '',
-      enabled: true,
+      enabled: cardsEnabled,
     });
 
   // Card interaction state
