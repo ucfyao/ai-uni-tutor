@@ -35,6 +35,7 @@ import type {
   ReferralStats,
   ReferralWithReferee,
 } from '@/types/referral';
+import styles from './referral.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
@@ -155,9 +156,25 @@ export default function ReferralPageClient() {
               style={{
                 background:
                   'linear-gradient(135deg, var(--mantine-color-indigo-7), var(--mantine-color-indigo-4))',
+                position: 'relative',
               }}
             >
-              <Group gap="sm" align="flex-start">
+              {/* Floating gift decoration */}
+              <Box
+                className={styles.floatingGift}
+                style={{
+                  position: 'absolute',
+                  right: 24,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  opacity: 0.15,
+                  pointerEvents: 'none',
+                }}
+              >
+                <Gift size={80} color="white" />
+              </Box>
+
+              <Group gap="sm" align="flex-start" style={{ position: 'relative', zIndex: 1 }}>
                 <Box
                   style={{
                     width: 40,
