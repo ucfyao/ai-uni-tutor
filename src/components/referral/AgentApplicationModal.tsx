@@ -52,7 +52,7 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
     setLoading(true);
     Promise.all([getAgentApplication(), fetchUniversities()])
       .then(([appRes, uniRes]) => {
-        if (appRes.success) setApplication(appRes.data);
+        if (appRes.success && appRes.data?.status !== 'rejected') setApplication(appRes.data);
         if (uniRes.success) {
           setUniversities(uniRes.data.map((u) => ({ value: u.id, label: u.name })));
         }

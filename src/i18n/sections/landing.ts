@@ -1,5 +1,9 @@
 export const landingTranslations = {
   zh: {
+    topBanner: {
+      text: '想要被动收入？课程合伙人计划开放申请中！',
+      cta: '了解详情 →',
+    },
     hero: {
       badge: 'AI 驱动的智能学习助手',
       title: '你的专属',
@@ -141,6 +145,10 @@ export const landingTranslations = {
     },
   },
   en: {
+    topBanner: {
+      text: 'Want passive income? Course Partner invites are open!',
+      cta: 'Learn more →',
+    },
     hero: {
       badge: 'AI-Powered Smart Learning Assistant',
       title: 'Your Personal',

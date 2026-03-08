@@ -16,6 +16,8 @@ const ALLOWED_PATH_PREFIXES = [
   '/settings',
   '/share',
   '/zh',
+  '/referral',
+  '/partner',
 ];
 
 export function sanitizeRedirectPath(value: string | undefined): string {

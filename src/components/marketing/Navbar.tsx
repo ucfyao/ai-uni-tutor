@@ -42,7 +42,11 @@ const ColorSchemeToggle = () => {
   );
 };
 
-const Navbar = () => {
+interface NavbarProps {
+  bannerVisible?: boolean;
+}
+
+const Navbar = ({ bannerVisible = false }: NavbarProps) => {
   const [opened, { toggle }] = useDisclosure(false);
   const [scrolled, setScrolled] = useState(false);
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
@@ -57,8 +61,9 @@ const Navbar = () => {
   return (
     <Box
       component="nav"
-      className="fixed top-0 left-0 right-0 z-50"
+      className="fixed left-0 right-0 z-50"
       style={{
+        top: bannerVisible ? 40 : 0,
         backdropFilter: scrolled ? 'blur(12px)' : undefined,
         WebkitBackdropFilter: scrolled ? 'blur(12px)' : undefined,
         boxShadow: scrolled ? 'var(--mantine-shadow-sm)' : undefined,
