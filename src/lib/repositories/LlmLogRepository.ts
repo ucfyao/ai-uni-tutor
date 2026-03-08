@@ -25,6 +25,35 @@ export interface LlmLogStats {
   estimatedCostToday: number;
 }
 
+export interface UserCostSummary {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  totalCalls: number;
+  errorCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+}
+
+export interface LlmLogWithUser {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_full_name: string | null;
+  call_type: string;
+  provider: string;
+  model: string;
+  status: string;
+  error_message: string | null;
+  latency_ms: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_estimate: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export class LlmLogRepository {
   async create(log: LlmCallLogInsert): Promise<void> {
     try {
@@ -39,7 +68,7 @@ export class LlmLogRepository {
     filters: LlmLogFilters,
     page: number = 1,
     pageSize: number = 50,
-  ): Promise<{ logs: LlmCallLogRow[]; total: number }> {
+  ): Promise<{ logs: LlmLogWithUser[]; total: number }> {
     const supabase = await createClient();
     let query = supabase.from('llm_call_logs').select('*', { count: 'exact' });
 
@@ -57,7 +86,44 @@ export class LlmLogRepository {
       .range(from, to);
 
     if (error) throw error;
-    return { logs: data ?? [], total: count ?? 0 };
+    const rows = data ?? [];
+
+    // Batch-fetch user profiles for all unique user_ids
+    const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
+    const profileMap = new Map<string, { email: string | null; full_name: string | null }>();
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .in('id', userIds);
+      for (const p of profiles ?? []) {
+        profileMap.set(p.id, { email: p.email, full_name: p.full_name });
+      }
+    }
+
+    const logs: LlmLogWithUser[] = rows.map((row) => {
+      const profile = row.user_id ? profileMap.get(row.user_id) : undefined;
+      return {
+        id: row.id,
+        user_id: row.user_id,
+        user_email: profile?.email ?? null,
+        user_full_name: profile?.full_name ?? null,
+        call_type: row.call_type,
+        provider: row.provider,
+        model: row.model,
+        status: row.status,
+        error_message: row.error_message,
+        latency_ms: row.latency_ms,
+        input_tokens: row.input_tokens,
+        output_tokens: row.output_tokens,
+        cost_estimate: row.cost_estimate,
+        metadata: (row.metadata as Record<string, unknown>) ?? {},
+        created_at: row.created_at,
+      };
+    });
+
+    return { logs, total: count ?? 0 };
   }
 
   async getStats(startTime: string): Promise<LlmLogStats> {
@@ -114,6 +180,39 @@ export class LlmLogRepository {
     }
 
     return { byType, inputTokens, outputTokens };
+  }
+
+  async getUserCostSummary(startTime: string, endTime?: string): Promise<UserCostSummary[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc('get_user_llm_cost_summary', {
+      start_time: startTime,
+      end_time: endTime ?? new Date().toISOString(),
+    });
+
+    if (error) throw error;
+
+    return (data ?? []).map(
+      (row: {
+        user_id: string;
+        email: string | null;
+        full_name: string | null;
+        total_calls: number;
+        error_calls: number;
+        input_tokens: number;
+        output_tokens: number;
+        total_cost: number;
+      }) => ({
+        userId: row.user_id,
+        email: row.email,
+        fullName: row.full_name,
+        totalCalls: Number(row.total_calls),
+        errorCalls: Number(row.error_calls),
+        inputTokens: Number(row.input_tokens),
+        outputTokens: Number(row.output_tokens),
+        totalCost: Number(row.total_cost),
+      }),
+    );
   }
 }
 

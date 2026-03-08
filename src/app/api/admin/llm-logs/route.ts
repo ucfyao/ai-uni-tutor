@@ -36,6 +36,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ logs, stats });
     }
 
+    if (mode === 'user-costs') {
+      const timeRange = searchParams.get('timeRange') || '30d';
+      const now = new Date();
+      const timeRangeMap: Record<string, number> = {
+        '24h': 24 * 60 * 60 * 1000,
+        '7d': 7 * 24 * 60 * 60 * 1000,
+        '30d': 30 * 24 * 60 * 60 * 1000,
+      };
+      const msAgo = timeRangeMap[timeRange] ?? timeRangeMap['30d'];
+      const startTime = new Date(now.getTime() - msAgo).toISOString();
+      const users = await service.getUserCostSummary(startTime);
+      return NextResponse.json({ users, timeRange });
+    }
+
     const callType = searchParams.get('callType') || undefined;
     const status = searchParams.get('status') || undefined;
     const model = searchParams.get('model') || undefined;
