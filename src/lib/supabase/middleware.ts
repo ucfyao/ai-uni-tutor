@@ -56,7 +56,8 @@ export async function handleRequest(
     pathname.startsWith('/login') ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/share');
+    pathname.startsWith('/share') ||
+    pathname.startsWith('/partner');
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

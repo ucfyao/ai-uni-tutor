@@ -113,7 +113,8 @@ function LoginForm() {
       } else {
         const res = await login(formData);
         if (res.success) {
-          router.push('/study');
+          const next = searchParams.get('next');
+          router.push(next && next.startsWith('/') ? next : '/study');
           // Keep loading true while router.push is working
         } else {
           setError(res.error);

@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, CircleHelp, Copy, CreditCard, Gift, Users } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -27,7 +28,6 @@ import {
   getReferralConfigPublic,
   getReferralStats,
 } from '@/app/actions/referral-actions';
-import { AgentApplicationModal } from '@/components/referral/AgentApplicationModal';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -73,7 +73,6 @@ export default function ReferralPageClient() {
   > | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [agentModalOpen, setAgentModalOpen] = useState(false);
 
   const headerNode = useMemo(
     () => (
@@ -427,15 +426,13 @@ export default function ReferralPageClient() {
                   {t.referral.partnerDesc}
                 </Text>
               </Stack>
-              <Button size="sm" color="pink" onClick={() => setAgentModalOpen(true)}>
+              <Button size="sm" color="pink" component={Link} href="/partner#apply">
                 {t.referral.applyNow}
               </Button>
             </Group>
           </Paper>
         </Stack>
       </Container>
-
-      <AgentApplicationModal opened={agentModalOpen} onClose={() => setAgentModalOpen(false)} />
     </>
   );
 }

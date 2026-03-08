@@ -1,9 +1,20 @@
 'use client';
 
-import { ArrowUp } from 'lucide-react';
+import { ArrowRight, ArrowUp, X } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState, useTransition } from 'react';
-import { Box, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
+import {
+  Box,
+  CloseButton,
+  Group,
+  Paper,
+  SimpleGrid,
+  Stack,
+  Text,
+  ThemeIcon,
+  Title,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Logo } from '@/components/Logo';
 import NewSessionModal from '@/components/NewSessionModal';
@@ -46,6 +57,7 @@ function getFeatureCards(t: TranslationKey) {
 export function StudyPageClient() {
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
   const [selectedMode, setSelectedMode] = useState<TutoringMode | null>(null);
+  const [partnerBannerVisible, setPartnerBannerVisible] = useState(true);
   const router = useRouter();
   const { addSession } = useSessions();
   const { t } = useLanguage();
@@ -82,6 +94,45 @@ export function StudyPageClient() {
           position: 'relative',
         }}
       >
+        {/* Partner Program Top Banner */}
+        {partnerBannerVisible && (
+          <Box
+            component={Link}
+            href="/partner"
+            py={8}
+            px="md"
+            style={{
+              backgroundColor: 'var(--mantine-color-orange-0)',
+              borderBottom: '1px solid var(--mantine-color-orange-2)',
+              textDecoration: 'none',
+              display: 'block',
+            }}
+          >
+            <Group justify="center" gap={8} wrap="nowrap">
+              <Text fz="xs" fw={600} c="orange.6">
+                💰 {t.referral.becomeAgent}
+              </Text>
+              <ArrowRight
+                size={12}
+                color="var(--mantine-color-orange-6)"
+                style={{ flexShrink: 0 }}
+              />
+              <CloseButton
+                size="xs"
+                variant="transparent"
+                c="orange.6"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setPartnerBannerVisible(false);
+                }}
+                aria-label="Close"
+                style={{ opacity: 0.6, flexShrink: 0 }}
+                icon={<X size={12} />}
+              />
+            </Group>
+          </Box>
+        )}
         {/* Subtle ambient glow */}
         <Box
           aria-hidden
