@@ -31,7 +31,7 @@ export function FloatingReferralButton() {
         }}
         aria-label="Close"
       >
-        <X size={10} strokeWidth={2.5} />
+        <X size={8} strokeWidth={2} />
       </button>
 
       {/* Emoji button */}
