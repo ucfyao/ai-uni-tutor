@@ -3,6 +3,8 @@
 export interface LlmLogRow {
   id: string;
   user_id: string | null;
+  user_email: string | null;
+  user_full_name: string | null;
   call_type: string;
   provider: string;
   model: string;
@@ -35,4 +37,20 @@ export interface LlmLogsResponse {
   page: number;
   pageSize: number;
   models: string[];
+}
+
+export interface UserCostSummaryRow {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  totalCalls: number;
+  errorCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+}
+
+export interface UserCostsResponse {
+  users: UserCostSummaryRow[];
+  timeRange: string;
 }

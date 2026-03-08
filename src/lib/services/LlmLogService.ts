@@ -3,12 +3,13 @@ import { getLlmLogRepository } from '@/lib/repositories/LlmLogRepository';
 import type {
   LlmLogFilters,
   LlmLogStats,
+  LlmLogWithUser,
+  UserCostSummary,
   UserUsageBreakdown,
 } from '@/lib/repositories/LlmLogRepository';
 import type { Database } from '@/types/database';
 
-export type { UserUsageBreakdown };
-
+export type { LlmLogWithUser, UserCostSummary, UserUsageBreakdown };
 type LlmCallLogRow = Database['public']['Tables']['llm_call_logs']['Row'];
 type LlmCallLogInsert = Database['public']['Tables']['llm_call_logs']['Insert'];
 
@@ -41,7 +42,7 @@ export class LlmLogService {
     filters: LlmLogFilters,
     page: number,
     pageSize: number,
-  ): Promise<{ logs: LlmCallLogRow[]; total: number }> {
+  ): Promise<{ logs: LlmLogWithUser[]; total: number }> {
     return getLlmLogRepository().findMany(filters, page, pageSize);
   }
 
@@ -55,6 +56,10 @@ export class LlmLogService {
 
   async getUserTodayBreakdown(userId: string): Promise<UserUsageBreakdown> {
     return getLlmLogRepository().getUserTodayBreakdown(userId);
+  }
+
+  async getUserCostSummary(startTime: string, endTime?: string): Promise<UserCostSummary[]> {
+    return getLlmLogRepository().getUserCostSummary(startTime, endTime);
   }
 
   estimateCost(model: string, inputTokens?: number | null, outputTokens?: number | null): number {
