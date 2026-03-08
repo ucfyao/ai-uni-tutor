@@ -1083,6 +1083,22 @@ export interface Database {
           total_cost: number;
         }[];
       };
+      get_user_llm_cost_summary: {
+        Args: {
+          start_time: string;
+          end_time?: string;
+        };
+        Returns: {
+          user_id: string;
+          email: string | null;
+          full_name: string | null;
+          total_calls: number;
+          error_calls: number;
+          input_tokens: number;
+          output_tokens: number;
+          total_cost: number;
+        }[];
+      };
       process_referral_payment: {
         Args: {
           p_referee_id: string;
