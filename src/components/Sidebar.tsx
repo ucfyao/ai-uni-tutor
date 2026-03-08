@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Ellipsis,
   Gauge,
+  Gift,
   GraduationCap,
   LifeBuoy,
   LogIn,
@@ -235,14 +236,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {/* Agent Dashboard */}
+        {/* Partner Dashboard */}
         {(profile?.role === 'agent' || isSuperAdmin) && (
           <Tooltip label={t.agentDashboard.title} position="right">
             <ActionIcon
               component={Link}
               href="/agent-dashboard"
               variant="subtle"
-              color={pathname.startsWith('/agent-dashboard') ? 'indigo' : 'gray'}
+              color={pathname.startsWith('/agent-dashboard') ? 'pink' : 'gray'}
               size={36}
               radius="md"
               mb={4}
@@ -379,6 +380,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               >
                 {t.sidebar.settings}
               </Menu.Item>
+              <Menu.Item leftSection={<Gift size={14} />} onClick={() => router.push('/referral')}>
+                {t.sidebar.referral}
+              </Menu.Item>
               <Menu.Divider />
               <Menu.Item leftSection={<LogOut size={14} />} onClick={handleSignOut}>
                 {t.sidebar.logOut}
@@ -494,7 +498,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
 
-          {/* Agent Dashboard link */}
+          {/* Partner Dashboard link */}
           {(profile?.role === 'agent' || isSuperAdmin) && (
             <UnstyledButton
               component={Link}
@@ -509,7 +513,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 cursor: 'pointer',
                 width: 'calc(100% - 12px)',
                 backgroundColor: pathname.startsWith('/agent-dashboard')
-                  ? 'var(--mantine-color-indigo-0)'
+                  ? 'var(--mantine-color-pink-0)'
                   : undefined,
               }}
             >
@@ -519,14 +523,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                   strokeWidth={1.5}
                   color={
                     pathname.startsWith('/agent-dashboard')
-                      ? 'var(--mantine-color-indigo-6)'
+                      ? 'var(--mantine-color-pink-6)'
                       : 'var(--mantine-color-gray-6)'
                   }
                 />
                 <Text
                   size="md"
                   fw={pathname.startsWith('/agent-dashboard') ? 600 : 400}
-                  c={pathname.startsWith('/agent-dashboard') ? 'indigo.7' : undefined}
+                  c={pathname.startsWith('/agent-dashboard') ? 'pink.7' : undefined}
                 >
                   {t.agentDashboard.title}
                 </Text>
@@ -559,7 +563,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   strokeWidth={1.5}
                   color={
                     pathname.startsWith('/institution-dashboard')
-                      ? 'var(--mantine-color-teal-6)'
+                      ? 'var(--mantine-color-pink-6)'
                       : 'var(--mantine-color-gray-6)'
                   }
                 />
@@ -766,6 +770,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => router.push('/settings')}
               >
                 {t.sidebar.settings}
+              </Menu.Item>
+              <Menu.Item leftSection={<Gift size={14} />} onClick={() => router.push('/referral')}>
+                {t.sidebar.referral}
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item leftSection={<LifeBuoy size={14} />} onClick={() => router.push('/help')}>

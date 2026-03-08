@@ -1,0 +1,90 @@
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(3deg);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.heroGradient {
+  background: linear-gradient(
+    135deg,
+    #e11d48 0%,
+    #f43f5e 25%,
+    #fb923c 50%,
+    #f43f5e 75%,
+    #e11d48 100%
+  );
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle noise texture overlay */
+.heroGradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.floatingGift {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Stats card hover effect */
+.statsCard {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.statsCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* CTA card — subtle hover */
+.ctaCard {
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.ctaCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* History table row hover */
+.historyCard {
+  transition: box-shadow 0.2s ease;
+}
+
+.historyCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}

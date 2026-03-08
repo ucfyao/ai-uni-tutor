@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
+import { Badge, Box, Button, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
 import { getAgentConfig, getWithdrawalHistory } from '@/app/actions/agent-actions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AgentDashboardStats, WithdrawalRequestEntity } from '@/types/referral';
@@ -71,24 +71,67 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
     <>
       <Paper withBorder p="md" radius="md">
         <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={600} size="lg">
-              {t.agentDashboard.wallet}
+          <Text fw={600} size="lg">
+            {t.agentDashboard.wallet}
+          </Text>
+
+          {/* Balance hero */}
+          <Paper
+            p="lg"
+            radius="md"
+            style={{
+              textAlign: 'center',
+              background: 'linear-gradient(135deg, #e11d48 0%, #f43f5e 50%, #fb923c 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Decorative circles */}
+            <Box
+              style={{
+                position: 'absolute',
+                top: -20,
+                right: -20,
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.08)',
+                pointerEvents: 'none',
+              }}
+            />
+            <Box
+              style={{
+                position: 'absolute',
+                bottom: -30,
+                left: -10,
+                width: 100,
+                height: 100,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.05)',
+                pointerEvents: 'none',
+              }}
+            />
+            <Text size="sm" c="white" style={{ opacity: 0.8 }} mb={4}>
+              {t.agentDashboard.balance}
             </Text>
-            <Button size="xs" variant="light" onClick={() => setModalOpened(true)}>
+            <Text size="2rem" fw={700} c="white" style={{ position: 'relative', zIndex: 1 }}>
+              {formatCNY(balance)}
+            </Text>
+            <Button
+              size="sm"
+              variant="white"
+              color="pink"
+              mt="md"
+              style={{ position: 'relative', zIndex: 1 }}
+              onClick={() => setModalOpened(true)}
+            >
               {t.agentDashboard.withdraw}
             </Button>
-          </Group>
+          </Paper>
 
-          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-            <Paper withBorder p="sm" radius="md">
-              <Text size="sm" c="dimmed">
-                {t.agentDashboard.balance}
-              </Text>
-              <Text size="xl" fw={700}>
-                {formatCNY(balance)}
-              </Text>
-            </Paper>
+          {/* Earned / Withdrawn */}
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
             <Paper withBorder p="sm" radius="md">
               <Text size="sm" c="dimmed">
                 {t.agentDashboard.totalEarned}
