@@ -1,7 +1,8 @@
 'use client';
 
-import { BookOpen, Cpu, CreditCard, GraduationCap, Mail, Search } from 'lucide-react';
-import { useState } from 'react';
+import { BookOpen, Cpu, CreditCard, GraduationCap, Handshake, Mail, Search } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import {
   Accordion,
   Group,
@@ -17,10 +18,14 @@ import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function HelpPage() {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
+  const partnerRef = useRef<HTMLDivElement>(null);
+  const [defaultOpenValue, setDefaultOpenValue] = useState<string | undefined>(undefined);
 
   const faqCategories = [
     {
+      id: 'getting-started',
       title: t.help.gettingStarted,
       icon: BookOpen,
       items: [
@@ -30,6 +35,7 @@ export default function HelpPage() {
       ],
     },
     {
+      id: 'tutoring-modes',
       title: t.help.tutoringModes,
       icon: GraduationCap,
       items: [
@@ -39,6 +45,7 @@ export default function HelpPage() {
       ],
     },
     {
+      id: 'account-billing',
       title: t.help.accountBilling,
       icon: CreditCard,
       items: [
@@ -48,6 +55,19 @@ export default function HelpPage() {
       ],
     },
     {
+      id: 'partner',
+      title: t.help.partnerProgram,
+      icon: Handshake,
+      items: [
+        { q: t.help.faqPartner.whatIsQ, a: t.help.faqPartner.whatIsA },
+        { q: t.help.faqPartner.howToApplyQ, a: t.help.faqPartner.howToApplyA },
+        { q: t.help.faqPartner.earningsQ, a: t.help.faqPartner.earningsA },
+        { q: t.help.faqPartner.payoutQ, a: t.help.faqPartner.payoutA },
+        { q: t.help.faqPartner.exclusiveQ, a: t.help.faqPartner.exclusiveA },
+      ],
+    },
+    {
+      id: 'technical',
       title: t.help.technical,
       icon: Cpu,
       items: [
@@ -57,6 +77,20 @@ export default function HelpPage() {
       ],
     },
   ];
+
+  // Handle ?section=partner — scroll to and auto-open the partner section
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section === 'partner') {
+      // Auto-open first item in the partner accordion
+      setDefaultOpenValue(`${t.help.partnerProgram}-0`);
+      // Scroll after a short delay to allow render
+      const timer = setTimeout(() => {
+        partnerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, t.help.partnerProgram]);
 
   const filteredCategories = faqCategories
     .map((category) => ({
@@ -86,8 +120,15 @@ export default function HelpPage() {
       ) : (
         filteredCategories.map((category) => {
           const Icon = category.icon;
+          const isPartner = category.id === 'partner';
           return (
-            <Paper key={category.title} withBorder p="xl" radius="lg">
+            <Paper
+              key={category.title}
+              withBorder
+              p="xl"
+              radius="lg"
+              ref={isPartner ? partnerRef : undefined}
+            >
               <Stack gap="md">
                 <Group gap="sm">
                   <Icon size={20} color="var(--mantine-color-gray-6)" />
@@ -95,7 +136,11 @@ export default function HelpPage() {
                     {category.title}
                   </Title>
                 </Group>
-                <Accordion variant="separated" radius="md">
+                <Accordion
+                  variant="separated"
+                  radius="md"
+                  defaultValue={isPartner ? defaultOpenValue : undefined}
+                >
                   {category.items.map((item, index) => (
                     <Accordion.Item key={index} value={`${category.title}-${index}`}>
                       <Accordion.Control>
