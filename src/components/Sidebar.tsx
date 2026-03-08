@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Ellipsis,
   Gauge,
+  Gift,
   GraduationCap,
   LifeBuoy,
   LogIn,
@@ -321,6 +322,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ActionIcon>
         </Tooltip>
 
+        {/* Refer & Earn */}
+        <Tooltip label={t.sidebar.referral} position="right">
+          <ActionIcon
+            component={Link}
+            href="/referral"
+            variant="subtle"
+            color={pathname.startsWith('/referral') ? 'indigo' : 'gray'}
+            size={36}
+            radius="md"
+            mb={4}
+          >
+            <Gift size={20} strokeWidth={1.5} />
+          </ActionIcon>
+        </Tooltip>
+
         {/* Ambassador (institution member) */}
         {profile?.institution_id && profile?.role !== 'institution_admin' && (
           <Tooltip label={t.institution.myInstitution} position="right">
@@ -573,6 +589,44 @@ const Sidebar: React.FC<SidebarProps> = ({
               </Group>
             </UnstyledButton>
           )}
+
+          {/* Refer & Earn */}
+          <UnstyledButton
+            component={Link}
+            href="/referral"
+            w="100%"
+            py={7}
+            px={10}
+            mx={6}
+            className="sidebar-hover"
+            style={{
+              borderRadius: 8,
+              cursor: 'pointer',
+              width: 'calc(100% - 12px)',
+              backgroundColor: pathname.startsWith('/referral')
+                ? 'var(--mantine-color-indigo-0)'
+                : undefined,
+            }}
+          >
+            <Group gap={10} wrap="nowrap">
+              <Gift
+                size={18}
+                strokeWidth={1.5}
+                color={
+                  pathname.startsWith('/referral')
+                    ? 'var(--mantine-color-indigo-6)'
+                    : 'var(--mantine-color-gray-6)'
+                }
+              />
+              <Text
+                size="md"
+                fw={pathname.startsWith('/referral') ? 600 : 400}
+                c={pathname.startsWith('/referral') ? 'indigo.7' : undefined}
+              >
+                {t.sidebar.referral}
+              </Text>
+            </Group>
+          </UnstyledButton>
 
           <Box h={8} />
 

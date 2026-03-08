@@ -1,13 +1,15 @@
 'use client';
 
-import { Check, Clock, Star, X } from 'lucide-react';
+import { Check, Clock, CreditCard, Gauge, Star, Tag, Wallet, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   Badge,
+  Box,
   Button,
   Group,
-  List,
   Loader,
+  Paper,
+  SimpleGrid,
   Stack,
   Text,
   Textarea,
@@ -113,6 +115,9 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
           <Text c="dimmed" fz="sm" ta="center">
             {t.agentApply.pendingDesc}
           </Text>
+          <Text c="dimmed" fz="xs" ta="center">
+            {t.agentApply.pendingTimeframe}
+          </Text>
           <Button variant="light" onClick={onClose}>
             {t.common.close}
           </Button>
@@ -131,6 +136,9 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
           <Text c="dimmed" fz="sm" ta="center">
             {t.agentApply.pendingDesc}
           </Text>
+          <Text c="dimmed" fz="xs" ta="center">
+            {t.agentApply.pendingTimeframe}
+          </Text>
           <Button variant="light" onClick={onClose}>
             {t.common.close}
           </Button>
@@ -146,6 +154,9 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
           <Badge variant="light" color="green" size="lg">
             {t.agentApply.approved}
           </Badge>
+          <Text c="dimmed" fz="sm" ta="center">
+            {t.agentApply.approvedDesc}
+          </Text>
           <Button variant="light" onClick={onClose}>
             {t.common.close}
           </Button>
@@ -179,12 +190,36 @@ export function AgentApplicationModal({ opened, onClose }: AgentApplicationModal
           <Text fw={600} fz="sm">
             {t.agentApply.benefits}
           </Text>
-          <List size="sm" spacing="xs">
-            <List.Item>{t.agentApply.benefit1}</List.Item>
-            <List.Item>{t.agentApply.benefit2}</List.Item>
-            <List.Item>{t.agentApply.benefit3}</List.Item>
-            <List.Item>{t.agentApply.benefit4}</List.Item>
-          </List>
+          <SimpleGrid cols={2} spacing="sm">
+            {[
+              { icon: Tag, label: t.agentApply.benefit1 },
+              { icon: CreditCard, label: t.agentApply.benefit2 },
+              { icon: Gauge, label: t.agentApply.benefit3 },
+              { icon: Wallet, label: t.agentApply.benefit4 },
+            ].map((b) => (
+              <Paper key={b.label} withBorder p="sm" radius="md">
+                <Group gap="xs" wrap="nowrap">
+                  <Box
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: 'var(--mantine-color-indigo-0)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <b.icon size={16} color="var(--mantine-color-indigo-6)" />
+                  </Box>
+                  <Text size="sm" fw={500}>
+                    {b.label}
+                  </Text>
+                </Group>
+              </Paper>
+            ))}
+          </SimpleGrid>
         </Stack>
 
         {/* Form */}

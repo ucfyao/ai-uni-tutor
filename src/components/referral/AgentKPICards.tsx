@@ -1,6 +1,7 @@
 'use client';
 
-import { Group, Paper, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
+import { CreditCard, TrendingUp, Users, Wallet } from 'lucide-react';
+import { Box, Group, Paper, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AgentDashboardStats } from '@/types/referral';
 
@@ -23,18 +24,26 @@ export function AgentKPICards({ stats, loading }: AgentKPICardsProps) {
     {
       label: t.agentDashboard.totalInvited,
       value: stats?.totalReferrals ?? 0,
+      icon: Users,
+      color: 'blue',
     },
     {
       label: t.agentDashboard.totalPaid,
       value: stats?.paidReferrals ?? 0,
+      icon: CreditCard,
+      color: 'green',
     },
     {
       label: t.agentDashboard.conversionRate,
       value: `${conversionRate}%`,
+      icon: TrendingUp,
+      color: 'orange',
     },
     {
       label: t.agentDashboard.monthlyIncome,
       value: `\u00a5${monthlyIncome}`,
+      icon: Wallet,
+      color: 'indigo',
     },
   ];
 
@@ -57,9 +66,23 @@ export function AgentKPICards({ stats, loading }: AgentKPICardsProps) {
     <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
       {cards.map((card) => (
         <Paper key={card.label} withBorder p="md" radius="md">
-          <Group justify="space-between" wrap="nowrap">
-            <Stack gap={4}>
-              <Text size="sm" c="dimmed" fw={500}>
+          <Group gap="md" wrap="nowrap">
+            <Box
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: `var(--mantine-color-${card.color}-0)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <card.icon size={20} color={`var(--mantine-color-${card.color}-6)`} />
+            </Box>
+            <Stack gap={2}>
+              <Text size="xs" c="dimmed" fw={500}>
                 {card.label}
               </Text>
               <Text size="xl" fw={700}>

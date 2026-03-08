@@ -189,6 +189,7 @@ export const chatTranslations = {
       mockExamHub: '模考',
       toolsHub: '工具',
       referralAdmin: '推荐管理',
+      referral: '推荐有礼',
     },
     modals: {
       deleteChat: '删除对话？',
@@ -406,6 +407,7 @@ export const chatTranslations = {
       mockExamHub: 'Mock Exams',
       toolsHub: 'Tools',
       referralAdmin: 'Referral',
+      referral: 'Refer & Earn',
     },
     modals: {
       deleteChat: 'Delete Chat?',

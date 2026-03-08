@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Container, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Container, Skeleton, Stack, Tabs, Text, Title } from '@mantine/core';
 import { getAgentDashboard } from '@/app/actions/agent-actions';
 import { AgentKPICards } from '@/components/referral/AgentKPICards';
 import { AgentTrendChart } from '@/components/referral/AgentTrendChart';
@@ -78,10 +78,28 @@ export default function AgentDashboardClient() {
           {t.agentDashboard.title}
         </Title>
 
-        <AgentKPICards stats={stats} loading={loading} />
-        <AgentTrendChart />
-        <PromoCodeTable />
-        <WalletSection stats={stats} onRefresh={fetchDashboard} />
+        <Tabs defaultValue="overview" variant="outline">
+          <Tabs.List>
+            <Tabs.Tab value="overview">{t.agentDashboard.tabOverview}</Tabs.Tab>
+            <Tabs.Tab value="promo">{t.agentDashboard.tabPromoCodes}</Tabs.Tab>
+            <Tabs.Tab value="wallet">{t.agentDashboard.tabWallet}</Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="overview" pt="lg">
+            <Stack gap={24}>
+              <AgentKPICards stats={stats} loading={loading} />
+              <AgentTrendChart />
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="promo" pt="lg">
+            <PromoCodeTable />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="wallet" pt="lg">
+            <WalletSection stats={stats} onRefresh={fetchDashboard} />
+          </Tabs.Panel>
+        </Tabs>
       </Stack>
     </Container>
   );

@@ -1,12 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Group, Loader, Paper, Stack, Switch, Table, Text } from '@mantine/core';
+import {
+  Badge,
+  Button,
+  CopyButton,
+  Group,
+  Loader,
+  Paper,
+  Stack,
+  Switch,
+  Table,
+  Text,
+} from '@mantine/core';
 import { generateAgentCode, toggleReferralCode } from '@/app/actions/agent-actions';
 import { getMyCodes } from '@/app/actions/referral-actions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
 import type { ReferralCodeEntity } from '@/types/referral';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
 export function PromoCodeTable() {
   const { t } = useLanguage();
@@ -96,6 +109,7 @@ export function PromoCodeTable() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>{t.agentDashboard.code}</Table.Th>
+                <Table.Th>{t.agentDashboard.referralLink}</Table.Th>
                 <Table.Th>{t.agentDashboard.status}</Table.Th>
                 <Table.Th>{t.adminReferral.date}</Table.Th>
               </Table.Tr>
@@ -107,6 +121,25 @@ export function PromoCodeTable() {
                     <Text size="sm" fw={500} ff="monospace">
                       {code.code}
                     </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap">
+                      <Text size="xs" c="dimmed" truncate style={{ maxWidth: 180 }}>
+                        {`${SITE_URL}/r/${code.code}`}
+                      </Text>
+                      <CopyButton value={`${SITE_URL}/r/${code.code}`}>
+                        {({ copied, copy }) => (
+                          <Button
+                            size="compact-xs"
+                            variant="subtle"
+                            color={copied ? 'teal' : 'gray'}
+                            onClick={copy}
+                          >
+                            {copied ? t.agentDashboard.linkCopied : t.agentDashboard.copyLink}
+                          </Button>
+                        )}
+                      </CopyButton>
+                    </Group>
                   </Table.Td>
                   <Table.Td>
                     <Group gap="xs">

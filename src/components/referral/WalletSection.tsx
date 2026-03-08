@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
+import { Badge, Button, Loader, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
 import { getAgentConfig, getWithdrawalHistory } from '@/app/actions/agent-actions';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { AgentDashboardStats, WithdrawalRequestEntity } from '@/types/referral';
@@ -71,24 +71,31 @@ export function WalletSection({ stats, onRefresh }: WalletSectionProps) {
     <>
       <Paper withBorder p="md" radius="md">
         <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={600} size="lg">
-              {t.agentDashboard.wallet}
+          <Text fw={600} size="lg">
+            {t.agentDashboard.wallet}
+          </Text>
+
+          {/* Balance hero */}
+          <Paper withBorder p="lg" radius="md" style={{ textAlign: 'center' }}>
+            <Text size="sm" c="dimmed" mb={4}>
+              {t.agentDashboard.balance}
             </Text>
-            <Button size="xs" variant="light" onClick={() => setModalOpened(true)}>
+            <Text size="2rem" fw={700} c="indigo">
+              {formatCNY(balance)}
+            </Text>
+            <Button
+              size="sm"
+              variant="light"
+              color="indigo"
+              mt="md"
+              onClick={() => setModalOpened(true)}
+            >
               {t.agentDashboard.withdraw}
             </Button>
-          </Group>
+          </Paper>
 
-          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-            <Paper withBorder p="sm" radius="md">
-              <Text size="sm" c="dimmed">
-                {t.agentDashboard.balance}
-              </Text>
-              <Text size="xl" fw={700}>
-                {formatCNY(balance)}
-              </Text>
-            </Paper>
+          {/* Earned / Withdrawn */}
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
             <Paper withBorder p="sm" radius="md">
               <Text size="sm" c="dimmed">
                 {t.agentDashboard.totalEarned}

@@ -18,7 +18,6 @@ import {
   Title,
 } from '@mantine/core';
 import { FullScreenModal } from '@/components/FullScreenModal';
-import { ReferralCard } from '@/components/referral/ReferralCard';
 import { FULL_NAME_MAX_LENGTH } from '@/constants/profile';
 import { useHeader } from '@/context/HeaderContext';
 import { useProfile } from '@/context/ProfileContext';
@@ -293,9 +292,6 @@ export default function PersonalizationPage() {
             </Button>
           </Stack>
         </FullScreenModal>
-
-        {/* Refer & Earn */}
-        <ReferralCard />
       </Stack>
     </Container>
   );
