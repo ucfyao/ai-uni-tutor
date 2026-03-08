@@ -100,6 +100,37 @@
   animation-play-state: paused, paused;
 }
 
+/* Close button */
+.closeButton {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    background 0.15s ease;
+}
+
+.wrapper:hover .closeButton {
+  opacity: 1;
+}
+
+.closeButton:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
 /* Triple pulse rings */
 .pulseRing {
   position: absolute;
