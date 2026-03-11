@@ -23,6 +23,8 @@ export interface ExtractFromPDFOptions {
   signal?: AbortSignal;
   /** Called at each sub-step so callers can relay progress to users. */
   onProgress?: (detail: string) => void;
+  /** Gemini responseSchema — enforces output structure at model level. */
+  responseSchema?: Record<string, unknown>;
 }
 
 /**
@@ -41,6 +43,7 @@ export async function extractFromPDF<T>(
   // Backwards-compatible: accept AbortSignal directly or options object
   const signal = opts instanceof AbortSignal ? opts : opts?.signal;
   const onProgress = opts instanceof AbortSignal ? undefined : opts?.onProgress;
+  const responseSchema = opts instanceof AbortSignal ? undefined : opts?.responseSchema;
   const tmpDir = os.tmpdir();
   const fileName = `upload-${crypto.randomBytes(8).toString('hex')}.pdf`;
   const tempFilePath = path.join(tmpDir, fileName);
@@ -108,6 +111,7 @@ export async function extractFromPDF<T>(
             ],
             config: {
               responseMimeType: 'application/json',
+              ...(responseSchema ? { responseSchema } : {}),
               temperature: 0,
               maxOutputTokens: 65536,
             },
