@@ -223,6 +223,19 @@ export class ExamPaperService {
     return this.repo.getStats(paperIds);
   }
 
+  async batchUpdateAnswersWithExplanation(
+    matches: Array<{ questionId: string; answer: string; explanation: string }>,
+  ): Promise<void> {
+    await Promise.all(
+      matches.map((m) =>
+        this.repo.updateQuestion(m.questionId, {
+          answer: m.answer,
+          explanation: m.explanation,
+        }),
+      ),
+    );
+  }
+
   /** Admin-level delete — no ownership check. Use deletePaper() for user-facing deletion. */
   async deleteExam(paperId: string): Promise<void> {
     await this.repo.delete(paperId);

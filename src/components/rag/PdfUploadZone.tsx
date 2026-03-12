@@ -414,7 +414,7 @@ export function PdfUploadZone({
                     </Text>
                   </Stack>
                 </Button>
-                {docType === 'assignment' && (
+                {(docType === 'assignment' || docType === 'exam') && (
                   <Button
                     variant="light"
                     color="teal"

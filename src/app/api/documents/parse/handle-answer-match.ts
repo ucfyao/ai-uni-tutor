@@ -1,4 +1,4 @@
-import type { AssignmentMetadata, AssignmentStats } from '@/lib/rag/parsers/types';
+import type { AssignmentMetadata, AssignmentStats, ExamStats } from '@/lib/rag/parsers/types';
 import { sendGeminiError, type PipelineContext } from './types';
 
 /**
@@ -14,14 +14,134 @@ function normalizeTitle(title: string): string {
     .replace(/\s+/g, ' ');
 }
 
-export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<void> {
+/** Unified item shape for matching logic */
+interface MatchableItem {
+  id: string;
+  orderNum: number;
+  title: string;
+  hasAnswer: boolean;
+}
+
+async function loadAssignmentItems(documentId: string): Promise<MatchableItem[]> {
+  const { getAssignmentService } = await import('@/lib/services/AssignmentService');
+  const items = await getAssignmentService().getItems(documentId);
+  return items.map((item) => ({
+    id: item.id,
+    orderNum: item.orderNum,
+    title: (item.metadata?.title as string) || item.content.substring(0, 50),
+    hasAnswer: !!item.referenceAnswer?.trim(),
+  }));
+}
+
+async function loadExamQuestions(documentId: string): Promise<MatchableItem[]> {
+  const { getExamPaperService } = await import('@/lib/services/ExamPaperService');
+  const questions = await getExamPaperService().getQuestionsByPaperId(documentId);
+  return questions.map((q) => ({
+    id: q.id,
+    orderNum: q.orderNum,
+    title: ((q.metadata as Record<string, unknown>)?.title as string) || q.content.substring(0, 50),
+    hasAnswer: !!q.answer?.trim(),
+  }));
+}
+
+async function saveAssignmentAnswers(
+  _documentId: string,
+  matches: Array<{ itemId: string; answer: string; explanation: string }>,
+): Promise<void> {
+  const { getAssignmentService } = await import('@/lib/services/AssignmentService');
+  await getAssignmentService().batchUpdateAnswersWithExplanation(
+    matches.map((m) => ({
+      itemId: m.itemId,
+      referenceAnswer: m.answer,
+      explanation: m.explanation,
+    })),
+  );
+}
+
+async function saveExamAnswers(
+  _documentId: string,
+  matches: Array<{ itemId: string; answer: string; explanation: string }>,
+): Promise<void> {
+  const { getExamPaperService } = await import('@/lib/services/ExamPaperService');
+  await getExamPaperService().batchUpdateAnswersWithExplanation(
+    matches.map((m) => ({
+      questionId: m.itemId,
+      answer: m.answer,
+      explanation: m.explanation,
+    })),
+  );
+}
+
+async function updateAssignmentStats(
+  documentId: string,
+  send: PipelineContext['send'],
+): Promise<void> {
+  const { getAssignmentService } = await import('@/lib/services/AssignmentService');
+  const assignmentService = getAssignmentService();
+  const allItems = await assignmentService.getItems(documentId);
+  const stats: AssignmentStats = {
+    itemCount: allItems.length,
+    mainCount: 0,
+    subCount: 0,
+    withAnswer: 0,
+    warningCount: 0,
+  };
+  for (const item of allItems) {
+    if (item.parentItemId === null) stats.mainCount++;
+    else stats.subCount++;
+    if (item.referenceAnswer?.trim()) stats.withAnswer++;
+    if (item.warnings && item.warnings.length > 0) stats.warningCount++;
+  }
+  const current = await assignmentService.findById(documentId);
+  const updatedMetadata: AssignmentMetadata = {
+    ...((current?.metadata as AssignmentMetadata) || {}),
+    stats,
+  };
+  await assignmentService.updateMetadata(documentId, updatedMetadata);
+  send('log', {
+    message: `Stats: ${stats.withAnswer}/${stats.itemCount} have answers`,
+    level: 'info',
+  });
+}
+
+async function updateExamStats(documentId: string, send: PipelineContext['send']): Promise<void> {
+  const { getExamPaperService } = await import('@/lib/services/ExamPaperService');
+  const examService = getExamPaperService();
+  const allItems = await examService.getQuestionsByPaperId(documentId);
+  const stats: ExamStats = {
+    itemCount: allItems.length,
+    mainCount: 0,
+    subCount: 0,
+    withAnswer: 0,
+    warningCount: 0,
+  };
+  for (const item of allItems) {
+    if (item.parentQuestionId === null) stats.mainCount++;
+    else stats.subCount++;
+    if (item.answer?.trim()) stats.withAnswer++;
+    const itemMeta = item.metadata as Record<string, unknown>;
+    if (Array.isArray(itemMeta?.warnings) && itemMeta.warnings.length > 0) stats.warningCount++;
+  }
+  const currentPaper = await examService.findById(documentId);
+  const currentMeta = (currentPaper?.metadata as Record<string, unknown>) || {};
+  await examService.updatePaperMeta(documentId, {
+    metadata: { ...currentMeta, stats },
+  });
+  send('log', {
+    message: `Stats: ${stats.withAnswer}/${stats.itemCount} have answers`,
+    level: 'info',
+  });
+}
+
+export async function handleAnswerMatchPipeline(
+  ctx: PipelineContext,
+  docType: 'assignment' | 'exam' = 'assignment',
+): Promise<void> {
   const { send, signal, documentId, fileBuffer } = ctx;
 
   send('status', { stage: 'extracting', message: 'Extracting answers from PDF...' });
 
   const { extractAnswersFromPDF } = await import('@/lib/rag/parsers/answer-extractor');
-  const { getAssignmentService } = await import('@/lib/services/AssignmentService');
-  const assignmentService = getAssignmentService();
 
   // ── Stage 1: Extract answers from PDF ──
   let answers: Awaited<ReturnType<typeof extractAnswersFromPDF>>['answers'];
@@ -54,7 +174,11 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
   send('log', { message: `Extracted ${answers.length} answers`, level: 'success' });
 
   // ── Stage 2: Fetch existing items ──
-  const existingItems = await assignmentService.getItems(documentId);
+  const existingItems =
+    docType === 'exam'
+      ? await loadExamQuestions(documentId)
+      : await loadAssignmentItems(documentId);
+
   if (existingItems.length === 0) {
     send('log', { message: 'No existing questions to match against', level: 'error' });
     send('error', { message: 'No existing questions found.', code: 'NO_ITEMS' });
@@ -67,11 +191,9 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
   });
 
   // ── Stage 3: Match answers to items by title ──
-  // Build lookup: normalized title → item (prefer leaf items, handle duplicates)
-  const titleToItems = new Map<string, typeof existingItems>();
+  const titleToItems = new Map<string, MatchableItem[]>();
   for (const item of existingItems) {
-    const rawTitle = (item.metadata?.title as string) || item.content.substring(0, 50);
-    const norm = normalizeTitle(rawTitle);
+    const norm = normalizeTitle(item.title);
     if (!norm) continue;
     const arr = titleToItems.get(norm) ?? [];
     arr.push(item);
@@ -80,7 +202,7 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
 
   type MatchResult = {
     itemId: string;
-    referenceAnswer: string;
+    answer: string;
     explanation: string;
     matchMethod: 'exact' | 'prefix' | 'order';
     answerTitle: string;
@@ -96,16 +218,15 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
     const normAnswer = normalizeTitle(answer.title);
     const candidates = titleToItems.get(normAnswer);
     if (candidates) {
-      // Pick first unmatched candidate
       const candidate = candidates.find((c) => !matchedItemIds.has(c.id));
       if (candidate) {
         matches.push({
           itemId: candidate.id,
-          referenceAnswer: answer.referenceAnswer,
+          answer: answer.referenceAnswer,
           explanation: answer.explanation,
           matchMethod: 'exact',
           answerTitle: answer.title,
-          itemTitle: (candidate.metadata?.title as string) || '',
+          itemTitle: candidate.title,
         });
         matchedItemIds.add(candidate.id);
         continue;
@@ -125,11 +246,11 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
         if (candidate) {
           matches.push({
             itemId: candidate.id,
-            referenceAnswer: answer.referenceAnswer,
+            answer: answer.referenceAnswer,
             explanation: answer.explanation,
             matchMethod: 'prefix',
             answerTitle: answer.title,
-            itemTitle: (candidate.metadata?.title as string) || '',
+            itemTitle: candidate.title,
           });
           matchedItemIds.add(candidate.id);
           found = true;
@@ -144,7 +265,7 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
   if (stillUnmatched.length > 0) {
     const unmatchedItems = existingItems
       .filter((item) => !matchedItemIds.has(item.id))
-      .filter((item) => !item.referenceAnswer?.trim()) // Only match to items without answers
+      .filter((item) => !item.hasAnswer)
       .sort((a, b) => a.orderNum - b.orderNum);
 
     const sortedUnmatched = [...stillUnmatched].sort(
@@ -155,22 +276,18 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
     for (let i = 0; i < pairCount; i++) {
       matches.push({
         itemId: unmatchedItems[i].id,
-        referenceAnswer: sortedUnmatched[i].referenceAnswer,
+        answer: sortedUnmatched[i].referenceAnswer,
         explanation: sortedUnmatched[i].explanation,
         matchMethod: 'order',
         answerTitle: sortedUnmatched[i].title,
-        itemTitle: (unmatchedItems[i].metadata?.title as string) || '',
+        itemTitle: unmatchedItems[i].title,
       });
       matchedItemIds.add(unmatchedItems[i].id);
     }
 
-    // Log remaining truly unmatched
     const remaining = sortedUnmatched.slice(pairCount);
     for (const a of remaining) {
-      send('log', {
-        message: `Unmatched answer: "${a.title}"`,
-        level: 'warning',
-      });
+      send('log', { message: `Unmatched answer: "${a.title}"`, level: 'warning' });
     }
   }
 
@@ -193,7 +310,7 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
   // Log overwrites
   for (const m of matches) {
     const existingItem = existingItems.find((i) => i.id === m.itemId);
-    if (existingItem?.referenceAnswer?.trim()) {
+    if (existingItem?.hasAnswer) {
       send('log', {
         message: `Overwriting existing answer for "${m.itemTitle || m.answerTitle}"`,
         level: 'warning',
@@ -207,13 +324,11 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
   if (signal.aborted) return;
 
   try {
-    await assignmentService.batchUpdateAnswersWithExplanation(
-      matches.map((m) => ({
-        itemId: m.itemId,
-        referenceAnswer: m.referenceAnswer,
-        explanation: m.explanation,
-      })),
-    );
+    if (docType === 'exam') {
+      await saveExamAnswers(documentId, matches);
+    } else {
+      await saveAssignmentAnswers(documentId, matches);
+    }
   } catch (e) {
     console.error('Batch update answers error:', e);
     send('error', { message: 'Failed to save matched answers.', code: 'SAVE_ERROR' });
@@ -222,30 +337,13 @@ export async function handleAnswerMatchPipeline(ctx: PipelineContext): Promise<v
 
   // ── Update stats ──
   try {
-    const allItems = await assignmentService.getItems(documentId);
-    const stats: AssignmentStats = {
-      itemCount: allItems.length,
-      mainCount: 0,
-      subCount: 0,
-      withAnswer: 0,
-      warningCount: 0,
-    };
-
-    for (const item of allItems) {
-      if (item.parentItemId === null) stats.mainCount++;
-      else stats.subCount++;
-      if (item.referenceAnswer?.trim()) stats.withAnswer++;
-      if (item.warnings && item.warnings.length > 0) stats.warningCount++;
+    if (docType === 'exam') {
+      await updateExamStats(documentId, send);
+    } else {
+      await updateAssignmentStats(documentId, send);
     }
-
-    const currentAssignment = await assignmentService.findById(documentId);
-    const updatedMetadata: AssignmentMetadata = {
-      ...((currentAssignment?.metadata as AssignmentMetadata) || {}),
-      stats,
-    };
-    await assignmentService.updateMetadata(documentId, updatedMetadata);
   } catch (e) {
-    console.warn('Failed to update assignment stats (non-fatal):', e);
+    console.warn('Failed to update stats (non-fatal):', e);
     send('log', { message: 'Stats update failed (non-fatal)', level: 'warning' });
   }
 

@@ -242,10 +242,10 @@ export async function POST(request: Request) {
 
       if (doc_type === 'lecture') {
         await handleLecturePipeline(ctx);
+      } else if (has_answers && (doc_type === 'assignment' || doc_type === 'exam')) {
+        await handleAnswerMatchPipeline(ctx, doc_type);
       } else if (doc_type === 'exam') {
         await handleExamPipeline(ctx);
-      } else if (doc_type === 'assignment' && has_answers) {
-        await handleAnswerMatchPipeline(ctx);
       } else {
         await handleAssignmentPipeline(ctx);
       }
