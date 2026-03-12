@@ -24,6 +24,7 @@ interface ParseMetadata {
   courseId?: string;
   reparse?: boolean;
   append?: boolean;
+  matchAnswers?: boolean;
 }
 
 interface StageTime {
@@ -135,6 +136,7 @@ export function useStreamingParse(): StreamingParseState {
     if (metadata.courseId) formData.append('courseId', metadata.courseId);
     if (metadata.reparse) formData.append('reparse', 'true');
     if (metadata.append) formData.append('append', 'true');
+    if (metadata.matchAnswers) formData.append('has_answers', 'true');
     formData.append('documentId', metadata.documentId);
 
     (async () => {

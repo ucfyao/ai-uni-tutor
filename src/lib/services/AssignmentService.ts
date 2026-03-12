@@ -230,6 +230,23 @@ export class AssignmentService {
     );
   }
 
+  async batchUpdateAnswersWithExplanation(
+    matches: Array<{ itemId: string; referenceAnswer: string; explanation: string }>,
+  ): Promise<void> {
+    await Promise.all(
+      matches.map(async (m) => {
+        const item = await this.repo.findItemById(m.itemId);
+        const content = item?.content ?? '';
+        const warnings = this.validateItemContent(content, m.referenceAnswer);
+        await this.repo.updateItem(m.itemId, {
+          referenceAnswer: m.referenceAnswer,
+          explanation: m.explanation,
+          warnings,
+        });
+      }),
+    );
+  }
+
   async mergeItems(assignmentId: string, itemIds: string[]): Promise<string> {
     if (itemIds.length < 2) throw new Error('Need at least 2 items to merge');
 

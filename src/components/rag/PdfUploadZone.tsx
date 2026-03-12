@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Check,
   CircleAlert,
+  FileCheck,
   FileText,
   Loader2,
   RefreshCw,
@@ -345,7 +346,7 @@ export function PdfUploadZone({
   }, [parseState.status, onParseComplete]);
 
   const startParseFile = useCallback(
-    (file: File, opts?: { reparse?: boolean; append?: boolean }) => {
+    (file: File, opts?: { reparse?: boolean; append?: boolean; matchAnswers?: boolean }) => {
       setSelectedFile({ name: file.name, size: file.size });
       completeFiredRef.current = false;
       parseState.startParse(file, {
@@ -354,6 +355,7 @@ export function PdfUploadZone({
         courseId,
         reparse: opts?.reparse || undefined,
         append: opts?.append || undefined,
+        matchAnswers: opts?.matchAnswers || undefined,
       });
     },
     [parseState, documentId, docType, courseId],
@@ -412,6 +414,29 @@ export function PdfUploadZone({
                     </Text>
                   </Stack>
                 </Button>
+                {(docType === 'assignment' || docType === 'exam') && (
+                  <Button
+                    variant="light"
+                    color="teal"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<FileCheck size={16} />}
+                    styles={{ label: { flex: 1 } }}
+                    onClick={() => {
+                      modals.closeAll();
+                      startParseFile(file, { matchAnswers: true });
+                    }}
+                  >
+                    <Stack gap={0} align="flex-start">
+                      <Text size="sm" fw={600}>
+                        {t.knowledge.reparseMatchAnswers}
+                      </Text>
+                      <Text size="xs" c="dimmed" fw={400}>
+                        {t.knowledge.reparseMatchAnswersDesc}
+                      </Text>
+                    </Stack>
+                  </Button>
+                )}
               </Stack>
             </Stack>
           ),
