@@ -112,7 +112,9 @@ Critical rules:
 - Each item's referenceAnswer must correspond to THAT specific question.
 - Do NOT include instructions or headers as questions unless they serve as a parent grouping.
 
-Return ONLY a valid JSON object with a "metadata" object and an "items" array. No markdown, no explanation.
+Return ONLY a valid JSON object (NOT a bare array). Expected format:
+{"metadata": {"totalPoints": null, "totalQuestions": null, "duration": null, "instructions": null, "examDate": null}, "items": [{"title": "...", "orderNum": 1, "content": "...", "parentIndex": null, "options": [], "referenceAnswer": "", "explanation": "", "points": 0, "type": "...", "difficulty": "medium", "sourcePages": [1]}]}
+No markdown, no explanation.
 - IMPORTANT: Inside JSON strings, backslashes MUST be escaped as \\\\. For example, LaTeX "\\alpha" must be written as "\\\\alpha" in JSON.`;
 }
 
@@ -128,14 +130,56 @@ export async function extractAssignmentQuestions(
   const { result: raw, warnings: extractWarnings } = await extractFromPDF<unknown>(
     fileBuffer,
     prompt,
-    { signal, onProgress },
+    {
+      signal,
+      onProgress,
+      responseSchema: {
+        type: 'object',
+        properties: {
+          metadata: {
+            type: 'object',
+            properties: {
+              totalPoints: { type: 'number', nullable: true },
+              totalQuestions: { type: 'number', nullable: true },
+              duration: { type: 'string', nullable: true },
+              instructions: { type: 'string', nullable: true },
+              examDate: { type: 'string', nullable: true },
+            },
+          },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                orderNum: { type: 'integer' },
+                content: { type: 'string' },
+                parentIndex: { type: 'integer', nullable: true },
+                options: { type: 'array', items: { type: 'string' } },
+                referenceAnswer: { type: 'string' },
+                explanation: { type: 'string' },
+                points: { type: 'number' },
+                type: { type: 'string' },
+                difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'] },
+                sourcePages: { type: 'array', items: { type: 'integer' } },
+              },
+              required: ['orderNum', 'content', 'sourcePages'],
+            },
+          },
+        },
+        required: ['metadata', 'items'],
+      },
+    },
   );
 
   if (extractWarnings.length > 0) {
     return { items: [], metadata: {}, warnings: extractWarnings };
   }
 
-  const result = extractionSchema.safeParse(raw);
+  // Gemini sometimes returns a bare array instead of { items: [...] } — normalize
+  const normalized = Array.isArray(raw) ? { items: raw } : raw;
+
+  const result = extractionSchema.safeParse(normalized);
   if (result.success) {
     return { items: result.data.items, metadata: result.data.metadata ?? {}, warnings: [] };
   }
@@ -147,7 +191,7 @@ export async function extractAssignmentQuestions(
     `Schema validation: ${issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
   );
 
-  const rawObj = raw as Record<string, unknown>;
+  const rawObj = normalized as Record<string, unknown>;
   const rawItems = Array.isArray(rawObj?.items) ? rawObj.items : [];
 
   const validItems: EnrichedAssignmentItem[] = [];

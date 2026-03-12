@@ -53,7 +53,9 @@ Rules:
 - Do NOT include classroom admin info ("homework due", "see you next week")
 - Do NOT include table-of-contents entries as separate knowledge points
 
-Return ONLY a valid JSON object with a "sections" array. No markdown, no explanation.
+Return ONLY a valid JSON object (NOT a bare array). Expected format:
+{"sections": [{"title": "...", "summary": "...", "sourcePages": [1], "knowledgePoints": [{"title": "...", "content": "...", "sourcePages": [1]}]}]}
+No markdown, no explanation.
 - IMPORTANT: All mathematical formulas MUST be wrapped in LaTeX delimiters:
   - Inline formulas: $ formula $
   - Block formulas: $$ formula $$
@@ -95,6 +97,36 @@ export async function extractSections(
           detail,
         });
       },
+      responseSchema: {
+        type: 'object',
+        properties: {
+          sections: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                summary: { type: 'string' },
+                sourcePages: { type: 'array', items: { type: 'integer' } },
+                knowledgePoints: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string' },
+                      content: { type: 'string' },
+                      sourcePages: { type: 'array', items: { type: 'integer' } },
+                    },
+                    required: ['title', 'content', 'sourcePages'],
+                  },
+                },
+              },
+              required: ['title', 'summary', 'sourcePages', 'knowledgePoints'],
+            },
+          },
+        },
+        required: ['sections'],
+      },
     },
   );
 
@@ -120,7 +152,10 @@ export async function extractSections(
     });
   }
 
-  const result = extractionResultSchema.safeParse(raw);
+  // Gemini sometimes returns a bare array instead of { sections: [...] } — normalize
+  const normalized = Array.isArray(raw) ? { sections: raw } : raw;
+
+  const result = extractionResultSchema.safeParse(normalized);
   if (result.success) return { sections: result.data.sections, warnings: [] };
 
   // Validation failed — attempt partial recovery
@@ -130,7 +165,7 @@ export async function extractSections(
     `Schema validation failed: ${issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
   );
 
-  const rawObj = raw as Record<string, unknown>;
+  const rawObj = normalized as Record<string, unknown>;
   const rawSections = Array.isArray(rawObj?.sections) ? rawObj.sections : [];
   const validSections: ExtractedSection[] = [];
   for (const section of rawSections) {
