@@ -7,6 +7,7 @@ import { getQuotaService } from '@/lib/services/QuotaService';
 import { createSSEStream } from '@/lib/sse';
 import { requireAnyAdmin, requireCourseAdmin } from '@/lib/supabase/server';
 import type { Json } from '@/types/database';
+import { handleAnswerMatchPipeline } from './handle-answer-match';
 import { handleAssignmentPipeline } from './handle-assignment';
 import { handleExamPipeline } from './handle-exam';
 import { handleLecturePipeline } from './handle-lecture';
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
         send('error', { message: 'Invalid upload data', code: 'VALIDATION_ERROR' });
         return;
       }
-      const { documentId, doc_type, reparse, append } = parsed.data;
+      const { documentId, doc_type, has_answers, reparse, append } = parsed.data;
 
       // ── Course-level permission check (look up course from existing record) ──
       let courseId: string | null = null;
@@ -165,7 +166,7 @@ export async function POST(request: Request) {
         existingCount = chunks.length;
       }
 
-      if (existingCount > 0 && !reparse && !append) {
+      if (existingCount > 0 && !reparse && !append && !has_answers) {
         send('log', {
           message: `Document already has ${existingCount} items. Use reparse or append to continue.`,
           level: 'info',
@@ -243,6 +244,8 @@ export async function POST(request: Request) {
         await handleLecturePipeline(ctx);
       } else if (doc_type === 'exam') {
         await handleExamPipeline(ctx);
+      } else if (doc_type === 'assignment' && has_answers) {
+        await handleAnswerMatchPipeline(ctx);
       } else {
         await handleAssignmentPipeline(ctx);
       }
