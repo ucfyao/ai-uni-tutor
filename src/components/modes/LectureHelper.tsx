@@ -15,13 +15,17 @@ import { isDocumentFile, isImageFile, MAX_FILE_SIZE_BYTES } from '@/lib/file-uti
 import { formatOutlineToMarkdown } from '@/lib/format-outline';
 import { showNotification } from '@/lib/notifications';
 import type { ChatMessage, ChatSession } from '@/types';
+import type { UserCardEntity } from '@/types/user-card';
 
 interface LectureHelperProps {
   session: ChatSession;
   onUpdateSession: (session: ChatSession) => void;
-  openDrawerTrigger?: number; // Increment to trigger drawer open
+  openDrawerTrigger?: number;
   isLoading?: boolean;
   desktopPanelCollapsed?: boolean;
+  /** undefined = not loaded yet, [] = loaded but empty */
+  initialUserCards?: UserCardEntity[];
+  initialCardChats?: Record<string, import('@/types/card-conversation').CardConversationEntity[]>;
 }
 
 export const LectureHelper: React.FC<LectureHelperProps> = ({
@@ -30,6 +34,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   openDrawerTrigger,
   isLoading = false,
   desktopPanelCollapsed = false,
+  initialUserCards,
+  initialCardChats,
 }) => {
   const { t } = useLanguage();
   const {
@@ -53,11 +59,9 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   } = useChatStream();
 
   // Knowledge cards management
-  const { officialCards, userCards, loadRelatedCards, addManualCard, deleteCard } =
-    useKnowledgeCards({
-      sessionId: session?.id || '',
-      enabled: true,
-    });
+  const { userCards, addManualCard, resolveCardId, deleteCard } = useKnowledgeCards({
+    initialUserCards,
+  });
 
   // Card interaction state
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
@@ -259,7 +263,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           await updateLastMessage(accumulatedContent, null);
           setLastError(null);
           isSendingRef.current = false;
-          loadRelatedCards(messageToSend);
+
           requestAnimationFrame(() => chatInputRef.current?.focus());
         },
       },
@@ -269,15 +273,22 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const handleCardAsk = async (
     card: { id: string; title: string },
     question: string,
-    cardType: 'knowledge' | 'user' = 'knowledge',
+    cardType: 'user' = 'user',
   ): Promise<string | null> => {
     if (!session) return null;
 
     setLoadingCardId(card.id);
 
     try {
+      // Resolve temp ID to real ID before calling server
+      const realId = await resolveCardId(card.id);
+      if (!realId) {
+        showNotification({ title: 'Error', message: 'Card not ready', color: 'orange' });
+        return null;
+      }
+
       const result = await askCardQuestion(
-        card.id,
+        realId,
         cardType,
         question,
         session.course?.code,
@@ -302,7 +313,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   };
 
-  const handleAddCard = async (
+  const handleAddCard = (
     title: string,
     content: string,
     options?: {
@@ -314,7 +325,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     const excerpt = content.trim();
     const normalizedTitle = title.trim();
 
-    const cardId = await addManualCard(normalizedTitle, excerpt, {
+    // Synchronous — returns temp ID immediately via optimistic update
+    const cardId = addManualCard(normalizedTitle, excerpt, session.id, {
       messageId: options?.source?.messageId,
       role: options?.source?.role,
     });
@@ -527,7 +539,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           await updateLastMessage(accumulatedContent, null);
           setLastError(null);
           isSendingRef.current = false;
-          loadRelatedCards(userMsg.content);
           requestAnimationFrame(() => chatInputRef.current?.focus());
         },
       },
@@ -597,7 +608,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             await updateLastMessage(accumulatedContent, null);
             setLastError(null);
             isSendingRef.current = false;
-            loadRelatedCards(newContent);
             requestAnimationFrame(() => chatInputRef.current?.focus());
           },
         },
@@ -817,9 +827,10 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             }}
           >
             <KnowledgePanel
-              officialCards={officialCards}
               userCards={userCards}
               visible={true}
+              isLoading={initialUserCards === undefined}
+              initialCardChats={initialCardChats}
               activeCardId={activeCardId}
               onCardClick={setActiveCardId}
               onAsk={handleCardAsk}
@@ -870,7 +881,6 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
           }}
         >
           <KnowledgePanel
-            officialCards={officialCards}
             userCards={userCards}
             visible={true}
             activeCardId={activeCardId}

@@ -9,6 +9,7 @@ import {
   Group,
   Modal,
   ScrollArea,
+  Skeleton,
   Stack,
   Text,
   ThemeIcon,
@@ -17,22 +18,22 @@ import { fetchCardConversations } from '@/app/actions/knowledge-cards';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { CardConversationEntity } from '@/types/card-conversation';
-import type { KnowledgeCardSummary } from '@/types/knowledge-card';
 import type { UserCardEntity } from '@/types/user-card';
 import KnowledgeCardItem from './KnowledgeCardItem';
 
 const LectureIcon = getDocIcon('lecture');
 
 interface KnowledgePanelProps {
-  officialCards: KnowledgeCardSummary[];
   userCards: UserCardEntity[];
   visible: boolean;
+  isLoading?: boolean;
+  initialCardChats?: Record<string, CardConversationEntity[]>;
   activeCardId: string | null;
   onCardClick: (id: string | null) => void;
   onAsk: (
     card: { id: string; title: string },
     question: string,
-    cardType: 'knowledge' | 'user',
+    cardType: 'user',
   ) => Promise<string | null>;
   onDelete: (cardId: string) => void;
   loadingCardId: string | null;
@@ -45,9 +46,10 @@ interface KnowledgePanelProps {
 }
 
 export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
-  officialCards,
   userCards,
   visible,
+  isLoading = false,
+  initialCardChats,
   activeCardId,
   onCardClick,
   onAsk,
@@ -63,50 +65,38 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   const { t } = useLanguage();
   const [inputs, setInputs] = useState<{ [key: string]: string }>({});
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
-  const [cardChats, setCardChats] = useState<Record<string, CardConversationEntity[]>>({});
+  // cardChats: key exists with array = loaded, key missing = not loaded yet
+  const [cardChats, setCardChats] = useState<Record<string, CardConversationEntity[]>>(
+    initialCardChats ?? {},
+  );
   const viewportRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const totalCards = officialCards.length + userCards.length;
-  const [openedSections, setOpenedSections] = useState<string[]>(() => {
-    if (officialCards.length > 0) return ['official'];
-    if (userCards.length > 0) return ['mine'];
-    return [];
-  });
 
-  // Keep opened sections valid when card categories appear/disappear
+  // Sync pre-fetched chats when they arrive from server
+  const hasReceivedChats = useRef(!!initialCardChats);
   useEffect(() => {
-    setOpenedSections((prev) =>
-      prev.filter((v) => (v === 'official' ? officialCards.length > 0 : userCards.length > 0)),
-    );
-  }, [officialCards.length, userCards.length]);
+    if (!initialCardChats || hasReceivedChats.current) return;
+    hasReceivedChats.current = true;
+    setCardChats(initialCardChats);
+  }, [initialCardChats]);
 
-  // If cards load after mount and nothing is open, open the most relevant section
-  const prevCardsCountRef = useRef(totalCards);
-  useEffect(() => {
-    const prev = prevCardsCountRef.current;
-    prevCardsCountRef.current = totalCards;
-
-    if (prev === 0 && totalCards > 0 && openedSections.length === 0) {
-      if (officialCards.length > 0) setOpenedSections(['official']);
-      else if (userCards.length > 0) setOpenedSections(['mine']);
-    }
-  }, [totalCards, openedSections.length, officialCards.length, userCards.length]);
-
-  // Load card conversations when a card is expanded
+  // Fetch card conversations on expand — only if not already loaded
+  const loadingCardChatsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeCardId) return;
-    if (cardChats[activeCardId]) return; // already loaded
+    if (activeCardId in cardChats) return; // already loaded
+    if (loadingCardChatsRef.current.has(activeCardId)) return; // already fetching
 
-    const isOfficial = officialCards.some((c) => c.id === activeCardId);
-    const cardType = isOfficial ? 'knowledge' : 'user';
-
+    loadingCardChatsRef.current.add(activeCardId);
     (async () => {
-      const result = await fetchCardConversations(activeCardId, cardType as 'knowledge' | 'user');
-      if (result.success) {
-        setCardChats((prev) => ({ ...prev, [activeCardId]: result.data }));
-      }
+      const result = await fetchCardConversations(activeCardId, 'user');
+      loadingCardChatsRef.current.delete(activeCardId);
+      setCardChats((prev) => ({
+        ...prev,
+        [activeCardId]: result.success ? result.data : [],
+      }));
     })();
-  }, [activeCardId, officialCards, cardChats]);
+  }, [activeCardId, cardChats]);
 
   // Pre-fill card input when requested (e.g. after Explain selection)
   useEffect(() => {
@@ -116,14 +106,11 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
     }
   }, [prefillInput, onPrefillConsumed]);
 
-  // Memoize input change handler
   const handleInputChange = useCallback((cardId: string, value: string) => {
     setInputs((p) => ({ ...p, [cardId]: value }));
   }, []);
 
-  // Use a ref to store per-card ref callbacks to ensure they are stable identity
   const refCallbacks = useRef<Record<string, (el: HTMLDivElement | null) => void>>({});
-
   const getRefCallback = (id: string) => {
     if (!refCallbacks.current[id]) {
       refCallbacks.current[id] = (el) => {
@@ -133,42 +120,26 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
     return refCallbacks.current[id];
   };
 
-  // Encapsulated: scroll to card using manual scroll calculation
+  // Scroll to card
   useEffect(() => {
     if (!scrollToCardId || !onScrolledToCard) return;
 
-    const targetSection = (() => {
-      if (userCards.some((c) => c.id === scrollToCardId)) return 'mine';
-      if (officialCards.some((c) => c.id === scrollToCardId)) return 'official';
-      return null;
-    })();
-
-    if (targetSection) {
-      // UX: when focusing a user-created card, collapse official to reduce distraction.
-      setOpenedSections((prev) => {
-        if (targetSection === 'mine') return ['mine'];
-        return prev.includes(targetSection) ? prev : [...prev, targetSection];
-      });
-    }
-
     let attempts = 0;
-    const maxAttempts = 30; // Try for ~1.5s max
+    const maxAttempts = 30;
     let hasScrolled = false;
 
     const tryScroll = () => {
-      if (hasScrolled) return; // Prevent duplicate scrolls
+      if (hasScrolled) return;
 
       const el = cardRefs.current[scrollToCardId];
       const viewport = viewportRef.current;
 
       if (!el || !viewport) {
-        // Element not ready yet, retry
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(tryScroll, 50);
         } else {
-          console.warn('[KnowledgePanel] Max scroll attempts reached, giving up');
-          onScrolledToCard(); // Still clear the pending state
+          onScrolledToCard();
         }
         return;
       }
@@ -179,82 +150,30 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
         return;
       }
 
-      // Check if element has valid dimensions
       const elRect = el.getBoundingClientRect();
       if (elRect.width <= 0 || elRect.height <= 0) {
-        // Element not fully rendered yet, retry
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(tryScroll, 50);
         } else {
-          console.warn('[KnowledgePanel] Element not fully rendered, giving up');
           onScrolledToCard();
         }
         return;
       }
 
-      // Robust: compute offset via bounding rects (works through Accordions / nested containers)
       const targetScroll = Math.max(0, viewport.scrollTop + (elRect.top - viewportRect.top) - 8);
-
       hasScrolled = true;
       viewport.scrollTo({ top: targetScroll, behavior: 'smooth' });
       onScrolledToCard();
     };
 
-    // Start trying after a small delay to allow React to render
-    const timeoutId = setTimeout(() => {
-      tryScroll();
-    }, 180); // Allow accordion/card expansion layout to settle
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [scrollToCardId, scrollTrigger, onScrolledToCard, officialCards, userCards]);
-
-  // When a card finishes thinking/loading, clear its input
-  useEffect(() => {
-    // Intentionally left as a placeholder: input is cleared on send via handleAskWrapper.
-  }, []);
-
-  const handleAskOfficial = useCallback(
-    async (card: { id: string; title: string }, question: string) => {
-      setInputs((prev) => ({ ...prev, [card.id]: '' }));
-      // Optimistically add user message
-      const userMsg: CardConversationEntity = {
-        id: `temp_u_${Date.now()}`,
-        cardId: card.id,
-        cardType: 'knowledge',
-        userId: '',
-        sessionId: null,
-        courseCode: null,
-        role: 'user',
-        content: question,
-        createdAt: new Date(),
-      };
-      setCardChats((prev) => ({ ...prev, [card.id]: [...(prev[card.id] || []), userMsg] }));
-      const answer = await onAsk(card, question, 'knowledge');
-      if (answer) {
-        const aiMsg: CardConversationEntity = {
-          id: `temp_a_${Date.now()}`,
-          cardId: card.id,
-          cardType: 'knowledge',
-          userId: '',
-          sessionId: null,
-          courseCode: null,
-          role: 'assistant',
-          content: answer,
-          createdAt: new Date(),
-        };
-        setCardChats((prev) => ({ ...prev, [card.id]: [...(prev[card.id] || []), aiMsg] }));
-      }
-    },
-    [onAsk],
-  );
+    const timeoutId = setTimeout(tryScroll, 180);
+    return () => clearTimeout(timeoutId);
+  }, [scrollToCardId, scrollTrigger, onScrolledToCard, userCards]);
 
   const handleAskUser = useCallback(
     async (card: { id: string; title: string }, question: string) => {
       setInputs((prev) => ({ ...prev, [card.id]: '' }));
-      // Optimistically add user message
       const userMsg: CardConversationEntity = {
         id: `temp_u_${Date.now()}`,
         cardId: card.id,
@@ -319,7 +238,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
             <Text size="sm" fw={600} lineClamp={1} style={{ lineHeight: 1.1 }}>
               {t.chat.knowledgeCards}
             </Text>
-            {totalCards > 0 && (
+            {userCards.length > 0 && (
               <Badge
                 variant="light"
                 color="gray"
@@ -328,7 +247,7 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                 style={{ flexShrink: 0 }}
                 styles={{ root: { height: 18, padding: '0 8px', fontSize: 10 } }}
               >
-                {totalCards}
+                {userCards.length}
               </Badge>
             )}
           </Group>
@@ -358,7 +277,22 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
           }}
         >
           <Stack gap={10} p="md">
-            {totalCards === 0 && (
+            {isLoading && userCards.length === 0 && (
+              <Box
+                p="md"
+                style={{
+                  backgroundColor: 'var(--mantine-color-body)',
+                  border: '1px solid var(--mantine-color-default-border)',
+                  borderRadius: 14,
+                }}
+              >
+                <Skeleton height={14} width="60%" radius="md" mb={10} />
+                <Skeleton height={10} width="90%" radius="md" mb={6} />
+                <Skeleton height={10} width="40%" radius="md" />
+              </Box>
+            )}
+
+            {!isLoading && userCards.length === 0 && (
               <Box
                 p="lg"
                 style={{
@@ -391,11 +325,10 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
               </Box>
             )}
 
-            {(officialCards.length > 0 || userCards.length > 0) && (
+            {userCards.length > 0 && (
               <Accordion
                 multiple
-                value={openedSections}
-                onChange={setOpenedSections}
+                defaultValue={['mine']}
                 variant="separated"
                 radius="md"
                 chevron={<ChevronDown size={14} />}
@@ -431,136 +364,74 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
                     backgroundColor: 'transparent',
                     padding: '4px 12px 12px 12px',
                   },
-                  // Flatten Mantine's `.mantine-Accordion-content` wrapper
-                  // (the div is still in the DOM, but it does not create a box).
                   content: {
                     display: 'contents',
                   },
                 }}
               >
-                {officialCards.length > 0 && (
-                  <Accordion.Item value="official">
-                    <Accordion.Control>
-                      <Group gap={8} wrap="nowrap" justify="space-between" w="100%">
-                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                          <Box
-                            w={6}
-                            h={6}
-                            style={{
-                              borderRadius: 99,
-                              background: `var(--mantine-color-${getDocColor('lecture')}-6)`,
-                              boxShadow: '0 0 0 2px rgba(79, 70, 229, 0.12)',
-                              flexShrink: 0,
-                            }}
-                          />
-                          <Text size="sm" fw={600} lineClamp={1}>
-                            {t.chat.officialCards}
-                          </Text>
-                        </Group>
-                        <Badge
-                          color={getDocColor('lecture')}
-                          variant="light"
-                          size="xs"
-                          radius="xl"
-                          style={{ flexShrink: 0 }}
-                          styles={{ root: { height: 16, padding: '0 6px', fontSize: 9 } }}
-                        >
-                          {officialCards.length}
-                        </Badge>
+                <Accordion.Item value="mine">
+                  <Accordion.Control>
+                    <Group
+                      gap={8}
+                      wrap="nowrap"
+                      justify="space-between"
+                      w="100%"
+                      style={{ minWidth: 0 }}
+                    >
+                      <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Box
+                          w={6}
+                          h={6}
+                          style={{
+                            borderRadius: 99,
+                            background: `var(--mantine-color-${getDocColor('lecture')}-4)`,
+                            boxShadow: '0 0 0 2px rgba(79, 70, 229, 0.12)',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Text size="sm" fw={600} lineClamp={1}>
+                          {t.chat.myCards}
+                        </Text>
                       </Group>
-                    </Accordion.Control>
-                    <Accordion.Panel>
-                      <Stack gap={12} pt={10}>
-                        {officialCards.map((card) => (
-                          <KnowledgeCardItem
-                            key={card.id}
-                            card={{
-                              id: card.id,
-                              title: card.title,
-                              content: card.definition,
-                              keyConcepts: card.keyConcepts,
-                            }}
-                            cardType="knowledge"
-                            isActive={activeCardId === card.id}
-                            chats={cardChats[card.id] || []}
-                            isLoading={loadingCardId === card.id}
-                            inputValue={inputs[card.id] || ''}
-                            onCardClick={onCardClick}
-                            onAsk={handleAskOfficial}
-                            onDelete={setDeleteCardId}
-                            onInputChange={handleInputChange}
-                            setRef={getRefCallback(card.id)}
-                          />
-                        ))}
-                      </Stack>
-                    </Accordion.Panel>
-                  </Accordion.Item>
-                )}
-
-                {userCards.length > 0 && (
-                  <Accordion.Item value="mine">
-                    <Accordion.Control>
-                      <Group
-                        gap={8}
-                        wrap="nowrap"
-                        justify="space-between"
-                        w="100%"
-                        style={{ minWidth: 0 }}
+                      <Badge
+                        color={getDocColor('lecture')}
+                        variant="light"
+                        size="xs"
+                        radius="xl"
+                        style={{ flexShrink: 0 }}
+                        styles={{ root: { height: 16, padding: '0 6px', fontSize: 9 } }}
                       >
-                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                          <Box
-                            w={6}
-                            h={6}
-                            style={{
-                              borderRadius: 99,
-                              background: `var(--mantine-color-${getDocColor('lecture')}-4)`,
-                              boxShadow: '0 0 0 2px rgba(79, 70, 229, 0.12)',
-                              flexShrink: 0,
-                            }}
-                          />
-                          <Text size="sm" fw={600} lineClamp={1}>
-                            {t.chat.myCards}
-                          </Text>
-                        </Group>
-                        <Badge
-                          color={getDocColor('lecture')}
-                          variant="light"
-                          size="xs"
-                          radius="xl"
-                          style={{ flexShrink: 0 }}
-                          styles={{ root: { height: 16, padding: '0 6px', fontSize: 9 } }}
-                        >
-                          {userCards.length}
-                        </Badge>
-                      </Group>
-                    </Accordion.Control>
-                    <Accordion.Panel>
-                      <Stack gap={12} pt={10}>
-                        {userCards.map((card) => (
-                          <KnowledgeCardItem
-                            key={card.id}
-                            card={{
-                              id: card.id,
-                              title: card.title,
-                              content: card.content,
-                              excerpt: card.excerpt,
-                            }}
-                            cardType="user"
-                            isActive={activeCardId === card.id}
-                            chats={cardChats[card.id] || []}
-                            isLoading={loadingCardId === card.id}
-                            inputValue={inputs[card.id] || ''}
-                            onCardClick={onCardClick}
-                            onAsk={handleAskUser}
-                            onDelete={setDeleteCardId}
-                            onInputChange={handleInputChange}
-                            setRef={getRefCallback(card.id)}
-                          />
-                        ))}
-                      </Stack>
-                    </Accordion.Panel>
-                  </Accordion.Item>
-                )}
+                        {userCards.length}
+                      </Badge>
+                    </Group>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Stack gap={12} pt={10}>
+                      {userCards.map((card) => (
+                        <KnowledgeCardItem
+                          key={card.id}
+                          card={{
+                            id: card.id,
+                            title: card.title,
+                            content: card.content,
+                            excerpt: card.excerpt,
+                          }}
+                          cardType="user"
+                          isActive={activeCardId === card.id}
+                          chats={cardChats[card.id] ?? []}
+                          chatsLoading={activeCardId === card.id && !(card.id in cardChats)}
+                          isLoading={loadingCardId === card.id}
+                          inputValue={inputs[card.id] || ''}
+                          onCardClick={onCardClick}
+                          onAsk={handleAskUser}
+                          onDelete={setDeleteCardId}
+                          onInputChange={handleInputChange}
+                          setRef={getRefCallback(card.id)}
+                        />
+                      ))}
+                    </Stack>
+                  </Accordion.Panel>
+                </Accordion.Item>
               </Accordion>
             )}
           </Stack>

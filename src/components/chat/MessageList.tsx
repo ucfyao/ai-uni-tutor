@@ -58,7 +58,7 @@ interface MessageListProps {
     options?: {
       source?: { messageId: string; role: 'user' | 'assistant' };
     },
-  ) => Promise<void>;
+  ) => void;
   courseCode?: string;
   onCommandSelect?: (command: ChatCommand) => void;
   onRegenerate?: (messageId: string) => void;

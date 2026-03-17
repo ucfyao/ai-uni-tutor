@@ -1000,7 +1000,10 @@ const SessionItem: React.FC<SessionItemProps> = ({
                 radius="sm"
                 color="gray"
                 style={{ flexShrink: 0 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
                 <Ellipsis size={14} />
               </ActionIcon>
@@ -1009,6 +1012,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
               <Menu.Item
                 leftSection={<Share size={14} />}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   onShare?.(session.id);
                 }}
@@ -1018,6 +1022,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
               <Menu.Item
                 leftSection={<PenLine size={14} />}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   onRename?.(session.id, session.title || session.course?.code || 'Untitled');
                 }}
@@ -1028,6 +1033,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
               <Menu.Item
                 leftSection={session.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   onTogglePin?.(session.id, !session.isPinned);
                   showNotification({
@@ -1043,6 +1049,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
                 leftSection={<Trash size={14} />}
                 color="red"
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   onDelete?.(session.id);
                 }}

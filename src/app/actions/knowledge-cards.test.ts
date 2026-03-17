@@ -11,9 +11,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 const mockKnowledgeCardService = {
-  findRelatedCards: vi.fn(),
   updateCard: vi.fn(),
-  getUserCards: vi.fn(),
   createUserCard: vi.fn(),
   deleteUserCard: vi.fn(),
   getCardConversations: vi.fn(),
@@ -42,9 +40,7 @@ vi.mock('@/lib/services/QuotaService', () => ({
 // ---------------------------------------------------------------------------
 
 const {
-  fetchRelatedCards,
   updateKnowledgeCard,
-  fetchUserCards,
   createUserCard,
   deleteUserCard,
   fetchCardConversations,
@@ -68,57 +64,6 @@ describe('Knowledge Card Actions', () => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(MOCK_USER);
     mockQuotaService.enforce.mockResolvedValue(undefined);
-  });
-
-  // =========================================================================
-  // fetchRelatedCards
-  // =========================================================================
-  describe('fetchRelatedCards', () => {
-    it('should return related cards for a valid query', async () => {
-      const mockCards = [{ id: 'card-1', title: 'Derivatives' }];
-      mockKnowledgeCardService.findRelatedCards.mockResolvedValue(mockCards);
-
-      const result = await fetchRelatedCards('calculus derivatives');
-
-      expect(result).toEqual({ success: true, data: mockCards });
-      expect(mockKnowledgeCardService.findRelatedCards).toHaveBeenCalledWith(
-        'calculus derivatives',
-        undefined,
-      );
-    });
-
-    it('should pass matchCount when provided', async () => {
-      mockKnowledgeCardService.findRelatedCards.mockResolvedValue([]);
-
-      await fetchRelatedCards('query', 5);
-
-      expect(mockKnowledgeCardService.findRelatedCards).toHaveBeenCalledWith('query', 5);
-    });
-
-    it('should return error when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await fetchRelatedCards('query');
-
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
-    });
-
-    it('should return error for empty query', async () => {
-      const result = await fetchRelatedCards('');
-
-      expect(result).toEqual({ success: false, error: 'Invalid query.' });
-      expect(mockKnowledgeCardService.findRelatedCards).not.toHaveBeenCalled();
-    });
-
-    it('should handle service errors', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockKnowledgeCardService.findRelatedCards.mockRejectedValue(new Error('Embedding failed'));
-
-      const result = await fetchRelatedCards('query');
-
-      expect(result.success).toBe(false);
-      expect(result).toHaveProperty('error', 'Embedding failed');
-    });
   });
 
   // =========================================================================
@@ -163,49 +108,6 @@ describe('Knowledge Card Actions', () => {
 
       expect(result.success).toBe(false);
       expect(result).toHaveProperty('error', 'Not found');
-    });
-  });
-
-  // =========================================================================
-  // fetchUserCards
-  // =========================================================================
-  describe('fetchUserCards', () => {
-    it('should return user cards', async () => {
-      const mockCards = [{ id: 'uc-1', title: 'My Note' }];
-      mockKnowledgeCardService.getUserCards.mockResolvedValue(mockCards);
-
-      const result = await fetchUserCards();
-
-      expect(result).toEqual({ success: true, data: mockCards });
-      expect(mockKnowledgeCardService.getUserCards).toHaveBeenCalledWith(MOCK_USER.id, undefined);
-    });
-
-    it('should pass sessionId when provided', async () => {
-      mockKnowledgeCardService.getUserCards.mockResolvedValue([]);
-
-      await fetchUserCards('session-123');
-
-      expect(mockKnowledgeCardService.getUserCards).toHaveBeenCalledWith(
-        MOCK_USER.id,
-        'session-123',
-      );
-    });
-
-    it('should return error when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
-
-      const result = await fetchUserCards();
-
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
-    });
-
-    it('should handle service errors', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockKnowledgeCardService.getUserCards.mockRejectedValue(new Error('DB error'));
-
-      const result = await fetchUserCards();
-
-      expect(result.success).toBe(false);
     });
   });
 
