@@ -10,10 +10,13 @@
  */
 import { z } from 'zod';
 import { mapError } from '@/lib/errors';
+import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getSessionService } from '@/lib/services/SessionService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
+import type { CardConversationEntity } from '@/types/card-conversation';
 import { ChatMessage, ChatSession, TutoringMode } from '@/types/index';
+import type { UserCardEntity } from '@/types/user-card';
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -73,13 +76,10 @@ const toggleShareSchema = z.object({
 /**
  * Get a single session with messages
  */
-export async function getChatSession(
-  sessionId: string,
-): Promise<ActionResult<ChatSession | null>> {
+export async function getChatSession(sessionId: string): Promise<ActionResult<ChatSession | null>> {
   try {
     const parsed = sessionIdSchema.safeParse(sessionId);
-    if (!parsed.success)
-      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
+    if (!parsed.success) return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
 
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
@@ -93,6 +93,49 @@ export async function getChatSession(
 }
 
 /**
+ * Get a session with messages AND user knowledge cards in a single request.
+ * Avoids multiple round-trips (session + cards = 1 auth check, 1 request).
+ */
+export async function getSessionWithCards(sessionId: string): Promise<
+  ActionResult<{
+    session: ChatSession;
+    userCards: UserCardEntity[];
+    cardChats: Record<string, CardConversationEntity[]>;
+  } | null>
+> {
+  try {
+    const parsed = sessionIdSchema.safeParse(sessionId);
+    if (!parsed.success) return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const sessionService = getSessionService();
+    const cardService = getKnowledgeCardService();
+
+    const [session, userCards] = await Promise.all([
+      sessionService.getFullSession(sessionId, user.id),
+      cardService.getUserCards(user.id, sessionId),
+    ]);
+
+    if (!session) return { success: true, data: null };
+
+    // Pre-fetch all card conversations in parallel
+    const chatEntries = await Promise.all(
+      userCards.map(async (card) => {
+        const convos = await cardService.getCardConversations(card.id, 'user');
+        return [card.id, convos] as const;
+      }),
+    );
+    const cardChats: Record<string, CardConversationEntity[]> = Object.fromEntries(chatEntries);
+
+    return { success: true, data: { session, userCards, cardChats } };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+/**
  * Get only messages for a session
  */
 export async function getChatMessages(
@@ -100,8 +143,7 @@ export async function getChatMessages(
 ): Promise<ActionResult<ChatMessage[] | null>> {
   try {
     const parsed = sessionIdSchema.safeParse(sessionId);
-    if (!parsed.success)
-      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
+    if (!parsed.success) return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
 
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
@@ -138,8 +180,7 @@ export async function getSharedSession(
 ): Promise<ActionResult<ChatSession | null>> {
   try {
     const parsed = sessionIdSchema.safeParse(sessionId);
-    if (!parsed.success)
-      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
+    if (!parsed.success) return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
 
     const sessionService = getSessionService();
     const data = await sessionService.getSharedSession(sessionId);
@@ -299,8 +340,7 @@ export async function toggleSessionShare(
 export async function deleteChatSession(sessionId: string): Promise<ActionResult<void>> {
   try {
     const parsed = sessionIdSchema.safeParse(sessionId);
-    if (!parsed.success)
-      return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
+    if (!parsed.success) return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
 
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
@@ -368,7 +408,9 @@ export async function switchBranch(
   sessionId: string,
   parentMessageId: string,
   targetChildId: string,
-): Promise<ActionResult<{ messages: ChatMessage[]; siblingsMap: Record<string, string[]> } | null>> {
+): Promise<
+  ActionResult<{ messages: ChatMessage[]; siblingsMap: Record<string, string[]> } | null>
+> {
   try {
     const parsed = switchBranchSchema.safeParse({ sessionId, parentMessageId, targetChildId });
     if (!parsed.success)

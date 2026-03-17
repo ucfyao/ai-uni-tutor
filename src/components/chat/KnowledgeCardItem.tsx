@@ -39,6 +39,7 @@ interface KnowledgeCardItemProps {
   cardType: 'knowledge' | 'user';
   isActive: boolean;
   chats: CardConversationEntity[];
+  chatsLoading?: boolean;
   isLoading: boolean;
   inputValue: string;
   onCardClick: (id: string | null) => void;
@@ -54,6 +55,7 @@ const KnowledgeCardItem = memo(
     cardType,
     isActive,
     chats,
+    chatsLoading = false,
     isLoading,
     inputValue,
     onCardClick,
@@ -209,7 +211,13 @@ const KnowledgeCardItem = memo(
               {card.content && <MarkdownRenderer content={card.content} compact />}
             </Box>
 
-            {chats.length > 0 && (
+            {chatsLoading && (
+              <Group gap={8} mb={10} justify="center">
+                <Loader size={14} color="gray" />
+              </Group>
+            )}
+
+            {!chatsLoading && chats.length > 0 && (
               <Stack gap={8} mb={10} align="stretch">
                 {chats.map((m) => (
                   <Box

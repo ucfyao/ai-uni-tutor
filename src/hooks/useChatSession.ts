@@ -22,13 +22,26 @@ export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessi
     sessionRef.current = session;
   }, [session]);
 
-  // Sync with parent when initialSession changes (e.g. page loaded session, or navigated to different session)
+  // Sync with parent when initialSession changes (e.g. page loaded session, server fetch returned messages)
   useEffect(() => {
-    if (initialSession && initialSession.id !== sessionRef.current?.id) {
+    if (!initialSession) return;
+
+    const current = sessionRef.current;
+
+    // Different session ID — always sync
+    if (initialSession.id !== current?.id) {
+      sessionRef.current = initialSession;
+      setSession(initialSession);
+      return;
+    }
+
+    // Same session but parent provided messages while local state has none
+    // (e.g. server fetch returned after initial empty render)
+    if (current && current.messages.length === 0 && initialSession.messages.length > 0) {
       sessionRef.current = initialSession;
       setSession(initialSession);
     }
-  }, [initialSession, initialSession?.id]);
+  }, [initialSession, initialSession?.id, initialSession?.messages.length]);
 
   // Debounced write to IndexedDB cache whenever messages change
   const debouncedSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);

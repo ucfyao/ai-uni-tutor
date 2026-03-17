@@ -16,21 +16,11 @@ import { getQuotaService } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
 import type { CardConversationEntity } from '@/types/card-conversation';
-import type { KnowledgeCardSummary } from '@/types/knowledge-card';
 import type { UserCardEntity } from '@/types/user-card';
 
 // ============================================================================
 // VALIDATION SCHEMAS
 // ============================================================================
-
-const fetchRelatedCardsSchema = z.object({
-  query: z.string().min(1).max(2000),
-  matchCount: z.number().int().min(1).max(20).optional(),
-});
-
-const fetchUserCardsSchema = z.object({
-  sessionId: z.string().min(1).optional(),
-});
 
 const createUserCardSchema = z.object({
   sessionId: z.string().min(1).optional(),
@@ -57,34 +47,8 @@ const askCardQuestionSchema = z.object({
 });
 
 // ============================================================================
-// KNOWLEDGE CARD ACTIONS
+// KNOWLEDGE CARD ADMIN ACTIONS
 // ============================================================================
-
-/**
- * Fetch knowledge cards related to a query via embedding similarity.
- */
-export async function fetchRelatedCards(
-  query: string,
-  matchCount?: number,
-): Promise<ActionResult<KnowledgeCardSummary[]>> {
-  try {
-    const parsed = fetchRelatedCardsSchema.safeParse({ query, matchCount });
-    if (!parsed.success) {
-      return { success: false, error: 'Invalid query.' };
-    }
-
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-
-    const service = getKnowledgeCardService();
-    const cards = await service.findRelatedCards(parsed.data.query, parsed.data.matchCount);
-    return { success: true, data: cards };
-  } catch (error) {
-    console.error('fetchRelatedCards error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to fetch related cards';
-    return { success: false, error: message };
-  }
-}
 
 /**
  * Update a knowledge card's fields (admin only).
@@ -129,29 +93,6 @@ export async function updateKnowledgeCard(data: {
 // ============================================================================
 // USER CARD ACTIONS
 // ============================================================================
-
-/**
- * Fetch user-created cards, optionally filtered by session.
- */
-export async function fetchUserCards(sessionId?: string): Promise<ActionResult<UserCardEntity[]>> {
-  try {
-    const parsed = fetchUserCardsSchema.safeParse({ sessionId });
-    if (!parsed.success) {
-      return { success: false, error: 'Invalid session ID.' };
-    }
-
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-
-    const service = getKnowledgeCardService();
-    const cards = await service.getUserCards(user.id, parsed.data.sessionId);
-    return { success: true, data: cards };
-  } catch (error) {
-    console.error('fetchUserCards error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to fetch user cards';
-    return { success: false, error: message };
-  }
-}
 
 /**
  * Create a user card from text selection in chat.
@@ -244,8 +185,6 @@ export async function fetchCardConversations(
 
 /**
  * Ask a follow-up question about a card.
- * Saves the user question, generates an AI response, saves the response,
- * and returns the AI answer.
  */
 export async function askCardQuestion(
   cardId: string,
@@ -269,12 +208,10 @@ export async function askCardQuestion(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    // Enforce AI quota before LLM call
     await getQuotaService().enforce(user.id);
 
     const cardService = getKnowledgeCardService();
 
-    // Save the user's question
     await cardService.addCardConversation({
       cardId: parsed.data.cardId,
       cardType: parsed.data.cardType,
@@ -284,7 +221,6 @@ export async function askCardQuestion(
       content: parsed.data.question,
     });
 
-    // Generate AI response using ChatService.explainConcept
     const chatService = getChatService();
     const answer = await chatService.explainConcept(
       parsed.data.question,
@@ -292,7 +228,6 @@ export async function askCardQuestion(
       parsed.data.courseId,
     );
 
-    // Save the assistant's answer
     await cardService.addCardConversation({
       cardId: parsed.data.cardId,
       cardType: parsed.data.cardType,
