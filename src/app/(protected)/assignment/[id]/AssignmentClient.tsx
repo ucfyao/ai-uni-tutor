@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Anchor, Button, Center, Stack, Text, Title } from '@mantine/core';
 import {
-  getChatSession,
+  getSessionWithCards,
   saveChatMessage,
   toggleSessionPin,
   updateChatSessionMode,
@@ -19,6 +19,7 @@ import { useSessions } from '@/context/SessionContext';
 import { chatCache } from '@/lib/chat-cache';
 import { handleKnowledgePanelToggle } from '@/lib/knowledge-panel-toggle';
 import { ChatSession } from '@/types';
+import type { UserCardEntity } from '@/types/user-card';
 
 interface AssignmentClientProps {
   id: string;
@@ -29,6 +30,11 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
   const routerRef = useRef(router);
   const [session, setSession] = useState<ChatSession | null>(null);
   const [loading, setLoading] = useState(true);
+  // undefined = not loaded yet (show skeleton), [] = loaded but empty, [...] = loaded with data
+  const [initialUserCards, setInitialUserCards] = useState<UserCardEntity[] | undefined>(undefined);
+  const [initialCardChats, setInitialCardChats] = useState<
+    Record<string, import('@/types/card-conversation').CardConversationEntity[]> | undefined
+  >(undefined);
 
   // Track last saved message index to prevent duplicate saves (O(1) lookup)
   const lastSavedIndexRef = useRef(0);
@@ -83,18 +89,22 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
           }
         }
 
-        // 3. Always fetch full session from server (authoritative: siblingsMap + correct branch)
-        const freshResult = await getChatSession(id);
+        // 3. Fetch session + user cards in a single request
+        const freshResult = await getSessionWithCards(id);
         if (cancelled) return;
 
         if (!freshResult.success || !freshResult.data) {
+          setInitialUserCards([]);
+          setInitialCardChats({});
           setLoading(false);
           // Only redirect if we never had a session to show
           if (!fromList) routerRef.current.push('/study');
           return;
         }
 
-        const freshSession = freshResult.data;
+        const { session: freshSession, userCards, cardChats } = freshResult.data;
+        setInitialUserCards(userCards);
+        setInitialCardChats(cardChats);
 
         // Mode guard
         if (freshSession.mode && freshSession.mode !== 'Assignment Coach') {
@@ -305,6 +315,8 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
           openDrawerTrigger={knowledgeDrawerTrigger}
           isLoading={loading}
           desktopPanelCollapsed={desktopPanelCollapsed}
+          initialUserCards={initialUserCards}
+          initialCardChats={initialCardChats}
         />
       </ChatPageLayout>
 
