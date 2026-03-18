@@ -4,10 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   CheckCircle,
-  Cpu,
   CreditCard,
   Database,
+  ExternalLink,
   FileText,
+  Gauge,
   KeyRound,
   LayoutDashboard,
   RefreshCw,
@@ -23,7 +24,6 @@ import {
   Box,
   Button,
   Card,
-  Divider,
   Group,
   Loader,
   Progress,
@@ -64,23 +64,10 @@ interface UpstashData {
   plan: string;
 }
 
-interface GeminiModelData {
-  name: string;
-  label: string;
-  today: number;
-  monthly: number;
-}
-
-interface GeminiData {
-  models: GeminiModelData[];
-  totalToday: number;
-  totalMonthly: number;
-  activeUsersToday: number;
-}
-
 interface PoolEntryStatus {
   id: number;
   provider: 'gemini' | 'minimax';
+  model: string;
   maskedKey: string;
   disabled: boolean;
   cooldownUntil: number;
@@ -91,6 +78,26 @@ interface PoolEntryStatus {
 interface PoolStatusData {
   entries: PoolEntryStatus[];
   serverTime: number;
+}
+
+interface GeminiQuotaEntry {
+  displayName: string;
+  modelId: string;
+  rpm: number;
+  tpm: number;
+  rpd: number;
+  todayUsage: number;
+  monthlyUsage: number;
+  inUse: boolean;
+}
+
+interface GeminiQuotaData {
+  models: GeminiQuotaEntry[];
+  totalToday: number;
+  totalMonthly: number;
+  activeUsersToday: number;
+  dashboardUrl: string;
+  lastUpdated: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -250,52 +257,139 @@ function UpstashContent({ data }: { data: UpstashData }) {
   );
 }
 
-function GeminiContent({ data }: { data: GeminiData }) {
+// ---------------------------------------------------------------------------
+// Unified Gemini card (Quota + Usage + Key Pool)
+// ---------------------------------------------------------------------------
+
+function useService<T>(service: string) {
+  return useQuery<T>({
+    queryKey: ['admin-dashboard', service],
+    queryFn: () => fetchService<T>(service),
+    staleTime: 0,
+  });
+}
+
+function GeminiQuotaCard() {
+  const quota = useService<GeminiQuotaData | { error: string }>('gemini-quota');
+  const quotaData =
+    !quota.isLoading && !quota.isError && quota.data && !isError(quota.data) ? quota.data : null;
+
   return (
-    <Stack gap="sm">
-      {data.models.map((model) => (
-        <Stack key={model.name} gap={4}>
-          <Text size="sm" fw={500}>
-            {model.label}
+    <Card withBorder shadow="sm" padding="lg">
+      <Group justify="space-between" mb="md">
+        <Group gap="xs">
+          <Gauge size={18} color="var(--mantine-color-cyan-5)" />
+          <Text fw={600}>Gemini Quota</Text>
+          {quotaData && (
+            <Group gap="xs" ml="xs">
+              <Badge color="blue" variant="light" size="sm">
+                Today: {formatNumber(quotaData.totalToday)}
+              </Badge>
+              <Badge color="gray" variant="light" size="sm">
+                Monthly: {formatNumber(quotaData.totalMonthly)}
+              </Badge>
+              <Badge color="teal" variant="light" size="sm">
+                Users: {formatNumber(quotaData.activeUsersToday)}
+              </Badge>
+            </Group>
+          )}
+        </Group>
+        {quotaData && (
+          <Anchor href={quotaData.dashboardUrl} target="_blank" size="xs">
+            <Group gap={4}>
+              Google AI Studio
+              <ExternalLink size={12} />
+            </Group>
+          </Anchor>
+        )}
+      </Group>
+
+      {quota.isLoading ? (
+        <CardLoading />
+      ) : quota.isError ? (
+        <CardError
+          message={quota.error instanceof Error ? quota.error.message : 'Failed to load'}
+        />
+      ) : quotaData ? (
+        <Stack gap="xs">
+          <ScrollArea>
+            <Table striped highlightOnHover withTableBorder fz="xs">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Model</Table.Th>
+                  <Table.Th ta="right">RPM</Table.Th>
+                  <Table.Th ta="right">RPD (used/limit)</Table.Th>
+                  <Table.Th ta="right">Monthly</Table.Th>
+                  <Table.Th w={50} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {quotaData.models.map((m) => {
+                  const pct = m.rpd > 0 ? (m.todayUsage / m.rpd) * 100 : 0;
+                  const color = pct >= 90 ? 'red' : pct >= 70 ? 'yellow' : 'teal';
+                  return (
+                    <Table.Tr key={m.modelId}>
+                      <Table.Td>
+                        <Group gap={4}>
+                          <Text size="xs" truncate maw={140}>
+                            {m.displayName}
+                          </Text>
+                          {m.inUse && (
+                            <Badge size="xs" variant="light" color="blue">
+                              active
+                            </Badge>
+                          )}
+                        </Group>
+                      </Table.Td>
+                      <Table.Td ta="right">
+                        <Text size="xs">{m.rpm}</Text>
+                      </Table.Td>
+                      <Table.Td ta="right">
+                        <Text size="xs" fw={600} c={color}>
+                          {formatNumber(m.todayUsage)} / {formatNumber(m.rpd)}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td ta="right">
+                        <Text size="xs" c="dimmed">
+                          {formatNumber(m.monthlyUsage)}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Progress value={Math.min(pct, 100)} color={color} size="sm" w={50} />
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+          <Text size="xs" c="dimmed">
+            Quota config updated: {quotaData.lastUpdated}
           </Text>
-          <Group justify="space-between" pl="sm">
-            <Text size="xs" c="dimmed">
-              Today
-            </Text>
-            <Text size="xs" fw={600}>
-              {formatNumber(model.today)}
-            </Text>
-          </Group>
-          <Group justify="space-between" pl="sm">
-            <Text size="xs" c="dimmed">
-              Monthly
-            </Text>
-            <Text size="xs" fw={600}>
-              {formatNumber(model.monthly)}
-            </Text>
-          </Group>
         </Stack>
-      ))}
-
-      <Divider />
-
-      <StatRow label="Total Today" value={formatNumber(data.totalToday)} />
-      <StatRow label="Total Monthly" value={formatNumber(data.totalMonthly)} />
-      <StatRow label="Active Users Today" value={formatNumber(data.activeUsersToday)} />
-    </Stack>
+      ) : null}
+    </Card>
   );
 }
 
-function PoolStatusContent({ data, onReset }: { data: PoolStatusData; onReset: () => void }) {
-  const [resetting, setResetting] = useState(false);
+function KeyPoolCard() {
+  const queryClient = useQueryClient();
+  const pool = useService<PoolStatusData | { error: string }>('gemini-pool');
 
+  const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState(false);
 
   const handleReset = async () => {
     setResetting(true);
     setResetError(false);
     try {
-      await onReset();
+      const res = await fetch('/api/admin/dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset-pool' }),
+      });
+      if (!res.ok) throw new Error('Reset failed');
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard', 'gemini-pool'] });
     } catch {
       setResetError(true);
     } finally {
@@ -303,7 +397,7 @@ function PoolStatusContent({ data, onReset }: { data: PoolStatusData; onReset: (
     }
   };
 
-  const getStatusBadge = (entry: PoolEntryStatus) => {
+  const getStatusBadge = (entry: PoolEntryStatus, serverTime: number) => {
     if (entry.disabled) {
       return (
         <Badge color="red" variant="light" size="xs">
@@ -312,7 +406,7 @@ function PoolStatusContent({ data, onReset }: { data: PoolStatusData; onReset: (
       );
     }
     if (entry.cooldownUntil > 0) {
-      const remaining = Math.max(0, entry.cooldownUntil - data.serverTime);
+      const remaining = Math.max(0, entry.cooldownUntil - serverTime);
       const label =
         remaining > 3600000
           ? `${Math.floor(remaining / 3600000)}h ${Math.floor((remaining % 3600000) / 60000)}m`
@@ -332,49 +426,124 @@ function PoolStatusContent({ data, onReset }: { data: PoolStatusData; onReset: (
     );
   };
 
-  const hasCooldowns = data.entries.some((e) => e.cooldownUntil > 0);
+  const poolData =
+    !pool.isLoading && !pool.isError && pool.data && !isError(pool.data) ? pool.data : null;
+  const hasCooldowns = poolData?.entries.some((e) => e.cooldownUntil > 0) ?? false;
 
   return (
-    <Stack gap="xs">
-      {data.entries.map((entry) => (
-        <Group key={`${entry.pool}-${entry.id}`} justify="space-between" gap="xs">
-          <Group gap="xs" style={{ minWidth: 0 }}>
-            <Text size="xs" ff="monospace" c="dimmed" truncate>
-              {entry.maskedKey}
-            </Text>
-            <Badge color="gray" variant="light" size="xs">
-              {entry.provider}
-            </Badge>
-            {entry.pool === 'chat' && (
-              <Badge color="indigo" variant="light" size="xs">
-                chat
-              </Badge>
-            )}
-          </Group>
-          {getStatusBadge(entry)}
+    <Card withBorder shadow="sm" padding="lg">
+      <Group justify="space-between" mb="md">
+        <Group gap="xs">
+          <KeyRound size={18} color="var(--mantine-color-orange-5)" />
+          <Text fw={600}>Key Pool</Text>
+          <Badge color="orange" variant="light" size="sm">
+            {poolData ? `${poolData.entries.length} entries` : 'Status'}
+          </Badge>
         </Group>
-      ))}
+        {hasCooldowns && (
+          <Button
+            size="compact-xs"
+            variant="light"
+            color="orange"
+            onClick={handleReset}
+            loading={resetting}
+            leftSection={<RefreshCw size={12} />}
+          >
+            Reset All
+          </Button>
+        )}
+      </Group>
 
-      {hasCooldowns && (
-        <Button
-          size="xs"
-          variant="light"
-          color="orange"
-          onClick={handleReset}
-          loading={resetting}
-          leftSection={<RefreshCw size={14} />}
-          mt="xs"
-        >
-          Reset All Cooldowns
-        </Button>
-      )}
+      {pool.isLoading ? (
+        <CardLoading />
+      ) : pool.isError ? (
+        <CardError message={pool.error instanceof Error ? pool.error.message : 'Failed to load'} />
+      ) : poolData ? (
+        <ScrollArea>
+          <Table striped highlightOnHover withTableBorder fz="xs">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={30}>#</Table.Th>
+                <Table.Th>Key</Table.Th>
+                <Table.Th>Model</Table.Th>
+                <Table.Th>Pool</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th w={40} />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {poolData.entries.map((entry, idx) => {
+                const needsReset = entry.cooldownUntil > 0 || entry.disabled;
+                return (
+                  <Table.Tr key={`${entry.pool}-${entry.id}`}>
+                    <Table.Td>
+                      <Text size="xs" c="dimmed">
+                        {idx + 1}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" ff="monospace" c="dimmed" truncate maw={90}>
+                        {entry.maskedKey}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" truncate maw={140}>
+                        {entry.model}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        color={entry.pool === 'chat' ? 'indigo' : 'gray'}
+                        variant="light"
+                        size="xs"
+                      >
+                        {entry.pool}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>{getStatusBadge(entry, poolData.serverTime)}</Table.Td>
+                    <Table.Td>
+                      {needsReset && (
+                        <Tooltip label="Reset this entry">
+                          <ActionIcon
+                            size="xs"
+                            variant="subtle"
+                            color="orange"
+                            onClick={async () => {
+                              const res = await fetch('/api/admin/dashboard', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  action: 'reset-pool-entry',
+                                  pool: entry.pool,
+                                  entryId: entry.id,
+                                }),
+                              });
+                              if (res.ok) {
+                                queryClient.invalidateQueries({
+                                  queryKey: ['admin-dashboard', 'gemini-pool'],
+                                });
+                              }
+                            }}
+                          >
+                            <RefreshCw size={12} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      ) : null}
 
       {resetError && (
         <Text size="xs" c="red" mt={4}>
           Reset failed — please try again.
         </Text>
       )}
-    </Stack>
+    </Card>
   );
 }
 
@@ -652,8 +821,8 @@ export function DashboardClient() {
             </Group>
           )}
 
-          {/* Cards grid — each card fetches independently */}
-          <SimpleGrid cols={{ base: 1, md: 2, xl: 4 }} spacing="lg">
+          {/* Top row: Stripe + Upstash + Gemini Quota */}
+          <SimpleGrid cols={{ base: 1, md: 2, xl: 3 }} spacing="lg">
             <ServiceCard<StripeData | { error: string }>
               queryKey="stripe"
               service="stripe"
@@ -680,49 +849,11 @@ export function DashboardClient() {
               }
             </ServiceCard>
 
-            <ServiceCard<GeminiData | { error: string }>
-              queryKey="gemini"
-              service="gemini"
-              icon={<Cpu size={18} color="var(--mantine-color-blue-5)" />}
-              title="Gemini"
-              badgeLabel="LLM"
-              badgeColor="blue"
-            >
-              {(data) =>
-                isError(data) ? <CardError message={data.error} /> : <GeminiContent data={data} />
-              }
-            </ServiceCard>
-
-            <ServiceCard<PoolStatusData | { error: string }>
-              queryKey="gemini-pool"
-              service="gemini-pool"
-              icon={<KeyRound size={18} color="var(--mantine-color-orange-5)" />}
-              title="Key Pool"
-              badgeLabel="Status"
-              badgeColor="orange"
-            >
-              {(data) =>
-                isError(data) ? (
-                  <CardError message={data.error} />
-                ) : (
-                  <PoolStatusContent
-                    data={data}
-                    onReset={async () => {
-                      const res = await fetch('/api/admin/dashboard', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'reset-pool' }),
-                      });
-                      if (!res.ok) throw new Error('Reset failed');
-                      queryClient.invalidateQueries({
-                        queryKey: ['admin-dashboard', 'gemini-pool'],
-                      });
-                    }}
-                  />
-                )
-              }
-            </ServiceCard>
+            <GeminiQuotaCard />
           </SimpleGrid>
+
+          {/* Key Pool — full width */}
+          <KeyPoolCard />
 
           {/* LLM Call Logs Preview */}
           <LlmLogsPreviewSection />

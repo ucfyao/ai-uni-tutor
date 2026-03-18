@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Drawer, Stack, Text } from '@mantine/core';
 import { getLectureOutlines } from '@/app/actions/documents';
@@ -196,7 +197,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     // Add user message and AI placeholder in one update (avoid stale session: second addMessage would overwrite user msg)
     const lastMsg = session.messages[session.messages.length - 1];
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       role: 'user',
       content:
         options?.displayContent ||
@@ -214,7 +215,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       setImagePreviews([]);
     }
 
-    const aiMsgId = crypto.randomUUID();
+    const aiMsgId = uuidv4();
     const aiMsg: ChatMessage = {
       id: aiMsgId,
       role: 'assistant',
@@ -351,14 +352,14 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     if (!session) return;
     const lastMsg = session.messages[session.messages.length - 1];
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       role: 'user',
       content: '/outline',
       timestamp: Date.now(),
       parentMessageId: lastMsg?.id ?? null,
     };
     const aiMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       role: 'assistant',
       content: markdown,
       timestamp: Date.now(),
@@ -473,7 +474,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
 
     // Create new assistant as sibling of original (same parent = userMsg)
     const originalAssistantId = session.messages[msgIndex].id;
-    const aiMsgId = crypto.randomUUID();
+    const aiMsgId = uuidv4();
     const aiMsg: ChatMessage = {
       id: aiMsgId,
       role: 'assistant',
@@ -563,7 +564,7 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
       };
 
       // Create AI placeholder and stream regeneration
-      const aiMsgId = crypto.randomUUID();
+      const aiMsgId = uuidv4();
       const aiMsg: ChatMessage = {
         id: aiMsgId,
         role: 'assistant',
@@ -618,30 +619,83 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     }
   };
 
-  const handleSwitchBranch = async (parentMessageId: string, targetChildId: string) => {
-    if (!session) return;
+  const handleSwitchBranch = (parentMessageId: string, targetChildId: string) => {
+    if (!session || !session.allMessages) return;
 
-    try {
-      const { switchBranch } = await import('@/app/actions/chat');
-      const result = await switchBranch(session.id, parentMessageId, targetChildId);
-      if (result.success && result.data) {
-        setSession(
-          {
-            ...session,
-            messages: result.data.messages,
-            siblingsMap: result.data.siblingsMap,
-            lastUpdated: Date.now(),
-          },
-          { resetSavedIndex: result.data.messages.length },
-        );
+    // Build tree from allMessages (client-side)
+    const messageById = new Map(session.allMessages.map((m) => [m.id, m]));
+    const childrenMap = new Map<string, ChatMessage[]>();
+    for (const msg of session.allMessages) {
+      const key = msg.parentMessageId ?? '__root__';
+      const children = childrenMap.get(key) ?? [];
+      children.push(msg);
+      childrenMap.set(key, children);
+    }
+
+    // Verify target
+    const inferredChildren = childrenMap.get(parentMessageId) ?? [];
+    if (!inferredChildren.find((c) => c.id === targetChildId)) return;
+
+    // Update branch selections: remember this choice
+    const updatedSelections = {
+      ...(session.branchSelections ?? {}),
+      [parentMessageId]: targetChildId,
+    };
+
+    // Walk UP from parentMessageId to root
+    const prefixReversed: ChatMessage[] = [];
+    const visitedUp = new Set<string>();
+    let walkUp: string | null = parentMessageId;
+    while (walkUp) {
+      if (visitedUp.has(walkUp)) break;
+      visitedUp.add(walkUp);
+      const msg = messageById.get(walkUp);
+      if (!msg) break;
+      prefixReversed.push(msg);
+      walkUp = msg.parentMessageId ?? null;
+    }
+    const prefix = prefixReversed.reverse();
+
+    // Walk DOWN from target, preferring remembered selections at each fork
+    const target = messageById.get(targetChildId);
+    if (!target) return;
+    const path: ChatMessage[] = [...prefix, target];
+    let walkDown = targetChildId;
+    while (true) {
+      const kids = childrenMap.get(walkDown);
+      if (!kids || kids.length === 0) break;
+      const remembered = updatedSelections[walkDown];
+      const picked =
+        (remembered ? kids.find((k) => k.id === remembered) : undefined) ?? kids[kids.length - 1];
+      path.push(picked);
+      walkDown = picked.id;
+    }
+
+    // Compute siblingsMap
+    const siblingsMap: Record<string, string[]> = {};
+    for (const [key, children] of childrenMap) {
+      if (key !== '__root__' && children.length > 1) {
+        siblingsMap[key] = children.map((c) => c.id);
       }
-    } catch (error) {
-      console.error('Switch branch failed:', error);
-      showNotification({
-        title: t.chat.error,
-        message: 'Failed to switch branch',
-        color: 'red',
-      });
+    }
+
+    setSession(
+      {
+        ...session,
+        messages: path,
+        siblingsMap,
+        branchSelections: updatedSelections,
+        lastUpdated: Date.now(),
+      },
+      { resetSavedIndex: path.length },
+    );
+
+    // Fire-and-forget: persist activeLeafId
+    const leaf = path[path.length - 1];
+    if (leaf) {
+      import('@/app/actions/chat').then(({ updateActiveLeaf }) =>
+        updateActiveLeaf(session.id, leaf.id),
+      );
     }
   };
 

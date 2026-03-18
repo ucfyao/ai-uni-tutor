@@ -13,6 +13,7 @@ vi.mock('@/lib/gemini', () => ({
     embedding: 'gemini-embedding-001',
   },
   getDefaultPool: vi.fn(),
+  getChatPool: vi.fn(),
 }));
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -162,8 +163,8 @@ function mockDefaultPool(generateContent: ReturnType<typeof vi.fn>) {
       .fn()
       .mockImplementation((fn: Function) => fn({ client: { models: { generateContent } } })),
   };
-  vi.mocked(geminiModule.getDefaultPool).mockReturnValue(
-    mockPool as unknown as ReturnType<typeof geminiModule.getDefaultPool>,
+  vi.mocked(geminiModule.getChatPool).mockReturnValue(
+    mockPool as unknown as ReturnType<typeof geminiModule.getChatPool>,
   );
   return mockPool;
 }
@@ -484,7 +485,7 @@ describe('MockExamService', () => {
       warnSpy.mockRestore();
     });
 
-    it('should process questions in batches of 3', async () => {
+    it('should generate variants in a single batched call', async () => {
       // Create 5 questions
       const fiveQuestions: ExamQuestion[] = Array.from({ length: 5 }, (_, i) => ({
         id: `eq-${i}`,
@@ -504,24 +505,23 @@ describe('MockExamService', () => {
       paperRepo.findById.mockResolvedValue(PAPER);
       mockRepo.create.mockResolvedValue(MOCK_ID);
 
-      // 5 AI responses
-      const generateContent = vi.fn();
-      for (let i = 0; i < 5; i++) {
-        generateContent.mockResolvedValueOnce({
-          text: JSON.stringify({
+      // Single batched AI response returning array of 5 variants
+      const generateContent = vi.fn().mockResolvedValueOnce({
+        text: JSON.stringify(
+          Array.from({ length: 5 }, (_, i) => ({
             content: `Variant ${i}`,
             options: { A: '1', B: '2' },
             answer: 'A',
             explanation: 'exp',
-          }),
-        });
-      }
+          })),
+        ),
+      });
       mockDefaultPool(generateContent);
 
       await service.generateMock(USER_ID, PAPER_ID, 'practice');
 
-      // 5 questions in total: batch of 3 + batch of 2
-      expect(generateContent).toHaveBeenCalledTimes(5);
+      // Single batched call instead of 5 individual calls
+      expect(generateContent).toHaveBeenCalledTimes(1);
 
       // Mock created with 5 questions
       expect(mockRepo.create).toHaveBeenCalledWith(
@@ -535,26 +535,20 @@ describe('MockExamService', () => {
   // ==================== submitAnswer ====================
 
   describe('submitAnswer', () => {
-    it('should verify ownership, judge answer with AI, and update mock state', async () => {
+    it('should verify ownership, grade deterministically for choice questions, and update mock state', async () => {
       mockRepo.verifyOwnership.mockResolvedValue(true);
       mockRepo.findById.mockResolvedValue(MOCK_EXAM);
       mockRepo.update.mockResolvedValue(undefined);
 
-      const judgeResponse = JSON.stringify({
-        is_correct: true,
-        score: 5,
-        feedback: 'Correct! The derivative of x^3 is 3x^2.',
-      });
-      mockAI(judgeResponse);
-
       const result = await service.submitAnswer(USER_ID, MOCK_ID, 0, 'B');
 
+      // Choice questions are graded deterministically (no AI call)
       expect(result).toEqual({
         questionIndex: 0,
         userAnswer: 'B',
         isCorrect: true,
         score: 5,
-        aiFeedback: 'Correct! The derivative of x^3 is 3x^2.',
+        aiFeedback: 'Correct! Well done.',
       });
 
       expect(mockRepo.verifyOwnership).toHaveBeenCalledWith(MOCK_ID, USER_ID);

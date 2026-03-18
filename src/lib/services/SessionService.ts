@@ -78,7 +78,7 @@ export class SessionService {
     const session = await this.sessionRepo.findByIdAndUserId(sessionId, userId);
     if (!session) return null;
 
-    const [{ path, siblingsMap }, course] = await Promise.all([
+    const [{ path, siblingsMap, allMessages }, course] = await Promise.all([
       this.messageRepo.getActivePathWithForks(sessionId, session.activeLeafId),
       this.resolveCourse(session.courseId),
     ]);
@@ -89,6 +89,7 @@ export class SessionService {
       mode: session.mode,
       title: session.title,
       messages: path.map(toChat),
+      allMessages: allMessages.map(toChat),
       siblingsMap,
       lastUpdated: session.updatedAt.getTime(),
       isPinned: session.isPinned,

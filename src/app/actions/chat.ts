@@ -289,6 +289,32 @@ export async function updateChatSessionMode(
 }
 
 /**
+ * Update activeLeafId (lightweight — used by client-side branch switching)
+ */
+export async function updateActiveLeaf(
+  sessionId: string,
+  leafId: string,
+): Promise<ActionResult<void>> {
+  try {
+    const parsed = sessionIdSchema.safeParse(sessionId);
+    if (!parsed.success) return { success: false, error: 'Invalid session ID', code: 'VALIDATION' };
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const { getSessionRepository } = await import('@/lib/repositories');
+    const sessionRepo = getSessionRepository();
+    const hasAccess = await sessionRepo.verifyOwnership(sessionId, user.id);
+    if (!hasAccess) return { success: false, error: 'Forbidden', code: 'FORBIDDEN' };
+
+    await sessionRepo.update(sessionId, { activeLeafId: leafId });
+    return { success: true, data: undefined };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+/**
  * Toggle session pin status
  */
 export async function toggleSessionPin(

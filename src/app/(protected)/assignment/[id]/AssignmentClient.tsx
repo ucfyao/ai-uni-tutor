@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Anchor, Button, Center, Stack, Text, Title } from '@mantine/core';
@@ -16,8 +17,8 @@ import { AssignmentCoach } from '@/components/modes/AssignmentCoach';
 import RenameSessionModal from '@/components/RenameSessionModal';
 import ShareModal from '@/components/ShareModal';
 import { useSessions } from '@/context/SessionContext';
-import { chatCache } from '@/lib/chat-cache';
 import { handleKnowledgePanelToggle } from '@/lib/knowledge-panel-toggle';
+import { queryKeys } from '@/lib/query-keys';
 import { ChatSession } from '@/types';
 import type { UserCardEntity } from '@/types/user-card';
 
@@ -57,91 +58,48 @@ export default function AssignmentClient({ id }: AssignmentClientProps) {
     routerRef.current = router;
   }, [router]);
 
-  // Load session client-side: IndexedDB cache → SessionContext fast path → server fetch
+  // Load session with TanStack Query (cached across page switches)
+  const { data: sessionData, isLoading: queryLoading } = useQuery({
+    queryKey: queryKeys.sessions.detail(id),
+    queryFn: async () => {
+      const result = await getSessionWithCards(id);
+      if (!result.success || !result.data) return null;
+      return result.data;
+    },
+    staleTime: Infinity,
+    enabled: !!id,
+  });
+
+  // Sync query result to local state
   useEffect(() => {
-    if (!id) return;
+    if (queryLoading) {
+      setLoading(true);
+      return;
+    }
 
-    setLoading(true);
-    setSession(null);
-    lastSavedIndexRef.current = 0;
+    if (!sessionData) {
+      setInitialUserCards([]);
+      setInitialCardChats({});
+      setLoading(false);
+      if (id) routerRef.current.push('/study');
+      return;
+    }
 
-    let cancelled = false;
+    const { session: freshSession, userCards, cardChats } = sessionData;
 
-    (async () => {
-      try {
-        // 1. Check SessionContext for metadata (covers new session + sidebar list)
-        const fromList = sessionsRef.current.find((s) => s.id === id);
+    // Mode guard
+    if (freshSession.mode && freshSession.mode !== 'Assignment Coach') {
+      setLoading(false);
+      routerRef.current.push('/study');
+      return;
+    }
 
-        // 2. Try IndexedDB cache for instant display
-        if (fromList) {
-          const cached = await chatCache.getMessages(id);
-          if (cancelled) return;
-
-          if (cached && cached.length > 0) {
-            const cachedData: ChatSession = { ...fromList, messages: cached };
-            lastSavedIndexRef.current = cached.length;
-            setSession(cachedData);
-            setLoading(false);
-          } else {
-            // New session or no cache — show empty session immediately
-            setSession({ ...fromList, messages: [] });
-            setLoading(false);
-          }
-        }
-
-        // 3. Fetch session + user cards in a single request
-        const freshResult = await getSessionWithCards(id);
-        if (cancelled) return;
-
-        if (!freshResult.success || !freshResult.data) {
-          setInitialUserCards([]);
-          setInitialCardChats({});
-          setLoading(false);
-          // Only redirect if we never had a session to show
-          if (!fromList) routerRef.current.push('/study');
-          return;
-        }
-
-        const { session: freshSession, userCards, cardChats } = freshResult.data;
-        setInitialUserCards(userCards);
-        setInitialCardChats(cardChats);
-
-        // Mode guard
-        if (freshSession.mode && freshSession.mode !== 'Assignment Coach') {
-          setLoading(false);
-          routerRef.current.push('/study');
-          return;
-        }
-
-        setSession((prevSession) => {
-          if (!prevSession) {
-            lastSavedIndexRef.current = freshSession.messages.length;
-            return freshSession;
-          }
-
-          // Merge: keep client-only messages sent while fetch was in-flight
-          const serverMessageIds = new Set(freshSession.messages.map((m) => m.id));
-          const clientOnlyMessages = prevSession.messages.filter(
-            (m) => !serverMessageIds.has(m.id),
-          );
-          const mergedMessages = [...freshSession.messages, ...clientOnlyMessages];
-
-          lastSavedIndexRef.current = mergedMessages.length;
-          return { ...freshSession, messages: mergedMessages };
-        });
-        setLoading(false);
-      } catch (error) {
-        console.error('Failed to load assignment session', error);
-        if (cancelled) return;
-        setLoading(false);
-        routerRef.current.push('/study');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+    setInitialUserCards(userCards);
+    setInitialCardChats(cardChats);
+    lastSavedIndexRef.current = freshSession.messages.length;
+    setSession(freshSession);
+    setLoading(false);
+  }, [id, sessionData, queryLoading]);
 
   // Handle session updates
   const handleUpdateSession = useCallback(

@@ -8,7 +8,7 @@
 import type { GoogleGenAI } from '@google/genai';
 import { parseAIResponse } from '@/lib/ai-utils';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getDefaultPool } from '@/lib/gemini';
+import { GEMINI_MODELS, getChatPool } from '@/lib/gemini';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
@@ -286,7 +286,7 @@ ${typesInstruction}
 
     let responseText: string;
     try {
-      const response = await getDefaultPool().withRetry(
+      const response = await getChatPool().withRetry(
         (entry) =>
           (entry.client as GoogleGenAI).models.generateContent({
             model: GEMINI_MODELS.chat,
@@ -517,81 +517,85 @@ ${typesInstruction}
 
     const title = paper.title;
 
-    // Generate variant questions using Gemini in batches of 3
-    const generatedQuestions: MockExamQuestion[] = [];
+    // Generate variant questions using a single batched LLM call
+    let generatedQuestions: MockExamQuestion[];
 
-    for (let i = 0; i < questions.length; i += 3) {
-      const batch = questions.slice(i, i + 3);
-
-      const batchResults = await Promise.all(
-        batch.map(async (q) => {
-          try {
-            const prompt = `Generate a NEW exam question that tests the SAME knowledge point and concept, SAME type and format, SAME difficulty, but with DIFFERENT values/scenarios/examples.
-
-Original question:
+    try {
+      const questionsBlock = questions
+        .map(
+          (q, i) =>
+            `--- Question ${i + 1} ---
 Type: ${q.type}
 Content: ${q.content}
-${q.options ? `Options: ${JSON.stringify(q.options)}` : ''}
+${q.options ? `Options: ${JSON.stringify(q.options)}` : 'Options: null'}
 Answer: ${q.answer}
-Explanation: ${q.explanation}
+Explanation: ${q.explanation}`,
+        )
+        .join('\n\n');
 
-Return JSON with these exact fields:
-{
-  "content": "the new question text",
-  "options": ${q.options ? '{"A": "...", "B": "...", ...} (same number of options)' : 'null'},
-  "answer": "the correct answer",
-  "explanation": "explanation of the correct answer"
-}`;
+      const prompt = `Generate ${questions.length} NEW exam questions. Each must test the SAME knowledge point and concept, SAME type and format, SAME difficulty as the corresponding original, but with DIFFERENT values/scenarios/examples.
 
-            const response = await getDefaultPool().withRetry(
-              (entry) =>
-                (entry.client as GoogleGenAI).models.generateContent({
-                  model: GEMINI_MODELS.chat,
-                  contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                  config: {
-                    responseMimeType: 'application/json',
-                    temperature: 0.7,
-                  },
-                }),
-              { callType: 'exam' },
-            );
+${questionsBlock}
 
-            const parsed = parseAIResponse<{
-              content?: string;
-              options?: Record<string, string> | null;
-              answer?: string;
-              explanation?: string;
-            }>(response.text);
+Return a JSON array with exactly ${questions.length} objects in the same order:
+[
+  {
+    "content": "the new question text",
+    "options": {"A": "...", "B": "...", ...} or null (match original format),
+    "answer": "the correct answer",
+    "explanation": "explanation of the correct answer"
+  },
+  ...
+]`;
 
-            return {
-              content: parsed.content || q.content,
-              type: q.type,
-              options: (parsed.options ?? q.options) as Record<string, string> | null,
-              answer: parsed.answer || q.answer,
-              explanation: parsed.explanation || q.explanation,
-              points: q.points,
-              sourceQuestionId: q.id,
-            } satisfies MockExamQuestion;
-          } catch (err) {
-            const geminiErr = AppError.from(err);
-            console.warn(
-              `Variant generation failed [${geminiErr.code}] for question ${q.id}, using original`,
-            );
-            // Fallback: use original question
-            return {
-              content: q.content,
-              type: q.type,
-              options: q.options as Record<string, string> | null,
-              answer: q.answer,
-              explanation: q.explanation,
-              points: q.points,
-              sourceQuestionId: q.id,
-            } satisfies MockExamQuestion;
-          }
-        }),
+      const response = await getChatPool().withRetry(
+        (entry) =>
+          (entry.client as GoogleGenAI).models.generateContent({
+            model: GEMINI_MODELS.chat,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.7,
+            },
+          }),
+        { callType: 'exam' },
       );
 
-      generatedQuestions.push(...batchResults);
+      const parsed = parseAIResponse<
+        Array<{
+          content?: string;
+          options?: Record<string, string> | null;
+          answer?: string;
+          explanation?: string;
+        }>
+      >(response.text);
+
+      const results = Array.isArray(parsed) ? parsed : [];
+
+      generatedQuestions = questions.map((q, i) => {
+        const r = results[i];
+        return {
+          content: r?.content || q.content,
+          type: q.type,
+          options: (r?.options ?? q.options) as Record<string, string> | null,
+          answer: r?.answer || q.answer,
+          explanation: r?.explanation || q.explanation,
+          points: q.points,
+          sourceQuestionId: q.id,
+        };
+      });
+    } catch (err) {
+      const geminiErr = AppError.from(err);
+      console.warn(`Batch variant generation failed [${geminiErr.code}], using original questions`);
+      generatedQuestions = questions.map((q) => ({
+        content: q.content,
+        type: q.type,
+        options: q.options as Record<string, string> | null,
+        answer: q.answer,
+        explanation: q.explanation,
+        points: q.points,
+        sourceQuestionId: q.id,
+      }));
     }
 
     // Calculate total points
@@ -614,79 +618,8 @@ Return JSON with these exact fields:
   }
 
   /**
-   * Judge a single answer using Gemini AI with simple-matching fallback.
-   */
-  private async judgeAnswer(
-    question: MockExamQuestion,
-    questionIndex: number,
-    userAnswer: string,
-  ): Promise<MockExamResponse> {
-    try {
-      const prompt = `You are an exam grader. Compare the student's answer to the correct answer and evaluate it.
-
-Question: ${question.content}
-Question type: ${question.type}
-${question.options ? `Options: ${JSON.stringify(question.options)}` : ''}
-Correct answer: ${question.answer}
-Maximum points: ${question.points}
-
-Student's answer: ${userAnswer}
-
-Return JSON with these exact fields:
-{
-  "is_correct": true/false,
-  "score": (number from 0 to ${question.points}),
-  "feedback": "STRICTLY 2-3 short sentences ONLY. Say what the student got wrong (or that they didn't answer), name the key concept, and give one actionable study tip. Do NOT restate the solution steps — the full explanation is shown separately. Wrap ALL math in dollar-sign delimiters: inline $...$ or block $$...$$. Use $$...$$ for \\begin{} environments."
-}`;
-
-      const response = await getDefaultPool().withRetry(
-        (entry) =>
-          (entry.client as GoogleGenAI).models.generateContent({
-            model: GEMINI_MODELS.chat,
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            config: {
-              responseMimeType: 'application/json',
-              temperature: 0.2,
-            },
-          }),
-        { callType: 'exam' },
-      );
-
-      const parsed = parseAIResponse<{
-        is_correct?: boolean;
-        score?: number;
-        feedback?: string;
-      }>(response.text);
-
-      return {
-        questionIndex,
-        userAnswer,
-        isCorrect: Boolean(parsed.is_correct),
-        score: Math.min(Math.max(Number(parsed.score) || 0, 0), question.points),
-        aiFeedback: parsed.feedback || 'Unable to generate feedback.',
-      };
-    } catch (err) {
-      const geminiErr = AppError.from(err);
-      console.warn(`AI judging failed [${geminiErr.code}], falling back to simple matching`);
-
-      const normalizedUser = userAnswer.trim().toLowerCase();
-      const normalizedAnswer = question.answer.trim().toLowerCase();
-      const isCorrect = normalizedUser === normalizedAnswer;
-
-      return {
-        questionIndex,
-        userAnswer,
-        isCorrect,
-        score: isCorrect ? question.points : 0,
-        aiFeedback: isCorrect
-          ? 'Correct! Well done.'
-          : `Incorrect. The correct answer is: ${question.answer}`,
-      };
-    }
-  }
-
-  /**
    * Submit and judge a student answer for a specific question in a mock exam.
+   * Uses batchJudgeAnswers with a single entry for consistency.
    */
   async submitAnswer(
     userId: string,
@@ -708,7 +641,11 @@ Return JSON with these exact fields:
     }
 
     const question = mock.questions[questionIndex];
-    const feedback = await this.judgeAnswer(question, questionIndex, userAnswer);
+
+    const DETERMINISTIC_TYPES = new Set(['choice', 'true_false']);
+    const feedback = DETERMINISTIC_TYPES.has(question.type)
+      ? this.gradeDeterministic(question, questionIndex, userAnswer)
+      : (await this.batchJudgeAnswers([{ question, questionIndex, userAnswer }]))[0];
 
     // Update mock exam state
     const updatedResponses = [...mock.responses, feedback];
@@ -805,7 +742,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
   ...
 ]`;
 
-      const response = await getDefaultPool().withRetry(
+      const response = await getChatPool().withRetry(
         (entry) =>
           (entry.client as GoogleGenAI).models.generateContent({
             model: GEMINI_MODELS.chat,

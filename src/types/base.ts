@@ -39,4 +39,8 @@ export interface ChatSession {
   mockId?: string;
   /** Fork points: parentMessageId → ordered child IDs (only parents with >1 child) */
   siblingsMap?: Record<string, string[]>;
+  /** All messages including non-active branches, for client-side branch switching */
+  allMessages?: ChatMessage[];
+  /** Remembered branch selections: parentMessageId → selected childId */
+  branchSelections?: Record<string, string>;
 }

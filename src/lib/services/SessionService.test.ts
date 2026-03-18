@@ -130,6 +130,7 @@ describe('SessionService', () => {
       messageRepo.getActivePathWithForks.mockResolvedValue({
         path: messages,
         siblingsMap: {},
+        allMessages: messages,
       });
 
       const result = await service.getFullSession('sess-1', 'user-1');
@@ -237,6 +238,7 @@ describe('SessionService', () => {
       messageRepo.getActivePathWithForks.mockResolvedValue({
         path: messages,
         siblingsMap: {},
+        allMessages: messages,
       });
 
       const result = await service.getSharedSession('sess-1');
