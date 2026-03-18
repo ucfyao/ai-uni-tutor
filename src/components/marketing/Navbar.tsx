@@ -43,10 +43,10 @@ const ColorSchemeToggle = () => {
 };
 
 interface NavbarProps {
-  bannerVisible?: boolean;
+  bannerHeight?: number;
 }
 
-const Navbar = ({ bannerVisible = false }: NavbarProps) => {
+const Navbar = ({ bannerHeight = 0 }: NavbarProps) => {
   const [opened, { toggle }] = useDisclosure(false);
   const [scrolled, setScrolled] = useState(false);
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
@@ -63,16 +63,18 @@ const Navbar = ({ bannerVisible = false }: NavbarProps) => {
       component="nav"
       className="fixed left-0 right-0 z-50"
       style={{
-        top: bannerVisible ? 40 : 0,
-        backdropFilter: scrolled ? 'blur(12px)' : undefined,
-        WebkitBackdropFilter: scrolled ? 'blur(12px)' : undefined,
-        boxShadow: scrolled ? 'var(--mantine-shadow-sm)' : undefined,
-        backgroundColor: scrolled
-          ? computedColorScheme === 'dark'
-            ? 'rgba(0, 0, 0, 0.8)'
-            : 'rgba(255, 255, 255, 0.8)'
-          : 'transparent',
-        borderBottom: scrolled ? '1px solid var(--mantine-color-default-border)' : undefined,
+        top: bannerHeight,
+        backdropFilter: scrolled || opened ? 'blur(12px)' : undefined,
+        WebkitBackdropFilter: scrolled || opened ? 'blur(12px)' : undefined,
+        boxShadow: scrolled || opened ? 'var(--mantine-shadow-sm)' : undefined,
+        backgroundColor:
+          scrolled || opened
+            ? computedColorScheme === 'dark'
+              ? 'rgba(0, 0, 0, 0.95)'
+              : 'rgba(255, 255, 255, 0.95)'
+            : 'transparent',
+        borderBottom:
+          scrolled || opened ? '1px solid var(--mantine-color-default-border)' : undefined,
         transition: 'all 0.3s ease',
       }}
     >

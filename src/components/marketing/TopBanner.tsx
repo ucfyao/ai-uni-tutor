@@ -1,17 +1,20 @@
 import { X } from 'lucide-react';
 import Link from 'next/link';
+import { type RefObject } from 'react';
 import { Box, CloseButton, Container, Group, Text } from '@mantine/core';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 interface TopBannerProps {
   onClose: () => void;
+  measureRef?: RefObject<HTMLAnchorElement | null> | ((node: HTMLAnchorElement | null) => void);
 }
 
-const TopBanner = ({ onClose }: TopBannerProps) => {
+const TopBanner = ({ onClose, measureRef }: TopBannerProps) => {
   const { t } = useLanguage();
 
   return (
     <Box
+      ref={measureRef}
       component={Link}
       href="/partner"
       className="block"
