@@ -49,14 +49,17 @@ export async function GET(request: Request) {
         'gemini-quota': () => svc.fetchGeminiQuota(),
         'llm-logs-preview': async () => {
           const { getLlmLogService } = await import('@/lib/services/LlmLogService');
+          const { getLlmLogRepository } = await import('@/lib/repositories/LlmLogRepository');
           const llmSvc = getLlmLogService();
+          const repo = getLlmLogRepository();
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          const [logs, stats] = await Promise.all([
+          const [logs, stats, typeBreakdown] = await Promise.all([
             llmSvc.getRecentLogs(20),
             llmSvc.getStats(today.toISOString()),
+            repo.getTypeBreakdown(today.toISOString()),
           ]);
-          return { logs, stats };
+          return { logs, stats, typeBreakdown };
         },
       };
 
