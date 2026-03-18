@@ -6,10 +6,16 @@ import { getLlmLogService, LlmLogService } from '@/lib/services/LlmLogService';
 import type { LlmCallContext } from '@/lib/services/LlmLogService';
 import type { Json } from '@/types/database';
 
+function requireEnv(name: string, fallback?: string): string {
+  const value = process.env[name] || fallback;
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
 export const GEMINI_MODELS = {
-  chat: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash',
-  parse: process.env.GEMINI_PARSE_MODEL || 'gemini-2.0-flash',
-  embedding: process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001',
+  chat: requireEnv('GEMINI_CHAT_MODEL'),
+  parse: requireEnv('GEMINI_PARSE_MODEL'),
+  embedding: requireEnv('GEMINI_EMBEDDING_MODEL'),
 } as const;
 
 // ==================== Free Tier Quota Config ====================
