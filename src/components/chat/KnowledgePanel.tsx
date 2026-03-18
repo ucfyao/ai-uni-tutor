@@ -43,6 +43,9 @@ interface KnowledgePanelProps {
   onScrolledToCard?: () => void;
   prefillInput?: { cardId: string; text: string } | null;
   onPrefillConsumed?: () => void;
+  /** Migrate internal state (chats, inputs) from oldId to newId when a temp card is persisted */
+  migrateCardId?: { from: string; to: string } | null;
+  onMigrateConsumed?: () => void;
 }
 
 export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
@@ -61,6 +64,8 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   onScrolledToCard,
   prefillInput,
   onPrefillConsumed,
+  migrateCardId,
+  onMigrateConsumed,
 }) => {
   const { t } = useLanguage();
   const [inputs, setInputs] = useState<{ [key: string]: string }>({});
@@ -81,10 +86,16 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
   }, [initialCardChats]);
 
   // Fetch card conversations on expand — only if not already loaded
+  // Skip fetch for temp cards (newly created, no server-side chats yet)
   const loadingCardChatsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeCardId) return;
     if (activeCardId in cardChats) return; // already loaded
+    if (activeCardId.startsWith('temp_')) {
+      // New card — pre-fill empty chats so no loading spinner shows
+      setCardChats((prev) => ({ ...prev, [activeCardId]: [] }));
+      return;
+    }
     if (loadingCardChatsRef.current.has(activeCardId)) return; // already fetching
 
     loadingCardChatsRef.current.add(activeCardId);
@@ -97,6 +108,23 @@ export const KnowledgePanel: React.FC<KnowledgePanelProps> = ({
       }));
     })();
   }, [activeCardId, cardChats]);
+
+  // Migrate internal state when a temp card ID is replaced with a real ID
+  useEffect(() => {
+    if (!migrateCardId) return;
+    const { from, to } = migrateCardId;
+    setCardChats((prev) => {
+      if (!(from in prev)) return prev;
+      const { [from]: chats, ...rest } = prev;
+      return { ...rest, [to]: chats };
+    });
+    setInputs((prev) => {
+      if (!(from in prev)) return prev;
+      const { [from]: val, ...rest } = prev;
+      return { ...rest, [to]: val };
+    });
+    onMigrateConsumed?.();
+  }, [migrateCardId, onMigrateConsumed]);
 
   // Pre-fill card input when requested (e.g. after Explain selection)
   useEffect(() => {
