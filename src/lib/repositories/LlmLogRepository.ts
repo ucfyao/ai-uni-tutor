@@ -182,6 +182,28 @@ export class LlmLogRepository {
     return { byType, inputTokens, outputTokens };
   }
 
+  async getTypeBreakdown(
+    startTime: string,
+  ): Promise<Record<string, { count: number; errors: number; totalTokens: number }>> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('llm_call_logs')
+      .select('call_type, status, input_tokens, output_tokens')
+      .gte('created_at', startTime);
+
+    if (error) throw error;
+
+    const breakdown: Record<string, { count: number; errors: number; totalTokens: number }> = {};
+    for (const row of data ?? []) {
+      const ct = row.call_type || 'unknown';
+      if (!breakdown[ct]) breakdown[ct] = { count: 0, errors: 0, totalTokens: 0 };
+      breakdown[ct].count++;
+      if (row.status === 'error') breakdown[ct].errors++;
+      breakdown[ct].totalTokens += (row.input_tokens ?? 0) + (row.output_tokens ?? 0);
+    }
+    return breakdown;
+  }
+
   async getUserCostSummary(startTime: string, endTime?: string): Promise<UserCostSummary[]> {
     const supabase = await createClient();
 

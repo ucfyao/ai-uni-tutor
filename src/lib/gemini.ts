@@ -176,6 +176,10 @@ export class KeyPool {
 
           // Fire-and-forget call logging
           const latencyMs = Date.now() - callStart;
+          // Extract token counts from Gemini response if available
+          const usage = (result as Record<string, unknown>)?.usageMetadata as
+            | { promptTokenCount?: number; candidatesTokenCount?: number }
+            | undefined;
           getLlmLogService().logCall({
             user_id: context?.userId ?? null,
             call_type: context?.callType ?? LlmLogService.inferCallType(entry.model),
@@ -183,7 +187,9 @@ export class KeyPool {
             model: entry.model,
             status: 'success',
             latency_ms: latencyMs,
-            metadata: (context?.metadata ?? {}) as Json,
+            input_tokens: usage?.promptTokenCount ?? null,
+            output_tokens: usage?.candidatesTokenCount ?? null,
+            metadata: { ...(context?.metadata ?? {}), apiKey: entry.maskedKey } as Json,
           });
 
           return result;
@@ -201,7 +207,7 @@ export class KeyPool {
             status: 'error',
             error_message: err instanceof Error ? err.message : String(err),
             latency_ms: latencyMs,
-            metadata: (context?.metadata ?? {}) as Json,
+            metadata: { ...(context?.metadata ?? {}), apiKey: entry.maskedKey } as Json,
           });
 
           if (status === 401 || status === 403) {

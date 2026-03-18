@@ -37,7 +37,7 @@ import {
 import { AdminContent } from '@/components/admin/AdminContent';
 import { useHeader } from '@/context/HeaderContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type { LlmLogRow, LlmLogsPreview, LlmLogStats } from '../types';
+import type { LlmLogsPreview } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types matching AdminDashboardService response
@@ -613,6 +613,24 @@ function formatLatencyBadge(ms: number) {
   return { label, color };
 }
 
+const TYPE_COLORS: Record<string, string> = {
+  chat: 'blue',
+  exam: 'violet',
+  parse: 'orange',
+  embedding: 'cyan',
+  explain: 'teal',
+  rerank: 'indigo',
+  writing: 'pink',
+  unknown: 'gray',
+};
+
+function formatTokens(n: number | null | undefined): string {
+  if (!n) return '-';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
 function LlmLogsPreviewSection() {
   const {
     data,
@@ -635,6 +653,10 @@ function LlmLogsPreviewSection() {
     });
   };
 
+  const total = data?.stats.totalToday ?? 0;
+  const errors = data?.stats.errorsToday ?? 0;
+  const successRate = total > 0 ? Math.round(((total - errors) / total) * 100) : 0;
+
   return (
     <Card withBorder shadow="sm" padding="lg">
       <Group justify="space-between" mb="md">
@@ -655,12 +677,20 @@ function LlmLogsPreviewSection() {
         <CardError message={(data as unknown as { error: string }).error} />
       ) : data ? (
         <Stack gap="md">
-          <Group gap="lg">
+          {/* Stats row 1: key metrics */}
+          <Group gap="lg" wrap="wrap">
             <Badge color="blue" variant="light" size="lg">
               Today: {formatNumber(data.stats.totalToday)}
             </Badge>
             <Badge color={data.stats.errorsToday > 0 ? 'red' : 'green'} variant="light" size="lg">
               Errors: {data.stats.errorsToday}
+            </Badge>
+            <Badge
+              color={successRate >= 95 ? 'green' : successRate >= 80 ? 'yellow' : 'red'}
+              variant="light"
+              size="lg"
+            >
+              Success: {successRate}%
             </Badge>
             <Badge
               color={formatLatencyBadge(data.stats.avgLatencyMs).color}
@@ -669,7 +699,30 @@ function LlmLogsPreviewSection() {
             >
               Avg: {formatLatencyBadge(data.stats.avgLatencyMs).label}
             </Badge>
+            {data.stats.estimatedCostToday > 0 && (
+              <Badge color="grape" variant="light" size="lg">
+                Cost: ${data.stats.estimatedCostToday.toFixed(4)}
+              </Badge>
+            )}
           </Group>
+
+          {/* Stats row 2: per-type breakdown */}
+          {data.typeBreakdown && Object.keys(data.typeBreakdown).length > 0 && (
+            <Group gap={6} wrap="wrap">
+              {Object.entries(data.typeBreakdown)
+                .sort(([, a], [, b]) => b.count - a.count)
+                .map(([type, info]) => (
+                  <Tooltip
+                    key={type}
+                    label={`${info.errors} errors · ${formatTokens(info.totalTokens)} tokens`}
+                  >
+                    <Badge size="sm" variant="dot" color={TYPE_COLORS[type] ?? 'gray'}>
+                      {type}: {info.count}
+                    </Badge>
+                  </Tooltip>
+                ))}
+            </Group>
+          )}
 
           {data.logs.length === 0 ? (
             <Text size="sm" c="dimmed" ta="center" py="md">
@@ -683,49 +736,94 @@ function LlmLogsPreviewSection() {
                     <Table.Th>Time</Table.Th>
                     <Table.Th>Type</Table.Th>
                     <Table.Th>Model</Table.Th>
+                    <Table.Th>Key</Table.Th>
                     <Table.Th>Status</Table.Th>
                     <Table.Th>Latency</Table.Th>
+                    <Table.Th>Tokens</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {data.logs.map((log) => (
-                    <Table.Tr
-                      key={log.id}
-                      bg={log.status === 'error' ? 'var(--mantine-color-red-light)' : undefined}
-                    >
-                      <Table.Td>
-                        <Text size="xs" ff="monospace">
-                          {formatTime(log.created_at)}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge size="xs" variant="light" color="gray">
-                          {log.call_type}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="xs" truncate maw={120}>
-                          {log.model}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        {log.status === 'success' ? (
-                          <CheckCircle size={14} color="var(--mantine-color-green-6)" />
-                        ) : (
-                          <XCircle size={14} color="var(--mantine-color-red-6)" />
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          size="xs"
-                          color={formatLatencyBadge(log.latency_ms).color}
-                          variant="light"
-                        >
-                          {formatLatencyBadge(log.latency_ms).label}
-                        </Badge>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
+                  {data.logs.map((log) => {
+                    const apiKey = (log.metadata as Record<string, unknown>)?.apiKey as
+                      | string
+                      | undefined;
+                    const hasTokens = log.input_tokens || log.output_tokens;
+
+                    return (
+                      <Table.Tr
+                        key={log.id}
+                        bg={log.status === 'error' ? 'var(--mantine-color-red-light)' : undefined}
+                      >
+                        <Table.Td>
+                          <Text size="xs" ff="monospace">
+                            {formatTime(log.created_at)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={TYPE_COLORS[log.call_type] ?? 'gray'}
+                          >
+                            {log.call_type}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="xs" truncate maw={120}>
+                            {log.model}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          {apiKey ? (
+                            <Text size="xs" ff="monospace" c="dimmed">
+                              {apiKey}
+                            </Text>
+                          ) : (
+                            <Text size="xs" c="dimmed">
+                              -
+                            </Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          {log.status === 'success' ? (
+                            <CheckCircle size={14} color="var(--mantine-color-green-6)" />
+                          ) : (
+                            <Tooltip
+                              label={log.error_message || 'Unknown error'}
+                              maw={300}
+                              multiline
+                            >
+                              <XCircle size={14} color="var(--mantine-color-red-6)" />
+                            </Tooltip>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            size="xs"
+                            color={formatLatencyBadge(log.latency_ms).color}
+                            variant="light"
+                          >
+                            {formatLatencyBadge(log.latency_ms).label}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          {hasTokens ? (
+                            <Tooltip
+                              label={`In: ${log.input_tokens ?? 0} · Out: ${log.output_tokens ?? 0}`}
+                            >
+                              <Text size="xs" c="dimmed">
+                                {formatTokens((log.input_tokens ?? 0) + (log.output_tokens ?? 0))}
+                              </Text>
+                            </Tooltip>
+                          ) : (
+                            <Text size="xs" c="dimmed">
+                              -
+                            </Text>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </Table>
             </ScrollArea>

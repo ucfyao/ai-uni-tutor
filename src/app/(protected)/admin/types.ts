@@ -25,9 +25,16 @@ export interface LlmLogStats {
   estimatedCostToday: number;
 }
 
+export interface TypeBreakdownEntry {
+  count: number;
+  errors: number;
+  totalTokens: number;
+}
+
 export interface LlmLogsPreview {
   logs: LlmLogRow[];
   stats: LlmLogStats;
+  typeBreakdown: Record<string, TypeBreakdownEntry>;
 }
 
 export interface LlmLogsResponse {
