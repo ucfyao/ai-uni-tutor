@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Box } from '@mantine/core';
+import { useElementSize } from '@mantine/hooks';
 import CTASection from '@/components/marketing/CTASection';
 import FeaturesSection from '@/components/marketing/FeaturesSection';
 import Footer from '@/components/marketing/Footer';
@@ -17,15 +18,21 @@ type MarketingAppProps = { initialLang?: Language };
 
 export default function MarketingApp({ initialLang = 'en' }: MarketingAppProps) {
   const [bannerVisible, setBannerVisible] = useState(true);
+  const { ref: bannerRef, height: bannerHeight } = useElementSize();
+
+  const handleBannerClose = useCallback(() => setBannerVisible(false), []);
 
   return (
     <LanguageProvider initialLang={initialLang}>
       <Box
         className="marketing-app min-h-screen bg-background overflow-x-hidden"
-        style={{ paddingTop: bannerVisible ? 40 : 0, transition: 'padding-top 0.3s ease' }}
+        style={{
+          paddingTop: bannerVisible ? bannerHeight : 0,
+          transition: 'padding-top 0.3s ease',
+        }}
       >
-        {bannerVisible && <TopBanner onClose={() => setBannerVisible(false)} />}
-        <Navbar bannerVisible={bannerVisible} />
+        {bannerVisible && <TopBanner measureRef={bannerRef} onClose={handleBannerClose} />}
+        <Navbar bannerHeight={bannerVisible ? bannerHeight : 0} />
         <HeroSection />
         <FeaturesSection />
         <HowItWorksSection />
