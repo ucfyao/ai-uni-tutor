@@ -89,6 +89,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
   const [pendingScrollToCardId, setPendingScrollToCardId] = useState<string | null>(null);
   // Incrementing trigger to ensure scroll useEffect fires even for same cardId
   const [scrollTrigger, setScrollTrigger] = useState(0);
+  // Migrate KnowledgePanel internal state when temp card ID → real ID
+  const [migrateCardId, setMigrateCardId] = useState<{ from: string; to: string } | null>(null);
 
   const isSendingRef = useRef(false);
   const outlineCacheRef = useRef<{ courseId: string; markdown: string } | null>(null);
@@ -339,6 +341,15 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
     setScrollTrigger((prev) => prev + 1);
 
     setCardPrefillInput({ cardId, text: `Explain this concept:\n\n${excerpt}` });
+
+    // When the temp card ID resolves to a real ID, silently migrate all state
+    // so the card stays expanded without any visible loading flicker.
+    resolveCardId(cardId).then((realId) => {
+      if (realId && realId !== cardId) {
+        setActiveCardId((prev) => (prev === cardId ? realId : prev));
+        setMigrateCardId({ from: cardId, to: realId });
+      }
+    });
   };
 
   const handleRetry = () => {
@@ -895,6 +906,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
               onScrolledToCard={() => setPendingScrollToCardId(null)}
               prefillInput={cardPrefillInput}
               onPrefillConsumed={() => setCardPrefillInput(null)}
+              migrateCardId={migrateCardId}
+              onMigrateConsumed={() => setMigrateCardId(null)}
             />
           </Box>
         )}
@@ -948,6 +961,8 @@ export const LectureHelper: React.FC<LectureHelperProps> = ({
             onScrolledToCard={() => setPendingScrollToCardId(null)}
             prefillInput={cardPrefillInput}
             onPrefillConsumed={() => setCardPrefillInput(null)}
+            migrateCardId={migrateCardId}
+            onMigrateConsumed={() => setMigrateCardId(null)}
           />
         </Box>
       </Drawer>
