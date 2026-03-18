@@ -44,14 +44,23 @@ export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessi
   // Update session and notify parent. Keeps allMessages in sync with messages.
   const updateSession = useCallback(
     (updatedSession: ChatSession, options?: SessionUpdateOptions): void | Promise<void> => {
-      // Merge new messages into allMessages so branch switching stays up-to-date
+      // Merge messages into allMessages so branch switching stays up-to-date.
+      // Must also update existing entries (e.g. streamed assistant messages whose
+      // content was empty when first added but now has final content).
       if (updatedSession.allMessages) {
-        const knownIds = new Set(updatedSession.allMessages.map((m) => m.id));
-        const newMsgs = updatedSession.messages.filter((m) => !knownIds.has(m.id));
-        if (newMsgs.length > 0) {
+        const activeMsgMap = new Map(updatedSession.messages.map((m) => [m.id, m]));
+        const existingIds = new Set(updatedSession.allMessages.map((m) => m.id));
+        const newMsgs = updatedSession.messages.filter((m) => !existingIds.has(m.id));
+        // Check if any existing entry needs updating (content changed)
+        const hasUpdates = updatedSession.allMessages.some((m) => {
+          const active = activeMsgMap.get(m.id);
+          return active && active.content !== m.content;
+        });
+        if (newMsgs.length > 0 || hasUpdates) {
+          const merged = updatedSession.allMessages.map((m) => activeMsgMap.get(m.id) ?? m);
           updatedSession = {
             ...updatedSession,
-            allMessages: [...updatedSession.allMessages, ...newMsgs],
+            allMessages: newMsgs.length > 0 ? [...merged, ...newMsgs] : merged,
           };
         }
       }
