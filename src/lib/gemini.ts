@@ -6,17 +6,23 @@ import { getLlmLogService, LlmLogService } from '@/lib/services/LlmLogService';
 import type { LlmCallContext } from '@/lib/services/LlmLogService';
 import type { Json } from '@/types/database';
 
-function requireEnv(name: string, fallback?: string): string {
-  const value = process.env[name] || fallback;
+function requireEnv(name: string): string {
+  const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
 
 export const GEMINI_MODELS = {
-  chat: requireEnv('GEMINI_CHAT_MODEL'),
-  parse: requireEnv('GEMINI_PARSE_MODEL'),
-  embedding: requireEnv('GEMINI_EMBEDDING_MODEL'),
-} as const;
+  get chat() {
+    return requireEnv('GEMINI_CHAT_MODEL');
+  },
+  get parse() {
+    return requireEnv('GEMINI_PARSE_MODEL');
+  },
+  get embedding() {
+    return requireEnv('GEMINI_EMBEDDING_MODEL');
+  },
+};
 
 // ==================== Free Tier Quota Config ====================
 // Source: https://aistudio.google.com/rate-limit
