@@ -653,12 +653,9 @@ function LlmLogsPreviewSection() {
     });
   };
 
-  const successRate = useMemo(() => {
-    if (!data?.stats.totalToday) return 0;
-    return Math.round(
-      ((data.stats.totalToday - data.stats.errorsToday) / data.stats.totalToday) * 100,
-    );
-  }, [data?.stats]);
+  const total = data?.stats.totalToday ?? 0;
+  const errors = data?.stats.errorsToday ?? 0;
+  const successRate = total > 0 ? Math.round(((total - errors) / total) * 100) : 0;
 
   return (
     <Card withBorder shadow="sm" padding="lg">
