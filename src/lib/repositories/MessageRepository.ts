@@ -184,9 +184,13 @@ export class MessageRepository {
   async getActivePathWithForks(
     sessionId: string,
     activeLeafId?: string | null,
-  ): Promise<{ path: MessageEntity[]; siblingsMap: Record<string, string[]> }> {
+  ): Promise<{
+    path: MessageEntity[];
+    siblingsMap: Record<string, string[]>;
+    allMessages: MessageEntity[];
+  }> {
     const allMessages = await this.findBySessionId(sessionId);
-    if (allMessages.length === 0) return { path: [], siblingsMap: {} };
+    if (allMessages.length === 0) return { path: [], siblingsMap: {}, allMessages: [] };
 
     const inferred = inferParentChain(allMessages);
     const { childrenMap, messageById } = this.buildMaps(inferred);
@@ -200,7 +204,7 @@ export class MessageRepository {
       }
     }
 
-    return { path, siblingsMap };
+    return { path, siblingsMap, allMessages: inferred };
   }
 
   async create(dto: CreateMessageDTO): Promise<MessageEntity> {

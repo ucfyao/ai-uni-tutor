@@ -1,7 +1,7 @@
 import { ApiError, GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import { AppError } from '@/lib/errors';
-import { loadPoolState, savePoolState } from '@/lib/redis';
+import { loadPoolState, resetPoolEntryCooldown, savePoolState } from '@/lib/redis';
 import { getLlmLogService, LlmLogService } from '@/lib/services/LlmLogService';
 import type { LlmCallContext } from '@/lib/services/LlmLogService';
 import type { Json } from '@/types/database';
@@ -11,6 +11,57 @@ export const GEMINI_MODELS = {
   parse: process.env.GEMINI_PARSE_MODEL || 'gemini-2.0-flash',
   embedding: process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001',
 } as const;
+
+// ==================== Free Tier Quota Config ====================
+// Source: https://aistudio.google.com/rate-limit
+// Last updated: 2026-03-18
+
+export interface ModelQuota {
+  displayName: string;
+  modelId: string;
+  rpm: number;
+  tpm: number;
+  rpd: number;
+}
+
+/**
+ * Known free-tier quota limits per model.
+ * Update when Google changes limits — check https://aistudio.google.com/rate-limit
+ */
+export const GEMINI_FREE_TIER_QUOTA: ModelQuota[] = [
+  { displayName: 'Gemini 2.5 Flash', modelId: 'gemini-2.5-flash', rpm: 5, tpm: 250_000, rpd: 20 },
+  {
+    displayName: 'Gemini 3 Flash',
+    modelId: 'gemini-3-flash-preview',
+    rpm: 5,
+    tpm: 250_000,
+    rpd: 20,
+  },
+  {
+    displayName: 'Gemini 2.5 Flash Lite',
+    modelId: 'gemini-2.5-flash-lite',
+    rpm: 10,
+    tpm: 250_000,
+    rpd: 20,
+  },
+  {
+    displayName: 'Gemini 3.1 Flash Lite',
+    modelId: 'gemini-3.1-flash-lite-preview',
+    rpm: 15,
+    tpm: 250_000,
+    rpd: 500,
+  },
+  {
+    displayName: 'Gemini Embedding',
+    modelId: 'gemini-embedding-001',
+    rpm: 100,
+    tpm: 30_000,
+    rpd: 1_000,
+  },
+];
+
+export const GEMINI_QUOTA_DASHBOARD_URL =
+  'https://aistudio.google.com/rate-limit?project=gen-lang-client-0370443467';
 
 // ==================== Key Pool ====================
 
@@ -41,6 +92,7 @@ export interface KeyStatusInfo {
 export interface PoolEntryStatus {
   id: number;
   provider: 'gemini' | 'minimax';
+  model: string;
   maskedKey: string;
   disabled: boolean;
   cooldownUntil: number;
@@ -223,6 +275,14 @@ export class KeyPool {
   getStatus(): KeyStatusInfo[] {
     return this.entries.map((e) => ({ id: e.id, maskedKey: e.maskedKey, disabled: e.disabled }));
   }
+
+  /** Re-enable a disabled entry in memory. */
+  resetEntry(entryId: number): boolean {
+    const entry = this.entries.find((e) => e.id === entryId);
+    if (!entry) return false;
+    entry.disabled = false;
+    return true;
+  }
 }
 
 // ==================== Public API ====================
@@ -237,6 +297,17 @@ export function _resetPools(): void {
   _pooledProxy = null;
   _defaultPool = null;
   _chatPool = null;
+}
+
+/**
+ * Reset a single pool entry: clears in-memory disabled flag + Redis cooldown/fails.
+ */
+export async function resetPoolEntry(pool: 'default' | 'chat', entryId: number): Promise<boolean> {
+  const targetPool = pool === 'default' ? _defaultPool : _chatPool;
+  if (!targetPool) return false;
+  targetPool.resetEntry(entryId);
+  await resetPoolEntryCooldown(`${pool}:${entryId}`);
+  return true;
 }
 
 /** Lazy: validated on first use so pages/tests without GEMINI_API_KEY don't crash at import. */
@@ -400,6 +471,7 @@ export async function getPoolStatusInfo(): Promise<PoolStatusResponse> {
       entries.push({
         id: entry.id,
         provider: entry.provider,
+        model: entry.model,
         maskedKey: entry.maskedKey,
         disabled: entry.disabled,
         cooldownUntil: (state.cd[cdKey] ?? 0) > now ? state.cd[cdKey] : 0,
@@ -423,6 +495,7 @@ export async function getPoolStatusInfo(): Promise<PoolStatusResponse> {
       entries.push({
         id: entry.id,
         provider: entry.provider,
+        model: entry.model,
         maskedKey: entry.maskedKey,
         disabled: entry.disabled,
         cooldownUntil: (state.cd[cdKey] ?? 0) > now ? state.cd[cdKey] : 0,

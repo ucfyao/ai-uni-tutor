@@ -4,7 +4,14 @@ import { getProfileRepository } from '@/lib/repositories';
 import { getAdminDashboardService } from '@/lib/services/AdminDashboardService';
 import { getCurrentUser } from '@/lib/supabase/server';
 
-const VALID_SERVICES = ['stripe', 'upstash', 'gemini', 'gemini-pool', 'llm-logs-preview'] as const;
+const VALID_SERVICES = [
+  'stripe',
+  'upstash',
+  'gemini',
+  'gemini-pool',
+  'gemini-quota',
+  'llm-logs-preview',
+] as const;
 type ServiceName = (typeof VALID_SERVICES)[number];
 
 async function requireSuperAdmin() {
@@ -39,6 +46,7 @@ export async function GET(request: Request) {
         upstash: () => svc.fetchUpstashData(),
         gemini: () => svc.fetchGeminiData(),
         'gemini-pool': () => svc.fetchPoolStatus(),
+        'gemini-quota': () => svc.fetchGeminiQuota(),
         'llm-logs-preview': async () => {
           const { getLlmLogService } = await import('@/lib/services/LlmLogService');
           const llmSvc = getLlmLogService();
@@ -65,7 +73,14 @@ export async function GET(request: Request) {
   }
 }
 
-const postSchema = z.object({ action: z.literal('reset-pool') });
+const postSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('reset-pool') }),
+  z.object({
+    action: z.literal('reset-pool-entry'),
+    pool: z.enum(['default', 'chat']),
+    entryId: z.number().int().min(0),
+  }),
+]);
 
 export async function POST(request: Request) {
   try {
@@ -80,7 +95,12 @@ export async function POST(request: Request) {
     }
 
     const svc = getAdminDashboardService();
-    const result = await svc.resetPoolCooldowns();
+    let result;
+    if (body.data.action === 'reset-pool-entry') {
+      result = await svc.resetPoolEntry(body.data.pool, body.data.entryId);
+    } else {
+      result = await svc.resetPoolCooldowns();
+    }
     return NextResponse.json(result);
   } catch (error) {
     console.error('[AdminDashboard] POST error:', error);

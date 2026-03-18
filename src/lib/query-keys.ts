@@ -12,6 +12,7 @@ export const queryKeys = {
   },
   sessions: {
     all: ['sessions'] as const,
+    detail: (id: string) => ['sessions', id] as const,
   },
   universities: {
     all: ['universities'] as const,

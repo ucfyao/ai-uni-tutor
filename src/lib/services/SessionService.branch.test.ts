@@ -84,6 +84,11 @@ describe('SessionService branching', () => {
       mockMessageRepo.getActivePathWithForks.mockResolvedValue({
         path: [msg1, makeMsg('msg-3', 'msg-1')],
         siblingsMap: { 'msg-1': ['msg-2', 'msg-3'] },
+        allMessages: [
+          msg1,
+          msg2,
+          makeMsg('msg-3', 'msg-1', 'user', 'new question', '2025-06-01T10:02:00Z'),
+        ],
       });
 
       const result = await service.editAndRegenerate('sess-1', 'user-1', 'msg-2', 'new question');
@@ -103,7 +108,11 @@ describe('SessionService branching', () => {
 
       mockMessageRepo.findBySessionId.mockResolvedValue([msg1, msg2]);
       mockMessageRepo.create.mockResolvedValue(makeMsg('msg-3', 'msg-1', 'user', 'new'));
-      mockMessageRepo.getActivePathWithForks.mockResolvedValue({ path: [], siblingsMap: {} });
+      mockMessageRepo.getActivePathWithForks.mockResolvedValue({
+        path: [],
+        siblingsMap: {},
+        allMessages: [],
+      });
 
       await service.editAndRegenerate('sess-1', 'user-1', 'msg-2', 'new');
 

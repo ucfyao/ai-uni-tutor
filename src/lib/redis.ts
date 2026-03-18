@@ -239,6 +239,14 @@ export async function resetPoolCooldowns(): Promise<void> {
   await savePoolState(state);
 }
 
+/** Reset cooldown for a single pool entry. Key format: "pool:id" e.g. "chat:2" */
+export async function resetPoolEntryCooldown(cdKey: string): Promise<void> {
+  const state = await loadPoolState();
+  delete state.cd[cdKey];
+  delete state.fails[cdKey];
+  await savePoolState(state);
+}
+
 /**
  * Get per-model usage stats from the unified pool state.
  */

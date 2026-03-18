@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { chatCache } from '@/lib/chat-cache';
 import { ChatMessage, ChatSession } from '@/types';
 
 interface SessionUpdateOptions {
@@ -35,34 +34,27 @@ export function useChatSession({ initialSession, onSessionUpdate }: UseChatSessi
       return;
     }
 
-    // Same session but parent provided messages while local state has none
-    // (e.g. server fetch returned after initial empty render)
-    if (current && current.messages.length === 0 && initialSession.messages.length > 0) {
+    // Same session — sync when parent has more messages (e.g. server fetch returned)
+    if (current && initialSession.messages.length > current.messages.length) {
       sessionRef.current = initialSession;
       setSession(initialSession);
     }
   }, [initialSession, initialSession?.id, initialSession?.messages.length]);
 
-  // Debounced write to IndexedDB cache whenever messages change
-  const debouncedSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!session?.id || session.messages.length === 0) return;
-
-    if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
-
-    debouncedSaveRef.current = setTimeout(() => {
-      chatCache.saveMessages(session.id, session.messages);
-    }, 500);
-
-    return () => {
-      if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
-    };
-  }, [session?.id, session?.messages]);
-
-  // Update session and notify parent. Returns parent's promise so caller can await save.
+  // Update session and notify parent. Keeps allMessages in sync with messages.
   const updateSession = useCallback(
     (updatedSession: ChatSession, options?: SessionUpdateOptions): void | Promise<void> => {
+      // Merge new messages into allMessages so branch switching stays up-to-date
+      if (updatedSession.allMessages) {
+        const knownIds = new Set(updatedSession.allMessages.map((m) => m.id));
+        const newMsgs = updatedSession.messages.filter((m) => !knownIds.has(m.id));
+        if (newMsgs.length > 0) {
+          updatedSession = {
+            ...updatedSession,
+            allMessages: [...updatedSession.allMessages, ...newMsgs],
+          };
+        }
+      }
       sessionRef.current = updatedSession;
       setSession(updatedSession);
       return onSessionUpdate?.(updatedSession, options);

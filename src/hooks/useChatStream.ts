@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { useCallback, useRef, useState } from 'react';
 import type { ChatSource } from '@/types';
 
@@ -40,7 +41,7 @@ export function useChatStream() {
       cancelledRef.current = false;
       setIsStreaming(true);
 
-      const requestId = crypto.randomUUID();
+      const requestId = uuidv4();
       let chunkIndex = 0;
 
       const attemptStream = async (resumeFrom?: number): Promise<boolean> => {

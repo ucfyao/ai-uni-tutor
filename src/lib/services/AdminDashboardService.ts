@@ -1,5 +1,11 @@
-import { GEMINI_MODELS, getPoolStatusInfo } from '@/lib/gemini';
-import type { PoolStatusResponse } from '@/lib/gemini';
+import {
+  GEMINI_FREE_TIER_QUOTA,
+  GEMINI_MODELS,
+  GEMINI_QUOTA_DASHBOARD_URL,
+  resetPoolEntry as geminiResetPoolEntry,
+  getPoolStatusInfo,
+} from '@/lib/gemini';
+import type { ModelQuota, PoolStatusResponse } from '@/lib/gemini';
 import {
   getModelStats,
   getRedis,
@@ -40,6 +46,26 @@ interface GeminiData {
   totalToday: number;
   totalMonthly: number;
   activeUsersToday: number;
+}
+
+export interface GeminiQuotaEntry {
+  displayName: string;
+  modelId: string;
+  rpm: number;
+  tpm: number;
+  rpd: number;
+  todayUsage: number;
+  monthlyUsage: number;
+  inUse: boolean;
+}
+
+export interface GeminiQuotaData {
+  models: GeminiQuotaEntry[];
+  totalToday: number;
+  totalMonthly: number;
+  activeUsersToday: number;
+  dashboardUrl: string;
+  lastUpdated: string;
 }
 
 type ServiceResult<T> = T | { error: string };
@@ -175,6 +201,65 @@ export class AdminDashboardService {
     } catch (error) {
       console.error('[AdminDashboard] Pool reset failed:', error);
       return { error: 'Failed to reset pool cooldowns' };
+    }
+  }
+
+  async resetPoolEntry(
+    pool: 'default' | 'chat',
+    entryId: number,
+  ): Promise<{ success: boolean } | { error: string }> {
+    try {
+      await geminiResetPoolEntry(pool, entryId);
+      return { success: true };
+    } catch (error) {
+      console.error('[AdminDashboard] Pool entry reset failed:', error);
+      return { error: 'Failed to reset pool entry' };
+    }
+  }
+
+  async fetchGeminiQuota(): Promise<ServiceResult<GeminiQuotaData>> {
+    try {
+      // Collect all model IDs actually configured in pools
+      const configuredModels = new Set<string>(Object.values(GEMINI_MODELS));
+      const chatVars = Object.entries(process.env).filter(([k]) => /^AI_CHAT_\d+$/.test(k));
+      for (const [, value] of chatVars) {
+        if (!value) continue;
+        const firstColon = value.indexOf(':');
+        const secondColon = value.indexOf(':', firstColon + 1);
+        if (firstColon !== -1 && secondColon !== -1) {
+          configuredModels.add(value.slice(firstColon + 1, secondColon).trim());
+        }
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const r = getRedis();
+
+      const [models, userKeys] = await Promise.all([
+        Promise.all(
+          GEMINI_FREE_TIER_QUOTA.map(async (q: ModelQuota) => {
+            const stats = await getModelStats(q.modelId);
+            return {
+              ...q,
+              todayUsage: stats.today,
+              monthlyUsage: stats.monthly,
+              inUse: configuredModels.has(q.modelId),
+            };
+          }),
+        ),
+        r.keys(`usage:llm:*:${today}`),
+      ]);
+
+      return {
+        models,
+        totalToday: models.reduce((sum, m) => sum + m.todayUsage, 0),
+        totalMonthly: models.reduce((sum, m) => sum + m.monthlyUsage, 0),
+        activeUsersToday: userKeys.length,
+        dashboardUrl: GEMINI_QUOTA_DASHBOARD_URL,
+        lastUpdated: '2026-03-18',
+      };
+    } catch (error) {
+      console.error('[AdminDashboard] Gemini quota fetch failed:', error);
+      return { error: 'Failed to fetch Gemini quota data' };
     }
   }
 
