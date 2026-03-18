@@ -8,7 +8,7 @@
 import type { GoogleGenAI } from '@google/genai';
 import { parseAIResponse } from '@/lib/ai-utils';
 import { AppError } from '@/lib/errors';
-import { GEMINI_MODELS, getChatPool } from '@/lib/gemini';
+import { getChatPool } from '@/lib/gemini';
 import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
@@ -289,7 +289,7 @@ ${typesInstruction}
       const response = await getChatPool().withRetry(
         (entry) =>
           (entry.client as GoogleGenAI).models.generateContent({
-            model: GEMINI_MODELS.chat,
+            model: entry.model,
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
               responseMimeType: 'application/json',
@@ -551,7 +551,7 @@ Return a JSON array with exactly ${questions.length} objects in the same order:
       const response = await getChatPool().withRetry(
         (entry) =>
           (entry.client as GoogleGenAI).models.generateContent({
-            model: GEMINI_MODELS.chat,
+            model: entry.model,
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
               responseMimeType: 'application/json',
@@ -745,7 +745,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
       const response = await getChatPool().withRetry(
         (entry) =>
           (entry.client as GoogleGenAI).models.generateContent({
-            model: GEMINI_MODELS.chat,
+            model: entry.model,
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
               responseMimeType: 'application/json',
