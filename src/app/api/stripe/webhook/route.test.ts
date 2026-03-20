@@ -127,8 +127,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', undefined));
 
       expect(response.status).toBe(400);
-      const text = await response.text();
-      expect(text).toBe('Missing Stripe-Signature header');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Missing Stripe-Signature header', code: 'VALIDATION' });
     });
 
     it('returns 500 when STRIPE_WEBHOOK_SECRET is not set', async () => {
@@ -137,8 +137,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'sig_test'));
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toBe('Missing STRIPE_WEBHOOK_SECRET');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Missing STRIPE_WEBHOOK_SECRET', code: 'CONFIG_ERROR' });
     });
 
     it('returns 400 when constructEvent throws (invalid signature)', async () => {
@@ -149,8 +149,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'invalid_signature'));
 
       expect(response.status).toBe(400);
-      const text = await response.text();
-      expect(text).toBe('Webhook signature verification failed');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Webhook signature verification failed', code: 'VALIDATION' });
     });
 
     it('calls constructEvent with raw body, signature, and secret', async () => {
@@ -276,8 +276,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'sig_test'));
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toBe('Webhook handler failed');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Webhook handler failed', code: 'INTERNAL' });
     });
 
     it('throws error when subscription is missing from checkout session', async () => {
@@ -298,8 +298,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'sig_test'));
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toBe('Webhook handler failed');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Webhook handler failed', code: 'INTERNAL' });
     });
   });
 
@@ -492,8 +492,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'sig_test'));
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toBe('Webhook handler failed');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Webhook handler failed', code: 'INTERNAL' });
     });
 
     it('returns 500 when profile update returns an error', async () => {
@@ -521,8 +521,8 @@ describe('POST /api/stripe/webhook', () => {
       const response = await POST(makeRequest('body', 'sig_test'));
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toBe('Webhook handler failed');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Webhook handler failed', code: 'INTERNAL' });
     });
   });
 });

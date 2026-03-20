@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { apiError } from '@/lib/api-response';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -11,11 +12,11 @@ export async function POST(req: NextRequest) {
   const signature = headersList.get('Stripe-Signature') as string;
 
   if (!signature) {
-    return new NextResponse('Missing Stripe-Signature header', { status: 400 });
+    return apiError('Missing Stripe-Signature header', 400, 'VALIDATION');
   }
 
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    return new NextResponse('Missing STRIPE_WEBHOOK_SECRET', { status: 500 });
+    return apiError('Missing STRIPE_WEBHOOK_SECRET', 500, 'CONFIG_ERROR');
   }
 
   let event: Stripe.Event;
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET);
   } catch {
-    return new NextResponse('Webhook signature verification failed', { status: 400 });
+    return apiError('Webhook signature verification failed', 400, 'VALIDATION');
   }
 
   const supabase = createAdminClient();
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse(null, { status: 200 });
   } catch (error) {
     console.error(`Stripe webhook handler failed for ${event.type}:`, error);
-    return new NextResponse('Webhook handler failed', { status: 500 });
+    return apiError('Webhook handler failed', 500);
   }
 }
 

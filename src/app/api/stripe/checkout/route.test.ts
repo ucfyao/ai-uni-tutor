@@ -82,8 +82,8 @@ describe('POST /api/stripe/checkout', () => {
       const response = await POST(createRequest());
 
       expect(response.status).toBe(401);
-      const text = await response.text();
-      expect(text).toBe('Unauthorized');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
   });
 
@@ -100,8 +100,9 @@ describe('POST /api/stripe/checkout', () => {
       const response = await POST(createRequest());
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toContain('monthly');
+      const body = await response.json();
+      expect(body.error).toContain('monthly');
+      expect(body.code).toBe('CONFIG_ERROR');
     });
 
     it('returns 500 when semester price ID is not set', async () => {
@@ -112,8 +113,9 @@ describe('POST /api/stripe/checkout', () => {
       const response = await POST(createRequest({ plan: 'semester' }));
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toContain('semester');
+      const body = await response.json();
+      expect(body.error).toContain('semester');
+      expect(body.code).toBe('CONFIG_ERROR');
     });
   });
 
@@ -312,8 +314,8 @@ describe('POST /api/stripe/checkout', () => {
       const response = await POST(createRequest());
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toBe('Internal Error');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Internal Error', code: 'INTERNAL' });
     });
 
     it('returns 500 when customer creation fails', async () => {
@@ -325,8 +327,8 @@ describe('POST /api/stripe/checkout', () => {
       const response = await POST(createRequest());
 
       expect(response.status).toBe(500);
-      const text = await response.text();
-      expect(text).toBe('Internal Error');
+      const body = await response.json();
+      expect(body).toEqual({ error: 'Internal Error', code: 'INTERNAL' });
     });
   });
 

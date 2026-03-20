@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-response';
 import { getEnv } from '@/lib/env';
 import { getProfileService } from '@/lib/services/ProfileService';
 import { stripe } from '@/lib/stripe';
@@ -9,14 +10,14 @@ export async function POST(_req: NextRequest) {
     const user = await getCurrentUser();
 
     if (!user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return apiError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     const profileService = getProfileService();
     const stripeCustomerId = await profileService.getStripeCustomerId(user.id);
 
     if (!stripeCustomerId) {
-      return new NextResponse('No active subscription', { status: 400 });
+      return apiError('No active subscription', 400, 'VALIDATION');
     }
 
     const session = await stripe.billingPortal.sessions.create({
@@ -27,6 +28,6 @@ export async function POST(_req: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('[STRIPE_PORTAL]', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    return apiError('Internal Error', 500);
   }
 }
