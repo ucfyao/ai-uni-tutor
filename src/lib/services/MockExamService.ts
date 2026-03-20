@@ -13,6 +13,7 @@ import { getExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import type { ExamPaperRepository } from '@/lib/repositories/ExamPaperRepository';
 import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { MockExamRepository } from '@/lib/repositories/MockExamRepository';
+import { toJson } from '@/lib/type-utils';
 import type { Json } from '@/types/database';
 import type {
   BatchSubmitResult,
@@ -89,8 +90,8 @@ export class MockExamService {
       sessionId: null,
       title,
       mode: options.mode,
-      questions: [] as unknown as Json,
-      responses: [] as unknown as Json,
+      questions: toJson([]),
+      responses: toJson([]),
       totalPoints: 0,
       currentIndex: 0,
       status: 'in_progress',
@@ -116,8 +117,8 @@ export class MockExamService {
       sessionId,
       title,
       mode,
-      questions: [] as unknown as Json,
-      responses: [] as unknown as Json,
+      questions: toJson([]),
+      responses: toJson([]),
       totalPoints: 0,
       currentIndex: 0,
       status: 'in_progress',
@@ -184,7 +185,7 @@ export class MockExamService {
     await this.mockRepo.update(mockId, {
       title: paper.title,
       mode,
-      questions: mockQuestions as unknown as Json,
+      questions: toJson(mockQuestions),
       totalPoints,
     });
   }
@@ -242,7 +243,7 @@ export class MockExamService {
     await this.mockRepo.update(mockId, {
       title,
       mode,
-      questions: mockQuestions as unknown as Json,
+      questions: toJson(mockQuestions),
       totalPoints,
     });
   }
@@ -344,7 +345,7 @@ ${typesInstruction}
       mode?: 'practice' | 'exam';
     } = {
       title,
-      questions: mockQuestions as unknown as Json,
+      questions: toJson(mockQuestions),
       totalPoints,
     };
     if (options.mode) updateData.mode = options.mode;
@@ -387,8 +388,8 @@ ${typesInstruction}
       userId,
       title,
       mode,
-      questions: mockQuestions as unknown as Json,
-      responses: [] as unknown as Json,
+      questions: toJson(mockQuestions),
+      responses: toJson([]),
       totalPoints,
       currentIndex: 0,
       status: 'in_progress',
@@ -448,8 +449,8 @@ ${typesInstruction}
       userId,
       title,
       mode,
-      questions: mockQuestions as unknown as Json,
-      responses: [] as unknown as Json,
+      questions: toJson(mockQuestions),
+      responses: toJson([]),
       totalPoints,
       currentIndex: 0,
       status: 'in_progress',
@@ -607,8 +608,8 @@ Return a JSON array with exactly ${questions.length} objects in the same order:
       sessionId: sessionId ?? null,
       title,
       mode,
-      questions: generatedQuestions as unknown as Json,
-      responses: [] as unknown as Json,
+      questions: toJson(generatedQuestions),
+      responses: toJson([]),
       totalPoints,
       currentIndex: 0,
       status: 'in_progress',
@@ -658,7 +659,7 @@ Return a JSON array with exactly ${questions.length} objects in the same order:
       score?: number;
       status?: 'completed';
     } = {
-      responses: updatedResponses as unknown as Json,
+      responses: toJson(updatedResponses),
       currentIndex: newIndex,
     };
 
@@ -867,7 +868,7 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
     const totalScore = allResponses.reduce((sum, r) => sum + r.score, 0);
 
     await this.mockRepo.update(mockId, {
-      responses: allResponses as unknown as Json,
+      responses: toJson(allResponses),
       currentIndex: mock.questions.length,
       score: totalScore,
       status: 'completed',
@@ -931,8 +932,8 @@ Return a JSON array with exactly ${entries.length} objects, one per question in 
       sessionId: null,
       title: original.title,
       mode: original.mode,
-      questions: original.questions as unknown as Json,
-      responses: [] as unknown as Json,
+      questions: toJson(original.questions),
+      responses: toJson([]),
       totalPoints: original.totalPoints,
       currentIndex: 0,
       status: 'in_progress',
