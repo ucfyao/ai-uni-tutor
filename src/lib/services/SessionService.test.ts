@@ -66,6 +66,7 @@ function createMockSessionRepo(): Record<keyof SessionRepository, ReturnType<typ
     findByIdAndUserId: vi.fn(),
     findAllByUserId: vi.fn(),
     findSharedById: vi.fn(),
+    findSharedSessionIds: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
