@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { JsonLd } from '@/components/marketing/JsonLd';
 import MarketingApp from '@/components/marketing/MarketingApp';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai';
@@ -26,5 +27,10 @@ export const metadata: Metadata = {
 };
 
 export default function MarketingPageZh() {
-  return <MarketingApp initialLang="zh" />;
+  return (
+    <>
+      <JsonLd locale="zh" />
+      <MarketingApp initialLang="zh" />
+    </>
+  );
 }
