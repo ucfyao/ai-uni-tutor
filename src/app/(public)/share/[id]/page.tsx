@@ -1,4 +1,5 @@
 import { Calendar, LogIn } from 'lucide-react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
@@ -12,6 +13,46 @@ import 'katex/dist/katex.min.css';
 
 interface PageProps {
   params: Promise<{ id: string }>;
+}
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai';
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const result = await getSharedSession(id);
+
+  if (!result.success || !result.data) {
+    return { title: 'Session Not Found — AI Uni Tutor' };
+  }
+
+  const session = result.data;
+  const title = session.title || session.course?.code || 'Shared Chat';
+  const fullTitle = `${title} — AI Uni Tutor`;
+  const descriptionParts = ['Shared tutoring session'];
+  if (session.course) {
+    descriptionParts.push(`for ${session.course.code}: ${session.course.name}`);
+  }
+  if (session.mode) {
+    descriptionParts.push(`(${session.mode} mode)`);
+  }
+  const description = descriptionParts.join(' ');
+
+  return {
+    title: fullTitle,
+    description,
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: `${SITE_URL}/share/${id}`,
+      siteName: 'AI Uni Tutor',
+      type: 'article',
+    },
+    twitter: {
+      card: 'summary',
+      title: fullTitle,
+      description,
+    },
+  };
 }
 
 export default async function SharedSessionPage({ params }: PageProps) {

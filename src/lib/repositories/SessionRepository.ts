@@ -145,6 +145,21 @@ export class SessionRepository {
     if (error) throw new DatabaseError(`Failed to delete session: ${error.message}`, error);
   }
 
+  async findSharedSessionIds(): Promise<{ id: string; updatedAt: string }[]> {
+    const supabase = await createClient();
+    const now = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .select('id, updated_at')
+      .eq('is_shared', true)
+      .or(`share_expires_at.is.null,share_expires_at.gt.${now}`);
+
+    if (error)
+      throw new DatabaseError(`Failed to fetch shared session IDs: ${error.message}`, error);
+    return (data ?? []).map((row) => ({ id: row.id, updatedAt: row.updated_at }));
+  }
+
   async verifyOwnership(id: string, userId: string): Promise<boolean> {
     const session = await this.findByIdAndUserId(id, userId);
     return session !== null;
