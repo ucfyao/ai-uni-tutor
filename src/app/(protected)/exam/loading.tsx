@@ -1,14 +1,61 @@
-import { Center, Loader, Stack, Text } from '@mantine/core';
+import { Box, Container, Group, Skeleton, Stack } from '@mantine/core';
 
 export default function Loading() {
   return (
-    <Center h="calc(100vh - 200px)">
-      <Stack align="center" gap="sm">
-        <Loader color="indigo" size="lg" type="dots" />
-        <Text size="sm" c="dimmed" fw={500}>
-          Loading exam details...
-        </Text>
+    <Container size="lg" py="xl">
+      <Stack gap="xl">
+        {/* Page title */}
+        <Group justify="space-between">
+          <Skeleton height={32} width={180} radius="sm" />
+          <Skeleton height={36} width={160} radius="sm" />
+        </Group>
+
+        {/* Section: In Progress */}
+        <Stack gap="md">
+          <Skeleton height={24} width={120} radius="sm" />
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Box
+              key={i}
+              p="md"
+              style={{
+                border: '1px solid var(--mantine-color-default-border)',
+                borderRadius: 'var(--mantine-radius-md)',
+              }}
+            >
+              <Group justify="space-between">
+                <Stack gap="xs" style={{ flex: 1 }}>
+                  <Skeleton height={18} width="50%" radius="sm" />
+                  <Skeleton height={14} width="70%" radius="sm" />
+                </Stack>
+                <Skeleton height={32} width={80} radius="sm" />
+              </Group>
+            </Box>
+          ))}
+        </Stack>
+
+        {/* Section: Completed */}
+        <Stack gap="md">
+          <Skeleton height={24} width={120} radius="sm" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Box
+              key={i}
+              p="md"
+              style={{
+                border: '1px solid var(--mantine-color-default-border)',
+                borderRadius: 'var(--mantine-radius-md)',
+              }}
+            >
+              <Group justify="space-between">
+                <Stack gap="xs" style={{ flex: 1 }}>
+                  <Skeleton height={18} width="50%" radius="sm" />
+                  <Skeleton height={14} width="70%" radius="sm" />
+                </Stack>
+                <Skeleton height={32} width={80} radius="sm" />
+              </Group>
+            </Box>
+          ))}
+        </Stack>
       </Stack>
-    </Center>
+    </Container>
   );
 }
