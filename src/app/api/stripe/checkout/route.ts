@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-response';
 import { getEnv } from '@/lib/env';
 import { getReferralRepository } from '@/lib/repositories';
 import { getProfileService } from '@/lib/services/ProfileService';
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUser();
 
     if (!user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return apiError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     const profileService = getProfileService();
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
         : process.env.STRIPE_PRICE_ID_MONTHLY;
 
     if (!priceId) {
-      return new NextResponse(`Stripe Price ID for ${plan} plan is missing`, { status: 500 });
+      return apiError(`Stripe Price ID for ${plan} plan is missing`, 500, 'CONFIG_ERROR');
     }
 
     // Look up referral code for Stripe discount
@@ -87,6 +88,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('[STRIPE_POST]', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    return apiError('Internal Error', 500);
   }
 }

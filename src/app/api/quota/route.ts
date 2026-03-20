@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-response';
 import { getLlmLogService } from '@/lib/services/LlmLogService';
 import { getQuotaService, type QuotaResponse } from '@/lib/services/QuotaService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -7,7 +8,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     const quotaService = getQuotaService();
@@ -34,6 +35,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Failed to fetch quota status', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError('Internal server error', 500);
   }
 }
