@@ -12,6 +12,7 @@ import { getMockExamRepository } from '@/lib/repositories/MockExamRepository';
 import type { SessionRepository } from '@/lib/repositories/SessionRepository';
 import { getCourseService } from '@/lib/services/CourseService';
 import { ChatMessage, ChatSession, Course, TutoringMode } from '@/types';
+import type { CourseEntity } from '@/types/course-entity';
 import type { MessageEntity } from '@/types/message';
 
 /** Helper: convert MessageEntity to ChatMessage */
@@ -117,7 +118,7 @@ export class SessionService {
       this.sessionRepo.findAllByUserId(userId),
       courseService.getAllCourses(),
     ]);
-    const courseMap = new Map<string, any>(allCourses.map((c) => [c.id, c]));
+    const courseMap = new Map<string, CourseEntity>(allCourses.map((c) => [c.id, c]));
 
     // Batch-fetch mockId for Mock Exam sessions
     const examSessionIds = sessions.filter((s) => s.mode === 'Mock Exam').map((s) => s.id);
