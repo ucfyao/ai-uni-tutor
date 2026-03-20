@@ -16,6 +16,7 @@ const outfit = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai'),
   title: 'AI Uni Tutor',
   description: 'Personalized academic copilot',
   icons: {
@@ -33,6 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={outfit.variable}>
       <head>
+        <link rel="preconnect" href="https://js.stripe.com" />
         <ColorSchemeScript defaultColorScheme="auto" />
       </head>
       <body suppressHydrationWarning>
