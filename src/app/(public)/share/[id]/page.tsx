@@ -15,7 +15,7 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aiunitutor.com';
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;

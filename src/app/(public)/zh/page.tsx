@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { JsonLd } from '@/components/marketing/JsonLd';
 import MarketingApp from '@/components/marketing/MarketingApp';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aiunitutor.com';
 
 export const metadata: Metadata = {
   title: 'AI Uni Tutor — 你的个性化学术助手',

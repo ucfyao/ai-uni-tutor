@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { getSessionRepository } from '@/lib/repositories/SessionRepository';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aiunitutor.com';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
