@@ -36,16 +36,16 @@ function buildRequest(params: Record<string, string>, headers?: Record<string, s
 // ---------------------------------------------------------------------------
 
 describe('sanitizeRedirectPath', () => {
-  it('returns / for undefined', () => {
-    expect(sanitizeRedirectPath(undefined)).toBe('/');
+  it('returns /study for undefined', () => {
+    expect(sanitizeRedirectPath(undefined)).toBe('/study');
   });
 
-  it('returns / for empty string', () => {
-    expect(sanitizeRedirectPath('')).toBe('/');
+  it('returns /study for empty string', () => {
+    expect(sanitizeRedirectPath('')).toBe('/study');
   });
 
-  it('returns / for bare slash', () => {
-    expect(sanitizeRedirectPath('/')).toBe('/');
+  it('returns /study for bare slash', () => {
+    expect(sanitizeRedirectPath('/')).toBe('/study');
   });
 
   it('allows known internal paths', () => {
@@ -68,24 +68,24 @@ describe('sanitizeRedirectPath', () => {
   });
 
   it('rejects protocol-relative URLs (//evil.com)', () => {
-    expect(sanitizeRedirectPath('//evil.com')).toBe('/');
-    expect(sanitizeRedirectPath('//evil.com/study')).toBe('/');
+    expect(sanitizeRedirectPath('//evil.com')).toBe('/study');
+    expect(sanitizeRedirectPath('//evil.com/study')).toBe('/study');
   });
 
   it('rejects absolute URLs with protocol', () => {
-    expect(sanitizeRedirectPath('https://evil.com')).toBe('/');
-    expect(sanitizeRedirectPath('http://evil.com/study')).toBe('/');
+    expect(sanitizeRedirectPath('https://evil.com')).toBe('/study');
+    expect(sanitizeRedirectPath('http://evil.com/study')).toBe('/study');
   });
 
   it('rejects unknown path prefixes', () => {
-    expect(sanitizeRedirectPath('/unknown')).toBe('/');
-    expect(sanitizeRedirectPath('/login')).toBe('/');
-    expect(sanitizeRedirectPath('/evil')).toBe('/');
+    expect(sanitizeRedirectPath('/unknown')).toBe('/study');
+    expect(sanitizeRedirectPath('/login')).toBe('/study');
+    expect(sanitizeRedirectPath('/evil')).toBe('/study');
   });
 
   it('rejects paths that do not start with /', () => {
-    expect(sanitizeRedirectPath('study')).toBe('/');
-    expect(sanitizeRedirectPath('evil.com')).toBe('/');
+    expect(sanitizeRedirectPath('study')).toBe('/study');
+    expect(sanitizeRedirectPath('evil.com')).toBe('/study');
   });
 });
 
@@ -98,13 +98,13 @@ describe('GET /auth/callback', () => {
     vi.clearAllMocks();
   });
 
-  it('redirects to / after successful auth with no next param', async () => {
+  it('redirects to /study after successful auth with no next param', async () => {
     mockExchangeCodeForSession.mockResolvedValue({ error: null });
 
     const response = await GET(buildRequest({ code: 'valid-code' }));
 
     expect(response.status).toBe(307);
-    expect(new URL(response.headers.get('location')!).pathname).toBe('/');
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/study');
   });
 
   it('redirects to allowed next path after successful auth', async () => {
@@ -116,13 +116,13 @@ describe('GET /auth/callback', () => {
     expect(new URL(response.headers.get('location')!).pathname).toBe('/study/abc');
   });
 
-  it('rejects //evil.com and redirects to /', async () => {
+  it('rejects //evil.com and redirects to /study', async () => {
     mockExchangeCodeForSession.mockResolvedValue({ error: null });
 
     const response = await GET(buildRequest({ code: 'valid-code', next: '//evil.com' }));
 
     expect(response.status).toBe(307);
-    expect(new URL(response.headers.get('location')!).pathname).toBe('/');
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/study');
   });
 
   it('rejects absolute URL next param', async () => {
@@ -133,7 +133,7 @@ describe('GET /auth/callback', () => {
     );
 
     expect(response.status).toBe(307);
-    expect(new URL(response.headers.get('location')!).pathname).toBe('/');
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/study');
   });
 
   it('redirects to error page when code is missing', async () => {

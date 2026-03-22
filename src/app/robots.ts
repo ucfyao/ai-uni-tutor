@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aiunitutor.com';
 
 export default function robots(): MetadataRoute.Robots {
   return {

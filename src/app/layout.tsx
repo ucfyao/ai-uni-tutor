@@ -16,7 +16,7 @@ const outfit = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aiunitutor.com'),
   title: 'AI Uni Tutor',
   description: 'Personalized academic copilot',
   icons: {

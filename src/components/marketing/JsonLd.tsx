@@ -3,7 +3,7 @@ interface JsonLdProps {
 }
 
 export function JsonLd({ locale = 'en' }: JsonLdProps) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://unitutor.ai';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aiunitutor.com';
 
   const organization = {
     '@context': 'https://schema.org',

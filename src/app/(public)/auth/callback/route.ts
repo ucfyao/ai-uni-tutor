@@ -21,10 +21,10 @@ const ALLOWED_PATH_PREFIXES = [
 ];
 
 export function sanitizeRedirectPath(value: string | undefined): string {
-  if (!value) return '/';
-  if (value.startsWith('//') || value.includes('://')) return '/';
-  if (value === '/') return '/';
-  return ALLOWED_PATH_PREFIXES.some((prefix) => value.startsWith(prefix)) ? value : '/';
+  if (!value) return '/study';
+  if (value.startsWith('//') || value.includes('://')) return '/study';
+  if (value === '/') return '/study';
+  return ALLOWED_PATH_PREFIXES.some((prefix) => value.startsWith(prefix)) ? value : '/study';
 }
 
 const callbackParamsSchema = z.object({
