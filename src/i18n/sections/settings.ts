@@ -135,6 +135,12 @@ export const settingsTranslations = {
       invalidResetLink: '此重置链接无效或已过期。',
       returnToLogin: '返回登录页',
       passwordsDoNotMatch: '两次输入的密码不一致',
+      authErrorTitle: '验证失败',
+      authErrorExpired: '邮箱验证链接已过期，请重新发送验证邮件。',
+      authErrorDefault: '验证过程中发生错误，请重试。',
+      resendVerification: '重新发送验证邮件',
+      resendSuccess: '验证邮件已发送，请查收邮箱。',
+      goToLogin: '前往登录',
     },
   },
   en: {
@@ -279,6 +285,13 @@ export const settingsTranslations = {
       invalidResetLink: 'This reset link is invalid or expired.',
       returnToLogin: 'Return to login',
       passwordsDoNotMatch: 'Passwords do not match',
+      authErrorTitle: 'Verification Failed',
+      authErrorExpired:
+        'The email verification link has expired. Please resend the verification email.',
+      authErrorDefault: 'An error occurred during verification. Please try again.',
+      resendVerification: 'Resend Verification Email',
+      resendSuccess: 'Verification email sent. Please check your inbox.',
+      goToLogin: 'Go to Login',
     },
   },
 };
