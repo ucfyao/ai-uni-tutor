@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Badge,
   Box,
@@ -29,26 +30,18 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
 import { Dropzone, IMAGE_MIME_TYPE, PDF_MIME_TYPE } from '@mantine/dropzone';
+import { useDisclosure } from '@mantine/hooks';
+import { fetchReadyAssignmentsByCourse } from '@/app/actions/assignments';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { useCourseData } from '@/hooks/useCourseData';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { queryKeys } from '@/lib/query-keys';
 import type { GradingResponse, GradingResult } from '@/types/grading';
 
 const TOOLS_COLOR = 'violet';
 
 type GradingStage = 'idle' | 'extracting' | 'grading' | 'complete' | 'error';
-
-interface Course {
-  id: string;
-  code: string;
-  name: string;
-}
-
-interface Assignment {
-  id: string;
-  title: string;
-}
 
 interface LogEntry {
   id: number;
@@ -127,8 +120,8 @@ function PipelineLog({
       viewportRef={viewportRef}
       style={{
         borderRadius: 'var(--mantine-radius-sm)',
-        background: 'var(--mantine-color-dark-8, var(--mantine-color-gray-0))',
-        border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+        background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
+        border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
       }}
     >
       <Stack gap={1} px={8} py={6}>
@@ -178,7 +171,13 @@ function PipelineLog({
 // Per-Question Feedback Card
 // ============================================================================
 
-function QuestionCard({ resp, t }: { resp: GradingResponse; t: ReturnType<typeof useLanguage>['t'] }) {
+function QuestionCard({
+  resp,
+  t,
+}: {
+  resp: GradingResponse;
+  t: ReturnType<typeof useLanguage>['t'];
+}) {
   const [questionOpened, { toggle: toggleQuestion }] = useDisclosure(false);
   const [refOpened, { toggle: toggleRef }] = useDisclosure(false);
 
@@ -207,13 +206,7 @@ function QuestionCard({ resp, t }: { resp: GradingResponse; t: ReturnType<typeof
       {/* Original Question (collapsible) */}
       {resp.questionContent && (
         <Box mb="sm">
-          <Button
-            variant="subtle"
-            color="gray"
-            size="compact-xs"
-            onClick={toggleQuestion}
-            mb={4}
-          >
+          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleQuestion} mb={4}>
             {questionOpened ? '▾' : '▸'} {t.tools.originalQuestion}
           </Button>
           <Collapse in={questionOpened}>
@@ -221,8 +214,9 @@ function QuestionCard({ resp, t }: { resp: GradingResponse; t: ReturnType<typeof
               p="xs"
               style={{
                 borderRadius: 'var(--mantine-radius-sm)',
-                background: 'var(--mantine-color-dark-7, var(--mantine-color-gray-0))',
-                border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+                background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
+                border:
+                  '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
               }}
             >
               <MarkdownRenderer content={resp.questionContent} compact />
@@ -241,8 +235,9 @@ function QuestionCard({ resp, t }: { resp: GradingResponse; t: ReturnType<typeof
             p="xs"
             style={{
               borderRadius: 'var(--mantine-radius-sm)',
-              background: 'var(--mantine-color-dark-7, var(--mantine-color-gray-0))',
-              border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+              background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
+              border:
+                '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
             }}
           >
             <MarkdownRenderer content={resp.userAnswer} compact />
@@ -261,8 +256,9 @@ function QuestionCard({ resp, t }: { resp: GradingResponse; t: ReturnType<typeof
               p="xs"
               style={{
                 borderRadius: 'var(--mantine-radius-sm)',
-                background: 'var(--mantine-color-dark-7, var(--mantine-color-gray-0))',
-                border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+                background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
+                border:
+                  '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
               }}
             >
               <MarkdownRenderer content={resp.referenceAnswer} compact />
@@ -288,13 +284,24 @@ export default function GradingPageClient() {
   const router = useRouter();
 
   // Input state
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [coursesLoading, setCoursesLoading] = useState(true);
-  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+
+  // Course data via shared TanStack Query hook (cached across pages)
+  const { courses, isLoading: coursesLoading } = useCourseData();
+
+  // Assignments via TanStack Query (cached per course)
+  const { data: assignments = [], isLoading: assignmentsLoading } = useQuery({
+    queryKey: queryKeys.assignments.byCourse(selectedCourseId),
+    queryFn: async () => {
+      const result = await fetchReadyAssignmentsByCourse(selectedCourseId);
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    enabled: !!selectedCourseId,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Grading state
   const [stage, setStage] = useState<GradingStage>('idle');
@@ -307,58 +314,15 @@ export default function GradingPageClient() {
   const [gradingStartTime, setGradingStartTime] = useState(0);
   const logIdRef = useRef(0);
 
-  const appendLog = useCallback(
-    (message: string, level: LogEntry['level']) => {
-      logIdRef.current += 1;
-      setLogs((prev) => [
-        ...prev,
-        { id: logIdRef.current, message, level, timestamp: Date.now() },
-      ]);
-    },
-    [],
-  );
-
-  // Fetch courses on mount
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/courses');
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { courses: Course[] };
-        if (!cancelled) setCourses(data.courses);
-      } catch {
-        // silently fail
-      } finally {
-        if (!cancelled) setCoursesLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const appendLog = useCallback((message: string, level: LogEntry['level']) => {
+    logIdRef.current += 1;
+    setLogs((prev) => [...prev, { id: logIdRef.current, message, level, timestamp: Date.now() }]);
   }, []);
 
-  // Fetch assignments when course changes
-  const handleCourseChange = useCallback(async (courseId: string) => {
+  // Reset assignment selection when course changes
+  const handleCourseChange = useCallback((courseId: string) => {
     setSelectedCourseId(courseId);
     setSelectedAssignmentId('');
-    setAssignments([]);
-
-    if (!courseId) return;
-
-    setAssignmentsLoading(true);
-    try {
-      const res = await fetch(
-        `/api/assignments?courseId=${encodeURIComponent(courseId)}&status=ready`,
-      );
-      if (!res.ok) return;
-      const data = (await res.json()) as { assignments: Assignment[] };
-      setAssignments(data.assignments);
-    } catch {
-      // silently fail
-    } finally {
-      setAssignmentsLoading(false);
-    }
   }, []);
 
   // Submit for grading
@@ -493,9 +457,7 @@ export default function GradingPageClient() {
       : [
           {
             value: '',
-            label: selectedCourseId
-              ? t.tools.noAssignments
-              : t.tools.selectAssignmentPlaceholder,
+            label: selectedCourseId ? t.tools.noAssignments : t.tools.selectAssignmentPlaceholder,
           },
         ];
 
@@ -550,7 +512,7 @@ export default function GradingPageClient() {
                 label={t.tools.selectCourse}
                 data={courseSelectData}
                 value={selectedCourseId}
-                onChange={(e) => void handleCourseChange(e.currentTarget.value)}
+                onChange={(e) => handleCourseChange(e.currentTarget.value)}
                 disabled={isSubmitting}
                 rightSection={coursesLoading ? <Loader size={14} /> : undefined}
               />
@@ -604,7 +566,12 @@ export default function GradingPageClient() {
 
               {/* Error alert */}
               {stage === 'error' && errorMessage && (
-                <Card withBorder radius="sm" p="sm" style={{ borderColor: 'var(--mantine-color-red-4)' }}>
+                <Card
+                  withBorder
+                  radius="sm"
+                  p="sm"
+                  style={{ borderColor: 'var(--mantine-color-red-4)' }}
+                >
                   <Group gap="xs" wrap="nowrap">
                     <AlertTriangle size={16} color="var(--mantine-color-red-6)" />
                     <Text size="sm" c="red">
@@ -626,11 +593,7 @@ export default function GradingPageClient() {
                   {stage === 'complete' ? t.tools.startGrading : t.tools.startGrading}
                 </Button>
                 {isSubmitting && (
-                  <Button
-                    variant="light"
-                    color="red"
-                    onClick={handleCancel}
-                  >
+                  <Button variant="light" color="red" onClick={handleCancel}>
                     {t.tools.cancelGrading}
                   </Button>
                 )}

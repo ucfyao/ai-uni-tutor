@@ -52,7 +52,7 @@ Return a JSON object with this exact structure:
       "questionIndex": <0-based index matching the question order>,
       "questionContent": "<the original question content>",
       "referenceAnswer": "<the reference answer>",
-      "userAnswer": "<extracted student answer text, or 'No answer found' if missing>",
+      "userAnswer": "<extracted student answer in markdown — see formatting rules below, or 'No answer found' if missing>",
       "isCorrect": <true if full marks, false otherwise>,
       "score": <number from 0 to maxPoints>,
       "maxPoints": <maximum points for this question>,
@@ -73,6 +73,13 @@ IMPORTANT:
 - If you cannot find an answer for a question, give it 0 points and note it in feedback.
 - Be fair but rigorous in scoring. Award partial credit where the student shows understanding.
 - The formatWarning field should only be present if handwritten content is detected.
+
+FORMATTING RULES for userAnswer, feedback, questionContent, referenceAnswer, and overallFeedback fields:
+- All text fields support Markdown rendering. Use markdown formatting for clarity.
+- Code MUST be wrapped in fenced code blocks with language tags (e.g. ${'`'}${'`'}${'`'}python ... ${'`'}${'`'}${'`'}).
+- NEVER leave code as plain text — underscores in variable names like train_test_split will be misrendered.
+- Mathematical expressions should use LaTeX notation (e.g. $\\alpha$, $\\frac{1}{n}$).
+- Preserve the student's original code faithfully, including variable names, indentation, and comments.
 
 Here are the assignment questions:
 

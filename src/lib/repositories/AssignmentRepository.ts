@@ -129,6 +129,21 @@ export class AssignmentRepository {
     return (data?.course_id as string) ?? null;
   }
 
+  async listReadyByCourse(courseId: string): Promise<{ id: string; title: string }[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('id, title')
+      .eq('course_id', courseId)
+      .eq('status', 'ready')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch ready assignments: ${error.message}`, error);
+    }
+    return (data ?? []) as { id: string; title: string }[];
+  }
+
   async findByCourseIds(courseIds: string[]): Promise<AssignmentEntity[]> {
     if (courseIds.length === 0) return [];
     const supabase = await createClient();

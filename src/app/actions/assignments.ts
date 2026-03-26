@@ -1,9 +1,9 @@
 'use server';
 
 import { z } from 'zod';
-import { ForbiddenError } from '@/lib/errors';
+import { ForbiddenError, mapError } from '@/lib/errors';
 import { getAssignmentService } from '@/lib/services/AssignmentService';
-import { requireAnyAdmin, requireAssignmentAccess } from '@/lib/supabase/server';
+import { requireAnyAdmin, requireAssignmentAccess, requireUser } from '@/lib/supabase/server';
 import type { ActionResult } from '@/types/actions';
 import type { AssignmentItemEntity } from '@/types/assignment';
 
@@ -28,7 +28,29 @@ const addItemSchema = z.object({
   title: z.string().max(255).optional().default(''),
 });
 
-// ── Actions ──
+// ── Query Actions ──
+
+export interface AssignmentListItem {
+  id: string;
+  title: string;
+}
+
+export async function fetchReadyAssignmentsByCourse(
+  courseId: string,
+): Promise<ActionResult<AssignmentListItem[]>> {
+  try {
+    const parsed = z.string().uuid().safeParse(courseId);
+    if (!parsed.success) return { success: false, error: 'Invalid course ID', code: 'VALIDATION' };
+    await requireUser();
+    const service = getAssignmentService();
+    const data = await service.getReadyAssignmentsByCourse(parsed.data);
+    return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+// ── Mutation Actions ──
 
 export async function createEmptyAssignment(
   input: z.infer<typeof createEmptySchema>,

@@ -25,6 +25,7 @@ export const queryKeys = {
   assignments: {
     all: ['assignments'] as const,
     items: (assignmentId: string) => ['assignments', assignmentId, 'items'] as const,
+    byCourse: (courseId: string) => ['assignments', 'byCourse', courseId] as const,
   },
   exams: {
     questions: (paperId: string) => ['exams', paperId, 'questions'] as const,
