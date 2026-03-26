@@ -420,14 +420,6 @@ export default function GradingPageClient() {
     }
   }, [selectedAssignmentId, file, t, appendLog]);
 
-  // Cancel grading
-  const handleCancel = useCallback(() => {
-    abortRef.current?.abort();
-    setStage('idle');
-    setErrorMessage('');
-    appendLog('Grading cancelled', 'warning');
-  }, [appendLog]);
-
   // Resubmit — reset file + results but keep course/assignment
   const handleResubmit = useCallback(() => {
     abortRef.current?.abort();
@@ -504,28 +496,47 @@ export default function GradingPageClient() {
             </Text>
           </Box>
 
-          {/* Input Card — always visible */}
+          {/* Input row — course, assignment, submit in one line */}
           <Card withBorder radius="md" p="xl">
             <Stack gap="md">
-              {/* Course select */}
-              <NativeSelect
-                label={t.tools.selectCourse}
-                data={courseSelectData}
-                value={selectedCourseId}
-                onChange={(e) => handleCourseChange(e.currentTarget.value)}
-                disabled={isSubmitting}
-                rightSection={coursesLoading ? <Loader size={14} /> : undefined}
-              />
-
-              {/* Assignment select */}
-              <NativeSelect
-                label={t.tools.selectAssignment}
-                data={assignmentSelectData}
-                value={selectedAssignmentId}
-                onChange={(e) => setSelectedAssignmentId(e.currentTarget.value)}
-                disabled={!selectedCourseId || assignmentsLoading || isSubmitting}
-                rightSection={assignmentsLoading ? <Loader size={14} /> : undefined}
-              />
+              <Group gap="sm" align="end" wrap="wrap">
+                <NativeSelect
+                  label={t.tools.selectCourse}
+                  data={courseSelectData}
+                  value={selectedCourseId}
+                  onChange={(e) => handleCourseChange(e.currentTarget.value)}
+                  disabled={isSubmitting}
+                  rightSection={coursesLoading ? <Loader size={14} /> : undefined}
+                  style={{ flex: 1, minWidth: 180 }}
+                />
+                <NativeSelect
+                  label={t.tools.selectAssignment}
+                  data={assignmentSelectData}
+                  value={selectedAssignmentId}
+                  onChange={(e) => setSelectedAssignmentId(e.currentTarget.value)}
+                  disabled={!selectedCourseId || assignmentsLoading || isSubmitting}
+                  rightSection={assignmentsLoading ? <Loader size={14} /> : undefined}
+                  style={{ flex: 1, minWidth: 180 }}
+                />
+                <Button
+                  color={TOOLS_COLOR}
+                  disabled={!canSubmit}
+                  loading={isSubmitting}
+                  onClick={() => void handleSubmit()}
+                >
+                  {t.tools.startGrading}
+                </Button>
+                {stage === 'complete' && (
+                  <Button
+                    variant="light"
+                    color={TOOLS_COLOR}
+                    leftSection={<RefreshCw size={14} />}
+                    onClick={handleResubmit}
+                  >
+                    {t.tools.resubmit}
+                  </Button>
+                )}
+              </Group>
 
               {/* File upload */}
               <Box>
@@ -580,34 +591,6 @@ export default function GradingPageClient() {
                   </Group>
                 </Card>
               )}
-
-              {/* Submit / Cancel buttons */}
-              <Group gap="sm">
-                <Button
-                  color={TOOLS_COLOR}
-                  flex={1}
-                  disabled={!canSubmit}
-                  loading={isSubmitting}
-                  onClick={() => void handleSubmit()}
-                >
-                  {stage === 'complete' ? t.tools.startGrading : t.tools.startGrading}
-                </Button>
-                {isSubmitting && (
-                  <Button variant="light" color="red" onClick={handleCancel}>
-                    {t.tools.cancelGrading}
-                  </Button>
-                )}
-                {stage === 'complete' && (
-                  <Button
-                    variant="light"
-                    color={TOOLS_COLOR}
-                    leftSection={<RefreshCw size={14} />}
-                    onClick={handleResubmit}
-                  >
-                    {t.tools.resubmit}
-                  </Button>
-                )}
-              </Group>
             </Stack>
           </Card>
 
