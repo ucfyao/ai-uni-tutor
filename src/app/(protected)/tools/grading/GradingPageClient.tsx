@@ -7,10 +7,12 @@ import {
   Check,
   CircleAlert,
   ClipboardCheck,
+  FileText,
   Lightbulb,
   Loader2,
   RefreshCw,
   Upload,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -115,55 +117,58 @@ function PipelineLog({
   if (logs.length === 0) return null;
 
   return (
-    <ScrollArea.Autosize
-      mah={150}
-      viewportRef={viewportRef}
+    <Box
       style={{
         borderRadius: 'var(--mantine-radius-sm)',
         background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
         border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
+        overflow: 'hidden',
       }}
     >
-      <Stack gap={1} px={8} py={6}>
-        {logs.map((entry) => (
-          <Group key={entry.id} gap={6} wrap="nowrap" align="flex-start">
-            <Box mt={3} style={{ flexShrink: 0 }}>
-              <LogIcon level={entry.level} logColors={logColors} />
-            </Box>
-            <Text
-              size="xs"
-              c={entry.level === 'error' ? 'red' : entry.level === 'warning' ? 'yellow' : 'dimmed'}
-              style={{
-                fontFamily: 'var(--mantine-font-family-monospace)',
-                fontSize: 11,
-                lineHeight: 1.5,
-              }}
-            >
-              <Text span style={{ color: logColors.info, fontSize: 10, fontWeight: 500 }}>
-                {formatElapsed(entry.timestamp - startTime)}
-              </Text>{' '}
-              {entry.message}
-            </Text>
-          </Group>
-        ))}
-        {isBusy && logs.length > 0 && (
-          <Group gap={6} wrap="nowrap">
-            <Box mt={3} style={{ flexShrink: 0 }}>
-              <Loader2
-                size={LOG_ICON_SIZE}
-                color={logColors.info}
-                strokeWidth={2.5}
-                style={{ animation: 'spin 1s linear infinite' }}
-              />
-            </Box>
-            <Text size="xs" c="dimmed" style={{ fontSize: 11 }}>
-              ...
-            </Text>
-          </Group>
-        )}
-      </Stack>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </ScrollArea.Autosize>
+      <ScrollArea.Autosize mah={150} viewportRef={viewportRef}>
+        <Stack gap={1} px={8} py={6}>
+          {logs.map((entry) => (
+            <Group key={entry.id} gap={6} wrap="nowrap" align="flex-start">
+              <Box mt={3} style={{ flexShrink: 0 }}>
+                <LogIcon level={entry.level} logColors={logColors} />
+              </Box>
+              <Text
+                size="xs"
+                c={
+                  entry.level === 'error' ? 'red' : entry.level === 'warning' ? 'yellow' : 'dimmed'
+                }
+                style={{
+                  fontFamily: 'var(--mantine-font-family-monospace)',
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                }}
+              >
+                <Text span style={{ color: logColors.info, fontSize: 10, fontWeight: 500 }}>
+                  {formatElapsed(entry.timestamp - startTime)}
+                </Text>{' '}
+                {entry.message}
+              </Text>
+            </Group>
+          ))}
+          {isBusy && logs.length > 0 && (
+            <Group gap={6} wrap="nowrap">
+              <Box mt={3} style={{ flexShrink: 0 }}>
+                <Loader2
+                  size={LOG_ICON_SIZE}
+                  color={logColors.info}
+                  strokeWidth={2.5}
+                  style={{ animation: 'spin 1s linear infinite' }}
+                />
+              </Box>
+              <Text size="xs" c="dimmed" style={{ fontSize: 11 }}>
+                ...
+              </Text>
+            </Group>
+          )}
+        </Stack>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </ScrollArea.Autosize>
+    </Box>
   );
 }
 
@@ -538,36 +543,62 @@ export default function GradingPageClient() {
                 <Text fw={500} size="sm" mb={4}>
                   {t.tools.uploadFile}
                 </Text>
-                <Dropzone
-                  onDrop={(files) => setFile(files[0] ?? null)}
-                  accept={[...PDF_MIME_TYPE, ...IMAGE_MIME_TYPE]}
-                  maxSize={20 * 1024 * 1024}
-                  maxFiles={1}
-                  multiple={false}
-                  disabled={isSubmitting}
-                >
-                  <Stack align="center" gap="xs" py="lg">
-                    <Upload
-                      size={32}
+                {file ? (
+                  <Group
+                    gap="sm"
+                    p="sm"
+                    style={{
+                      borderRadius: 'var(--mantine-radius-md)',
+                      border:
+                        '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+                      background:
+                        'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+                    }}
+                  >
+                    <FileText
+                      size={20}
                       color={`var(--mantine-color-${TOOLS_COLOR}-6)`}
                       strokeWidth={1.5}
                     />
-                    {file ? (
-                      <>
-                        <Text fw={500} size="sm">
-                          {file.name}
-                        </Text>
-                        <Text c="dimmed" size="xs">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </Text>
-                      </>
-                    ) : (
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text fw={500} size="sm" truncate>
+                        {file.name}
+                      </Text>
+                      <Text c="dimmed" size="xs">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </Text>
+                    </Box>
+                    <Button
+                      variant="subtle"
+                      color="gray"
+                      size="compact-xs"
+                      onClick={() => setFile(null)}
+                      disabled={isSubmitting}
+                    >
+                      <X size={14} />
+                    </Button>
+                  </Group>
+                ) : (
+                  <Dropzone
+                    onDrop={(files) => setFile(files[0] ?? null)}
+                    accept={[...PDF_MIME_TYPE, ...IMAGE_MIME_TYPE]}
+                    maxSize={20 * 1024 * 1024}
+                    maxFiles={1}
+                    multiple={false}
+                    disabled={isSubmitting}
+                  >
+                    <Stack align="center" gap="xs" py="lg">
+                      <Upload
+                        size={32}
+                        color={`var(--mantine-color-${TOOLS_COLOR}-6)`}
+                        strokeWidth={1.5}
+                      />
                       <Text c="dimmed" size="sm">
                         {t.tools.uploadFileHint}
                       </Text>
-                    )}
-                  </Stack>
-                </Dropzone>
+                    </Stack>
+                  </Dropzone>
+                )}
               </Box>
 
               {/* Error alert */}
