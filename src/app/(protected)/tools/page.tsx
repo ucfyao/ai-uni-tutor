@@ -1,6 +1,6 @@
 'use client';
 
-import { FileSearch, FileText, NotebookPen, Sparkles, Wrench } from 'lucide-react';
+import { ClipboardCheck, FileSearch, FileText, NotebookPen, Sparkles, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   Badge,
@@ -23,6 +23,14 @@ export default function ToolsHubPage() {
   const router = useRouter();
 
   const tools = [
+    {
+      key: 'grading',
+      label: t.tools.assignmentGrading,
+      description: t.tools.assignmentGradingDesc,
+      icon: ClipboardCheck,
+      href: '/tools/grading',
+      available: true,
+    },
     {
       key: 'writing',
       label: t.tools.writingAssistant,
