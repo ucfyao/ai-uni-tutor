@@ -171,6 +171,12 @@ function PipelineLog({
 // Per-Question Feedback Card
 // ============================================================================
 
+const CONTENT_BOX_STYLE = {
+  borderRadius: 'var(--mantine-radius-md)',
+  background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
+  border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
+} as const;
+
 function QuestionCard({
   resp,
   t,
@@ -182,95 +188,84 @@ function QuestionCard({
   const [refOpened, { toggle: toggleRef }] = useDisclosure(false);
 
   const scorePercent = resp.maxPoints > 0 ? (resp.score / resp.maxPoints) * 100 : 0;
-  const scoreColor = scorePercent >= 80 ? 'green' : scorePercent >= 60 ? 'yellow' : 'red';
+  const scoreColor = scorePercent >= 80 ? 'teal' : scorePercent >= 60 ? 'yellow' : 'red';
 
   return (
-    <Card withBorder radius="sm" p="md">
+    <Card withBorder radius="md" p="lg">
       {/* Header */}
-      <Group justify="space-between" mb="sm">
-        <Group gap="xs">
-          <Text fw={700} size="sm">
+      <Group justify="space-between" mb="md">
+        <Group gap="sm">
+          <Badge variant="light" color={TOOLS_COLOR} size="lg" fw={700} radius="sm">
             Q{resp.questionIndex + 1}
-          </Text>
+          </Badge>
           {resp.isCorrect !== undefined && (
-            <Badge variant="light" color={scoreColor === 'green' ? 'teal' : scoreColor} size="xs">
+            <Badge variant="dot" color={scoreColor} size="sm">
               {resp.isCorrect ? 'correct' : 'partial'}
             </Badge>
           )}
         </Group>
-        <Badge color={scoreColor} variant="filled" size="sm">
+        <Badge color={scoreColor} variant="filled" size="lg" radius="sm">
           {resp.score} / {resp.maxPoints}
         </Badge>
       </Group>
 
-      {/* Original Question (collapsible) */}
-      {resp.questionContent && (
-        <Box mb="sm">
-          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleQuestion} mb={4}>
-            {questionOpened ? '▾' : '▸'} {t.tools.originalQuestion}
-          </Button>
-          <Collapse in={questionOpened}>
-            <Box
-              p="xs"
-              style={{
-                borderRadius: 'var(--mantine-radius-sm)',
-                background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
-                border:
-                  '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
-              }}
-            >
-              <MarkdownRenderer content={resp.questionContent} compact />
-            </Box>
-          </Collapse>
-        </Box>
-      )}
-
       {/* Your Answer */}
       {resp.userAnswer && (
-        <Box mb="sm">
-          <Text fw={600} size="xs" c="dimmed" mb={4}>
+        <Box mb="md">
+          <Text fw={600} size="xs" c="dimmed" tt="uppercase" mb={6}>
             {t.tools.yourAnswer}
           </Text>
-          <Box
-            p="xs"
-            style={{
-              borderRadius: 'var(--mantine-radius-sm)',
-              background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
-              border:
-                '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
-            }}
-          >
+          <Box p="sm" style={CONTENT_BOX_STYLE}>
             <MarkdownRenderer content={resp.userAnswer} compact />
           </Box>
         </Box>
       )}
 
-      {/* Reference Answer (collapsible) */}
-      {resp.referenceAnswer && (
-        <Box mb="sm">
-          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleRef} mb={4}>
-            {refOpened ? '▾' : '▸'} {t.tools.referenceAnswerLabel}
-          </Button>
-          <Collapse in={refOpened}>
-            <Box
-              p="xs"
-              style={{
-                borderRadius: 'var(--mantine-radius-sm)',
-                background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
-                border:
-                  '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
-              }}
-            >
-              <MarkdownRenderer content={resp.referenceAnswer} compact />
-            </Box>
-          </Collapse>
-        </Box>
-      )}
-
       {/* Feedback */}
-      <Box>
+      <Box
+        mb="sm"
+        p="sm"
+        style={{
+          borderRadius: 'var(--mantine-radius-md)',
+          borderLeft: `3px solid var(--mantine-color-${TOOLS_COLOR}-5)`,
+          background: `light-dark(var(--mantine-color-${TOOLS_COLOR}-0), var(--mantine-color-dark-6))`,
+        }}
+      >
+        <Text fw={600} size="xs" c={TOOLS_COLOR} tt="uppercase" mb={4}>
+          Feedback
+        </Text>
         <MarkdownRenderer content={resp.feedback} compact />
       </Box>
+
+      {/* Collapsible details */}
+      <Group gap="xs">
+        {resp.questionContent && (
+          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleQuestion}>
+            {questionOpened ? '▾' : '▸'} {t.tools.originalQuestion}
+          </Button>
+        )}
+        {resp.referenceAnswer && (
+          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleRef}>
+            {refOpened ? '▾' : '▸'} {t.tools.referenceAnswerLabel}
+          </Button>
+        )}
+      </Group>
+
+      {resp.questionContent && (
+        <Collapse in={questionOpened}>
+          <Box p="sm" mt="xs" style={CONTENT_BOX_STYLE}>
+            <MarkdownRenderer content={resp.questionContent} compact />
+          </Box>
+        </Collapse>
+      )}
+
+      {resp.referenceAnswer && (
+        <Collapse in={refOpened}>
+          <Box p="sm" mt="xs" style={CONTENT_BOX_STYLE}>
+            <MarkdownRenderer content={resp.referenceAnswer} compact />
+          </Box>
+        </Collapse>
+      )}
     </Card>
   );
 }
