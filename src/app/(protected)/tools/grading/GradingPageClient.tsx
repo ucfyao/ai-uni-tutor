@@ -1,36 +1,39 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  CheckCircle2,
+  Check,
+  CircleAlert,
   ClipboardCheck,
   Lightbulb,
+  Loader2,
   RefreshCw,
   Upload,
-  XCircle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
-  Alert,
   Badge,
   Box,
   Button,
   Card,
+  Collapse,
   Container,
   Group,
   Loader,
   NativeSelect,
-  Paper,
   RingProgress,
+  ScrollArea,
   Stack,
   Text,
   Title,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { Dropzone, IMAGE_MIME_TYPE, PDF_MIME_TYPE } from '@mantine/dropzone';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useLanguage } from '@/i18n/LanguageContext';
-import type { GradingResult } from '@/types/grading';
+import type { GradingResponse, GradingResult } from '@/types/grading';
 
 const TOOLS_COLOR = 'violet';
 
@@ -47,6 +50,239 @@ interface Assignment {
   title: string;
 }
 
+interface LogEntry {
+  id: number;
+  message: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  timestamp: number;
+}
+
+// ============================================================================
+// Pipeline Log Components
+// ============================================================================
+
+const LOG_ICON_SIZE = 10;
+
+function getLogColors(infoColor: string): Record<LogEntry['level'], string> {
+  return {
+    info: `var(--mantine-color-${infoColor}-5)`,
+    success: 'var(--mantine-color-teal-5)',
+    warning: 'var(--mantine-color-yellow-6)',
+    error: 'var(--mantine-color-red-5)',
+  };
+}
+
+function LogIcon({
+  level,
+  logColors,
+}: {
+  level: LogEntry['level'];
+  logColors: Record<LogEntry['level'], string>;
+}) {
+  if (level === 'success')
+    return <Check size={LOG_ICON_SIZE} color={logColors.success} strokeWidth={3} />;
+  if (level === 'warning')
+    return <CircleAlert size={LOG_ICON_SIZE} color={logColors.warning} strokeWidth={2.5} />;
+  if (level === 'error')
+    return <AlertTriangle size={LOG_ICON_SIZE} color={logColors.error} strokeWidth={2.5} />;
+  return (
+    <Box
+      style={{
+        width: 5,
+        height: 5,
+        borderRadius: '50%',
+        background: logColors.info,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+function formatElapsed(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function PipelineLog({
+  logs,
+  isBusy,
+  startTime,
+}: {
+  logs: LogEntry[];
+  isBusy: boolean;
+  startTime: number;
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const logColors = getLogColors(TOOLS_COLOR);
+
+  useEffect(() => {
+    viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight, behavior: 'smooth' });
+  }, [logs.length]);
+
+  if (logs.length === 0) return null;
+
+  return (
+    <ScrollArea.Autosize
+      mah={150}
+      viewportRef={viewportRef}
+      style={{
+        borderRadius: 'var(--mantine-radius-sm)',
+        background: 'var(--mantine-color-dark-8, var(--mantine-color-gray-0))',
+        border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+      }}
+    >
+      <Stack gap={1} px={8} py={6}>
+        {logs.map((entry) => (
+          <Group key={entry.id} gap={6} wrap="nowrap" align="flex-start">
+            <Box mt={3} style={{ flexShrink: 0 }}>
+              <LogIcon level={entry.level} logColors={logColors} />
+            </Box>
+            <Text
+              size="xs"
+              c={entry.level === 'error' ? 'red' : entry.level === 'warning' ? 'yellow' : 'dimmed'}
+              style={{
+                fontFamily: 'var(--mantine-font-family-monospace)',
+                fontSize: 11,
+                lineHeight: 1.5,
+              }}
+            >
+              <Text span style={{ color: logColors.info, fontSize: 10, fontWeight: 500 }}>
+                {formatElapsed(entry.timestamp - startTime)}
+              </Text>{' '}
+              {entry.message}
+            </Text>
+          </Group>
+        ))}
+        {isBusy && logs.length > 0 && (
+          <Group gap={6} wrap="nowrap">
+            <Box mt={3} style={{ flexShrink: 0 }}>
+              <Loader2
+                size={LOG_ICON_SIZE}
+                color={logColors.info}
+                strokeWidth={2.5}
+                style={{ animation: 'spin 1s linear infinite' }}
+              />
+            </Box>
+            <Text size="xs" c="dimmed" style={{ fontSize: 11 }}>
+              ...
+            </Text>
+          </Group>
+        )}
+      </Stack>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </ScrollArea.Autosize>
+  );
+}
+
+// ============================================================================
+// Per-Question Feedback Card
+// ============================================================================
+
+function QuestionCard({ resp, t }: { resp: GradingResponse; t: ReturnType<typeof useLanguage>['t'] }) {
+  const [questionOpened, { toggle: toggleQuestion }] = useDisclosure(false);
+  const [refOpened, { toggle: toggleRef }] = useDisclosure(false);
+
+  const scorePercent = resp.maxPoints > 0 ? (resp.score / resp.maxPoints) * 100 : 0;
+  const scoreColor = scorePercent >= 80 ? 'green' : scorePercent >= 60 ? 'yellow' : 'red';
+
+  return (
+    <Card withBorder radius="sm" p="md">
+      {/* Header */}
+      <Group justify="space-between" mb="sm">
+        <Group gap="xs">
+          <Text fw={700} size="sm">
+            Q{resp.questionIndex + 1}
+          </Text>
+          {resp.isCorrect !== undefined && (
+            <Badge variant="light" color={scoreColor === 'green' ? 'teal' : scoreColor} size="xs">
+              {resp.isCorrect ? 'correct' : 'partial'}
+            </Badge>
+          )}
+        </Group>
+        <Badge color={scoreColor} variant="filled" size="sm">
+          {resp.score} / {resp.maxPoints}
+        </Badge>
+      </Group>
+
+      {/* Original Question (collapsible) */}
+      {resp.questionContent && (
+        <Box mb="sm">
+          <Button
+            variant="subtle"
+            color="gray"
+            size="compact-xs"
+            onClick={toggleQuestion}
+            mb={4}
+          >
+            {questionOpened ? '▾' : '▸'} {t.tools.originalQuestion}
+          </Button>
+          <Collapse in={questionOpened}>
+            <Box
+              p="xs"
+              style={{
+                borderRadius: 'var(--mantine-radius-sm)',
+                background: 'var(--mantine-color-dark-7, var(--mantine-color-gray-0))',
+                border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+              }}
+            >
+              <MarkdownRenderer content={resp.questionContent} compact />
+            </Box>
+          </Collapse>
+        </Box>
+      )}
+
+      {/* Your Answer */}
+      {resp.userAnswer && (
+        <Box mb="sm">
+          <Text fw={600} size="xs" c="dimmed" mb={4}>
+            {t.tools.yourAnswer}
+          </Text>
+          <Box
+            p="xs"
+            style={{
+              borderRadius: 'var(--mantine-radius-sm)',
+              background: 'var(--mantine-color-dark-7, var(--mantine-color-gray-0))',
+              border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+            }}
+          >
+            <MarkdownRenderer content={resp.userAnswer} compact />
+          </Box>
+        </Box>
+      )}
+
+      {/* Reference Answer (collapsible) */}
+      {resp.referenceAnswer && (
+        <Box mb="sm">
+          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleRef} mb={4}>
+            {refOpened ? '▾' : '▸'} {t.tools.referenceAnswerLabel}
+          </Button>
+          <Collapse in={refOpened}>
+            <Box
+              p="xs"
+              style={{
+                borderRadius: 'var(--mantine-radius-sm)',
+                background: 'var(--mantine-color-dark-7, var(--mantine-color-gray-0))',
+                border: '1px solid var(--mantine-color-dark-5, var(--mantine-color-gray-2))',
+              }}
+            >
+              <MarkdownRenderer content={resp.referenceAnswer} compact />
+            </Box>
+          </Collapse>
+        </Box>
+      )}
+
+      {/* Feedback */}
+      <Box>
+        <MarkdownRenderer content={resp.feedback} compact />
+      </Box>
+    </Card>
+  );
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
 export default function GradingPageClient() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -57,71 +293,85 @@ export default function GradingPageClient() {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [coursesLoaded, setCoursesLoaded] = useState(false);
+  const [coursesLoading, setCoursesLoading] = useState(true);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
 
   // Grading state
   const [stage, setStage] = useState<GradingStage>('idle');
-  const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [result, setResult] = useState<GradingResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Fetch courses on mount
-  const fetchCourses = useCallback(async () => {
-    if (coursesLoaded) return;
-    try {
-      const res = await fetch('/api/courses');
-      if (!res.ok) return;
-      const data = (await res.json()) as { courses: Course[] };
-      setCourses(data.courses);
-      setCoursesLoaded(true);
-    } catch {
-      // silently fail
-    }
-  }, [coursesLoaded]);
+  // Pipeline log state
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [gradingStartTime, setGradingStartTime] = useState(0);
+  const logIdRef = useRef(0);
 
-  // Lazy-load courses on first render
-  const coursesInitRef = useRef(false);
-  if (!coursesInitRef.current) {
-    coursesInitRef.current = true;
-    void fetchCourses();
-  }
-
-  // Fetch assignments when course changes
-  const handleCourseChange = useCallback(
-    async (courseId: string) => {
-      setSelectedCourseId(courseId);
-      setSelectedAssignmentId('');
-      setAssignments([]);
-
-      if (!courseId) return;
-
-      setAssignmentsLoading(true);
-      try {
-        const res = await fetch(
-          `/api/assignments?courseId=${encodeURIComponent(courseId)}&status=ready`,
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as { assignments: Assignment[] };
-        setAssignments(data.assignments);
-      } catch {
-        // silently fail
-      } finally {
-        setAssignmentsLoading(false);
-      }
+  const appendLog = useCallback(
+    (message: string, level: LogEntry['level']) => {
+      logIdRef.current += 1;
+      setLogs((prev) => [
+        ...prev,
+        { id: logIdRef.current, message, level, timestamp: Date.now() },
+      ]);
     },
     [],
   );
+
+  // Fetch courses on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/courses');
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { courses: Course[] };
+        if (!cancelled) setCourses(data.courses);
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setCoursesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch assignments when course changes
+  const handleCourseChange = useCallback(async (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setSelectedAssignmentId('');
+    setAssignments([]);
+
+    if (!courseId) return;
+
+    setAssignmentsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/assignments?courseId=${encodeURIComponent(courseId)}&status=ready`,
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as { assignments: Assignment[] };
+      setAssignments(data.assignments);
+    } catch {
+      // silently fail
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  }, []);
 
   // Submit for grading
   const handleSubmit = useCallback(async () => {
     if (!selectedAssignmentId || !file) return;
 
+    const startTime = Date.now();
     setStage('extracting');
-    setStatusMessage(t.tools.extractingAnswers);
     setErrorMessage('');
     setResult(null);
+    setLogs([]);
+    setGradingStartTime(startTime);
+    logIdRef.current = 0;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -140,6 +390,7 @@ export default function GradingPageClient() {
       if (!response.ok || !response.body) {
         setStage('error');
         setErrorMessage(t.tools.gradingFailed);
+        appendLog(t.tools.gradingFailed, 'error');
         return;
       }
 
@@ -174,19 +425,23 @@ export default function GradingPageClient() {
                 message: string;
               };
               setStage(s.stage);
-              if (s.stage === 'extracting') setStatusMessage(t.tools.extractingAnswers);
-              else if (s.stage === 'grading') setStatusMessage(t.tools.gradingInProgress);
-              else if (s.stage === 'complete') setStatusMessage(t.tools.gradingComplete);
-              else if (s.stage === 'error') {
+              if (s.stage === 'error') {
                 setErrorMessage(s.message || t.tools.gradingFailed);
               }
             } else if (eventType === 'grading_result') {
               const r = parsed as unknown as { result: GradingResult };
               setResult(r.result);
+            } else if (eventType === 'log') {
+              const l = parsed as unknown as {
+                message: string;
+                level: LogEntry['level'];
+              };
+              appendLog(l.message, l.level);
             } else if (eventType === 'error') {
               const e = parsed as unknown as { message: string };
               setStage('error');
               setErrorMessage(e.message || t.tools.gradingFailed);
+              appendLog(e.message || t.tools.gradingFailed, 'error');
             }
           } catch {
             // skip malformed JSON
@@ -197,22 +452,32 @@ export default function GradingPageClient() {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       setStage('error');
       setErrorMessage(t.tools.gradingFailed);
+      appendLog(t.tools.gradingFailed, 'error');
     }
-  }, [selectedAssignmentId, file, t]);
+  }, [selectedAssignmentId, file, t, appendLog]);
 
-  // Reset to input state
+  // Cancel grading
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    setStage('idle');
+    setErrorMessage('');
+    appendLog('Grading cancelled', 'warning');
+  }, [appendLog]);
+
+  // Resubmit — reset file + results but keep course/assignment
   const handleResubmit = useCallback(() => {
     abortRef.current?.abort();
     setStage('idle');
-    setStatusMessage('');
     setErrorMessage('');
     setResult(null);
     setFile(null);
+    setLogs([]);
   }, []);
 
   const isSubmitting = stage === 'extracting' || stage === 'grading';
   const canSubmit = !!selectedAssignmentId && !!file && !isSubmitting;
   const scorePercent = result ? Math.round((result.totalScore / result.maxScore) * 100) : 0;
+  const ringColor = scorePercent >= 80 ? 'teal' : scorePercent >= 60 ? 'yellow' : 'red';
 
   const courseSelectData = [
     { value: '', label: t.tools.selectCoursePlaceholder },
@@ -225,7 +490,14 @@ export default function GradingPageClient() {
           { value: '', label: t.tools.selectAssignmentPlaceholder },
           ...assignments.map((a) => ({ value: a.id, label: a.title })),
         ]
-      : [{ value: '', label: selectedCourseId ? t.tools.noAssignments : t.tools.selectAssignmentPlaceholder }];
+      : [
+          {
+            value: '',
+            label: selectedCourseId
+              ? t.tools.noAssignments
+              : t.tools.selectAssignmentPlaceholder,
+          },
+        ];
 
   return (
     <>
@@ -270,97 +542,120 @@ export default function GradingPageClient() {
             </Text>
           </Box>
 
-          {/* Input Card — visible when not showing results */}
-          {stage !== 'complete' && (
-            <Card withBorder radius="md" p="xl">
-              <Stack gap="md">
-                {/* Course select */}
-                <NativeSelect
-                  label={t.tools.selectCourse}
-                  data={courseSelectData}
-                  value={selectedCourseId}
-                  onChange={(e) => void handleCourseChange(e.currentTarget.value)}
-                />
+          {/* Input Card — always visible */}
+          <Card withBorder radius="md" p="xl">
+            <Stack gap="md">
+              {/* Course select */}
+              <NativeSelect
+                label={t.tools.selectCourse}
+                data={courseSelectData}
+                value={selectedCourseId}
+                onChange={(e) => void handleCourseChange(e.currentTarget.value)}
+                disabled={isSubmitting}
+                rightSection={coursesLoading ? <Loader size={14} /> : undefined}
+              />
 
-                {/* Assignment select */}
-                <NativeSelect
-                  label={t.tools.selectAssignment}
-                  data={assignmentSelectData}
-                  value={selectedAssignmentId}
-                  onChange={(e) => setSelectedAssignmentId(e.currentTarget.value)}
-                  disabled={!selectedCourseId || assignmentsLoading}
-                />
+              {/* Assignment select */}
+              <NativeSelect
+                label={t.tools.selectAssignment}
+                data={assignmentSelectData}
+                value={selectedAssignmentId}
+                onChange={(e) => setSelectedAssignmentId(e.currentTarget.value)}
+                disabled={!selectedCourseId || assignmentsLoading || isSubmitting}
+                rightSection={assignmentsLoading ? <Loader size={14} /> : undefined}
+              />
 
-                {/* File upload */}
-                <Box>
-                  <Text fw={500} size="sm" mb={4}>
-                    {t.tools.uploadFile}
-                  </Text>
-                  <Dropzone
-                    onDrop={(files) => setFile(files[0] ?? null)}
-                    accept={[...PDF_MIME_TYPE, ...IMAGE_MIME_TYPE]}
-                    maxSize={20 * 1024 * 1024}
-                    maxFiles={1}
-                    multiple={false}
-                    disabled={isSubmitting}
-                  >
-                    <Stack align="center" gap="xs" py="lg">
-                      <Upload
-                        size={32}
-                        color={`var(--mantine-color-${TOOLS_COLOR}-6)`}
-                        strokeWidth={1.5}
-                      />
-                      {file ? (
-                        <>
-                          <Text fw={500} size="sm">
-                            {file.name}
-                          </Text>
-                          <Text c="dimmed" size="xs">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </Text>
-                        </>
-                      ) : (
-                        <Text c="dimmed" size="sm">
-                          {t.tools.uploadFileHint}
+              {/* File upload */}
+              <Box>
+                <Text fw={500} size="sm" mb={4}>
+                  {t.tools.uploadFile}
+                </Text>
+                <Dropzone
+                  onDrop={(files) => setFile(files[0] ?? null)}
+                  accept={[...PDF_MIME_TYPE, ...IMAGE_MIME_TYPE]}
+                  maxSize={20 * 1024 * 1024}
+                  maxFiles={1}
+                  multiple={false}
+                  disabled={isSubmitting}
+                >
+                  <Stack align="center" gap="xs" py="lg">
+                    <Upload
+                      size={32}
+                      color={`var(--mantine-color-${TOOLS_COLOR}-6)`}
+                      strokeWidth={1.5}
+                    />
+                    {file ? (
+                      <>
+                        <Text fw={500} size="sm">
+                          {file.name}
                         </Text>
-                      )}
-                    </Stack>
-                  </Dropzone>
-                </Box>
+                        <Text c="dimmed" size="xs">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </Text>
+                      </>
+                    ) : (
+                      <Text c="dimmed" size="sm">
+                        {t.tools.uploadFileHint}
+                      </Text>
+                    )}
+                  </Stack>
+                </Dropzone>
+              </Box>
 
-                {/* Error alert */}
-                {stage === 'error' && errorMessage && (
-                  <Alert
-                    color="red"
-                    icon={<AlertTriangle size={16} />}
-                    title={t.tools.gradingFailed}
-                  >
-                    {errorMessage}
-                  </Alert>
-                )}
-
-                {/* Progress indicator */}
-                {isSubmitting && (
-                  <Group gap="sm" justify="center" py="sm">
-                    <Loader size="sm" color={TOOLS_COLOR} />
-                    <Text size="sm" c="dimmed">
-                      {statusMessage}
+              {/* Error alert */}
+              {stage === 'error' && errorMessage && (
+                <Card withBorder radius="sm" p="sm" style={{ borderColor: 'var(--mantine-color-red-4)' }}>
+                  <Group gap="xs" wrap="nowrap">
+                    <AlertTriangle size={16} color="var(--mantine-color-red-6)" />
+                    <Text size="sm" c="red">
+                      {errorMessage}
                     </Text>
                   </Group>
-                )}
+                </Card>
+              )}
 
-                {/* Submit button */}
+              {/* Submit / Cancel buttons */}
+              <Group gap="sm">
                 <Button
                   color={TOOLS_COLOR}
-                  fullWidth
+                  flex={1}
                   disabled={!canSubmit}
                   loading={isSubmitting}
                   onClick={() => void handleSubmit()}
                 >
-                  {t.tools.startGrading}
+                  {stage === 'complete' ? t.tools.startGrading : t.tools.startGrading}
                 </Button>
-              </Stack>
-            </Card>
+                {isSubmitting && (
+                  <Button
+                    variant="light"
+                    color="red"
+                    onClick={handleCancel}
+                  >
+                    {t.tools.cancelGrading}
+                  </Button>
+                )}
+                {stage === 'complete' && (
+                  <Button
+                    variant="light"
+                    color={TOOLS_COLOR}
+                    leftSection={<RefreshCw size={14} />}
+                    onClick={handleResubmit}
+                  >
+                    {t.tools.resubmit}
+                  </Button>
+                )}
+              </Group>
+            </Stack>
+          </Card>
+
+          {/* Pipeline Log — visible when grading has started */}
+          {logs.length > 0 && (
+            <Box>
+              <Text fw={600} size="sm" mb={6}>
+                {t.tools.pipelineLog}
+              </Text>
+              <PipelineLog logs={logs} isBusy={isSubmitting} startTime={gradingStartTime} />
+            </Box>
           )}
 
           {/* Results — visible when grading is complete */}
@@ -373,7 +668,7 @@ export default function GradingPageClient() {
                     size={120}
                     thickness={10}
                     roundCaps
-                    sections={[{ value: scorePercent, color: TOOLS_COLOR }]}
+                    sections={[{ value: scorePercent, color: ringColor }]}
                     label={
                       <Text ta="center" fw={700} size="xl">
                         {scorePercent}%
@@ -384,61 +679,44 @@ export default function GradingPageClient() {
                     <Text fw={600} size="lg">
                       {t.tools.totalScore}: {result.totalScore} / {result.maxScore}
                     </Text>
-                    <Text c="dimmed" size="sm" maw={400}>
-                      {result.summary.overallFeedback}
-                    </Text>
+                    <Box maw={400}>
+                      <MarkdownRenderer content={result.summary.overallFeedback} compact />
+                    </Box>
                   </Stack>
                 </Group>
               </Card>
 
               {/* Format warning */}
               {result.summary.formatWarning && (
-                <Alert
-                  color="orange"
-                  icon={<AlertTriangle size={16} />}
-                  title={t.tools.formatWarning}
+                <Card
+                  withBorder
+                  radius="sm"
+                  p="sm"
+                  style={{ borderColor: 'var(--mantine-color-orange-4)' }}
                 >
-                  {result.summary.formatWarning}
-                </Alert>
+                  <Group gap="xs" wrap="nowrap">
+                    <AlertTriangle size={16} color="var(--mantine-color-orange-6)" />
+                    <Box>
+                      <Text fw={600} size="sm" c="orange">
+                        {t.tools.formatWarning}
+                      </Text>
+                      <Text size="sm">{result.summary.formatWarning}</Text>
+                    </Box>
+                  </Group>
+                </Card>
               )}
 
               {/* Per-question feedback */}
-              <Card withBorder radius="md" p="xl">
+              <Box>
                 <Title order={4} mb="md">
                   {t.tools.questionFeedback}
                 </Title>
                 <Stack gap="sm">
                   {result.responses.map((resp, idx) => (
-                    <Paper key={idx} withBorder radius="sm" p="md">
-                      <Group justify="space-between" mb="xs">
-                        <Group gap="xs">
-                          {resp.isCorrect ? (
-                            <CheckCircle2 size={18} color="var(--mantine-color-green-6)" />
-                          ) : (
-                            <XCircle size={18} color="var(--mantine-color-red-6)" />
-                          )}
-                          <Text fw={600} size="sm">
-                            Q{resp.questionIndex + 1}
-                          </Text>
-                        </Group>
-                        <Badge
-                          color={resp.isCorrect ? 'green' : 'red'}
-                          variant="light"
-                          size="sm"
-                        >
-                          {resp.score} / {resp.maxPoints}
-                        </Badge>
-                      </Group>
-                      {resp.userAnswer && (
-                        <Text c="dimmed" size="xs" mb="xs" style={{ fontStyle: 'italic' }}>
-                          {resp.userAnswer}
-                        </Text>
-                      )}
-                      <Text size="sm">{resp.feedback}</Text>
-                    </Paper>
+                    <QuestionCard key={idx} resp={resp} t={t} />
                   ))}
                 </Stack>
-              </Card>
+              </Box>
 
               {/* Improvement suggestions */}
               {result.summary.improvements.length > 0 && (
@@ -453,7 +731,9 @@ export default function GradingPageClient() {
                         <Text fw={600} size="sm" c={TOOLS_COLOR} style={{ minWidth: 20 }}>
                           {idx + 1}.
                         </Text>
-                        <Text size="sm">{tip}</Text>
+                        <Box style={{ flex: 1 }}>
+                          <MarkdownRenderer content={tip} compact />
+                        </Box>
                       </Group>
                     ))}
                   </Stack>
@@ -461,19 +741,9 @@ export default function GradingPageClient() {
               )}
 
               {/* Footer */}
-              <Stack align="center" gap="sm" py="md">
-                <Text c="dimmed" size="xs">
-                  {t.tools.gradingResultsNotSaved}
-                </Text>
-                <Button
-                  variant="light"
-                  color={TOOLS_COLOR}
-                  leftSection={<RefreshCw size={16} />}
-                  onClick={handleResubmit}
-                >
-                  {t.tools.resubmit}
-                </Button>
-              </Stack>
+              <Text c="dimmed" size="xs" ta="center">
+                {t.tools.gradingResultsNotSaved}
+              </Text>
             </Stack>
           )}
         </Stack>
