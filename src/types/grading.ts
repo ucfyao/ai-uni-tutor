@@ -1,5 +1,7 @@
 export interface GradingResponse {
   questionIndex: number;
+  questionContent: string;
+  referenceAnswer: string;
   userAnswer: string;
   isCorrect: boolean;
   score: number;

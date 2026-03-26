@@ -1,6 +1,3 @@
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 import { AppError } from '@/lib/errors';
 import { extractFromPDF } from '@/lib/rag/pdf-extractor';
 import { getAssignmentService } from '@/lib/services/AssignmentService';
@@ -10,17 +7,15 @@ import { getCurrentUser } from '@/lib/supabase/server';
 import type { AssignmentItemEntity } from '@/types/assignment';
 import type { GradingResult } from '@/types/grading';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
-const ALLOWED_MIME_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-]);
+const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 
 // ============================================================================
 // PROMPT BUILDER
@@ -31,6 +26,7 @@ function buildGradingPrompt(items: AssignmentItemEntity[]): string {
     .map(
       (item) =>
         `Question ${item.orderNum}:\n` +
+        `  Type: ${item.type}\n` +
         `  Content: ${item.content}\n` +
         `  Reference Answer: ${item.referenceAnswer}\n` +
         `  Max Points: ${item.points}`,
@@ -54,6 +50,8 @@ Return a JSON object with this exact structure:
   "responses": [
     {
       "questionIndex": <0-based index matching the question order>,
+      "questionContent": "<the original question content>",
+      "referenceAnswer": "<the reference answer>",
       "userAnswer": "<extracted student answer text, or 'No answer found' if missing>",
       "isCorrect": <true if full marks, false otherwise>,
       "score": <number from 0 to maxPoints>,
@@ -147,6 +145,7 @@ export async function POST(request: Request) {
     try {
       // 5a. Fetch assignment items (root-level only)
       send('grading_status', { stage: 'extracting', message: 'Loading assignment questions...' });
+      send('log', { message: 'Loading assignment questions...', level: 'info' });
 
       const allItems = await getAssignmentService().getItems(assignmentId);
       const rootItems = allItems
@@ -154,15 +153,19 @@ export async function POST(request: Request) {
         .sort((a, b) => a.orderNum - b.orderNum);
 
       if (rootItems.length === 0) {
+        send('log', { message: 'No questions found for this assignment.', level: 'error' });
         send('error', { message: 'No questions found for this assignment.', code: 'VALIDATION' });
         return;
       }
+
+      send('log', { message: `Found ${rootItems.length} questions to grade`, level: 'info' });
 
       // 5b. Read file buffer
       send('grading_status', {
         stage: 'extracting',
         message: 'Uploading student submission to AI...',
       });
+      send('log', { message: 'Uploading submission to AI...', level: 'info' });
 
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -171,6 +174,7 @@ export async function POST(request: Request) {
       const prompt = buildGradingPrompt(rootItems);
 
       send('grading_status', { stage: 'grading', message: 'AI is grading your submission...' });
+      send('log', { message: 'AI is analyzing your answers...', level: 'info' });
 
       const { result, warnings } = await extractFromPDF<GradingResult>(buffer, prompt, {
         signal,
@@ -181,10 +185,17 @@ export async function POST(request: Request) {
 
       if (warnings.length > 0) {
         console.warn('[grading] Extraction warnings:', warnings);
+        for (const w of warnings) {
+          send('log', { message: w, level: 'warning' });
+        }
       }
 
       // 5d. Send result
       send('grading_result', { result });
+      send('log', {
+        message: `Grading complete — scored ${result.totalScore}/${result.maxScore}`,
+        level: 'success',
+      });
       send('grading_status', { stage: 'complete', message: 'Grading complete' });
     } catch (error) {
       const appError = AppError.from(error);
