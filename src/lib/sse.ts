@@ -84,6 +84,8 @@ export type SSEEventMap = {
   exam_progress: SSEExamProgressEvent;
   exam_complete: SSEExamCompleteEvent;
   writing_result: SSEWritingResultEvent;
+  grading_status: { stage: 'extracting' | 'grading' | 'complete' | 'error'; message: string };
+  grading_result: { result: import('@/types/grading').GradingResult };
 };
 
 // ─── SSE Formatting ───
