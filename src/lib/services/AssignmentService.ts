@@ -199,6 +199,10 @@ export class AssignmentService {
     await this.repo.moveItem(itemId, newParentId);
   }
 
+  async getReadyAssignmentsByCourse(courseId: string): Promise<{ id: string; title: string }[]> {
+    return this.repo.listReadyByCourse(courseId);
+  }
+
   async getAssignmentsForAdmin(courseIds?: string[]) {
     if (courseIds && courseIds.length > 0) {
       return this.repo.findByCourseIds(courseIds);
