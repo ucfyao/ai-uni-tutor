@@ -78,7 +78,7 @@ FORMATTING RULES for userAnswer, feedback, questionContent, referenceAnswer, and
 - All text fields support Markdown rendering. Use markdown formatting for clarity.
 - Code MUST be wrapped in fenced code blocks with language tags (e.g. ${'`'}${'`'}${'`'}python ... ${'`'}${'`'}${'`'}).
 - NEVER leave code as plain text — underscores in variable names like train_test_split will be misrendered.
-- Mathematical expressions should use LaTeX notation (e.g. $\\alpha$, $\\frac{1}{n}$).
+- Mathematical expressions MUST be wrapped in dollar signs for LaTeX rendering: use $...$ for inline math (e.g. $\\alpha$, $P_{ik}$) and $$...$$ for display equations (e.g. $$J(W) = -\\sum_i \\sum_k Y_{ik} \\log(P_{ik})$$). NEVER leave math expressions as bare text — subscripts like P_ik will be misrendered.
 - Preserve the student's original code faithfully, including variable names, indentation, and comments.
 
 Here are the assignment questions:
@@ -150,22 +150,28 @@ export async function POST(request: Request) {
 
   const pipeline = (async () => {
     try {
-      // 5a. Fetch assignment items (root-level only)
+      // 5a. Fetch assignment items — prefer sub-items (actual questions) over root-only
       send('grading_status', { stage: 'extracting', message: 'Loading assignment questions...' });
       send('log', { message: 'Loading assignment questions...', level: 'info' });
 
       const allItems = await getAssignmentService().getItems(assignmentId);
-      const rootItems = allItems
-        .filter((item) => !item.parentItemId)
-        .sort((a, b) => a.orderNum - b.orderNum);
+      const rootItems = allItems.filter((item) => !item.parentItemId);
+      const subItems = allItems.filter((item) => item.parentItemId);
+      // Sub-items carry actual question detail; root items are often just headers
+      const gradableItems = (subItems.length > 0 ? subItems : rootItems).sort(
+        (a, b) => a.orderNum - b.orderNum,
+      );
 
-      if (rootItems.length === 0) {
+      if (gradableItems.length === 0) {
         send('log', { message: 'No questions found for this assignment.', level: 'error' });
         send('error', { message: 'No questions found for this assignment.', code: 'VALIDATION' });
         return;
       }
 
-      send('log', { message: `Found ${rootItems.length} questions to grade`, level: 'info' });
+      send('log', {
+        message: `Found ${gradableItems.length} questions to grade`,
+        level: 'info',
+      });
 
       // 5b. Read file buffer
       send('grading_status', {
@@ -178,7 +184,7 @@ export async function POST(request: Request) {
       const buffer = Buffer.from(arrayBuffer);
 
       // 5c. Build prompt and call Gemini
-      const prompt = buildGradingPrompt(rootItems);
+      const prompt = buildGradingPrompt(gradableItems);
 
       send('grading_status', { stage: 'grading', message: 'AI is grading your submission...' });
       send('log', { message: 'AI is analyzing your answers...', level: 'info' });
