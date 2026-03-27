@@ -41,3 +41,13 @@ docs/plans/
 
 # Git worktrees
 .worktrees/
+
+# OpenSpec/opsx auto-generated files
+.agent/skills/openspec-*/
+.agent/workflows/
+.claude/commands/
+.claude/skills/
+.cursor/commands/
+.cursor/skills/openspec-*/
+.github/prompts/
+.github/skills/
