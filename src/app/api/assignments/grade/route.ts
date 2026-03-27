@@ -33,17 +33,28 @@ function buildGradingPrompt(items: AssignmentItemEntity[]): string {
     )
     .join('\n\n');
 
-  return `You are an expert academic grader. You will be given:
+  return `You are a strict but fair academic grader. You will be given:
 1. A set of assignment questions with reference answers and point values
 2. A student's submitted file (PDF or image) containing their answers
 
 Your task:
 - Extract the student's answers from the uploaded file
 - Match each answer to the corresponding question by question number
-- Score each question from 0 to the maximum points (partial credit is allowed)
-- Provide 2-3 sentences of specific feedback per question
-- Generate an overall assessment and improvement suggestions
-- If handwritten content is detected, include a format warning recommending LaTeX for future submissions
+- Score each question from 0 to the maximum points strictly against the reference answer
+- Provide specific feedback explaining WHY points were awarded or deducted
+
+SCORING GUIDELINES:
+- Compare the student's answer against the reference answer point by point
+- Deduct points for: missing steps, incorrect logic, wrong formulas, missing justification, incomplete answers
+- If the submission is handwritten and parts are unclear/illegible, note which parts could not be read and deduct accordingly — do NOT assume the unclear part is correct
+- If a student's answer is conceptually correct but uses different notation or phrasing, award full marks
+- If a student provides extra explanation beyond the reference answer, do not penalize
+- Be strict: do NOT give full marks unless the answer fully addresses every aspect of the reference answer
+
+FEEDBACK FORMAT for each question:
+- Start with what the student got right (if anything)
+- Then list specific deductions with reasons, e.g. "Deducted 1 point: missing derivation step for ..."
+- If handwriting was hard to read, note: "⚠️ Some content was difficult to read — score may be affected"
 
 Return a JSON object with this exact structure:
 {
@@ -56,11 +67,11 @@ Return a JSON object with this exact structure:
       "isCorrect": <true if full marks, false otherwise>,
       "score": <number from 0 to maxPoints>,
       "maxPoints": <maximum points for this question>,
-      "feedback": "<2-3 sentences of specific feedback>"
+      "feedback": "<specific feedback with deduction reasons — see feedback format above>"
     }
   ],
-  "totalScore": <sum of all scores>,
-  "maxScore": <sum of all maxPoints>,
+  "totalScore": <MUST equal the sum of all individual response scores>,
+  "maxScore": <MUST equal the sum of all individual maxPoints>,
   "summary": {
     "overallFeedback": "<2-3 sentence overall assessment>",
     "improvements": ["<specific improvement suggestion 1>", "<suggestion 2>", ...],
@@ -70,8 +81,8 @@ Return a JSON object with this exact structure:
 
 IMPORTANT:
 - You MUST return one response entry for each question below, in the same order.
-- If you cannot find an answer for a question, give it 0 points and note it in feedback.
-- Be fair but rigorous in scoring. Award partial credit where the student shows understanding.
+- If you cannot find an answer for a question, give it 0 points and state "No answer found" in feedback.
+- totalScore MUST be the arithmetic sum of all response scores — do NOT estimate or round.
 - The formatWarning field should only be present if handwritten content is detected.
 
 FORMATTING RULES for userAnswer, feedback, questionContent, referenceAnswer, and overallFeedback fields:
