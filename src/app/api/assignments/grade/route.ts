@@ -61,31 +61,22 @@ Return a JSON object with this exact structure:
   "responses": [
     {
       "questionIndex": <0-based index matching the question order>,
-      "questionContent": "<the original question content>",
-      "referenceAnswer": "<the reference answer>",
       "userAnswer": "<extracted student answer in markdown — see formatting rules below, or 'No answer found' if missing>",
       "isCorrect": <true if full marks, false otherwise>,
       "score": <number from 0 to maxPoints>,
       "maxPoints": <maximum points for this question>,
-      "feedback": "<specific feedback with deduction reasons — see feedback format above>"
+      "feedback": "<specific feedback with deduction reasons AND improvement tips for this question — see feedback format above>"
     }
-  ],
-  "totalScore": <MUST equal the sum of all individual response scores>,
-  "maxScore": <MUST equal the sum of all individual maxPoints>,
-  "summary": {
-    "overallFeedback": "<2-3 sentence overall assessment>",
-    "improvements": ["<specific improvement suggestion 1>", "<suggestion 2>", ...],
-    "formatWarning": "<optional: warning about handwritten content, recommend LaTeX>"
-  }
+  ]
 }
 
 IMPORTANT:
 - You MUST return one response entry for each question below, in the same order.
 - If you cannot find an answer for a question, give it 0 points and state "No answer found" in feedback.
-- totalScore MUST be the arithmetic sum of all response scores — do NOT estimate or round.
-- The formatWarning field should only be present if handwritten content is detected.
+- Do NOT include questionContent, referenceAnswer, totalScore, maxScore, or summary — only the responses array.
+- Each feedback should end with a brief improvement tip if the student did not get full marks.
 
-FORMATTING RULES for userAnswer, feedback, questionContent, referenceAnswer, and overallFeedback fields:
+FORMATTING RULES for userAnswer and feedback fields:
 - All text fields support Markdown rendering. Use markdown formatting for clarity.
 - Code MUST be wrapped in fenced code blocks with language tags (e.g. ${'`'}${'`'}${'`'}python ... ${'`'}${'`'}${'`'}).
 - NEVER leave code as plain text — underscores in variable names like train_test_split will be misrendered.
@@ -200,7 +191,9 @@ export async function POST(request: Request) {
       send('grading_status', { stage: 'grading', message: 'AI is grading your submission...' });
       send('log', { message: 'AI is analyzing your answers...', level: 'info' });
 
-      const { result, warnings } = await extractFromPDF<GradingResult>(buffer, prompt, {
+      const { result: rawResult, warnings } = await extractFromPDF<{
+        responses: GradingResult['responses'];
+      }>(buffer, prompt, {
         signal,
         onProgress: (detail) => {
           send('grading_status', { stage: 'grading', message: detail });
@@ -214,10 +207,20 @@ export async function POST(request: Request) {
         }
       }
 
-      // 5d. Send result
+      // 5d. Compute totals server-side (don't trust LLM arithmetic)
+      const responses = rawResult.responses ?? [];
+      const totalScore = responses.reduce((sum, r) => sum + (r.score ?? 0), 0);
+      const maxScore = responses.reduce((sum, r) => sum + (r.maxPoints ?? 0), 0);
+      const result: GradingResult = {
+        responses,
+        totalScore,
+        maxScore,
+        summary: { overallFeedback: '', improvements: [] },
+      };
+
       send('grading_result', { result });
       send('log', {
-        message: `Grading complete — scored ${result.totalScore}/${result.maxScore}`,
+        message: `Grading complete — scored ${totalScore}/${maxScore}`,
         level: 'success',
       });
       send('grading_status', { stage: 'complete', message: 'Grading complete' });

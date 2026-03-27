@@ -8,7 +8,6 @@ import {
   CircleAlert,
   ClipboardCheck,
   FileText,
-  Lightbulb,
   Loader2,
   RefreshCw,
   Upload,
@@ -590,28 +589,6 @@ export default function GradingPageClient() {
                   <QuestionCard key={idx} resp={resp} />
                 ))}
               </Stack>
-
-              {/* Improvement suggestions */}
-              {result.summary.improvements.length > 0 && (
-                <Card withBorder radius="md" p="xl">
-                  <Group gap="xs" mb="md">
-                    <Lightbulb size={20} color={`var(--mantine-color-${TOOLS_COLOR}-6)`} />
-                    <Title order={4}>{t.tools.improvements}</Title>
-                  </Group>
-                  <Stack gap="xs">
-                    {result.summary.improvements.map((tip, idx) => (
-                      <Group key={idx} gap="xs" wrap="nowrap" align="flex-start">
-                        <Text fw={600} size="sm" c={TOOLS_COLOR} style={{ minWidth: 20 }}>
-                          {idx + 1}.
-                        </Text>
-                        <Box style={{ flex: 1 }}>
-                          <MarkdownRenderer content={tip} compact />
-                        </Box>
-                      </Group>
-                    ))}
-                  </Stack>
-                </Card>
-              )}
 
               {/* Footer */}
               <Text c="dimmed" size="xs" ta="center">
