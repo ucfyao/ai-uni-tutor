@@ -355,8 +355,12 @@ const updateDocumentMetaSchema = z.object({
 export async function updateDocumentMeta(
   documentId: string,
   updates: { name?: string; school?: string; course?: string },
+  docType: string = 'lecture',
 ): Promise<ActionResult<void>> {
   try {
+    const parsedType = docTypeSchema.safeParse(docType);
+    if (!parsedType.success) return { success: false, error: 'Invalid document type' };
+
     const { user, role } = await requireAnyAdmin();
 
     const parsed = updateDocumentMetaSchema.safeParse(updates);
@@ -365,22 +369,37 @@ export async function updateDocumentMeta(
     }
     const validatedUpdates = parsed.data;
 
-    const doc = await requireLectureAccess(documentId, user.id, role);
-
-    const documentService = getLectureDocumentService();
-
-    const metadataUpdates: { name?: string; metadata?: Json } = {};
-    if (validatedUpdates.name !== undefined) metadataUpdates.name = validatedUpdates.name;
-    if (validatedUpdates.school !== undefined || validatedUpdates.course !== undefined) {
-      const existingMeta = (doc.metadata as Record<string, unknown>) ?? {};
-      metadataUpdates.metadata = {
-        ...existingMeta,
-        ...(validatedUpdates.school !== undefined && { school: validatedUpdates.school }),
-        ...(validatedUpdates.course !== undefined && { course: validatedUpdates.course }),
-      } as Json;
+    if (parsedType.data === 'exam') {
+      await requireExamAccess(documentId, user.id, role);
+      const examService = getExamPaperService();
+      const updateData: { title?: string; school?: string; course?: string } = {};
+      if (validatedUpdates.name !== undefined) updateData.title = validatedUpdates.name;
+      if (validatedUpdates.school !== undefined) updateData.school = validatedUpdates.school;
+      if (validatedUpdates.course !== undefined) updateData.course = validatedUpdates.course;
+      await examService.updatePaperMeta(documentId, updateData);
+    } else if (parsedType.data === 'assignment') {
+      await requireAssignmentAccess(documentId, user.id, role);
+      const assignmentService = getAssignmentService();
+      const fields: { title?: string; school?: string; course?: string } = {};
+      if (validatedUpdates.name !== undefined) fields.title = validatedUpdates.name;
+      if (validatedUpdates.school !== undefined) fields.school = validatedUpdates.school;
+      if (validatedUpdates.course !== undefined) fields.course = validatedUpdates.course;
+      await assignmentService.updateFields(documentId, fields);
+    } else {
+      const doc = await requireLectureAccess(documentId, user.id, role);
+      const documentService = getLectureDocumentService();
+      const metadataUpdates: { name?: string; metadata?: Json } = {};
+      if (validatedUpdates.name !== undefined) metadataUpdates.name = validatedUpdates.name;
+      if (validatedUpdates.school !== undefined || validatedUpdates.course !== undefined) {
+        const existingMeta = (doc.metadata as Record<string, unknown>) ?? {};
+        metadataUpdates.metadata = {
+          ...existingMeta,
+          ...(validatedUpdates.school !== undefined && { school: validatedUpdates.school }),
+          ...(validatedUpdates.course !== undefined && { course: validatedUpdates.course }),
+        } as Json;
+      }
+      await documentService.updateDocumentMetadata(documentId, metadataUpdates);
     }
-
-    await documentService.updateDocumentMetadata(documentId, metadataUpdates);
 
     revalidatePath(`/admin/knowledge/${documentId}`);
     revalidatePath(`/admin/lectures/${documentId}`);

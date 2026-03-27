@@ -637,11 +637,15 @@ export function KnowledgeClient({ initialDocuments, initialDocType }: KnowledgeC
                 const selectedUni = universities.find((u) => u.id === editUniId);
                 const selectedCourse = editFilteredCourses.find((c) => c.id === editCourseId);
 
-                const result = await updateDocumentMeta(editTarget.id, {
-                  name: editName.trim(),
-                  ...(selectedUni && { school: selectedUni.shortName || selectedUni.name }),
-                  ...(selectedCourse && { course: selectedCourse.code }),
-                });
+                const result = await updateDocumentMeta(
+                  editTarget.id,
+                  {
+                    name: editName.trim(),
+                    ...(selectedUni && { school: selectedUni.shortName || selectedUni.name }),
+                    ...(selectedCourse && { course: selectedCourse.code }),
+                  },
+                  activeTab,
+                );
 
                 if (result.success) {
                   showNotification({
