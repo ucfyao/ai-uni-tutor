@@ -26,6 +26,7 @@ import {
   Loader,
   NativeSelect,
   ScrollArea,
+  SimpleGrid,
   Stack,
   Text,
   Title,
@@ -192,17 +193,37 @@ function QuestionCard({ resp }: { resp: GradingResponse }) {
         </Badge>
       </Group>
 
-      {/* Feedback / Reason */}
-      <Box
-        p="sm"
-        style={{
-          borderRadius: 'var(--mantine-radius-md)',
-          borderLeft: `3px solid var(--mantine-color-${scoreColor}-5)`,
-          background: `light-dark(var(--mantine-color-${scoreColor}-0), var(--mantine-color-dark-6))`,
-        }}
-      >
-        <MarkdownRenderer content={resp.feedback} compact />
-      </Box>
+      {/* Answer (left) + Feedback (right) */}
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        {/* Left: extracted answer */}
+        {resp.userAnswer && (
+          <Box
+            p="sm"
+            style={{
+              borderRadius: 'var(--mantine-radius-md)',
+              background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
+              border:
+                '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
+              minHeight: 60,
+            }}
+          >
+            <MarkdownRenderer content={resp.userAnswer} compact />
+          </Box>
+        )}
+
+        {/* Right: feedback */}
+        <Box
+          p="sm"
+          style={{
+            borderRadius: 'var(--mantine-radius-md)',
+            borderLeft: `3px solid var(--mantine-color-${scoreColor}-5)`,
+            background: `light-dark(var(--mantine-color-${scoreColor}-0), var(--mantine-color-dark-6))`,
+            minHeight: 60,
+          }}
+        >
+          <MarkdownRenderer content={resp.feedback} compact />
+        </Box>
+      </SimpleGrid>
     </Card>
   );
 }
