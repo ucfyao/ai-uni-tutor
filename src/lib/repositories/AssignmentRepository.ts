@@ -392,6 +392,16 @@ export class AssignmentRepository {
       throw new DatabaseError(`Failed to update assignment title: ${error.message}`, error);
   }
 
+  async updateFields(
+    id: string,
+    fields: { title?: string; school?: string; course?: string },
+  ): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.from('assignments').update(fields).eq('id', id);
+    if (error)
+      throw new DatabaseError(`Failed to update assignment fields: ${error.message}`, error);
+  }
+
   async updateMetadata(assignmentId: string, metadata: AssignmentMetadata): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase

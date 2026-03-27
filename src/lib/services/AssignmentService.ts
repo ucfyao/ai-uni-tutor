@@ -113,6 +113,13 @@ export class AssignmentService {
     await this.repo.updateTitle(assignmentId, newTitle);
   }
 
+  async updateFields(
+    assignmentId: string,
+    fields: { title?: string; school?: string; course?: string },
+  ): Promise<void> {
+    await this.repo.updateFields(assignmentId, fields);
+  }
+
   async updateMetadata(assignmentId: string, metadata: AssignmentMetadata): Promise<void> {
     return this.repo.updateMetadata(assignmentId, metadata);
   }

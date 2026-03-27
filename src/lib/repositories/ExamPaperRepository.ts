@@ -220,12 +220,20 @@ export class ExamPaperRepository {
 
   async updatePaper(
     id: string,
-    data: { title?: string; questionTypes?: string[]; metadata?: Record<string, unknown> },
+    data: {
+      title?: string;
+      school?: string;
+      course?: string;
+      questionTypes?: string[];
+      metadata?: Record<string, unknown>;
+    },
   ): Promise<void> {
     const supabase = await createClient();
 
     const updates: Record<string, unknown> = {};
     if (data.title !== undefined) updates.title = data.title;
+    if (data.school !== undefined) updates.school = data.school;
+    if (data.course !== undefined) updates.course = data.course;
     if (data.questionTypes !== undefined) updates.question_types = data.questionTypes;
     if (data.metadata !== undefined) updates.metadata = data.metadata as Json;
 
