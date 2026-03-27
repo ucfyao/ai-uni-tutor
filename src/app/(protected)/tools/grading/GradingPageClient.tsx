@@ -21,19 +21,16 @@ import {
   Box,
   Button,
   Card,
-  Collapse,
   Container,
   Group,
   Loader,
   NativeSelect,
-  RingProgress,
   ScrollArea,
   Stack,
   Text,
   Title,
 } from '@mantine/core';
 import { Dropzone, IMAGE_MIME_TYPE, PDF_MIME_TYPE } from '@mantine/dropzone';
-import { useDisclosure } from '@mantine/hooks';
 import { fetchReadyAssignmentsByCourse } from '@/app/actions/assignments';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useCourseData } from '@/hooks/useCourseData';
@@ -120,8 +117,8 @@ function PipelineLog({
     <Box
       style={{
         borderRadius: 'var(--mantine-radius-sm)',
-        background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
-        border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
+        background: '#1a1b26',
+        border: '1px solid #2a2b3d',
         overflow: 'hidden',
       }}
     >
@@ -134,13 +131,16 @@ function PipelineLog({
               </Box>
               <Text
                 size="xs"
-                c={
-                  entry.level === 'error' ? 'red' : entry.level === 'warning' ? 'yellow' : 'dimmed'
-                }
                 style={{
                   fontFamily: 'var(--mantine-font-family-monospace)',
                   fontSize: 11,
                   lineHeight: 1.5,
+                  color:
+                    entry.level === 'error'
+                      ? 'var(--mantine-color-red-4)'
+                      : entry.level === 'warning'
+                        ? 'var(--mantine-color-yellow-4)'
+                        : '#8b8fa3',
                 }}
               >
                 <Text span style={{ color: logColors.info, fontSize: 10, fontWeight: 500 }}>
@@ -160,7 +160,7 @@ function PipelineLog({
                   style={{ animation: 'spin 1s linear infinite' }}
                 />
               </Box>
-              <Text size="xs" c="dimmed" style={{ fontSize: 11 }}>
+              <Text size="xs" style={{ fontSize: 11, color: '#8b8fa3' }}>
                 ...
               </Text>
             </Group>
@@ -176,22 +176,7 @@ function PipelineLog({
 // Per-Question Feedback Card
 // ============================================================================
 
-const CONTENT_BOX_STYLE = {
-  borderRadius: 'var(--mantine-radius-md)',
-  background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
-  border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
-} as const;
-
-function QuestionCard({
-  resp,
-  t,
-}: {
-  resp: GradingResponse;
-  t: ReturnType<typeof useLanguage>['t'];
-}) {
-  const [questionOpened, { toggle: toggleQuestion }] = useDisclosure(false);
-  const [refOpened, { toggle: toggleRef }] = useDisclosure(false);
-
+function QuestionCard({ resp }: { resp: GradingResponse }) {
   const scorePercent = resp.maxPoints > 0 ? (resp.score / resp.maxPoints) * 100 : 0;
   const scoreColor = scorePercent >= 80 ? 'teal' : scorePercent >= 60 ? 'yellow' : 'red';
 
@@ -199,78 +184,25 @@ function QuestionCard({
     <Card withBorder radius="md" p="lg">
       {/* Header */}
       <Group justify="space-between" mb="md">
-        <Group gap="sm">
-          <Badge variant="light" color={TOOLS_COLOR} size="lg" fw={700} radius="sm">
-            Q{resp.questionIndex + 1}
-          </Badge>
-          {resp.isCorrect !== undefined && (
-            <Badge variant="dot" color={scoreColor} size="sm">
-              {resp.isCorrect ? 'correct' : 'partial'}
-            </Badge>
-          )}
-        </Group>
+        <Badge variant="light" color={TOOLS_COLOR} size="lg" fw={700} radius="sm">
+          Q{resp.questionIndex + 1}
+        </Badge>
         <Badge color={scoreColor} variant="filled" size="lg" radius="sm">
           {resp.score} / {resp.maxPoints}
         </Badge>
       </Group>
 
-      {/* Your Answer */}
-      {resp.userAnswer && (
-        <Box mb="md">
-          <Text fw={600} size="xs" c="dimmed" tt="uppercase" mb={6}>
-            {t.tools.yourAnswer}
-          </Text>
-          <Box p="sm" style={CONTENT_BOX_STYLE}>
-            <MarkdownRenderer content={resp.userAnswer} compact />
-          </Box>
-        </Box>
-      )}
-
-      {/* Feedback */}
+      {/* Feedback / Reason */}
       <Box
-        mb="sm"
         p="sm"
         style={{
           borderRadius: 'var(--mantine-radius-md)',
-          borderLeft: `3px solid var(--mantine-color-${TOOLS_COLOR}-5)`,
-          background: `light-dark(var(--mantine-color-${TOOLS_COLOR}-0), var(--mantine-color-dark-6))`,
+          borderLeft: `3px solid var(--mantine-color-${scoreColor}-5)`,
+          background: `light-dark(var(--mantine-color-${scoreColor}-0), var(--mantine-color-dark-6))`,
         }}
       >
-        <Text fw={600} size="xs" c={TOOLS_COLOR} tt="uppercase" mb={4}>
-          Feedback
-        </Text>
         <MarkdownRenderer content={resp.feedback} compact />
       </Box>
-
-      {/* Collapsible details */}
-      <Group gap="xs">
-        {resp.questionContent && (
-          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleQuestion}>
-            {questionOpened ? '▾' : '▸'} {t.tools.originalQuestion}
-          </Button>
-        )}
-        {resp.referenceAnswer && (
-          <Button variant="subtle" color="gray" size="compact-xs" onClick={toggleRef}>
-            {refOpened ? '▾' : '▸'} {t.tools.referenceAnswerLabel}
-          </Button>
-        )}
-      </Group>
-
-      {resp.questionContent && (
-        <Collapse in={questionOpened}>
-          <Box p="sm" mt="xs" style={CONTENT_BOX_STYLE}>
-            <MarkdownRenderer content={resp.questionContent} compact />
-          </Box>
-        </Collapse>
-      )}
-
-      {resp.referenceAnswer && (
-        <Collapse in={refOpened}>
-          <Box p="sm" mt="xs" style={CONTENT_BOX_STYLE}>
-            <MarkdownRenderer content={resp.referenceAnswer} compact />
-          </Box>
-        </Collapse>
-      )}
     </Card>
   );
 }
@@ -432,8 +364,6 @@ export default function GradingPageClient() {
 
   const isSubmitting = stage === 'extracting' || stage === 'grading';
   const canSubmit = !!selectedAssignmentId && !!file && !isSubmitting;
-  const scorePercent = result ? Math.round((result.totalScore / result.maxScore) * 100) : 0;
-  const ringColor = scorePercent >= 80 ? 'teal' : scorePercent >= 60 ? 'yellow' : 'red';
 
   const courseSelectData = [
     { value: '', label: t.tools.selectCoursePlaceholder },
@@ -633,62 +563,12 @@ export default function GradingPageClient() {
           {/* Results — visible when grading is complete */}
           {stage === 'complete' && result && (
             <Stack gap="lg">
-              {/* Score card */}
-              <Card withBorder radius="md" p="xl">
-                <Group align="center" gap="xl" wrap="wrap" justify="center">
-                  <RingProgress
-                    size={120}
-                    thickness={10}
-                    roundCaps
-                    sections={[{ value: scorePercent, color: ringColor }]}
-                    label={
-                      <Text ta="center" fw={700} size="xl">
-                        {scorePercent}%
-                      </Text>
-                    }
-                  />
-                  <Stack gap="xs">
-                    <Text fw={600} size="lg">
-                      {t.tools.totalScore}: {result.totalScore} / {result.maxScore}
-                    </Text>
-                    <Box maw={400}>
-                      <MarkdownRenderer content={result.summary.overallFeedback} compact />
-                    </Box>
-                  </Stack>
-                </Group>
-              </Card>
-
-              {/* Format warning */}
-              {result.summary.formatWarning && (
-                <Card
-                  withBorder
-                  radius="sm"
-                  p="sm"
-                  style={{ borderColor: 'var(--mantine-color-orange-4)' }}
-                >
-                  <Group gap="xs" wrap="nowrap">
-                    <AlertTriangle size={16} color="var(--mantine-color-orange-6)" />
-                    <Box>
-                      <Text fw={600} size="sm" c="orange">
-                        {t.tools.formatWarning}
-                      </Text>
-                      <Text size="sm">{result.summary.formatWarning}</Text>
-                    </Box>
-                  </Group>
-                </Card>
-              )}
-
               {/* Per-question feedback */}
-              <Box>
-                <Title order={4} mb="md">
-                  {t.tools.questionFeedback}
-                </Title>
-                <Stack gap="sm">
-                  {result.responses.map((resp, idx) => (
-                    <QuestionCard key={idx} resp={resp} t={t} />
-                  ))}
-                </Stack>
-              </Box>
+              <Stack gap="sm">
+                {result.responses.map((resp, idx) => (
+                  <QuestionCard key={idx} resp={resp} />
+                ))}
+              </Stack>
 
               {/* Improvement suggestions */}
               {result.summary.improvements.length > 0 && (
