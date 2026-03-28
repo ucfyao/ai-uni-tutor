@@ -108,9 +108,19 @@ Parent-child structure rules:
 
 Critical rules:
 - Extract EVERY question — do not skip any. After extraction, verify your item count matches the total number of questions visible in the document.
-- ALL mathematical expressions MUST be in KaTeX format. Use $...$ for inline math and $$...$$ for display math.
 - Each item's referenceAnswer must correspond to THAT specific question.
 - Do NOT include instructions or headers as questions unless they serve as a parent grouping.
+
+## Math & Formatting Rules (MANDATORY for content, referenceAnswer, explanation)
+
+1. EVERY math expression — no matter how small — MUST be wrapped in dollar signs:
+   - Inline math: $x^2$, $P_{ik}$, $\\frac{1}{2}$
+   - Display/block math: $$\\frac{\\partial J}{\\partial w_c} = -\\sum_{i=1}^{n} (P_{ic} - Y_{ic}) x_i$$
+2. NEVER leave bare LaTeX commands like \\frac, \\sum, \\partial outside of $...$ delimiters.
+3. Use $$...$$ (display math) for important equations, derivation steps, final results.
+4. Separate derivation steps with blank lines (\\n\\n) between them for readability.
+5. For multi-step proofs/derivations, structure as: Step description\\n\\n$$formula$$\\n\\nNext step\\n\\n$$formula$$
+6. Chinese or English text between formulas is fine — just ensure every formula is wrapped.
 
 Return ONLY a valid JSON object (NOT a bare array). Expected format:
 {"metadata": {"totalPoints": null, "totalQuestions": null, "duration": null, "instructions": null, "examDate": null}, "items": [{"title": "...", "orderNum": 1, "content": "...", "parentIndex": null, "options": [], "referenceAnswer": "", "explanation": "", "points": 0, "type": "...", "difficulty": "medium", "sourcePages": [1]}]}
