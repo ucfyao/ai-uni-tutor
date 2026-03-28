@@ -5,7 +5,7 @@
  * 2. Detects bare LaTeX (commands like \frac, \text, subscripts/superscripts
  *    outside of $...$) and wraps them in inline math delimiters.
  *
- * Skips content inside fenced code blocks and existing $...$ regions.
+ * Skips content inside fenced code blocks, inline code, and existing $...$ regions.
  */
 export function normalizeMathDelimiters(content: string): string {
   if (!content) return content;
@@ -23,10 +23,25 @@ export function normalizeMathDelimiters(content: string): string {
       // Must run BEFORE wrapBareLaTeX so the $$...$$ is recognized as math
       parts[i] = wrapBareEnvironments(parts[i]);
       // Bare LaTeX outside $...$: wrap in $...$
-      parts[i] = wrapBareLaTeX(parts[i]);
+      // Also skip inline code (`...`) to avoid corrupting code identifiers
+      parts[i] = skipInlineCode(parts[i], wrapBareLaTeX);
     }
   }
   return parts.join('');
+}
+
+/**
+ * Split text by inline code spans (`...`), apply a transform only to
+ * non-code segments, then reassemble.
+ */
+function skipInlineCode(text: string, transform: (s: string) => string): string {
+  const segments = text.split(/(`[^`]+`)/g);
+  for (let i = 0; i < segments.length; i++) {
+    if (i % 2 === 0) {
+      segments[i] = transform(segments[i]);
+    }
+  }
+  return segments.join('');
 }
 
 /**
@@ -55,8 +70,16 @@ function wrapBareEnvironments(text: string): string {
  * Targets two safe, high-confidence patterns:
  *  1. Subscript/superscript: e.g. 101101_2, x^2, a_{n+1}
  *  2. Backslash commands:    e.g. \frac{1}{2}, \text{AND}, \sqrt{x}
+ *
+ * Safety: If $$ delimiters are unbalanced (AI forgot to close a $$), inserting
+ * new $ signs would mispair with the orphaned $$. Detect this and bail out.
  */
 function wrapBareLaTeX(text: string): string {
+  // Count $$ pairs — if odd, delimiters are unbalanced; skip wrapping to avoid
+  // making things worse (an inserted $ would pair with the orphaned $$).
+  const ddCount = countNonOverlapping(text, '$$');
+  if (ddCount % 2 !== 0) return text;
+
   // Split into math ($...$, $$...$$) and non-math segments
   const segments = text.split(/(\$\$[\s\S]*?\$\$|\$[^$]*?\$)/g);
 
@@ -69,8 +92,10 @@ function wrapBareLaTeX(text: string): string {
       );
 
       // 1. Subscripts/superscripts: word_sub or word^sup (e.g. 101101_2, x_{n+1}, 2^{10})
+      //    Only match when the subscript/superscript is a single char NOT followed by
+      //    more word chars (to avoid matching code identifiers like train_test_split).
       segments[i] = segments[i].replace(
-        /\b(\w+(?:[_^](?:\{[^}]+\}|\w))+)/g,
+        /\b(\w+(?:[_^](?:\{[^}]+\}|\w(?!\w)))+)/g,
         (match) => `$${match}$`,
       );
 
@@ -83,6 +108,17 @@ function wrapBareLaTeX(text: string): string {
     }
   }
   return segments.join('');
+}
+
+/** Count non-overlapping occurrences of a substring. */
+function countNonOverlapping(text: string, sub: string): number {
+  let count = 0;
+  let idx = 0;
+  while ((idx = text.indexOf(sub, idx)) !== -1) {
+    count++;
+    idx += sub.length;
+  }
+  return count;
 }
 
 /**
