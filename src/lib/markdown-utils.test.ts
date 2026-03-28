@@ -62,6 +62,53 @@ describe('normalizeMathDelimiters', () => {
     const input = '```\n\\frac{1}{2}\n```';
     expect(normalizeMathDelimiters(input)).toBe(input);
   });
+
+  it('should handle nested braces in \\frac', () => {
+    const input = '\\frac{\\partial P_{ik}}{\\partial w_c}';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('$\\frac{\\partial P_{ik}}{\\partial w_c}$');
+  });
+
+  it('should handle deeply nested braces', () => {
+    const input = '\\frac{\\sum_{i=1}^{n} x_{i}}{\\sqrt{n}}';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('$\\frac{\\sum_{i=1}^{n} x_{i}}{\\sqrt{n}}$');
+  });
+
+  it('should chain backslash commands with operators', () => {
+    const input = '\\frac{1}{2} + \\frac{3}{4}';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('$\\frac{1}{2} + \\frac{3}{4}$');
+  });
+
+  it('should handle command with subscript after braces', () => {
+    const input = '\\sum_{i=1}^{n}';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('$\\sum_{i=1}^{n}$');
+  });
+
+  it('should handle complex softmax derivative', () => {
+    const input = '\\frac{\\partial J}{\\partial w_c} = -\\sum_{i=1}^{n} (P_{ic} - Y_{ic}) x_i';
+    const result = normalizeMathDelimiters(input);
+    // All LaTeX commands should be inside $...$
+    expect(result).toMatch(/^\$/); // starts with $
+    expect(result).toContain('$\\frac{\\partial J}{\\partial w_c}');
+    expect(result).toContain('$P_{ic}$');
+    expect(result).toContain('$Y_{ic}$');
+    expect(result).toContain('$x_i$');
+  });
+
+  it('should handle standalone commands like \\cdot and \\times', () => {
+    const input = 'a \\cdot b';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('a $\\cdot$ b');
+  });
+
+  it('should not corrupt mixed text and LaTeX', () => {
+    const input = '求 \\frac{\\partial J}{\\partial w_c} 的值';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('求 $\\frac{\\partial J}{\\partial w_c}$ 的值');
+  });
 });
 
 describe('fixIncompleteMarkdown', () => {

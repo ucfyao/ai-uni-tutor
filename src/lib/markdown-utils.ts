@@ -65,11 +65,130 @@ function wrapBareEnvironments(text: string): string {
 }
 
 /**
+ * Match a brace-delimited group starting at `pos` (which must point at '{').
+ * Handles arbitrary nesting depth. Returns the index AFTER the closing '}'.
+ * Returns -1 if braces are unbalanced.
+ */
+function matchBraceGroup(text: string, pos: number): number {
+  if (text[pos] !== '{') return -1;
+  let depth = 1;
+  let i = pos + 1;
+  while (i < text.length && depth > 0) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') depth--;
+    i++;
+  }
+  return depth === 0 ? i : -1;
+}
+
+/**
+ * Starting at `pos`, consume zero or more consecutive brace groups `{...}`.
+ * Returns the index after the last closing brace (or `pos` if none found).
+ */
+function consumeBraceGroups(text: string, pos: number): number {
+  let end = pos;
+  while (end < text.length && text[end] === '{') {
+    const next = matchBraceGroup(text, end);
+    if (next === -1) break;
+    end = next;
+  }
+  return end;
+}
+
+/**
+ * Match a backslash command with nested brace arguments at `pos`.
+ * e.g. \frac{\partial P_{ik}}{\partial w_c}
+ * Returns the end index or `pos` if no valid command found.
+ */
+function matchBackslashCommand(text: string, pos: number): number {
+  if (text[pos] !== '\\') return pos;
+  const cmdMatch = text.slice(pos).match(/^\\[a-zA-Z]+/);
+  if (!cmdMatch) return pos;
+  return consumeBraceGroups(text, pos + cmdMatch[0].length);
+}
+
+/**
+ * Walk through text and wrap bare \cmd{...}{...} sequences (possibly chained
+ * with operators or subscripts/superscripts) in $...$. Uses bracket-matching
+ * for nested braces instead of regex.
+ */
+function wrapBackslashCommands(text: string): string {
+  const result: string[] = [];
+  let pos = 0;
+
+  while (pos < text.length) {
+    if (text[pos] === '\\' && pos + 1 < text.length && /[a-zA-Z]/.test(text[pos + 1])) {
+      const cmdEnd = matchBackslashCommand(text, pos);
+      if (cmdEnd > pos) {
+        // Extend: chain operators, more commands, subscripts/superscripts
+        let chainEnd = cmdEnd;
+        while (chainEnd < text.length) {
+          // Subscripts/superscripts directly after command
+          if (text[chainEnd] === '_' || text[chainEnd] === '^') {
+            const subEnd =
+              text[chainEnd + 1] === '{'
+                ? matchBraceGroup(text, chainEnd + 1)
+                : chainEnd + 2 <= text.length
+                  ? chainEnd + 2
+                  : -1;
+            if (subEnd > chainEnd) {
+              chainEnd = subEnd;
+              continue;
+            }
+          }
+          // Operator + next command (e.g. \cdot \frac{...}{...}, = -\sum)
+          // Allow multiple operator chars to handle patterns like "= -"
+          const rest = text.slice(chainEnd);
+          const opMatch = rest.match(/^(\s*(?:[+\-=<>·×*/,;]\s*)+)/);
+          const nextStart = chainEnd + (opMatch ? opMatch[0].length : 0);
+          if (nextStart < text.length && text[nextStart] === '\\') {
+            const nextEnd = matchBackslashCommand(text, nextStart);
+            if (nextEnd > nextStart) {
+              chainEnd = nextEnd;
+              continue;
+            }
+          }
+          break;
+        }
+        result.push('$', text.slice(pos, chainEnd), '$');
+        pos = chainEnd;
+      } else {
+        result.push(text[pos]);
+        pos++;
+      }
+    } else {
+      result.push(text[pos]);
+      pos++;
+    }
+  }
+  return result.join('');
+}
+
+/**
+ * Apply a transform to non-math segments of text.
+ * Splits by $...$  and $$...$$ regions, applies `fn` only outside math.
+ */
+function applyOutsideMath(text: string, fn: (s: string) => string): string {
+  const segments = text.split(/(\$\$[\s\S]*?\$\$|\$[^$]*?\$)/g);
+  for (let i = 0; i < segments.length; i++) {
+    if (i % 2 === 0 && segments[i]) {
+      segments[i] = fn(segments[i]);
+    }
+  }
+  return segments.join('');
+}
+
+/**
  * Find bare LaTeX outside of $...$ / $$...$$ and wrap in inline math.
  *
- * Targets two safe, high-confidence patterns:
- *  1. Subscript/superscript: e.g. 101101_2, x^2, a_{n+1}
- *  2. Backslash commands:    e.g. \frac{1}{2}, \text{AND}, \sqrt{x}
+ * Processing order matters — backslash commands run first so their brace
+ * content is protected before the subscript regex sees it:
+ *  1. Backslash commands with nested brace support (e.g. \frac{\partial P_{ik}}{\partial w_c})
+ *  2. Parenthesized subscripts (e.g. (1101)_2)
+ *  3. Plain subscripts/superscripts (e.g. x^2, a_{n+1})
+ *
+ * After each step we re-split by $...$ so later steps don't touch
+ * content that was already wrapped.
  *
  * Safety: If $$ delimiters are unbalanced (AI forgot to close a $$), inserting
  * new $ signs would mispair with the orphaned $$. Detect this and bail out.
@@ -80,34 +199,23 @@ function wrapBareLaTeX(text: string): string {
   const ddCount = countNonOverlapping(text, '$$');
   if (ddCount % 2 !== 0) return text;
 
-  // Split into math ($...$, $$...$$) and non-math segments
-  const segments = text.split(/(\$\$[\s\S]*?\$\$|\$[^$]*?\$)/g);
+  // 1. Backslash commands first — these create $...$ regions that protect
+  //    their brace content from later subscript matching.
+  let result = applyOutsideMath(text, wrapBackslashCommands);
 
-  for (let i = 0; i < segments.length; i++) {
-    if (i % 2 === 0 && segments[i]) {
-      // 0. Parenthesized base with sub/superscripts, e.g. (1101)_2, (x+1)^{2}
-      segments[i] = segments[i].replace(
-        /(\([^()\n]+\)\s*(?:[_^](?:\{[^}\n]+\}|\w))+)/g,
-        (match) => `$${match}$`,
-      );
+  // 2. Parenthesized base with sub/superscripts, e.g. (1101)_2, (x+1)^{2}
+  result = applyOutsideMath(result, (s) =>
+    s.replace(/(\([^()\n]+\)\s*(?:[_^](?:\{[^}\n]+\}|\w))+)/g, (match) => `$${match}$`),
+  );
 
-      // 1. Subscripts/superscripts: word_sub or word^sup (e.g. 101101_2, x_{n+1}, 2^{10})
-      //    Only match when the subscript/superscript is a single char NOT followed by
-      //    more word chars (to avoid matching code identifiers like train_test_split).
-      segments[i] = segments[i].replace(
-        /\b(\w+(?:[_^](?:\{[^}]+\}|\w(?!\w)))+)/g,
-        (match) => `$${match}$`,
-      );
+  // 3. Subscripts/superscripts: word_sub or word^sup (e.g. 101101_2, x_{n+1}, 2^{10})
+  //    Only match when the subscript/superscript is a single char NOT followed by
+  //    more word chars (to avoid matching code identifiers like train_test_split).
+  result = applyOutsideMath(result, (s) =>
+    s.replace(/\b(\w+(?:[_^](?:\{[^}]+\}|\w(?!\w)))+)/g, (match) => `$${match}$`),
+  );
 
-      // 2. Backslash commands: \cmd or \cmd{...}{...}... possibly chained
-      //    e.g. \frac{1}{2}, \text{AND}, \sqrt{x}, \cdot, \times
-      segments[i] = segments[i].replace(
-        /\\[a-zA-Z]+(?:\{[^}]*\})*(?:\s*[+\-=<>·×*/]\s*\\[a-zA-Z]+(?:\{[^}]*\})*)*/g,
-        (match) => `$${match}$`,
-      );
-    }
-  }
-  return segments.join('');
+  return result;
 }
 
 /** Count non-overlapping occurrences of a substring. */

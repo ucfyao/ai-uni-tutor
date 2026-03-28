@@ -34,14 +34,23 @@ For each answer found, extract:
 Critical rules:
 - Extract EVERY answer — do not skip any
 - The "title" field is crucial for matching answers to questions — use the exact question label/number from the document
-- ALL mathematical expressions MUST be in KaTeX format
 - If an answer has sub-parts (a), (b), (c), extract each sub-part as a separate entry with its full label (e.g. "1(a)", "1(b)")
 - If the document contains both questions and answers, extract ONLY the answers
-- IMPORTANT: Inside JSON strings, backslashes MUST be escaped as \\\\. For example, LaTeX "\\alpha" must be written as "\\\\alpha" in JSON.
+
+## Math & Formatting Rules (MANDATORY for referenceAnswer, explanation)
+
+1. EVERY math expression — no matter how small — MUST be wrapped in dollar signs:
+   - Inline math: $x^2$, $P_{ik}$, $\\frac{1}{2}$
+   - Display/block math: $$\\frac{\\partial J}{\\partial w_c} = -\\sum_{i=1}^{n} (P_{ic} - Y_{ic}) x_i$$
+2. NEVER leave bare LaTeX commands like \\frac, \\sum, \\partial outside of $...$ delimiters.
+3. Use $$...$$ (display math) for important equations, derivation steps, final results.
+4. Separate derivation steps with blank lines (\\n\\n) between them for readability.
+5. For multi-step proofs/derivations, structure as: Step description\\n\\n$$formula$$\\n\\nNext step\\n\\n$$formula$$
 
 Return ONLY a valid JSON object. Expected format:
 {"answers": [{"title": "Q1", "orderNum": 1, "referenceAnswer": "The answer...", "explanation": "Step 1: ..."}]}
-No markdown, no explanation.`;
+No markdown, no explanation.
+- IMPORTANT: Inside JSON strings, backslashes MUST be escaped as \\\\. For example, LaTeX "\\alpha" must be written as "\\\\alpha" in JSON.`;
 }
 
 export async function extractAnswersFromPDF(
