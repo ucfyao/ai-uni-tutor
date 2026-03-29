@@ -181,7 +181,7 @@ describe('institution-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await acceptInstitutionInvite({ code: 'ABC' });
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns VALIDATION error for invalid input', async () => {
@@ -210,7 +210,7 @@ describe('institution-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getMyInstitution();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns null when user has no membership', async () => {
@@ -253,20 +253,28 @@ describe('institution-actions', () => {
     it('returns error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getInstitutionDashboard();
-      expect(result).toEqual({ success: false, error: 'Authentication required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Authentication required',
+        code: 'UNAUTHORIZED',
+      });
     });
 
     it('returns error when user is not admin', async () => {
       mockRegularRole();
       const result = await getInstitutionDashboard();
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns error when institution not found for admin', async () => {
       mockProfileRepo.findById.mockResolvedValue({ role: 'institution_admin' });
       mockInstitutionService.getInstitutionByAdmin.mockResolvedValue(null);
       const result = await getInstitutionDashboard();
-      expect(result).toEqual({ success: false, error: 'Institution not found' });
+      expect(result).toEqual({ success: false, error: 'Institution not found', code: 'NOT_FOUND' });
     });
 
     it('returns dashboard for institution_admin', async () => {
@@ -295,7 +303,7 @@ describe('institution-actions', () => {
       mockProfileRepo.findById.mockResolvedValue({ role: 'super_admin' });
       mockInstitutionService.listInstitutions.mockResolvedValue([]);
       const result = await getInstitutionDashboard();
-      expect(result).toEqual({ success: false, error: 'Institution not found' });
+      expect(result).toEqual({ success: false, error: 'Institution not found', code: 'NOT_FOUND' });
     });
 
     it('returns mapped error when service throws', async () => {
@@ -312,13 +320,21 @@ describe('institution-actions', () => {
     it('returns error when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await createInstitutionInvite({});
-      expect(result).toEqual({ success: false, error: 'Authentication required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Authentication required',
+        code: 'UNAUTHORIZED',
+      });
     });
 
     it('returns error when user is not admin', async () => {
       mockRegularRole();
       const result = await createInstitutionInvite({});
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns invite on success with no options', async () => {
@@ -329,11 +345,10 @@ describe('institution-actions', () => {
       const result = await createInstitutionInvite(undefined);
 
       expect(result).toEqual({ success: true, data: mockInvite });
-      expect(mockInstitutionService.createInvite).toHaveBeenCalledWith(
-        'inst-1',
-        'user-1',
-        { maxUses: undefined, expiresAt: undefined },
-      );
+      expect(mockInstitutionService.createInvite).toHaveBeenCalledWith('inst-1', 'user-1', {
+        maxUses: undefined,
+        expiresAt: undefined,
+      });
     });
 
     it('returns invite on success with options', async () => {
@@ -347,11 +362,10 @@ describe('institution-actions', () => {
       });
 
       expect(result).toEqual({ success: true, data: mockInvite });
-      expect(mockInstitutionService.createInvite).toHaveBeenCalledWith(
-        'inst-1',
-        'user-1',
-        { maxUses: 10, expiresAt: new Date('2026-12-31T23:59:59Z') },
-      );
+      expect(mockInstitutionService.createInvite).toHaveBeenCalledWith('inst-1', 'user-1', {
+        maxUses: 10,
+        expiresAt: new Date('2026-12-31T23:59:59Z'),
+      });
     });
 
     it('returns mapped error when service throws', async () => {
@@ -368,7 +382,11 @@ describe('institution-actions', () => {
     it('returns error when user is not admin', async () => {
       mockRegularRole();
       const result = await listInstitutionInvites();
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns invites on success', async () => {
@@ -392,7 +410,11 @@ describe('institution-actions', () => {
         inviteId: '550e8400-e29b-41d4-a716-446655440000',
         isActive: false,
       });
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns VALIDATION error for invalid input', async () => {
@@ -419,7 +441,11 @@ describe('institution-actions', () => {
     it('returns error when user is not admin', async () => {
       mockRegularRole();
       const result = await listInstitutionMembers();
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns members on success', async () => {
@@ -442,7 +468,11 @@ describe('institution-actions', () => {
       const result = await removeInstitutionMember({
         userId: '550e8400-e29b-41d4-a716-446655440000',
       });
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns VALIDATION error for invalid input', async () => {
@@ -472,7 +502,11 @@ describe('institution-actions', () => {
         amount: 100,
         paymentMethod: { type: 'bank', account: '123' },
       });
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns VALIDATION error for invalid input', async () => {
@@ -492,11 +526,10 @@ describe('institution-actions', () => {
       });
 
       expect(result).toEqual({ success: true, data: mockWithdrawal });
-      expect(mockCommissionService.requestWithdrawal).toHaveBeenCalledWith(
-        'user-1',
-        200,
-        { type: 'bank', account: '456' },
-      );
+      expect(mockCommissionService.requestWithdrawal).toHaveBeenCalledWith('user-1', 200, {
+        type: 'bank',
+        account: '456',
+      });
     });
   });
 
@@ -506,7 +539,11 @@ describe('institution-actions', () => {
     it('returns error when user is not admin', async () => {
       mockRegularRole();
       const result = await getInstitutionWithdrawalHistory();
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns withdrawals on success', async () => {
@@ -527,7 +564,11 @@ describe('institution-actions', () => {
     it('returns error when user is not admin', async () => {
       mockRegularRole();
       const result = await getAmbassadorStats();
-      expect(result).toEqual({ success: false, error: 'Institution admin access required' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Institution admin access required',
+        code: 'FORBIDDEN',
+      });
     });
 
     it('returns stats on success', async () => {

@@ -39,7 +39,7 @@ describe('requestPasswordReset', () => {
 
     const result = await requestPasswordReset(formData);
 
-    expect(result).toEqual({ error: expect.any(String) });
+    expect(result).toEqual({ success: false, error: expect.any(String), code: 'VALIDATION' });
     expect(mockResetPasswordForEmail).not.toHaveBeenCalled();
   });
 
@@ -62,7 +62,7 @@ describe('requestPasswordReset', () => {
 
     const result = await requestPasswordReset(formData);
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ success: true, data: undefined });
   });
 
   it('returns error on Supabase failure', async () => {
@@ -74,6 +74,7 @@ describe('requestPasswordReset', () => {
 
     const result = await requestPasswordReset(formData);
 
-    expect(result).toEqual({ error: 'Rate limit exceeded' });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe('Rate limit exceeded');
   });
 });

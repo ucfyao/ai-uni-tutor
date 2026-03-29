@@ -71,7 +71,7 @@ export async function uploadAndParseExamPaper(
 export async function getExamPaperList(filters?: PaperFilters): Promise<ActionResult<ExamPaper[]>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getExamPaperService();
     const { data } = await service.getPapers(filters);
@@ -84,7 +84,7 @@ export async function getExamPaperList(filters?: PaperFilters): Promise<ActionRe
 export async function deleteExamPaper(paperId: string): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getExamPaperService();
     await service.deletePaper(user.id, paperId);

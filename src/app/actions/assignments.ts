@@ -76,13 +76,13 @@ export async function createEmptyAssignment(
     return { success: true, data: { id } };
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return { success: false, error: 'Admin access required' };
+      return { success: false, error: 'Admin access required', code: 'FORBIDDEN' };
     }
     if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' };
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     }
     console.error('createEmptyAssignment error:', error);
-    return { success: false, error: 'Failed to create assignment' };
+    return { success: false, error: 'Failed to create assignment', code: 'DB_ERROR' };
   }
 }
 
@@ -111,13 +111,13 @@ export async function addAssignmentItem(
     return { success: true, data: { id: item.id } };
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return { success: false, error: 'No access to this assignment' };
+      return { success: false, error: 'No access to this assignment', code: 'FORBIDDEN' };
     }
     if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' };
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     }
     console.error('addAssignmentItem error:', error);
-    return { success: false, error: 'Failed to add item' };
+    return { success: false, error: 'Failed to add item', code: 'DB_ERROR' };
   }
 }
 
@@ -158,10 +158,12 @@ export async function renameAssignment(
     await service.rename(parsed.assignmentId, parsed.title);
     return { success: true, data: null };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('renameAssignment error:', error);
-    return { success: false, error: 'Failed to rename assignment' };
+    return { success: false, error: 'Failed to rename assignment', code: 'DB_ERROR' };
   }
 }
 
@@ -177,9 +179,10 @@ export async function fetchAssignmentItems(
     const items = await service.getItems(parsed.assignmentId);
     return { success: true, data: items };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('fetchAssignmentItems error:', error);
-    return { success: false, error: 'Failed to fetch items' };
+    return { success: false, error: 'Failed to fetch items', code: 'DB_ERROR' };
   }
 }
 
@@ -197,7 +200,7 @@ export async function updateAssignmentItems(
     const allIds = [...parsed.deletedIds, ...parsed.updates.map((u) => u.id)];
     if (allIds.length > 0) {
       const valid = await service.verifyItemsBelongToAssignment(allIds, parsed.assignmentId);
-      if (!valid) return { success: false, error: 'Invalid item IDs' };
+      if (!valid) return { success: false, error: 'Invalid item IDs', code: 'VALIDATION' };
     }
 
     // Batch delete in a single query
@@ -241,9 +244,10 @@ export async function updateAssignmentItems(
 
     return { success: true, data: null };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('updateAssignmentItems error:', error);
-    return { success: false, error: 'Failed to update items' };
+    return { success: false, error: 'Failed to update items', code: 'DB_ERROR' };
   }
 }
 
@@ -270,10 +274,12 @@ export async function deleteAssignment(assignmentId: string): Promise<ActionResu
     await service.deleteAssignment(id);
     return { success: true, data: null };
   } catch (error) {
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid assignment ID' };
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid assignment ID', code: 'VALIDATION' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('deleteAssignment error:', error);
-    return { success: false, error: 'Failed to delete assignment' };
+    return { success: false, error: 'Failed to delete assignment', code: 'DB_ERROR' };
   }
 }
 
@@ -286,10 +292,16 @@ export async function publishAssignment(assignmentId: string): Promise<ActionRes
     await service.publish(id);
     return { success: true, data: null };
   } catch (error) {
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid assignment ID' };
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid assignment ID', code: 'VALIDATION' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('publishAssignment error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to publish' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to publish',
+      code: 'DB_ERROR',
+    };
   }
 }
 
@@ -302,10 +314,12 @@ export async function unpublishAssignment(assignmentId: string): Promise<ActionR
     await service.unpublish(id);
     return { success: true, data: null };
   } catch (error) {
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid assignment ID' };
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid assignment ID', code: 'VALIDATION' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('unpublishAssignment error:', error);
-    return { success: false, error: 'Failed to unpublish' };
+    return { success: false, error: 'Failed to unpublish', code: 'DB_ERROR' };
   }
 }
 
@@ -334,12 +348,15 @@ export async function mergeAssignmentItems(
     const keepId = await service.mergeItems(parsed.assignmentId, parsed.itemIds);
     return { success: true, data: { keepId } };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('mergeAssignmentItems error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to merge items',
+      code: 'DB_ERROR',
     };
   }
 }
@@ -356,12 +373,15 @@ export async function splitAssignmentItem(
     const result = await service.splitItem(parsed.assignmentId, parsed.itemId, parsed.splitContent);
     return { success: true, data: result };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('splitAssignmentItem error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to split item',
+      code: 'DB_ERROR',
     };
   }
 }
@@ -392,16 +412,18 @@ export async function batchUpdateAnswers(
     const itemIds = parsed.matches.map((m) => m.itemId);
     if (itemIds.length > 0) {
       const valid = await service.verifyItemsBelongToAssignment(itemIds, parsed.assignmentId);
-      if (!valid) return { success: false, error: 'Invalid item IDs' };
+      if (!valid) return { success: false, error: 'Invalid item IDs', code: 'VALIDATION' };
     }
 
     await service.batchUpdateAnswers(parsed.matches);
     return { success: true, data: { updated: parsed.matches.length } };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('batchUpdateAnswers error:', error);
-    return { success: false, error: 'Failed to update answers' };
+    return { success: false, error: 'Failed to update answers', code: 'DB_ERROR' };
   }
 }
 
@@ -425,9 +447,11 @@ export async function moveAssignmentItem(
     await service.moveItem(parsed.assignmentId, parsed.itemId, parsed.newParentId);
     return { success: true, data: null };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('moveAssignmentItem error:', error);
-    return { success: false, error: 'Failed to move item' };
+    return { success: false, error: 'Failed to move item', code: 'DB_ERROR' };
   }
 }

@@ -10,7 +10,7 @@ export async function toggleBookmark(
 ): Promise<ActionResult<{ bookmarked: boolean }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const { bookmarked } = await getBookmarkService().toggleBookmark(user.id, paperId);
     return { success: true, data: { bookmarked } };
@@ -22,7 +22,7 @@ export async function toggleBookmark(
 export async function getBookmarkedPaperIds(): Promise<ActionResult<string[]>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const ids = await getBookmarkService().getBookmarkedPaperIds(user.id);
     return { success: true, data: ids };

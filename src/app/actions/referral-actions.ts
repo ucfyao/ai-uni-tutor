@@ -15,7 +15,7 @@ import type {
 
 export async function generateReferralCode(): Promise<ActionResult<ReferralCodeEntity>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const service = getReferralService();
@@ -28,7 +28,7 @@ export async function generateReferralCode(): Promise<ActionResult<ReferralCodeE
 
 export async function getMyReferrals(): Promise<ActionResult<ReferralWithReferee[]>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const service = getReferralService();
@@ -41,7 +41,7 @@ export async function getMyReferrals(): Promise<ActionResult<ReferralWithReferee
 
 export async function getReferralStats(): Promise<ActionResult<ReferralStats>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const service = getReferralService();
@@ -54,10 +54,11 @@ export async function getReferralStats(): Promise<ActionResult<ReferralStats>> {
 
 export async function applyReferralAtSignup(code: string): Promise<ActionResult<void>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const parsed = z.string().min(1).max(50).safeParse(code);
-  if (!parsed.success) return { success: false, error: 'Invalid referral code' };
+  if (!parsed.success)
+    return { success: false, error: 'Invalid referral code', code: 'VALIDATION' };
 
   try {
     const service = getReferralService();
@@ -88,7 +89,7 @@ export async function getReferralConfigPublic(): Promise<
 
 export async function getMyCodes(): Promise<ActionResult<ReferralCodeEntity[]>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const service = getReferralService();

@@ -91,13 +91,13 @@ describe('Knowledge Card Actions', () => {
 
       const result = await updateKnowledgeCard({ cardId: CARD_ID, title: 'Title' });
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('should return error for invalid card ID', async () => {
       const result = await updateKnowledgeCard({ cardId: 'not-uuid', title: 'Title' });
 
-      expect(result).toEqual({ success: false, error: 'Invalid card data.' });
+      expect(result).toEqual({ success: false, error: 'Invalid card data.', code: 'VALIDATION' });
     });
 
     it('should handle service errors', async () => {
@@ -139,13 +139,13 @@ describe('Knowledge Card Actions', () => {
 
       const result = await createUserCard(validInput);
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('should return error for invalid data (empty title)', async () => {
       const result = await createUserCard({ title: '' });
 
-      expect(result).toEqual({ success: false, error: 'Invalid card data.' });
+      expect(result).toEqual({ success: false, error: 'Invalid card data.', code: 'VALIDATION' });
     });
 
     it('should handle service errors', async () => {
@@ -176,13 +176,13 @@ describe('Knowledge Card Actions', () => {
 
       const result = await deleteUserCard(CARD_ID);
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('should return error for invalid card ID', async () => {
       const result = await deleteUserCard('not-uuid');
 
-      expect(result).toEqual({ success: false, error: 'Invalid card ID.' });
+      expect(result).toEqual({ success: false, error: 'Invalid card ID.', code: 'VALIDATION' });
     });
 
     it('should handle service errors', async () => {
@@ -226,13 +226,17 @@ describe('Knowledge Card Actions', () => {
 
       const result = await fetchCardConversations(CARD_ID, 'knowledge');
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('should return error for invalid card type', async () => {
       const result = await fetchCardConversations(CARD_ID, 'invalid' as 'knowledge');
 
-      expect(result).toEqual({ success: false, error: 'Invalid card parameters.' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid card parameters.',
+        code: 'VALIDATION',
+      });
     });
 
     it('should handle service errors', async () => {
@@ -305,7 +309,7 @@ describe('Knowledge Card Actions', () => {
 
       const result = await askCardQuestion(CARD_ID, 'knowledge', 'Question?');
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
       expect(mockQuotaService.enforce).not.toHaveBeenCalled();
     });
 
@@ -322,13 +326,21 @@ describe('Knowledge Card Actions', () => {
     it('should return error for empty question', async () => {
       const result = await askCardQuestion(CARD_ID, 'knowledge', '');
 
-      expect(result).toEqual({ success: false, error: 'Invalid question parameters.' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid question parameters.',
+        code: 'VALIDATION',
+      });
     });
 
     it('should return error for invalid card type', async () => {
       const result = await askCardQuestion(CARD_ID, 'bad' as 'knowledge', 'Question?');
 
-      expect(result).toEqual({ success: false, error: 'Invalid question parameters.' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid question parameters.',
+        code: 'VALIDATION',
+      });
     });
 
     it('should handle chat service errors', async () => {

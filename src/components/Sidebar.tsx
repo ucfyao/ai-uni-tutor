@@ -167,8 +167,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [sessions]);
 
   const handleSignOut = async () => {
-    await signOut();
-    router.refresh();
+    const result = await signOut();
+    if (result.success) {
+      router.refresh();
+    }
   };
 
   const handleSignIn = () => router.push('/login');

@@ -29,6 +29,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { submitMessageFeedback } from '@/app/actions/chat';
 import { getDocColor } from '@/constants/doc-types';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { showNotification } from '@/lib/notifications';
@@ -191,13 +192,9 @@ const MessageActionBar: React.FC<{
       }
 
       // Persist to backend (fire-and-forget with rollback on error)
-      fetch('/api/chat/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId, feedbackType: newFeedback }),
-      })
+      submitMessageFeedback(messageId, newFeedback)
         .then((res) => {
-          if (!res.ok) throw new Error('Failed');
+          if (!res.success) throw new Error(res.error);
         })
         .catch(() => {
           setFeedback(prevFeedback);

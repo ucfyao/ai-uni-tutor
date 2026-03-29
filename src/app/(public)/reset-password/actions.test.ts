@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AppError } from '@/lib/errors';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockUpdateUser = vi.fn();
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn().mockResolvedValue({
-    auth: { updateUser: mockUpdateUser },
+const mockUpdatePassword = vi.fn();
+vi.mock('@/lib/services/AuthService', () => ({
+  getAuthService: () => ({
+    updatePassword: (...args: unknown[]) => mockUpdatePassword(...args),
   }),
 }));
 
@@ -54,50 +55,70 @@ describe('updatePassword', () => {
     const result = await updatePassword(
       buildFormData({ password: 'Ab1!', confirmPassword: 'Ab1!' }),
     );
-    expect(result).toEqual({ error: expect.stringContaining('8 characters') });
-    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringContaining('8 characters'),
+      code: 'VALIDATION',
+    });
+    expect(mockUpdatePassword).not.toHaveBeenCalled();
   });
 
   it('returns error for password missing uppercase', async () => {
     const result = await updatePassword(
       buildFormData({ password: 'lowercase1!', confirmPassword: 'lowercase1!' }),
     );
-    expect(result).toEqual({ error: expect.stringContaining('uppercase') });
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringContaining('uppercase'),
+      code: 'VALIDATION',
+    });
   });
 
   it('returns error for password missing number', async () => {
     const result = await updatePassword(
       buildFormData({ password: 'StrongPass!', confirmPassword: 'StrongPass!' }),
     );
-    expect(result).toEqual({ error: expect.stringContaining('number') });
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringContaining('number'),
+      code: 'VALIDATION',
+    });
   });
 
   it('returns error for password missing special character', async () => {
     const result = await updatePassword(
       buildFormData({ password: 'StrongPass1', confirmPassword: 'StrongPass1' }),
     );
-    expect(result).toEqual({ error: expect.stringContaining('special') });
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringContaining('special'),
+      code: 'VALIDATION',
+    });
   });
 
   it('returns error when passwords do not match', async () => {
     const result = await updatePassword(
       buildFormData({ password: VALID_PASSWORD, confirmPassword: 'Different1!' }),
     );
-    expect(result).toEqual({ error: expect.stringContaining('do not match') });
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringContaining('do not match'),
+      code: 'VALIDATION',
+    });
   });
 
-  it('calls updateUser with new password on valid input', async () => {
-    mockUpdateUser.mockResolvedValue({ error: null });
+  it('calls AuthService.updatePassword with new password on valid input', async () => {
+    mockUpdatePassword.mockResolvedValue(undefined);
 
     await updatePassword(
       buildFormData({ password: VALID_PASSWORD, confirmPassword: VALID_PASSWORD }),
     );
 
-    expect(mockUpdateUser).toHaveBeenCalledWith({ password: VALID_PASSWORD });
+    expect(mockUpdatePassword).toHaveBeenCalledWith(VALID_PASSWORD);
   });
 
   it('redirects to /study on success', async () => {
-    mockUpdateUser.mockResolvedValue({ error: null });
+    mockUpdatePassword.mockResolvedValue(undefined);
 
     await updatePassword(
       buildFormData({ password: VALID_PASSWORD, confirmPassword: VALID_PASSWORD }),
@@ -107,16 +128,14 @@ describe('updatePassword', () => {
     expect(mockRedirect).toHaveBeenCalledWith('/study');
   });
 
-  it('returns error on Supabase failure', async () => {
-    mockUpdateUser.mockResolvedValue({
-      error: { message: 'Session expired' },
-    });
+  it('returns error on AuthService failure', async () => {
+    mockUpdatePassword.mockRejectedValue(new AppError('VALIDATION', 'Session expired'));
 
     const result = await updatePassword(
       buildFormData({ password: VALID_PASSWORD, confirmPassword: VALID_PASSWORD }),
     );
 
-    expect(result).toEqual({ error: 'Session expired' });
+    expect(result).toEqual({ success: false, error: 'Session expired', code: 'VALIDATION' });
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 });

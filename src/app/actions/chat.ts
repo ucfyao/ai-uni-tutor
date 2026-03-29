@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 import { mapError } from '@/lib/errors';
+import { getMessageFeedbackRepository } from '@/lib/repositories';
 import { getKnowledgeCardService } from '@/lib/services/KnowledgeCardService';
 import { getSessionService } from '@/lib/services/SessionService';
 import { getCurrentUser } from '@/lib/supabase/server';
@@ -21,6 +22,11 @@ import type { UserCardEntity } from '@/types/user-card';
 // ============================================================================
 // VALIDATION SCHEMAS
 // ============================================================================
+
+const feedbackSchema = z.object({
+  messageId: z.string().uuid(),
+  feedbackType: z.enum(['up', 'down']).nullable(),
+});
 
 const tutoringModeSchema = z.enum(['Lecture Helper', 'Assignment Coach', 'Mock Exam']);
 
@@ -453,6 +459,36 @@ export async function switchBranch(
       targetChildId,
     );
     return { success: true, data };
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+// ============================================================================
+// MESSAGE FEEDBACK
+// ============================================================================
+
+export async function submitMessageFeedback(
+  messageId: string,
+  feedbackType: 'up' | 'down' | null,
+): Promise<ActionResult<void>> {
+  try {
+    const parsed = feedbackSchema.safeParse({ messageId, feedbackType });
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+    }
+
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated', code: 'UNAUTHORIZED' };
+
+    const repo = getMessageFeedbackRepository();
+    if (parsed.data.feedbackType === null) {
+      await repo.delete(parsed.data.messageId, user.id);
+    } else {
+      await repo.upsert(parsed.data.messageId, user.id, parsed.data.feedbackType);
+    }
+
+    return { success: true, data: undefined };
   } catch (error) {
     return mapError(error);
   }

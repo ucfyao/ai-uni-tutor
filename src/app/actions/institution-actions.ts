@@ -57,12 +57,12 @@ async function requireInstitutionAdmin(): Promise<
   ActionResult<{ userId: string; institutionId: string }>
 > {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Authentication required' };
+  if (!user) return { success: false, error: 'Authentication required', code: 'UNAUTHORIZED' };
 
   const profile = await getProfileRepository().findById(user.id);
   const isSuperAdmin = profile?.role === 'super_admin';
   if (profile?.role !== 'institution_admin' && !isSuperAdmin) {
-    return { success: false, error: 'Institution admin access required' };
+    return { success: false, error: 'Institution admin access required', code: 'FORBIDDEN' };
   }
 
   // super_admin can access any institution — get the first one for dashboard view
@@ -74,7 +74,7 @@ async function requireInstitutionAdmin(): Promise<
   } else {
     institution = await service.getInstitutionByAdmin(user.id);
   }
-  if (!institution) return { success: false, error: 'Institution not found' };
+  if (!institution) return { success: false, error: 'Institution not found', code: 'NOT_FOUND' };
 
   return { success: true, data: { userId: user.id, institutionId: institution.id } };
 }
@@ -85,7 +85,7 @@ async function requireInstitutionAdmin(): Promise<
 
 export async function acceptInstitutionInvite(input: unknown): Promise<ActionResult<string>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const parsed = acceptInviteSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
@@ -140,7 +140,7 @@ export async function getMyInstitution(): Promise<
   ActionResult<(InstitutionEntity & { membership: InstitutionMemberEntity }) | null>
 > {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const service = getInstitutionService();

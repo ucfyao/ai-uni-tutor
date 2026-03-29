@@ -101,13 +101,13 @@ function LoginForm() {
     try {
       if (isSignUp) {
         const res = await signup(formData);
-        if (res?.error) {
+        if (!res.success) {
           setError(res.error);
           setLoading(false);
           setShake(true);
           setTimeout(() => setShake(false), 600);
-        } else if (res?.success) {
-          setSuccessMsg(res.success);
+        } else {
+          setSuccessMsg(res.data.message);
           setLoading(false);
         }
       } else {
@@ -148,11 +148,11 @@ function LoginForm() {
       const formData = new FormData();
       formData.append('email', email);
       const res = await requestPasswordReset(formData);
-      if (res?.error) {
+      if (!res.success) {
         setError(res.error);
         setShake(true);
         setTimeout(() => setShake(false), 600);
-      } else if (res?.success) {
+      } else {
         setSuccessMsg(t.login.resetLinkSent);
       }
     } catch (err) {

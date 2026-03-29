@@ -185,9 +185,7 @@ export async function POST(request: Request) {
         } else if (doc_type === 'lecture') {
           await lectureService.deleteChunksByLectureDocumentId(documentId);
           // Also clear the outline so it gets regenerated
-          const { getLectureDocumentRepository } =
-            await import('@/lib/repositories/DocumentRepository');
-          await getLectureDocumentRepository().saveOutline(documentId, null as unknown as Json);
+          await lectureService.saveOutline(documentId, null as unknown as Json);
         } else if (doc_type === 'exam') {
           await getExamPaperService().deleteQuestionsByPaperId(documentId);
         }

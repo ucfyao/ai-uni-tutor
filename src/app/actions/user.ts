@@ -47,12 +47,12 @@ export async function updateProfileFields(input: {
   fullName?: string;
 }): Promise<ActionResult<ProfileData>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const parsed = updateProfileSchema.safeParse(input);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
-    return { success: false, error: first?.message ?? 'Invalid input' };
+    return { success: false, error: first?.message ?? 'Invalid input', code: 'VALIDATION' };
   }
 
   const { fullName } = parsed.data;
@@ -64,12 +64,12 @@ export async function updateProfileFields(input: {
     }
   } catch (error) {
     console.error('Profile update error:', error);
-    return { success: false, error: 'Failed to update profile' };
+    return { success: false, error: 'Failed to update profile', code: 'DB_ERROR' };
   }
 
   const profile = await profileService.getProfile(user.id);
   if (!profile) {
-    return { success: false, error: 'Failed to reload profile' };
+    return { success: false, error: 'Failed to reload profile', code: 'DB_ERROR' };
   }
 
   revalidatePath('/personalization');

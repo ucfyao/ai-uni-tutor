@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getEnv } from '@/lib/env';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthService } from '@/lib/services/AuthService';
 
 const ALLOWED_PATH_PREFIXES = [
   '/study',
@@ -49,9 +49,9 @@ export async function GET(request: Request) {
   const { code, next } = parsed.data;
 
   if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
+    try {
+      await getAuthService().exchangeCodeForSession(code);
+
       const forwardedHost = request.headers.get('x-forwarded-host');
       const env = getEnv();
 
@@ -72,6 +72,8 @@ export async function GET(request: Request) {
       } else {
         return NextResponse.redirect(`${origin}${next}`);
       }
+    } catch {
+      // Fall through to error redirect
     }
   }
 
