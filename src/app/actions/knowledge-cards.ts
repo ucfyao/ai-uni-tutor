@@ -73,11 +73,11 @@ export async function updateKnowledgeCard(data: {
   try {
     const parsed = updateKnowledgeCardSchema.safeParse(data);
     if (!parsed.success) {
-      return { success: false, error: 'Invalid card data.' };
+      return { success: false, error: 'Invalid card data.', code: 'VALIDATION' };
     }
 
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const { cardId, ...fields } = parsed.data;
     const service = getKnowledgeCardService();
@@ -86,7 +86,7 @@ export async function updateKnowledgeCard(data: {
   } catch (error) {
     console.error('updateKnowledgeCard error:', error);
     const message = error instanceof Error ? error.message : 'Failed to update card';
-    return { success: false, error: message };
+    return { success: false, error: message, code: 'DB_ERROR' };
   }
 }
 
@@ -108,11 +108,11 @@ export async function createUserCard(data: {
   try {
     const parsed = createUserCardSchema.safeParse(data);
     if (!parsed.success) {
-      return { success: false, error: 'Invalid card data.' };
+      return { success: false, error: 'Invalid card data.', code: 'VALIDATION' };
     }
 
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getKnowledgeCardService();
     const card = await service.createUserCard({
@@ -123,7 +123,7 @@ export async function createUserCard(data: {
   } catch (error) {
     console.error('createUserCard error:', error);
     const message = error instanceof Error ? error.message : 'Failed to create card';
-    return { success: false, error: message };
+    return { success: false, error: message, code: 'DB_ERROR' };
   }
 }
 
@@ -134,11 +134,11 @@ export async function deleteUserCard(cardId: string): Promise<ActionResult<void>
   try {
     const parsed = deleteUserCardSchema.safeParse(cardId);
     if (!parsed.success) {
-      return { success: false, error: 'Invalid card ID.' };
+      return { success: false, error: 'Invalid card ID.', code: 'VALIDATION' };
     }
 
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getKnowledgeCardService();
     await service.deleteUserCard(parsed.data, user.id);
@@ -146,7 +146,7 @@ export async function deleteUserCard(cardId: string): Promise<ActionResult<void>
   } catch (error) {
     console.error('deleteUserCard error:', error);
     const message = error instanceof Error ? error.message : 'Failed to delete card';
-    return { success: false, error: message };
+    return { success: false, error: message, code: 'DB_ERROR' };
   }
 }
 
@@ -164,11 +164,11 @@ export async function fetchCardConversations(
   try {
     const parsed = fetchCardConversationsSchema.safeParse({ cardId, cardType });
     if (!parsed.success) {
-      return { success: false, error: 'Invalid card parameters.' };
+      return { success: false, error: 'Invalid card parameters.', code: 'VALIDATION' };
     }
 
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getKnowledgeCardService();
     const conversations = await service.getCardConversations(
@@ -179,7 +179,7 @@ export async function fetchCardConversations(
   } catch (error) {
     console.error('fetchCardConversations error:', error);
     const message = error instanceof Error ? error.message : 'Failed to fetch conversations';
-    return { success: false, error: message };
+    return { success: false, error: message, code: 'DB_ERROR' };
   }
 }
 
@@ -202,11 +202,11 @@ export async function askCardQuestion(
       courseId,
     });
     if (!parsed.success) {
-      return { success: false, error: 'Invalid question parameters.' };
+      return { success: false, error: 'Invalid question parameters.', code: 'VALIDATION' };
     }
 
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     await getQuotaService().enforce(user.id);
 
@@ -244,6 +244,6 @@ export async function askCardQuestion(
     }
     console.error('askCardQuestion error:', error);
     const message = error instanceof Error ? error.message : 'Failed to generate answer';
-    return { success: false, error: message };
+    return { success: false, error: message, code: 'DB_ERROR' };
   }
 }

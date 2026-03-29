@@ -60,7 +60,7 @@ describe('referral-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await generateReferralCode();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns code on success', async () => {
@@ -86,7 +86,7 @@ describe('referral-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getMyReferrals();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns referrals on success', async () => {
@@ -115,7 +115,7 @@ describe('referral-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getReferralStats();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns stats on success', async () => {
@@ -141,12 +141,16 @@ describe('referral-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await applyReferralAtSignup('CODE123');
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error for empty code', async () => {
       const result = await applyReferralAtSignup('');
-      expect(result).toEqual({ success: false, error: 'Invalid referral code' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid referral code',
+        code: 'VALIDATION',
+      });
     });
 
     it('returns success when code applied', async () => {
@@ -202,7 +206,7 @@ describe('referral-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getMyCodes();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns codes on success', async () => {

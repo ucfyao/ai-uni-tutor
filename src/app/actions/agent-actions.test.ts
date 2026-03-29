@@ -98,7 +98,7 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await submitAgentApplication(VALID_APPLICATION_INPUT);
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns VALIDATION error for invalid input', async () => {
@@ -134,7 +134,7 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getAgentApplication();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns application on success', async () => {
@@ -166,13 +166,13 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getAgentDashboard();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error when user is not agent or super_admin', async () => {
       mockRegularRole();
       const result = await getAgentDashboard();
-      expect(result).toEqual({ success: false, error: 'Agent access required' });
+      expect(result).toEqual({ success: false, error: 'Agent access required', code: 'FORBIDDEN' });
     });
 
     it('returns dashboard for agent role', async () => {
@@ -210,13 +210,13 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await requestWithdrawal(VALID_WITHDRAWAL_INPUT);
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error when user is not agent', async () => {
       mockRegularRole();
       const result = await requestWithdrawal(VALID_WITHDRAWAL_INPUT);
-      expect(result).toEqual({ success: false, error: 'Agent access required' });
+      expect(result).toEqual({ success: false, error: 'Agent access required', code: 'FORBIDDEN' });
     });
 
     it('returns VALIDATION error for invalid input', async () => {
@@ -233,11 +233,10 @@ describe('agent-actions', () => {
       const result = await requestWithdrawal(VALID_WITHDRAWAL_INPUT);
 
       expect(result).toEqual({ success: true, data: mockWithdrawal });
-      expect(mockCommissionService.requestWithdrawal).toHaveBeenCalledWith(
-        'user-1',
-        100,
-        { type: 'wechat', account: 'wx123' },
-      );
+      expect(mockCommissionService.requestWithdrawal).toHaveBeenCalledWith('user-1', 100, {
+        type: 'wechat',
+        account: 'wx123',
+      });
     });
 
     it('returns mapped error when service throws', async () => {
@@ -254,13 +253,13 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await generateAgentCode();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error when user is not agent', async () => {
       mockRegularRole();
       const result = await generateAgentCode();
-      expect(result).toEqual({ success: false, error: 'Agent access required' });
+      expect(result).toEqual({ success: false, error: 'Agent access required', code: 'FORBIDDEN' });
     });
 
     it('returns code on success', async () => {
@@ -288,13 +287,13 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getAgentConfig();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error when user is not agent', async () => {
       mockRegularRole();
       const result = await getAgentConfig();
-      expect(result).toEqual({ success: false, error: 'Agent access required' });
+      expect(result).toEqual({ success: false, error: 'Agent access required', code: 'FORBIDDEN' });
     });
 
     it('returns config on success', async () => {
@@ -321,13 +320,13 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getWithdrawalHistory();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error when user is not agent', async () => {
       mockRegularRole();
       const result = await getWithdrawalHistory();
-      expect(result).toEqual({ success: false, error: 'Agent access required' });
+      expect(result).toEqual({ success: false, error: 'Agent access required', code: 'FORBIDDEN' });
     });
 
     it('returns withdrawals on success', async () => {
@@ -348,13 +347,13 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await getAgentDailyTrend();
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error when user is not agent', async () => {
       mockRegularRole();
       const result = await getAgentDailyTrend();
-      expect(result).toEqual({ success: false, error: 'Agent access required' });
+      expect(result).toEqual({ success: false, error: 'Agent access required', code: 'FORBIDDEN' });
     });
 
     it('returns trend data on success', async () => {
@@ -375,7 +374,7 @@ describe('agent-actions', () => {
     it('returns Unauthorized when user is not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValue(null);
       const result = await toggleReferralCode({ codeId: 'c-1', isActive: true });
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('returns error when user is not agent', async () => {
@@ -384,7 +383,7 @@ describe('agent-actions', () => {
         codeId: '550e8400-e29b-41d4-a716-446655440000',
         isActive: true,
       });
-      expect(result).toEqual({ success: false, error: 'Agent access required' });
+      expect(result).toEqual({ success: false, error: 'Agent access required', code: 'FORBIDDEN' });
     });
 
     it('returns VALIDATION error for invalid input', async () => {

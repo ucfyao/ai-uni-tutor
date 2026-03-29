@@ -236,7 +236,7 @@ describe('Exam Paper Actions', () => {
 
       const result = await getExamPaperList();
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
       expect(mockExamPaperService.getPapers).not.toHaveBeenCalled();
     });
   });
@@ -258,7 +258,7 @@ describe('Exam Paper Actions', () => {
 
       const result = await deleteExamPaper('paper-1');
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
   });
 });

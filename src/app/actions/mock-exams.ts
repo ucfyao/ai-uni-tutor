@@ -17,14 +17,18 @@ export async function generateMockFromTopic(
 ): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!topic.trim()) return { success: false, error: 'Topic is required' };
+    if (!topic.trim()) return { success: false, error: 'Topic is required', code: 'VALIDATION' };
     if (![5, 10, 15, 20].includes(numQuestions)) {
-      return { success: false, error: 'Number of questions must be 5, 10, 15, or 20' };
+      return {
+        success: false,
+        error: 'Number of questions must be 5, 10, 15, or 20',
+        code: 'VALIDATION',
+      };
     }
     if (!['easy', 'medium', 'hard', 'mixed'].includes(difficulty)) {
-      return { success: false, error: 'Invalid difficulty level' };
+      return { success: false, error: 'Invalid difficulty level', code: 'VALIDATION' };
     }
 
     const service = getMockExamService();
@@ -50,11 +54,13 @@ export async function populateMockFromPaper(
 ): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!mockId.trim()) return { success: false, error: 'Mock ID is required' };
-    if (!paperId.trim()) return { success: false, error: 'Paper ID is required' };
-    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+    if (!mockId.trim()) return { success: false, error: 'Mock ID is required', code: 'VALIDATION' };
+    if (!paperId.trim())
+      return { success: false, error: 'Paper ID is required', code: 'VALIDATION' };
+    if (!['practice', 'exam'].includes(mode))
+      return { success: false, error: 'Invalid mode', code: 'VALIDATION' };
 
     const service = getMockExamService();
     await service.populateFromPaper(user.id, mockId.trim(), paperId.trim(), mode);
@@ -74,14 +80,20 @@ export async function populateMockRandomMix(
 ): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!mockId.trim()) return { success: false, error: 'Mock ID is required' };
-    if (!courseCode.trim()) return { success: false, error: 'Course code is required' };
+    if (!mockId.trim()) return { success: false, error: 'Mock ID is required', code: 'VALIDATION' };
+    if (!courseCode.trim())
+      return { success: false, error: 'Course code is required', code: 'VALIDATION' };
     if (![5, 10, 15, 20].includes(numQuestions)) {
-      return { success: false, error: 'Number of questions must be 5, 10, 15, or 20' };
+      return {
+        success: false,
+        error: 'Number of questions must be 5, 10, 15, or 20',
+        code: 'VALIDATION',
+      };
     }
-    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+    if (!['practice', 'exam'].includes(mode))
+      return { success: false, error: 'Invalid mode', code: 'VALIDATION' };
 
     const service = getMockExamService();
     await service.populateRandomMix(user.id, mockId.trim(), courseCode.trim(), numQuestions, mode);
@@ -103,7 +115,7 @@ export async function generateMockQuestions(
 ): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     await getQuotaService().enforce(user.id);
 
@@ -130,7 +142,7 @@ export async function submitMockAnswer(
 ): Promise<ActionResult<{ feedback: MockExamResponse }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     await getQuotaService().enforce(user.id);
 
@@ -149,7 +161,7 @@ export async function batchSubmitMockAnswers(
 ): Promise<ActionResult<{ result: BatchSubmitResult }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     await getQuotaService().enforce(user.id);
 
@@ -167,7 +179,7 @@ export async function getMockExamIdBySessionId(
 ): Promise<ActionResult<string | null>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getMockExamService();
     const mockId = await service.getMockIdBySessionId(sessionId, user.id);
@@ -177,12 +189,10 @@ export async function getMockExamIdBySessionId(
   }
 }
 
-export async function getMockExamDetail(
-  mockId: string,
-): Promise<ActionResult<MockExam | null>> {
+export async function getMockExamDetail(mockId: string): Promise<ActionResult<MockExam | null>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getMockExamService();
     const mock = await service.getMock(user.id, mockId);
@@ -197,9 +207,10 @@ export async function getExamPapersForCourse(
 ): Promise<ActionResult<ExamPaper[]>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!courseCode.trim()) return { success: false, error: 'Course code is required' };
+    if (!courseCode.trim())
+      return { success: false, error: 'Course code is required', code: 'VALIDATION' };
 
     const service = getMockExamService();
     const papers = await service.getPapersForCourse(courseCode.trim());
@@ -216,10 +227,12 @@ export async function createRealExamMock(
 ): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!paperId.trim()) return { success: false, error: 'Paper ID is required' };
-    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+    if (!paperId.trim())
+      return { success: false, error: 'Paper ID is required', code: 'VALIDATION' };
+    if (!['practice', 'exam'].includes(mode))
+      return { success: false, error: 'Invalid mode', code: 'VALIDATION' };
 
     const service = getMockExamService();
     const { mockId } = await service.createFromPaper(user.id, paperId.trim(), mode);
@@ -238,13 +251,19 @@ export async function createRandomMixMock(
 ): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!courseCode.trim()) return { success: false, error: 'Course code is required' };
+    if (!courseCode.trim())
+      return { success: false, error: 'Course code is required', code: 'VALIDATION' };
     if (![5, 10, 15, 20].includes(numQuestions)) {
-      return { success: false, error: 'Number of questions must be 5, 10, 15, or 20' };
+      return {
+        success: false,
+        error: 'Number of questions must be 5, 10, 15, or 20',
+        code: 'VALIDATION',
+      };
     }
-    if (!['practice', 'exam'].includes(mode)) return { success: false, error: 'Invalid mode' };
+    if (!['practice', 'exam'].includes(mode))
+      return { success: false, error: 'Invalid mode', code: 'VALIDATION' };
 
     const service = getMockExamService();
     const { mockId } = await service.createRandomMix(
@@ -266,7 +285,7 @@ export async function getMockExamList(filters?: {
 }): Promise<ActionResult<{ inProgress: MockExam[]; completed: MockExam[] }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const service = getMockExamService();
     const result = await service.getMockExamList(user.id, filters);
@@ -287,9 +306,10 @@ export async function retakeMockExam(
 ): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!originalMockId.trim()) return { success: false, error: 'Mock ID is required' };
+    if (!originalMockId.trim())
+      return { success: false, error: 'Mock ID is required', code: 'VALIDATION' };
 
     const service = getMockExamService();
     const { mockId } = await service.retakeMock(user.id, originalMockId.trim());
@@ -309,9 +329,10 @@ export async function createStandaloneMock(
 ): Promise<ActionResult<{ mockId: string }>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!courseId.trim()) return { success: false, error: 'Course is required' };
+    if (!courseId.trim())
+      return { success: false, error: 'Course is required', code: 'VALIDATION' };
 
     const service = getMockExamService();
     const { mockId } = await service.createMinimalStub(
@@ -330,14 +351,12 @@ export async function createStandaloneMock(
   }
 }
 
-export async function deleteMockExam(
-  mockId: string,
-): Promise<ActionResult<void>> {
+export async function deleteMockExam(mockId: string): Promise<ActionResult<void>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
-    if (!mockId.trim()) return { success: false, error: 'Mock ID is required' };
+    if (!mockId.trim()) return { success: false, error: 'Mock ID is required', code: 'VALIDATION' };
 
     const service = getMockExamService();
     await service.deleteMock(user.id, mockId);

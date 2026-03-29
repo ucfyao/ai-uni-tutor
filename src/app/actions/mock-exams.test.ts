@@ -146,19 +146,19 @@ describe('Mock Exam Actions', () => {
 
       const result = await generateMockFromTopic('Recursion', 10, 'medium', ['choice']);
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('should return error for empty topic', async () => {
       const result = await generateMockFromTopic('', 10, 'medium', ['choice']);
 
-      expect(result).toEqual({ success: false, error: 'Topic is required' });
+      expect(result).toEqual({ success: false, error: 'Topic is required', code: 'VALIDATION' });
     });
 
     it('should return error for whitespace-only topic', async () => {
       const result = await generateMockFromTopic('   ', 10, 'medium', ['choice']);
 
-      expect(result).toEqual({ success: false, error: 'Topic is required' });
+      expect(result).toEqual({ success: false, error: 'Topic is required', code: 'VALIDATION' });
     });
 
     it('should return error for invalid number of questions (7)', async () => {
@@ -167,6 +167,7 @@ describe('Mock Exam Actions', () => {
       expect(result).toEqual({
         success: false,
         error: 'Number of questions must be 5, 10, 15, or 20',
+        code: 'VALIDATION',
       });
     });
 
@@ -186,7 +187,11 @@ describe('Mock Exam Actions', () => {
         ['choice'],
       );
 
-      expect(result).toEqual({ success: false, error: 'Invalid difficulty level' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid difficulty level',
+        code: 'VALIDATION',
+      });
     });
 
     it('should trim topic before passing to service', async () => {
@@ -252,7 +257,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await generateMockQuestions('mock-1', 'Recursion', 10, 'medium', []);
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     });
 
     it('should return error when quota is exceeded', async () => {
@@ -304,7 +309,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await submitMockAnswer('mock-1', 0, 'A');
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
       expect(mockMockExamService.submitAnswer).not.toHaveBeenCalled();
     });
 
@@ -376,7 +381,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await batchSubmitMockAnswers('mock-1', ANSWERS);
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
       expect(mockMockExamService.batchSubmitAnswers).not.toHaveBeenCalled();
     });
 
@@ -438,7 +443,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await getMockExamIdBySessionId('sess-1');
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
       expect(mockMockExamService.getMockIdBySessionId).not.toHaveBeenCalled();
     });
 
@@ -470,7 +475,7 @@ describe('Mock Exam Actions', () => {
 
       const result = await getMockExamDetail('mock-1');
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
       expect(mockMockExamService.getMock).not.toHaveBeenCalled();
     });
 

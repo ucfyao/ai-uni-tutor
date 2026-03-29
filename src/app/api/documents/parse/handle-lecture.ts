@@ -51,12 +51,7 @@ export async function handleLecturePipeline(ctx: PipelineContext): Promise<void>
     if (documentOutline) {
       send('log', { message: 'Saving document outline to database...', level: 'info' });
       try {
-        const { getLectureDocumentRepository } =
-          await import('@/lib/repositories/DocumentRepository');
-        await getLectureDocumentRepository().saveOutline(
-          documentId,
-          documentOutline as unknown as Json,
-        );
+        await lectureService.saveOutline(documentId, documentOutline as unknown as Json);
         send('log', { message: 'Document outline saved successfully', level: 'success' });
       } catch (outlineError) {
         console.warn('Failed to save document outline (non-fatal):', outlineError);

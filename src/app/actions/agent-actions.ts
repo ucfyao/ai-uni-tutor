@@ -51,7 +51,7 @@ export async function submitAgentApplication(
   input: unknown,
 ): Promise<ActionResult<AgentApplicationEntity>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const parsed = submitApplicationSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: 'Invalid input', code: 'VALIDATION' };
@@ -72,7 +72,7 @@ export async function submitAgentApplication(
 
 export async function getAgentApplication(): Promise<ActionResult<AgentApplicationEntity | null>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const service = getAgentService();
@@ -85,12 +85,12 @@ export async function getAgentApplication(): Promise<ActionResult<AgentApplicati
 
 export async function getAgentDashboard(): Promise<ActionResult<AgentDashboardStats>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const profile = await getProfileRepository().findById(user.id);
     if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
-      return { success: false, error: 'Agent access required' };
+      return { success: false, error: 'Agent access required', code: 'FORBIDDEN' };
     }
 
     const service = getAgentService();
@@ -105,11 +105,11 @@ export async function requestWithdrawal(
   input: unknown,
 ): Promise<ActionResult<WithdrawalRequestEntity>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
-    return { success: false, error: 'Agent access required' };
+    return { success: false, error: 'Agent access required', code: 'FORBIDDEN' };
   }
 
   const parsed = requestWithdrawalSchema.safeParse(input);
@@ -130,11 +130,11 @@ export async function requestWithdrawal(
 
 export async function getWithdrawalHistory(): Promise<ActionResult<WithdrawalRequestEntity[]>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
-    return { success: false, error: 'Agent access required' };
+    return { success: false, error: 'Agent access required', code: 'FORBIDDEN' };
   }
 
   try {
@@ -150,11 +150,11 @@ export async function getAgentDailyTrend(): Promise<
   ActionResult<{ date: string; count: number }[]>
 > {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
-    return { success: false, error: 'Agent access required' };
+    return { success: false, error: 'Agent access required', code: 'FORBIDDEN' };
   }
 
   try {
@@ -168,11 +168,11 @@ export async function getAgentDailyTrend(): Promise<
 
 export async function toggleReferralCode(input: unknown): Promise<ActionResult<void>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
-    return { success: false, error: 'Agent access required' };
+    return { success: false, error: 'Agent access required', code: 'FORBIDDEN' };
   }
 
   const parsed = toggleReferralCodeSchema.safeParse(input);
@@ -189,12 +189,12 @@ export async function toggleReferralCode(input: unknown): Promise<ActionResult<v
 
 export async function generateAgentCode(): Promise<ActionResult<ReferralCodeEntity>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   try {
     const profile = await getProfileRepository().findById(user.id);
     if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
-      return { success: false, error: 'Agent access required' };
+      return { success: false, error: 'Agent access required', code: 'FORBIDDEN' };
     }
 
     const service = getReferralService();
@@ -207,11 +207,11 @@ export async function generateAgentCode(): Promise<ActionResult<ReferralCodeEnti
 
 export async function getAgentConfig(): Promise<ActionResult<{ minWithdrawalAmount: number }>> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: 'Unauthorized' };
+  if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
   const profile = await getProfileRepository().findById(user.id);
   if (profile?.role !== 'agent' && profile?.role !== 'super_admin') {
-    return { success: false, error: 'Agent access required' };
+    return { success: false, error: 'Agent access required', code: 'FORBIDDEN' };
   }
 
   try {

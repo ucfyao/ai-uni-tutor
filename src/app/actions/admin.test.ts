@@ -216,7 +216,11 @@ describe('Admin Actions', () => {
     it('should prevent modifying own account', async () => {
       const result = await updateUser({ userId: MOCK_USER.id, fullName: 'Sneaky' });
 
-      expect(result).toEqual({ success: false, error: 'Cannot modify your own account' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Cannot modify your own account',
+        code: 'FORBIDDEN',
+      });
       expect(mockAdminService.updateUserName).not.toHaveBeenCalled();
     });
 
@@ -260,7 +264,11 @@ describe('Admin Actions', () => {
     it('should prevent disabling yourself', async () => {
       const result = await disableUser({ userId: MOCK_USER.id });
 
-      expect(result).toEqual({ success: false, error: 'Cannot disable yourself' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Cannot disable yourself',
+        code: 'FORBIDDEN',
+      });
       expect(mockAdminService.disableUser).not.toHaveBeenCalled();
     });
 

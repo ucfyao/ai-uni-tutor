@@ -97,7 +97,7 @@ describe('User Actions', () => {
 
       const result = await updateProfileFields({ fullName: 'Jane Doe' });
 
-      expect(result).toEqual({ success: false, error: 'Unauthorized' });
+      expect(result).toEqual({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
       expect(mockProfileService.updateProfile).not.toHaveBeenCalled();
     });
 
@@ -158,7 +158,11 @@ describe('User Actions', () => {
 
       const result = await updateProfileFields({ fullName: 'Jane Doe' });
 
-      expect(result).toEqual({ success: false, error: 'Failed to update profile' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to update profile',
+        code: 'DB_ERROR',
+      });
     });
 
     it('should return error when profile cannot be reloaded', async () => {
@@ -167,7 +171,11 @@ describe('User Actions', () => {
 
       const result = await updateProfileFields({ fullName: 'Jane Doe' });
 
-      expect(result).toEqual({ success: false, error: 'Failed to reload profile' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to reload profile',
+        code: 'DB_ERROR',
+      });
     });
 
     it('should handle null currentPeriodEnd in profile', async () => {

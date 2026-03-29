@@ -141,7 +141,7 @@ describe('Assignment Actions', () => {
 
       const result = await createEmptyAssignment(validInput);
 
-      expect(result).toEqual({ success: false, error: 'Admin access required' });
+      expect(result).toEqual({ success: false, error: 'Admin access required', code: 'FORBIDDEN' });
     });
 
     it('should return error for invalid input', async () => {
@@ -151,7 +151,7 @@ describe('Assignment Actions', () => {
         courseId: 'bad',
       });
 
-      expect(result).toEqual({ success: false, error: 'Invalid input' });
+      expect(result).toEqual({ success: false, error: 'Invalid input', code: 'VALIDATION' });
       expect(mockAssignmentService.createEmpty).not.toHaveBeenCalled();
     });
 
@@ -163,7 +163,11 @@ describe('Assignment Actions', () => {
 
       const result = await createEmptyAssignment(validInput);
 
-      expect(result).toEqual({ success: false, error: 'Failed to create assignment' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to create assignment',
+        code: 'DB_ERROR',
+      });
     });
   });
 
@@ -202,13 +206,13 @@ describe('Assignment Actions', () => {
 
       const result = await renameAssignment(validInput);
 
-      expect(result).toEqual({ success: false, error: 'No access' });
+      expect(result).toEqual({ success: false, error: 'No access', code: 'FORBIDDEN' });
     });
 
     it('should return error for invalid input', async () => {
       const result = await renameAssignment({ assignmentId: 'bad', title: '' });
 
-      expect(result).toEqual({ success: false, error: 'Invalid input' });
+      expect(result).toEqual({ success: false, error: 'Invalid input', code: 'VALIDATION' });
     });
 
     it('should handle service errors', async () => {
@@ -217,7 +221,11 @@ describe('Assignment Actions', () => {
 
       const result = await renameAssignment(validInput);
 
-      expect(result).toEqual({ success: false, error: 'Failed to rename assignment' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to rename assignment',
+        code: 'DB_ERROR',
+      });
     });
   });
 
@@ -252,13 +260,17 @@ describe('Assignment Actions', () => {
 
       const result = await deleteAssignment(ASSIGNMENT_ID);
 
-      expect(result).toEqual({ success: false, error: 'No access' });
+      expect(result).toEqual({ success: false, error: 'No access', code: 'FORBIDDEN' });
     });
 
     it('should return error for invalid assignment ID', async () => {
       const result = await deleteAssignment('not-a-uuid');
 
-      expect(result).toEqual({ success: false, error: 'Invalid assignment ID' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid assignment ID',
+        code: 'VALIDATION',
+      });
     });
 
     it('should handle service errors', async () => {
@@ -267,7 +279,11 @@ describe('Assignment Actions', () => {
 
       const result = await deleteAssignment(ASSIGNMENT_ID);
 
-      expect(result).toEqual({ success: false, error: 'Failed to delete assignment' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to delete assignment',
+        code: 'DB_ERROR',
+      });
     });
   });
 
@@ -297,13 +313,17 @@ describe('Assignment Actions', () => {
 
       const result = await publishAssignment(ASSIGNMENT_ID);
 
-      expect(result).toEqual({ success: false, error: 'No access' });
+      expect(result).toEqual({ success: false, error: 'No access', code: 'FORBIDDEN' });
     });
 
     it('should return error for invalid assignment ID', async () => {
       const result = await publishAssignment('bad-id');
 
-      expect(result).toEqual({ success: false, error: 'Invalid assignment ID' });
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid assignment ID',
+        code: 'VALIDATION',
+      });
     });
 
     it('should propagate service error messages', async () => {
@@ -312,7 +332,7 @@ describe('Assignment Actions', () => {
 
       const result = await publishAssignment(ASSIGNMENT_ID);
 
-      expect(result).toEqual({ success: false, error: 'No items to publish' });
+      expect(result).toEqual({ success: false, error: 'No items to publish', code: 'DB_ERROR' });
     });
   });
 
@@ -348,7 +368,7 @@ describe('Assignment Actions', () => {
 
       const result = await fetchAssignmentItems(validInput);
 
-      expect(result).toEqual({ success: false, error: 'No access' });
+      expect(result).toEqual({ success: false, error: 'No access', code: 'FORBIDDEN' });
     });
 
     it('should handle service errors', async () => {
@@ -357,7 +377,7 @@ describe('Assignment Actions', () => {
 
       const result = await fetchAssignmentItems(validInput);
 
-      expect(result).toEqual({ success: false, error: 'Failed to fetch items' });
+      expect(result).toEqual({ success: false, error: 'Failed to fetch items', code: 'DB_ERROR' });
     });
   });
 });

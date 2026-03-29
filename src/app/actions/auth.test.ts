@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock createClient
+// Mock AuthService
 const mockSignOut = vi.fn();
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: () =>
-    Promise.resolve({
-      auth: { signOut: mockSignOut },
-    }),
+vi.mock('@/lib/services/AuthService', () => ({
+  getAuthService: () => ({ signOut: mockSignOut }),
 }));
 
 // Mock revalidatePath
@@ -20,12 +17,13 @@ const { signOut } = await import('./auth');
 describe('signOut', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSignOut.mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue(undefined);
   });
 
-  it('should call supabase.auth.signOut', async () => {
-    await signOut();
+  it('should call AuthService.signOut', async () => {
+    const result = await signOut();
     expect(mockSignOut).toHaveBeenCalledOnce();
+    expect(result).toEqual({ success: true, data: undefined });
   });
 
   it('should call revalidatePath with / and layout', async () => {
@@ -37,7 +35,7 @@ describe('signOut', () => {
     const callOrder: string[] = [];
     mockSignOut.mockImplementation(() => {
       callOrder.push('signOut');
-      return Promise.resolve({ error: null });
+      return Promise.resolve();
     });
     mockRevalidatePath.mockImplementation(() => {
       callOrder.push('revalidatePath');
@@ -45,5 +43,11 @@ describe('signOut', () => {
 
     await signOut();
     expect(callOrder).toEqual(['signOut', 'revalidatePath']);
+  });
+
+  it('should return error on failure', async () => {
+    mockSignOut.mockRejectedValue(new Error('sign out failed'));
+    const result = await signOut();
+    expect(result.success).toBe(false);
   });
 });

@@ -1,10 +1,12 @@
-import { createClient } from '@/lib/supabase/server';
+import { getProfileRepository } from '@/lib/repositories';
 
 async function checkSupabase(): Promise<boolean> {
   try {
-    const supabase = await createClient();
-    const { error } = await supabase.from('profiles').select('id').limit(1);
-    return !error;
+    // Use repository layer for DB health check
+    const profile = await getProfileRepository().findById('00000000-0000-0000-0000-000000000000');
+    // findById returns null for non-existent IDs — that's fine, it means DB is reachable
+    void profile;
+    return true;
   } catch {
     return false;
   }

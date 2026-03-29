@@ -72,7 +72,8 @@ export async function fetchDocuments(docType: string): Promise<ActionResult<Docu
   try {
     const { user, role } = await requireAnyAdmin();
     const parsed = docTypeSchema.safeParse(docType);
-    if (!parsed.success) return { success: false, error: 'Invalid document type' };
+    if (!parsed.success)
+      return { success: false, error: 'Invalid document type', code: 'VALIDATION' };
 
     if (parsed.data === 'lecture') {
       const service = getLectureDocumentService();
@@ -213,7 +214,8 @@ export async function deleteDocument(
 ): Promise<ActionResult<void>> {
   try {
     const parsedType = docTypeSchema.safeParse(docType);
-    if (!parsedType.success) return { success: false, error: 'Invalid document type' };
+    if (!parsedType.success)
+      return { success: false, error: 'Invalid document type', code: 'VALIDATION' };
 
     const { user, role } = await requireAnyAdmin();
 
@@ -264,7 +266,7 @@ export async function updateDocumentChunks(
         documentId,
       );
       if (!chunksValid) {
-        return { success: false, error: 'Invalid chunk IDs' };
+        return { success: false, error: 'Invalid chunk IDs', code: 'VALIDATION' };
       }
     }
 
@@ -313,7 +315,8 @@ export async function retryDocument(
 ): Promise<ActionResult<void>> {
   try {
     const parsedType = docTypeSchema.safeParse(docType);
-    if (!parsedType.success) return { success: false, error: 'Invalid document type' };
+    if (!parsedType.success)
+      return { success: false, error: 'Invalid document type', code: 'VALIDATION' };
 
     const { user, role } = await requireAnyAdmin();
 
@@ -359,13 +362,14 @@ export async function updateDocumentMeta(
 ): Promise<ActionResult<void>> {
   try {
     const parsedType = docTypeSchema.safeParse(docType);
-    if (!parsedType.success) return { success: false, error: 'Invalid document type' };
+    if (!parsedType.success)
+      return { success: false, error: 'Invalid document type', code: 'VALIDATION' };
 
     const { user, role } = await requireAnyAdmin();
 
     const parsed = updateDocumentMetaSchema.safeParse(updates);
     if (!parsed.success) {
-      return { success: false, error: 'Invalid input' };
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     }
     const validatedUpdates = parsed.data;
 
@@ -428,7 +432,7 @@ export async function updateExamQuestions(
       const paperQuestions = await examService.getQuestionsByPaperId(paperId);
       const validIds = new Set(paperQuestions.map((q) => q.id));
       if (allIds.some((id) => !validIds.has(id))) {
-        return { success: false, error: 'Invalid question IDs' };
+        return { success: false, error: 'Invalid question IDs', code: 'VALIDATION' };
       }
     }
 
@@ -486,7 +490,11 @@ export async function createLecture(
 
     const isDuplicate = await service.checkDuplicateInCourse(parsed.courseId, parsed.title);
     if (isDuplicate) {
-      return { success: false, error: 'A lecture with this title already exists in the course' };
+      return {
+        success: false,
+        error: 'A lecture with this title already exists in the course',
+        code: 'VALIDATION',
+      };
     }
 
     const doc = await service.createDocument(
@@ -499,8 +507,9 @@ export async function createLecture(
     revalidatePath('/admin/knowledge');
     return { success: true, data: { id: doc.id } };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'Admin access required' };
-    return { success: false, error: 'Failed to create lecture' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'Admin access required', code: 'FORBIDDEN' };
+    return { success: false, error: 'Failed to create lecture', code: 'DB_ERROR' };
   }
 }
 
@@ -533,17 +542,19 @@ export async function createExam(
     revalidatePath('/admin/knowledge');
     return { success: true, data: { id: paperId } };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'Admin access required' };
-    return { success: false, error: 'Failed to create exam' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'Admin access required', code: 'FORBIDDEN' };
+    return { success: false, error: 'Failed to create exam', code: 'DB_ERROR' };
   }
 }
 
 export async function publishDocument(id: string, docType: string): Promise<ActionResult<void>> {
   const parsed = docTypeSchema.safeParse(docType);
-  if (!parsed.success) return { success: false, error: 'Invalid document type' };
+  if (!parsed.success)
+    return { success: false, error: 'Invalid document type', code: 'VALIDATION' };
   // Assignments use publishAssignment from assignments.ts
   if (parsed.data === 'assignment')
-    return { success: false, error: 'Use publishAssignment action' };
+    return { success: false, error: 'Use publishAssignment action', code: 'VALIDATION' };
 
   const { user, role } = await requireAnyAdmin();
 
@@ -559,16 +570,21 @@ export async function publishDocument(id: string, docType: string): Promise<Acti
     revalidatePath('/admin/knowledge');
     return { success: true, data: undefined };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to publish' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to publish',
+      code: 'DB_ERROR',
+    };
   }
 }
 
 export async function unpublishDocument(id: string, docType: string): Promise<ActionResult<void>> {
   const parsed = docTypeSchema.safeParse(docType);
-  if (!parsed.success) return { success: false, error: 'Invalid document type' };
+  if (!parsed.success)
+    return { success: false, error: 'Invalid document type', code: 'VALIDATION' };
   // Assignments use unpublishAssignment from assignments.ts
   if (parsed.data === 'assignment')
-    return { success: false, error: 'Use unpublishAssignment action' };
+    return { success: false, error: 'Use unpublishAssignment action', code: 'VALIDATION' };
 
   const { user, role } = await requireAnyAdmin();
 
@@ -587,6 +603,7 @@ export async function unpublishDocument(id: string, docType: string): Promise<Ac
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to unpublish',
+      code: 'DB_ERROR',
     };
   }
 }
@@ -686,10 +703,12 @@ export async function addDocumentChunk(
     revalidatePath(`/admin/lectures/${parsed.documentId}`);
     return { success: true, data: { id: ids[0].id } };
   } catch (error) {
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('addDocumentChunk error:', error);
-    return { success: false, error: 'Failed to add section' };
+    return { success: false, error: 'Failed to add section', code: 'DB_ERROR' };
   }
 }
 
@@ -736,10 +755,12 @@ export async function addExamQuestion(
     revalidatePath(`/admin/exams/${parsed.paperId}`);
     return { success: true, data: { id: 'created' } };
   } catch (error) {
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('addExamQuestion error:', error);
-    return { success: false, error: 'Failed to add question' };
+    return { success: false, error: 'Failed to add question', code: 'DB_ERROR' };
   }
 }
 
@@ -762,10 +783,10 @@ export async function getLectureOutlines(
 ): Promise<ActionResult<Array<{ id: string; outline: DocumentOutlineData }>>> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' };
 
     const parsed = z.string().uuid().safeParse(courseId);
-    if (!parsed.success) return { success: false, error: 'Invalid course ID' };
+    if (!parsed.success) return { success: false, error: 'Invalid course ID', code: 'VALIDATION' };
 
     const service = getLectureDocumentService();
     const rows = await service.findOutlinesByCourseId(parsed.data);
@@ -779,7 +800,7 @@ export async function getLectureOutlines(
 
     return { success: true, data: outlines };
   } catch {
-    return { success: false, error: 'Failed to fetch outlines' };
+    return { success: false, error: 'Failed to fetch outlines', code: 'DB_ERROR' };
   }
 }
 
@@ -801,21 +822,23 @@ export async function updateDocumentOutline(
     const { user } = await requireAnyAdmin();
 
     const idParsed = z.string().uuid().safeParse(documentId);
-    if (!idParsed.success) return { success: false, error: 'Invalid document ID' };
+    if (!idParsed.success)
+      return { success: false, error: 'Invalid document ID', code: 'VALIDATION' };
 
     const outlineParsed = outlineSchema.safeParse(outline);
-    if (!outlineParsed.success) return { success: false, error: 'Invalid outline data' };
+    if (!outlineParsed.success)
+      return { success: false, error: 'Invalid outline data', code: 'VALIDATION' };
 
     const service = getLectureDocumentService();
     const doc = await service.findById(idParsed.data);
-    if (!doc) return { success: false, error: 'Document not found' };
+    if (!doc) return { success: false, error: 'Document not found', code: 'NOT_FOUND' };
 
     // Verify access
     if (doc.userId !== user.id) {
       const { getAdminService } = await import('@/lib/services/AdminService');
       const courseIds = await getAdminService().getAssignedCourseIds(user.id);
       if (!doc.courseId || !courseIds.includes(doc.courseId)) {
-        return { success: false, error: 'Unauthorized' };
+        return { success: false, error: 'Unauthorized', code: 'FORBIDDEN' };
       }
     }
 
@@ -823,6 +846,6 @@ export async function updateDocumentOutline(
 
     return { success: true, data: undefined };
   } catch {
-    return { success: false, error: 'Failed to update outline' };
+    return { success: false, error: 'Failed to update outline', code: 'DB_ERROR' };
   }
 }

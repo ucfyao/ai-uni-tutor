@@ -83,7 +83,7 @@ export async function updateUser(input: unknown): Promise<ActionResult<void>> {
     const user = await requireSuperAdmin();
     const parsed = updateUserSchema.parse(input);
     if (parsed.userId === user.id) {
-      return { success: false, error: 'Cannot modify your own account' };
+      return { success: false, error: 'Cannot modify your own account', code: 'FORBIDDEN' };
     }
     const service = getAdminService();
     if (parsed.fullName !== undefined) {
@@ -104,7 +104,7 @@ export async function disableUser(input: unknown): Promise<ActionResult<void>> {
     const user = await requireSuperAdmin();
     const parsed = disableUserSchema.parse(input);
     if (parsed.userId === user.id) {
-      return { success: false, error: 'Cannot disable yourself' };
+      return { success: false, error: 'Cannot disable yourself', code: 'FORBIDDEN' };
     }
     const service = getAdminService();
     await service.disableUser(parsed.userId, user.id);

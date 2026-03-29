@@ -79,7 +79,7 @@ function ResetPasswordForm() {
       formData.append('password', password);
       formData.append('confirmPassword', confirmPassword);
       const res = await updatePassword(formData);
-      if (res?.error) {
+      if (res && !res.success) {
         setError(res.error);
         setShake(true);
         setTimeout(() => setShake(false), 600);

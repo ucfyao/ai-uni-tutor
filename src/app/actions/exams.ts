@@ -62,10 +62,12 @@ export async function renameExamPaper(
 
     return { success: true, data: undefined };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('renameExamPaper error:', error);
-    return { success: false, error: 'Failed to rename exam paper' };
+    return { success: false, error: 'Failed to rename exam paper', code: 'DB_ERROR' };
   }
 }
 
@@ -81,9 +83,10 @@ export async function fetchExamQuestions(
 
     return { success: true, data: questions };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
     console.error('fetchExamQuestions error:', error);
-    return { success: false, error: 'Failed to fetch questions' };
+    return { success: false, error: 'Failed to fetch questions', code: 'DB_ERROR' };
   }
 }
 
@@ -101,7 +104,7 @@ export async function updateSingleExamQuestion(
     const questions = await examService.getQuestionsByPaperId(parsed.paperId);
     const belongsToPaper = questions.some((q) => q.id === parsed.questionId);
     if (!belongsToPaper) {
-      return { success: false, error: 'Question does not belong to this paper' };
+      return { success: false, error: 'Question does not belong to this paper', code: 'FORBIDDEN' };
     }
 
     const { paperId: _, questionId: __, ...fields } = parsed;
@@ -109,10 +112,12 @@ export async function updateSingleExamQuestion(
 
     return { success: true, data: undefined };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('updateSingleExamQuestion error:', error);
-    return { success: false, error: 'Failed to update question' };
+    return { success: false, error: 'Failed to update question', code: 'DB_ERROR' };
   }
 }
 
@@ -130,16 +135,18 @@ export async function deleteExamQuestion(
     const questions = await examService.getQuestionsByPaperId(parsed.paperId);
     const belongsToPaper = questions.some((q) => q.id === parsed.questionId);
     if (!belongsToPaper) {
-      return { success: false, error: 'Question does not belong to this paper' };
+      return { success: false, error: 'Question does not belong to this paper', code: 'FORBIDDEN' };
     }
 
     await examService.deleteQuestion(parsed.questionId);
 
     return { success: true, data: undefined };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: 'No access' };
-    if (error instanceof z.ZodError) return { success: false, error: 'Invalid input' };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: 'No access', code: 'FORBIDDEN' };
+    if (error instanceof z.ZodError)
+      return { success: false, error: 'Invalid input', code: 'VALIDATION' };
     console.error('deleteExamQuestion error:', error);
-    return { success: false, error: 'Failed to delete question' };
+    return { success: false, error: 'Failed to delete question', code: 'DB_ERROR' };
   }
 }

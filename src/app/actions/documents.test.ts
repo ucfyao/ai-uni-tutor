@@ -387,14 +387,14 @@ describe('Document Actions', () => {
       const longName = 'a'.repeat(256);
       const result = await updateDocumentMeta('doc-1', { name: longName });
 
-      expect(result).toEqual({ success: false, error: 'Invalid input' });
+      expect(result).toEqual({ success: false, error: 'Invalid input', code: 'VALIDATION' });
       expect(mockDocumentService.findById).not.toHaveBeenCalled();
     });
 
     it('should return error for empty name', async () => {
       const result = await updateDocumentMeta('doc-1', { name: '' });
 
-      expect(result).toEqual({ success: false, error: 'Invalid input' });
+      expect(result).toEqual({ success: false, error: 'Invalid input', code: 'VALIDATION' });
     });
 
     it('should merge with existing metadata when updating school only', async () => {
