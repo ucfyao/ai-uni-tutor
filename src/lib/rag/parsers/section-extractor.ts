@@ -89,6 +89,7 @@ export async function extractSections(
     prompt,
     {
       signal,
+      callType: 'parse-lecture',
       onProgress: (detail) => {
         options?.onProgress?.({
           phase: 'extraction',

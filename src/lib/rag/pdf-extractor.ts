@@ -6,6 +6,7 @@ import path from 'path';
 import type { GoogleGenAI } from '@google/genai';
 import { AppError } from '@/lib/errors';
 import { GEMINI_MODELS, getDefaultPool } from '@/lib/gemini';
+import type { LlmCallType } from '@/lib/services/LlmLogService';
 
 /**
  * Fix invalid JSON escape sequences produced by LLMs.
@@ -25,6 +26,10 @@ export interface ExtractFromPDFOptions {
   onProgress?: (detail: string) => void;
   /** Gemini responseSchema — enforces output structure at model level. */
   responseSchema?: Record<string, unknown>;
+  /** Logged as llm_call_logs.call_type. Defaults to 'parse' for back-compat. */
+  callType?: LlmCallType;
+  /** Passed through to llm_call_logs.user_id. */
+  userId?: string;
 }
 
 /**
@@ -44,6 +49,8 @@ export async function extractFromPDF<T>(
   const signal = opts instanceof AbortSignal ? opts : opts?.signal;
   const onProgress = opts instanceof AbortSignal ? undefined : opts?.onProgress;
   const responseSchema = opts instanceof AbortSignal ? undefined : opts?.responseSchema;
+  const callType: LlmCallType = opts instanceof AbortSignal ? 'parse' : (opts?.callType ?? 'parse');
+  const userId = opts instanceof AbortSignal ? undefined : opts?.userId;
   const tmpDir = os.tmpdir();
   const fileName = `upload-${crypto.randomBytes(8).toString('hex')}.pdf`;
   const tempFilePath = path.join(tmpDir, fileName);
@@ -177,7 +184,7 @@ export async function extractFromPDF<T>(
           }
         }
       },
-      { callType: 'parse' },
+      { callType, userId },
     );
   } catch (e) {
     if (e instanceof AppError) throw e;

@@ -62,6 +62,7 @@ Return ONLY a valid JSON array of questions. No markdown, no explanation.
   const { result, warnings } = await extractFromPDF<unknown>(fileBuffer, prompt, {
     signal,
     onProgress,
+    callType: 'parse-exam',
   });
 
   if (warnings.length > 0) {

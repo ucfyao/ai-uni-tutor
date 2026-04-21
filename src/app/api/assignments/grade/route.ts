@@ -195,6 +195,8 @@ export async function POST(request: Request) {
         responses: GradingResult['responses'];
       }>(buffer, prompt, {
         signal,
+        callType: 'grading',
+        userId: user.id,
         onProgress: (detail) => {
           send('grading_status', { stage: 'grading', message: detail });
         },

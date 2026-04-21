@@ -323,11 +323,16 @@ export function LlmLogsClient() {
                   }}
                   data={[
                     { value: 'chat', label: 'Chat' },
-                    { value: 'parse', label: 'Parse' },
-                    { value: 'exam', label: 'Exam' },
+                    { value: 'parse', label: 'Parse (generic)' },
+                    { value: 'parse-lecture', label: 'Parse Lecture' },
+                    { value: 'parse-exam', label: 'Parse Exam' },
+                    { value: 'parse-assignment', label: 'Parse Assignment' },
+                    { value: 'grading', label: 'Grading' },
+                    { value: 'exam', label: 'Exam (mock)' },
                     { value: 'embedding', label: 'Embedding' },
                     { value: 'explain', label: 'Explain' },
                     { value: 'rerank', label: 'Rerank' },
+                    { value: 'writing', label: 'Writing' },
                   ]}
                 />
                 <Select
