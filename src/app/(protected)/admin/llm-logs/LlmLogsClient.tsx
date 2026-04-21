@@ -478,6 +478,20 @@ export function LlmLogsClient() {
                                 </Text>
                               </Table.Td>
                             </Table.Tr>
+                            {log.status === 'error' &&
+                              log.error_message &&
+                              expandedRow !== log.id && (
+                                <Table.Tr bg="var(--mantine-color-red-light)">
+                                  <Table.Td
+                                    colSpan={8}
+                                    style={{ borderTop: 'none', paddingTop: 0, paddingBottom: 6 }}
+                                  >
+                                    <Text size="xs" c="red" truncate>
+                                      {log.error_message}
+                                    </Text>
+                                  </Table.Td>
+                                </Table.Tr>
+                              )}
                             {expandedRow === log.id && (
                               <Table.Tr>
                                 <Table.Td colSpan={8} bg="var(--mantine-color-dark-light)">
