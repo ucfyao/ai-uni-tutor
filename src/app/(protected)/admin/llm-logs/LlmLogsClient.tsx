@@ -29,6 +29,7 @@ import {
   Text,
 } from '@mantine/core';
 import { AdminContent } from '@/components/admin/AdminContent';
+import { TYPE_COLORS } from '../dashboard/DashboardClient';
 import type { LlmLogsResponse, UserCostsResponse } from '../types';
 
 function formatLatency(ms: number) {
@@ -433,7 +434,11 @@ export function LlmLogsClient() {
                                 </Text>
                               </Table.Td>
                               <Table.Td>
-                                <Badge size="xs" variant="light">
+                                <Badge
+                                  size="xs"
+                                  variant="light"
+                                  color={TYPE_COLORS[log.call_type] ?? 'gray'}
+                                >
                                   {log.call_type}
                                 </Badge>
                               </Table.Td>
