@@ -24,8 +24,22 @@ const COST_PER_1M_OUTPUT: Record<string, number> = {
   'gemini-embedding-001': 0.0,
 };
 
+export type LlmCallType =
+  | 'chat'
+  | 'parse'
+  | 'parse-lecture'
+  | 'parse-exam'
+  | 'parse-assignment'
+  | 'grading'
+  | 'exam'
+  | 'embedding'
+  | 'explain'
+  | 'rerank'
+  | 'writing'
+  | 'unknown';
+
 export interface LlmCallContext {
-  callType: 'chat' | 'parse' | 'exam' | 'embedding' | 'explain' | 'rerank' | 'writing' | 'unknown';
+  callType: LlmCallType;
   userId?: string;
   metadata?: Record<string, unknown>;
 }

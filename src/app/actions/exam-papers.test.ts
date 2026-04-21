@@ -61,7 +61,6 @@ function makeFormData(overrides: Record<string, string | File> = {}): FormData {
   if (overrides.school) fd.set('school', overrides.school as string);
   if (overrides.course) fd.set('course', overrides.course as string);
   if (overrides.year) fd.set('year', overrides.year as string);
-  if (overrides.visibility) fd.set('visibility', overrides.visibility as string);
   return fd;
 }
 
@@ -70,7 +69,6 @@ function makeExamPaper(overrides: Partial<ExamPaper> = {}): ExamPaper {
     id: 'paper-1',
     userId: 'user-1',
     title: '2024 Fall Midterm',
-    visibility: 'private',
     school: 'MIT',
     course: 'CS101',
     courseId: null,
@@ -123,7 +121,6 @@ describe('Exam Paper Actions', () => {
         school: 'MIT',
         course: 'CS101',
         year: '2024',
-        visibility: 'public',
       });
       const result = await uploadAndParseExamPaper(INITIAL_STATE, fd);
 
@@ -132,7 +129,7 @@ describe('Exam Paper Actions', () => {
         'user-1',
         expect.any(Buffer),
         'exam.pdf',
-        { school: 'MIT', course: 'CS101', year: '2024', visibility: 'public' },
+        { school: 'MIT', course: 'CS101', year: '2024' },
       );
     });
 

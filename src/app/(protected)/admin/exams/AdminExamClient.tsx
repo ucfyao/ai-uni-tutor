@@ -44,7 +44,6 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
     });
   }
 
-  const visibilityColor = (v: string) => (v === 'public' ? 'teal' : 'gray');
   const statusColor = (s: string) => {
     if (s === 'ready') return 'green';
     if (s === 'parsing') return 'yellow';
@@ -58,7 +57,7 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
           <Group justify="space-between">
             <Title order={2}>Admin: Exam Paper Management</Title>
             <Button leftSection={<Plus size={16} />} onClick={() => setUploadOpen(true)}>
-              Upload Paper (Public)
+              Upload Paper
             </Button>
           </Group>
 
@@ -81,7 +80,6 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
                     <Table.Th>Course</Table.Th>
                     <Table.Th>Year</Table.Th>
                     <Table.Th>Questions</Table.Th>
-                    <Table.Th>Visibility</Table.Th>
                     <Table.Th>Status</Table.Th>
                     <Table.Th>Actions</Table.Th>
                   </Table.Tr>
@@ -94,11 +92,6 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
                       <Table.Td>{paper.course ?? '—'}</Table.Td>
                       <Table.Td>{paper.year ?? '—'}</Table.Td>
                       <Table.Td>{paper.questionCount ?? 0}</Table.Td>
-                      <Table.Td>
-                        <Badge size="sm" color={visibilityColor(paper.visibility)}>
-                          {paper.visibility}
-                        </Badge>
-                      </Table.Td>
                       <Table.Td>
                         <Badge size="sm" color={statusColor(paper.status)}>
                           {paper.status}
@@ -124,11 +117,7 @@ export function AdminExamClient({ papers }: AdminExamClientProps) {
         </AdminContent>
       </ScrollArea>
 
-      <ExamPaperUploadModal
-        opened={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        isAdmin={true}
-      />
+      <ExamPaperUploadModal opened={uploadOpen} onClose={() => setUploadOpen(false)} />
     </Box>
   );
 }

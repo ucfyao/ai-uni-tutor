@@ -151,6 +151,7 @@ export async function extractAssignmentQuestions(
     {
       signal,
       onProgress,
+      callType: 'parse-assignment',
       responseSchema: {
         type: 'object',
         properties: {

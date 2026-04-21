@@ -29,6 +29,7 @@ import {
   Text,
 } from '@mantine/core';
 import { AdminContent } from '@/components/admin/AdminContent';
+import { TYPE_COLORS } from '../dashboard/DashboardClient';
 import type { LlmLogsResponse, UserCostsResponse } from '../types';
 
 function formatLatency(ms: number) {
@@ -323,11 +324,16 @@ export function LlmLogsClient() {
                   }}
                   data={[
                     { value: 'chat', label: 'Chat' },
-                    { value: 'parse', label: 'Parse' },
-                    { value: 'exam', label: 'Exam' },
+                    { value: 'parse', label: 'Parse (generic)' },
+                    { value: 'parse-lecture', label: 'Parse Lecture' },
+                    { value: 'parse-exam', label: 'Parse Exam' },
+                    { value: 'parse-assignment', label: 'Parse Assignment' },
+                    { value: 'grading', label: 'Grading' },
+                    { value: 'exam', label: 'Exam (mock)' },
                     { value: 'embedding', label: 'Embedding' },
                     { value: 'explain', label: 'Explain' },
                     { value: 'rerank', label: 'Rerank' },
+                    { value: 'writing', label: 'Writing' },
                   ]}
                 />
                 <Select
@@ -428,7 +434,11 @@ export function LlmLogsClient() {
                                 </Text>
                               </Table.Td>
                               <Table.Td>
-                                <Badge size="xs" variant="light">
+                                <Badge
+                                  size="xs"
+                                  variant="light"
+                                  color={TYPE_COLORS[log.call_type] ?? 'gray'}
+                                >
                                   {log.call_type}
                                 </Badge>
                               </Table.Td>

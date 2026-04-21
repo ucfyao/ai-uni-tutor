@@ -18,7 +18,6 @@ function mapPaperRow(row: Record<string, unknown>, questionCount?: number): Exam
     id: row.id as string,
     userId: row.user_id as string,
     title: row.title as string,
-    visibility: row.visibility as 'public' | 'private',
     school: (row.school as string) ?? null,
     course: (row.course as string) ?? null,
     courseId: (row.course_id as string) ?? null,
@@ -57,7 +56,6 @@ export class ExamPaperRepository {
     course?: string | null;
     courseId?: string;
     year?: string | null;
-    visibility?: 'public' | 'private';
     status?: 'draft' | 'ready';
     questionTypes?: string[];
   }): Promise<string> {
@@ -72,7 +70,6 @@ export class ExamPaperRepository {
         course: data.course ?? null,
         course_id: data.courseId ?? null,
         year: data.year ?? null,
-        visibility: data.visibility ?? 'private',
         status: data.status ?? 'draft',
         question_types: data.questionTypes ?? [],
       })

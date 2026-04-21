@@ -6,7 +6,6 @@ export interface ExamPaper {
   id: string;
   userId: string;
   title: string;
-  visibility: 'public' | 'private';
   school: string | null;
   course: string | null;
   courseId: string | null;

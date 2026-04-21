@@ -613,10 +613,14 @@ function formatLatencyBadge(ms: number) {
   return { label, color };
 }
 
-const TYPE_COLORS: Record<string, string> = {
+export const TYPE_COLORS: Record<string, string> = {
   chat: 'blue',
   exam: 'violet',
   parse: 'orange',
+  'parse-lecture': 'orange',
+  'parse-exam': 'orange',
+  'parse-assignment': 'orange',
+  grading: 'green',
   embedding: 'cyan',
   explain: 'teal',
   rerank: 'indigo',

@@ -143,6 +143,7 @@ export async function extractExamQuestions(
     {
       signal,
       onProgress,
+      callType: 'parse-exam',
       responseSchema: {
         type: 'object',
         properties: {

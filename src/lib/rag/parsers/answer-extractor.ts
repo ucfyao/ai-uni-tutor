@@ -68,6 +68,7 @@ export async function extractAnswersFromPDF(
     {
       signal,
       onProgress,
+      callType: 'parse-exam',
       responseSchema: {
         type: 'object',
         properties: {

@@ -60,7 +60,6 @@ describe('ExamPaperRepository', () => {
         school: 'School of Computing',
         course: 'CS101',
         year: '2025',
-        visibility: 'private',
         status: 'ready',
         questionTypes: ['mcq', 'short_answer'],
       });
@@ -74,7 +73,6 @@ describe('ExamPaperRepository', () => {
         course: 'CS101',
         course_id: null,
         year: '2025',
-        visibility: 'private',
         status: 'ready',
         question_types: ['mcq', 'short_answer'],
       });
@@ -97,7 +95,6 @@ describe('ExamPaperRepository', () => {
         course: null,
         course_id: null,
         year: null,
-        visibility: 'private',
         status: 'draft',
         question_types: [],
       });
@@ -797,7 +794,6 @@ describe('ExamPaperRepository', () => {
       expect(result!.id).toBe(examPaperRow.id);
       expect(result!.userId).toBe(examPaperRow.user_id);
       expect(result!.title).toBe(examPaperRow.title);
-      expect(result!.visibility).toBe(examPaperRow.visibility);
       expect(result!.school).toBe(examPaperRow.school);
       expect(result!.course).toBe(examPaperRow.course);
       expect(result!.courseId).toBe(examPaperRow.course_id);
