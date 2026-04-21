@@ -77,9 +77,14 @@ export const GEMINI_QUOTA_DASHBOARD_URL =
 
 // ==================== Key Pool ====================
 
-const RETRY_COOLDOWN_MS = 30_000;
-const RATE_LIMIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const RETRYABLE = new Set([429, 500, 503]);
+const TRANSIENT_COOLDOWN_MS = 30_000;
+const QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// 429 = this key's quota exhausted; first hit 30s, repeat escalates to 24h
+// to wait for Google's RPD reset.
+const QUOTA_STATUSES = new Set([429]);
+// 5xx = Google upstream capacity / transient failure — not the key's fault.
+// Short cooldown only; never escalates to 24h regardless of repeats.
+const UPSTREAM_TRANSIENT_STATUSES = new Set([500, 503]);
 
 function maskKey(key: string): string {
   if (key.length <= 8) return '****';
@@ -122,6 +127,19 @@ function getHttpStatus(err: unknown): number | undefined {
   // openai package throws APIError with .status
   const asAny = err as { status?: number; error?: { status?: number } };
   return asAny?.status ?? asAny?.error?.status;
+}
+
+/**
+ * Produce a compact, searchable error string for `llm_call_logs.error_message`.
+ * Preserves Gemini's structured error body when present so `status` ("UNAVAILABLE",
+ * "RESOURCE_EXHAUSTED", etc.) and `code` show up in the admin UI.
+ */
+function formatGeminiError(err: unknown): string {
+  const status = getHttpStatus(err);
+  const name = err instanceof Error ? err.constructor.name : typeof err;
+  const message = err instanceof Error ? err.message : String(err);
+  const prefix = status != null ? `[${status}] ` : '';
+  return `${prefix}${name}: ${message}`;
 }
 
 /** @internal Exported for testing only */
@@ -217,7 +235,7 @@ export class KeyPool {
             provider: entry.provider,
             model: entry.model,
             status: 'error',
-            error_message: err instanceof Error ? err.message : String(err),
+            error_message: formatGeminiError(err),
             latency_ms: latencyMs,
             metadata: { ...(context?.metadata ?? {}), apiKey: entry.maskedKey } as Json,
           });
@@ -230,13 +248,22 @@ export class KeyPool {
             continue;
           }
 
-          if (status && RETRYABLE.has(status)) {
+          if (status && QUOTA_STATUSES.has(status)) {
             const prevFails = state.fails[cdKey] ?? 0;
             state.fails[cdKey] = prevFails + 1;
             const isRepeat = prevFails >= 1;
-            state.cd[cdKey] = now + (isRepeat ? RATE_LIMIT_COOLDOWN_MS : RETRY_COOLDOWN_MS);
+            state.cd[cdKey] = now + (isRepeat ? QUOTA_COOLDOWN_MS : TRANSIENT_COOLDOWN_MS);
             console.warn(
-              `[KeyPool] ${entry.provider}:${entry.maskedKey} ${isRepeat ? 'DISABLED 24h' : 'COOLDOWN 30s'} (HTTP ${status})`,
+              `[KeyPool] ${entry.provider}:${entry.maskedKey} ${isRepeat ? 'DISABLED 24h (quota)' : 'COOLDOWN 30s (quota)'} (HTTP ${status})`,
+            );
+            continue;
+          }
+
+          if (status && UPSTREAM_TRANSIENT_STATUSES.has(status)) {
+            // Upstream hiccup — not a per-key problem. Short cooldown, no escalation.
+            state.cd[cdKey] = now + TRANSIENT_COOLDOWN_MS;
+            console.warn(
+              `[KeyPool] ${entry.provider}:${entry.maskedKey} COOLDOWN 30s (upstream HTTP ${status})`,
             );
             continue;
           }
@@ -245,10 +272,30 @@ export class KeyPool {
         }
       }
 
-      throw lastError ?? new Error('All AI pool entries are unavailable');
+      throw new Error(this.describeUnavailable(state, now, lastError));
     } finally {
       await savePoolState(state);
     }
+  }
+
+  /** Build a diagnostic message listing every entry's skip reason. */
+  private describeUnavailable(
+    state: { cd: Record<string, number>; fails: Record<string, number> },
+    now: number,
+    lastError: unknown,
+  ): string {
+    const parts = this.entries.map((entry, idx) => {
+      const cdKey = `${this.poolName}:${idx}`;
+      const cdUntil = state.cd[cdKey] ?? 0;
+      if (entry.disabled) return `${entry.maskedKey}=disabled`;
+      if (cdUntil > now) {
+        const remainingMin = Math.ceil((cdUntil - now) / 60_000);
+        return `${entry.maskedKey}=cooldown ${remainingMin}m`;
+      }
+      return `${entry.maskedKey}=ok`;
+    });
+    const lastMsg = lastError ? `; last=${formatGeminiError(lastError)}` : '';
+    return `All ${this.entries.length} keys in '${this.poolName}' pool unavailable (${parts.join(', ')})${lastMsg}`;
   }
 
   /** Create a GoogleGenAI-compatible proxy that routes all calls through the pool. */

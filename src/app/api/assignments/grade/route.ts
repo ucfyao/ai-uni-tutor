@@ -228,6 +228,13 @@ export async function POST(request: Request) {
       send('grading_status', { stage: 'complete', message: 'Grading complete' });
     } catch (error) {
       const appError = AppError.from(error);
+      console.error('[grading] pipeline failed', {
+        userId: user.id,
+        assignmentId,
+        code: appError.code,
+        message: appError.message,
+        cause: error instanceof Error ? error.message : String(error),
+      });
       send('error', { message: appError.message, code: appError.code });
       send('grading_status', { stage: 'error', message: appError.message });
     } finally {
