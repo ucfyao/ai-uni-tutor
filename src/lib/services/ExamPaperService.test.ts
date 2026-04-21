@@ -67,7 +67,6 @@ const PAPER: ExamPaper = {
   id: PAPER_ID,
   userId: USER_ID,
   title: '2024 Fall Midterm - Linear Algebra',
-  visibility: 'private',
   school: 'MIT',
   course: 'MATH101',
   courseId: null,
@@ -150,7 +149,6 @@ describe('ExamPaperService', () => {
           school: 'MIT',
           course: 'MATH101',
           year: '2024',
-          visibility: 'private',
           status: 'draft',
         }),
       );
@@ -187,34 +185,6 @@ describe('ExamPaperService', () => {
         title: 'midterm',
         questionTypes: ['choice', 'short_answer'],
       });
-    });
-
-    it('should default visibility to private', async () => {
-      repo.create.mockResolvedValue(PAPER_ID);
-      repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
-        qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
-      );
-      repo.updatePaper.mockResolvedValue(undefined);
-      mockParseQuestions();
-
-      await service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {});
-
-      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'private' }));
-    });
-
-    it('should use public visibility when specified', async () => {
-      repo.create.mockResolvedValue(PAPER_ID);
-      repo.insertQuestionsAndReturn.mockImplementation(async (qs: any[]) =>
-        qs.map((_: any, i: number) => ({ id: `q${i + 1}` })),
-      );
-      repo.updatePaper.mockResolvedValue(undefined);
-      mockParseQuestions();
-
-      await service.parsePaper(USER_ID, Buffer.from('data'), 'test.pdf', {
-        visibility: 'public',
-      });
-
-      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public' }));
     });
 
     it('should use filename (minus .pdf) as title', async () => {

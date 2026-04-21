@@ -356,7 +356,6 @@ export interface Database {
           id: string;
           user_id: string;
           title: string;
-          visibility: 'public' | 'private';
           school: string | null;
           course: string | null;
           course_id: string | null;
@@ -369,7 +368,6 @@ export interface Database {
           id?: string;
           user_id: string;
           title: string;
-          visibility?: 'public' | 'private';
           school?: string | null;
           course?: string | null;
           course_id?: string | null;
@@ -383,7 +381,6 @@ export interface Database {
           id?: string;
           user_id?: string;
           title?: string;
-          visibility?: 'public' | 'private';
           school?: string | null;
           course?: string | null;
           course_id?: string | null;

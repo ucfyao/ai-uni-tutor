@@ -16,7 +16,6 @@ const uploadSchema = z.object({
   school: z.string().trim().max(100).optional(),
   course: z.string().trim().max(100).optional(),
   year: z.string().trim().max(50).optional(),
-  visibility: z.enum(['public', 'private']).optional(),
 });
 
 export async function uploadAndParseExamPaper(
@@ -29,7 +28,6 @@ export async function uploadAndParseExamPaper(
       school: formData.get('school') || undefined,
       course: formData.get('course') || undefined,
       year: formData.get('year') || undefined,
-      visibility: formData.get('visibility') || undefined,
     });
 
     if (!parsed.success) {

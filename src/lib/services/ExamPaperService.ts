@@ -29,16 +29,14 @@ export class ExamPaperService {
     userId: string,
     fileBuffer: Buffer,
     fileName: string,
-    options: { school?: string; course?: string; year?: string; visibility?: 'public' | 'private' },
+    options: { school?: string; course?: string; year?: string },
   ): Promise<{ paperId: string }> {
-    // Create paper entry with draft status
     const paperId = await this.repo.create({
       userId,
       title: fileName.replace(/\.pdf$/i, ''),
       school: options.school,
       course: options.course,
       year: options.year,
-      visibility: options.visibility ?? 'private',
       status: 'draft',
       questionTypes: [],
     });
@@ -94,31 +92,8 @@ export class ExamPaperService {
     }
   }
 
-  /**
-   * Get exam papers with optional filters. RLS handles visibility.
-   */
   async getPapers(filters?: PaperFilters): Promise<PaginatedResult<ExamPaper>> {
     return this.repo.findWithFilters(filters);
-  }
-
-  /**
-   * Get a paper with questions, enforcing visibility rules.
-   * Returns null if the paper doesn't exist or the user lacks access.
-   */
-  async getPaperDetail(
-    paperId: string,
-    userId: string,
-  ): Promise<{ paper: ExamPaper; questions: ExamQuestion[] } | null> {
-    const paper = await this.repo.findById(paperId);
-    if (!paper) return null;
-
-    // Visibility check: private papers are only accessible to the owner
-    if (paper.visibility !== 'public' && paper.userId !== userId) {
-      return null;
-    }
-
-    const questions = await this.repo.findQuestionsByPaperId(paperId);
-    return { paper, questions };
   }
 
   /**
@@ -254,7 +229,6 @@ export class ExamPaperService {
     course?: string | null;
     courseId?: string;
     year?: string | null;
-    visibility?: 'public' | 'private';
     status?: 'draft' | 'ready';
     questionTypes?: string[];
   }): Promise<string> {

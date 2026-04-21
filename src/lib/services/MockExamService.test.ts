@@ -76,7 +76,6 @@ const PAPER: ExamPaper = {
   id: PAPER_ID,
   userId: USER_ID,
   title: 'Calculus Final',
-  visibility: 'private',
   school: null,
   course: 'CALC101',
   courseId: null,

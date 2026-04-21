@@ -2,7 +2,7 @@
 
 import { Upload, X } from 'lucide-react';
 import { useActionState, useRef, useState } from 'react';
-import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { Dropzone, MIME_TYPES } from '@mantine/dropzone';
 import { uploadAndParseExamPaper, type ExamPaperUploadState } from '@/app/actions/exam-papers';
 import { getDocColor, getDocIcon } from '@/constants/doc-types';
@@ -13,10 +13,9 @@ const ExamIcon = getDocIcon('exam');
 interface Props {
   opened: boolean;
   onClose: () => void;
-  isAdmin?: boolean;
 }
 
-export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
+export function ExamPaperUploadModal({ opened, onClose }: Props) {
   const { t } = useLanguage();
   const [file, setFile] = useState<File | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -88,18 +87,6 @@ export function ExamPaperUploadModal({ opened, onClose, isAdmin }: Props) {
           <TextInput name="school" label={t.exam.school} placeholder={t.exam.schoolPlaceholder} />
           <TextInput name="course" label={t.exam.course} placeholder={t.exam.coursePlaceholder} />
           <TextInput name="year" label={t.exam.yearSemester} placeholder={t.exam.yearPlaceholder} />
-
-          {isAdmin && (
-            <Select
-              name="visibility"
-              label={t.exam.visibility}
-              data={[
-                { value: 'public', label: t.exam.publicAllUsers },
-                { value: 'private', label: t.exam.privateOnlyMe },
-              ]}
-              defaultValue="public"
-            />
-          )}
 
           {state.status === 'error' && (
             <Text c="red" size="sm">
