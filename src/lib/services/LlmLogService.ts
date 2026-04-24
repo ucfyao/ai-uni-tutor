@@ -42,6 +42,7 @@ export interface LlmCallContext {
   callType: LlmCallType;
   userId?: string;
   metadata?: Record<string, unknown>;
+  model?: string;
 }
 
 export class LlmLogService {

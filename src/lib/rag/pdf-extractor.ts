@@ -184,7 +184,7 @@ export async function extractFromPDF<T>(
           }
         }
       },
-      { callType, userId },
+      { callType, userId, model: GEMINI_MODELS.parse },
     );
   } catch (e) {
     if (e instanceof AppError) throw e;
