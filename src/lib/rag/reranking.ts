@@ -56,7 +56,7 @@ Every chunk index must appear exactly once. Return ONLY valid JSON, no markdown.
           contents: prompt,
           config: { responseMimeType: 'application/json', temperature: 0 },
         }),
-      { callType: 'rerank' },
+      { callType: 'rerank', model: GEMINI_MODELS.parse },
     );
 
     const text = response.text ?? '';

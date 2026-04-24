@@ -130,6 +130,30 @@ function getHttpStatus(err: unknown): number | undefined {
 }
 
 /**
+ * Extract the actual model name the upstream API used to serve this request.
+ * Gemini `generateContent` responses expose `modelVersion`; other endpoints
+ * (e.g. `embedContent`) do not. Callers should pass `context.model` as a
+ * fallback so logs stay truthful even when the SDK doesn't surface it.
+ */
+function extractResponseModel(result: unknown): string | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  const modelVersion = (result as { modelVersion?: unknown }).modelVersion;
+  return typeof modelVersion === 'string' && modelVersion.length > 0 ? modelVersion : undefined;
+}
+
+/**
+ * Read the requested model from a Gemini SDK call's first argument (e.g. the
+ * request object passed to `models.generateContent` / `models.embedContent`).
+ * Used by `asProxy()` so proxied calls attribute logs to the actual model
+ * rather than the pool entry's placeholder.
+ */
+function extractRequestModel(arg: unknown): string | undefined {
+  if (!arg || typeof arg !== 'object') return undefined;
+  const model = (arg as { model?: unknown }).model;
+  return typeof model === 'string' && model.length > 0 ? model : undefined;
+}
+
+/**
  * Produce a compact, searchable error string for `llm_call_logs.error_message`.
  * Preserves Gemini's structured error body when present so `status` ("UNAVAILABLE",
  * "RESOURCE_EXHAUSTED", etc.) and `code` show up in the admin UI.
@@ -210,11 +234,16 @@ export class KeyPool {
           const usage = (result as Record<string, unknown>)?.usageMetadata as
             | { promptTokenCount?: number; candidatesTokenCount?: number }
             | undefined;
+          // Prefer upstream-reported model (truthful); fall back to caller hint, then entry.
+          // `entry.model` is unreliable for the default pool, which serves parse/embedding/rerank
+          // from a single key set whose entry.model was hardcoded to the chat model.
+          const loggedModel =
+            extractResponseModel(result) ?? context?.model ?? entry.model;
           getLlmLogService().logCall({
             user_id: context?.userId ?? null,
-            call_type: context?.callType ?? LlmLogService.inferCallType(entry.model),
+            call_type: context?.callType ?? LlmLogService.inferCallType(loggedModel),
             provider: entry.provider,
-            model: entry.model,
+            model: loggedModel,
             status: 'success',
             latency_ms: latencyMs,
             input_tokens: usage?.promptTokenCount ?? null,
@@ -228,12 +257,13 @@ export class KeyPool {
           const status = getHttpStatus(err);
           const latencyMs = Date.now() - callStart;
 
-          // Log the failed call
+          // Log the failed call — no response to read modelVersion from, so rely on caller hint.
+          const loggedModel = context?.model ?? entry.model;
           getLlmLogService().logCall({
             user_id: context?.userId ?? null,
-            call_type: context?.callType ?? LlmLogService.inferCallType(entry.model),
+            call_type: context?.callType ?? LlmLogService.inferCallType(loggedModel),
             provider: entry.provider,
-            model: entry.model,
+            model: loggedModel,
             status: 'error',
             error_message: formatGeminiError(err),
             latency_ms: latencyMs,
@@ -304,10 +334,19 @@ export class KeyPool {
       get:
         (_, method: string) =>
         (...args: unknown[]) => {
-          return this.withRetry((entry) =>
-            ((entry.client as GoogleGenAI).models as unknown as Record<string, Function>)[method](
-              ...args,
-            ),
+          const requestModel = extractRequestModel(args[0]);
+          const context = requestModel
+            ? {
+                callType: LlmLogService.inferCallType(requestModel),
+                model: requestModel,
+              }
+            : undefined;
+          return this.withRetry(
+            (entry) =>
+              ((entry.client as GoogleGenAI).models as unknown as Record<string, Function>)[method](
+                ...args,
+              ),
+            context,
           );
         },
     });
